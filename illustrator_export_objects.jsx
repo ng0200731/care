@@ -167,15 +167,33 @@ function processOverlappingHierarchy(objects) {
         }
     }
     
-    // Assign sons to mothers
+    // Assign sons to mothers with proper ordering
     for (var m = 0; m < mothers.length; m++) {
         var mother = mothers[m];
-        var sonCount = 0;
         
+        // Sort contained objects by position: top-to-bottom, then left-to-right
+        var sortedSons = [];
         for (var c = 0; c < mother.containedIndexes.length; c++) {
             var sonIndex = mother.containedIndexes[c];
-            sonCount++;
-            objects[sonIndex].type = "son " + mother.motherNum + "-" + sonCount;
+            sortedSons.push({
+                index: sonIndex,
+                obj: objects[sonIndex]
+            });
+        }
+        
+        // Sort by Y position first (top to bottom), then by X position (left to right)
+        sortedSons.sort(function(a, b) {
+            var yDiff = a.obj.y - b.obj.y; // Smaller Y = higher up
+            if (Math.abs(yDiff) > 1) { // 1mm tolerance for same row
+                return yDiff;
+            }
+            return a.obj.x - b.obj.x; // Same row, sort by X (left to right)
+        });
+        
+        // Assign son numbers in sorted order
+        for (var s = 0; s < sortedSons.length; s++) {
+            var sonIndex = sortedSons[s].index;
+            objects[sonIndex].type = "son " + mother.motherNum + "-" + (s + 1);
         }
     }
     

@@ -38,16 +38,28 @@ function App() {
     
     motherObjects.forEach(mother => {
       const motherNum = mother.type?.match(/mother (\d+)/)?.[1];
-      const sons = objects.filter(obj => 
+      let sons = objects.filter(obj => 
         obj.type?.includes('son') && obj.type?.includes(`son ${motherNum}-`)
       );
+      
+      // Sort sons by reading order: top-to-bottom, then left-to-right
+      sons.sort((a, b) => {
+        const yDiff = a.y - b.y; // Top to bottom
+        if (Math.abs(yDiff) > 1) { // 1mm tolerance for same row
+          return yDiff;
+        }
+        return a.x - b.x; // Same row: left to right
+      });
       
       mothers.push({
         object: mother,
         children: sons,
-        isExpanded: expandedMothers.has(mother.name) // This should work now
+        isExpanded: expandedMothers.has(mother.name)
       });
     });
+    
+    // Sort mothers by position: left to right
+    mothers.sort((a, b) => a.object.x - b.object.x);
     
     // Find orphan objects (not mothers or sons)
     objects.forEach(obj => {
@@ -57,6 +69,9 @@ function App() {
         orphans.push(obj);
       }
     });
+    
+    // Sort orphans left to right
+    orphans.sort((a, b) => a.x - b.x);
     
     return { mothers, orphans };
   };
@@ -391,6 +406,7 @@ function App() {
 }
 
 export default App;
+
 
 
 
