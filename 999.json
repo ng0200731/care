@@ -1,0 +1,89 @@
+{
+  "scriptVersion": "4.2.0",
+  "exportDate": "Sun Jul 27 2025 14:57:26 GMT+0800",
+  "document": "temp [Recovered].ai",
+  "totalObjects": 9,
+  "objects": [
+    {
+      "name": "Unnamed",
+      "type": "mother 2",
+      "layer": "Annotations",
+      "x": 107.84814453125,
+      "y": -225.4951171875,
+      "width": 263.02490234375,
+      "height": 70.318359375
+    },
+    {
+      "name": "Unnamed",
+      "type": "son-3",
+      "layer": "Annotations",
+      "x": 160.37353515625,
+      "y": -305.29296875,
+      "width": 383.89794921875,
+      "height": 81.7685546875
+    },
+    {
+      "name": "Unnamed",
+      "type": "son-2",
+      "layer": "Annotations",
+      "x": 160.37353515625,
+      "y": -464.37939453125,
+      "width": 542.984375,
+      "height": 81.7685546875
+    },
+    {
+      "name": "Unnamed",
+      "type": "son-1",
+      "layer": "Annotations",
+      "x": 161.72021484375,
+      "y": -243.6767578125,
+      "width": 323.62841796875,
+      "height": 81.7685546875
+    },
+    {
+      "name": "Unnamed",
+      "type": "mother 1",
+      "layer": "Annotations",
+      "x": 490.0029296875,
+      "y": -225.4951171875,
+      "width": 645.1796875,
+      "height": 70.318359375
+    },
+    {
+      "name": "Unnamed",
+      "type": "son-4",
+      "layer": "Annotations",
+      "x": 542.5283203125,
+      "y": -305.29296875,
+      "width": 766.052734375,
+      "height": 81.7685546875
+    },
+    {
+      "name": "Unnamed",
+      "type": "son-3",
+      "layer": "Annotations",
+      "x": 542.5283203125,
+      "y": -464.37939453125,
+      "width": 925.13916015625,
+      "height": 81.7685546875
+    },
+    {
+      "name": "Unnamed",
+      "type": "son-2",
+      "layer": "Annotations",
+      "x": 542.5283203125,
+      "y": -572.9697265625,
+      "width": 1033.7294921875,
+      "height": 81.7685546875
+    },
+    {
+      "name": "Unnamed",
+      "type": "son-1",
+      "layer": "Annotations",
+      "x": 543.875,
+      "y": -243.6767578125,
+      "width": 705.783203125,
+      "height": 81.7685546875
+    }
+  ]
+}

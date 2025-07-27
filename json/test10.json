@@ -1,0 +1,64 @@
+{
+  "scriptVersion": "1.3.0",
+  "exportDate": "Wed Jul 23 2025 23:21:23 GMT+0800",
+  "document": "temp.ai",
+  "totalObjects": 4,
+  "objects": [
+    {
+      "name": "frame4",
+      "type": "TextFrame",
+      "layer": "label",
+      "x": -143.676767676766,
+      "y": 163.393939393942,
+      "width": 225.252525252525,
+      "height": 349.49494949495,
+      "visible": null,
+      "locked": false,
+      "opacity": 100,
+      "textContent": "Lorem ipsum dolor sit amet, consectetuer adipiscing elit, sed diam nonummy nibh euismod tincidunt ut laoreet dolore magna ",
+      "textLength": 122,
+      "textKind": "TextType.AREATEXT",
+      "textOrientation": "TextOrientation.HORIZONTAL",
+      "fontFamily": "Myriad Pro",
+      "fontName": "MyriadPro-Regular",
+      "fontSize": 12,
+      "fontStyle": "Regular"
+    },
+    {
+      "name": "frame3",
+      "type": "PathItem",
+      "layer": "label",
+      "x": -364.379343434343,
+      "y": 162.047138047138,
+      "width": 226.262626262626,
+      "height": 800.673400673401,
+      "visible": null,
+      "locked": false,
+      "opacity": 100
+    },
+    {
+      "name": "frame2",
+      "type": "PathItem",
+      "layer": "label",
+      "x": -205.292929292929,
+      "y": 162.047138047138,
+      "width": 226.262626262626,
+      "height": 480.47138047138,
+      "visible": null,
+      "locked": false,
+      "opacity": 100
+    },
+    {
+      "name": "frame1",
+      "type": "PathItem",
+      "layer": "label",
+      "x": -125.49494949495,
+      "y": 109.521885521885,
+      "width": 331.313131313132,
+      "height": 820.875420875421,
+      "visible": null,
+      "locked": false,
+      "opacity": 100
+    }
+  ]
+}

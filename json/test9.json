@@ -1,0 +1,50 @@
+{
+  "document": "temp.ai",
+  "totalObjects": 4,
+  "objects": [
+    {
+      "name": "frame4",
+      "type": "TextFrame",
+      "layer": "label",
+      "x": -143.676767676766,
+      "y": 163.393939393942,
+      "width": 225.252525252525,
+      "height": 349.49494949495,
+      "visible": undefined,
+      "locked": false
+    },
+    {
+      "name": "frame3",
+      "type": "PathItem",
+      "layer": "label",
+      "x": -364.379343434343,
+      "y": 162.047138047138,
+      "width": 226.262626262626,
+      "height": 800.673400673401,
+      "visible": undefined,
+      "locked": false
+    },
+    {
+      "name": "frame2",
+      "type": "PathItem",
+      "layer": "label",
+      "x": -205.292929292929,
+      "y": 162.047138047138,
+      "width": 226.262626262626,
+      "height": 480.47138047138,
+      "visible": undefined,
+      "locked": false
+    },
+    {
+      "name": "frame1",
+      "type": "PathItem",
+      "layer": "label",
+      "x": -125.49494949495,
+      "y": 109.521885521885,
+      "width": 331.313131313132,
+      "height": 820.875420875421,
+      "visible": undefined,
+      "locked": false
+    }
+  ]
+}
