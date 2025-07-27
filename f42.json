@@ -1,0 +1,332 @@
+{
+  "scriptVersion": "5.0.0",
+  "exportDate": "Sun Jul 27 2025 21:58:45 GMT+0800",
+  "document": "temp.ai",
+  "totalObjects": 12,
+  "objects": [
+    {
+      "name": "frame3",
+      "typename": "PathItem",
+      "layer": "label",
+      "x": 240.24,
+      "y": 111.49,
+      "width": 18.64,
+      "height": 58.44,
+      "topLeft": {
+        "x": 240.24,
+        "y": 111.49
+      },
+      "topRight": {
+        "x": 258.88,
+        "y": 111.49
+      },
+      "bottomLeft": {
+        "x": 240.24,
+        "y": 169.93
+      },
+      "bottomRight": {
+        "x": 258.88,
+        "y": 169.93
+      },
+      "type": "PathItem",
+      "units": "mm"
+    },
+    {
+      "name": "frame3",
+      "typename": "PathItem",
+      "layer": "label",
+      "x": 193.62,
+      "y": 119.28,
+      "width": 18.64,
+      "height": 58.44,
+      "topLeft": {
+        "x": 193.62,
+        "y": 119.28
+      },
+      "topRight": {
+        "x": 212.26,
+        "y": 119.28
+      },
+      "bottomLeft": {
+        "x": 193.62,
+        "y": 177.72
+      },
+      "bottomRight": {
+        "x": 212.26,
+        "y": 177.72
+      },
+      "type": "PathItem",
+      "units": "mm"
+    },
+    {
+      "name": "frame3",
+      "typename": "PathItem",
+      "layer": "label",
+      "x": 166.6,
+      "y": 111.49,
+      "width": 18.64,
+      "height": 58.44,
+      "topLeft": {
+        "x": 166.6,
+        "y": 111.49
+      },
+      "topRight": {
+        "x": 185.24,
+        "y": 111.49
+      },
+      "bottomLeft": {
+        "x": 166.6,
+        "y": 169.93
+      },
+      "bottomRight": {
+        "x": 185.24,
+        "y": 169.93
+      },
+      "type": "PathItem",
+      "units": "mm"
+    },
+    {
+      "name": "frame3",
+      "typename": "PathItem",
+      "layer": "label",
+      "x": 166.6,
+      "y": 77.35,
+      "width": 79.82,
+      "height": 25.84,
+      "topLeft": {
+        "x": 166.6,
+        "y": 77.35
+      },
+      "topRight": {
+        "x": 246.42,
+        "y": 77.35
+      },
+      "bottomLeft": {
+        "x": 166.6,
+        "y": 103.18
+      },
+      "bottomRight": {
+        "x": 246.42,
+        "y": 103.18
+      },
+      "type": "PathItem",
+      "units": "mm"
+    },
+    {
+      "name": "frame2",
+      "typename": "PathItem",
+      "layer": "label",
+      "x": 166.6,
+      "y": 48.71,
+      "width": 79.82,
+      "height": 20.33,
+      "topLeft": {
+        "x": 166.6,
+        "y": 48.71
+      },
+      "topRight": {
+        "x": 246.42,
+        "y": 48.71
+      },
+      "bottomLeft": {
+        "x": 166.6,
+        "y": 69.04
+      },
+      "bottomRight": {
+        "x": 246.42,
+        "y": 69.04
+      },
+      "type": "PathItem",
+      "units": "mm"
+    },
+    {
+      "name": "frame1",
+      "typename": "PathItem",
+      "layer": "label",
+      "x": 148.07,
+      "y": 44.27,
+      "width": 116.88,
+      "height": 206.68,
+      "topLeft": {
+        "x": 148.07,
+        "y": 44.27
+      },
+      "topRight": {
+        "x": 264.95,
+        "y": 44.27
+      },
+      "bottomLeft": {
+        "x": 148.07,
+        "y": 250.95
+      },
+      "bottomRight": {
+        "x": 264.95,
+        "y": 250.95
+      },
+      "type": "PathItem",
+      "units": "mm"
+    },
+    {
+      "name": "frame31",
+      "typename": "PathItem",
+      "layer": "label",
+      "x": 31.79,
+      "y": 208.59,
+      "width": 79.82,
+      "height": 33.41,
+      "topLeft": {
+        "x": 31.79,
+        "y": 208.59
+      },
+      "topRight": {
+        "x": 111.61,
+        "y": 208.59
+      },
+      "bottomLeft": {
+        "x": 31.79,
+        "y": 242
+      },
+      "bottomRight": {
+        "x": 111.61,
+        "y": 242
+      },
+      "type": "PathItem",
+      "units": "mm"
+    },
+    {
+      "name": "frame31",
+      "typename": "PathItem",
+      "layer": "label",
+      "x": 58,
+      "y": 128.54,
+      "width": 53.61,
+      "height": 69.65,
+      "topLeft": {
+        "x": 58,
+        "y": 128.54
+      },
+      "topRight": {
+        "x": 111.61,
+        "y": 128.54
+      },
+      "bottomLeft": {
+        "x": 58,
+        "y": 198.2
+      },
+      "bottomRight": {
+        "x": 111.61,
+        "y": 198.2
+      },
+      "type": "PathItem",
+      "units": "mm"
+    },
+    {
+      "name": "frame31",
+      "typename": "PathItem",
+      "layer": "label",
+      "x": 31.79,
+      "y": 128.54,
+      "width": 17.56,
+      "height": 47.65,
+      "topLeft": {
+        "x": 31.79,
+        "y": 128.54
+      },
+      "topRight": {
+        "x": 49.34,
+        "y": 128.54
+      },
+      "bottomLeft": {
+        "x": 31.79,
+        "y": 176.2
+      },
+      "bottomRight": {
+        "x": 49.34,
+        "y": 176.2
+      },
+      "type": "PathItem",
+      "units": "mm"
+    },
+    {
+      "name": "frame21",
+      "typename": "PathItem",
+      "layer": "label",
+      "x": 31.79,
+      "y": 46.51,
+      "width": 79.82,
+      "height": 22.53,
+      "topLeft": {
+        "x": 31.79,
+        "y": 46.51
+      },
+      "topRight": {
+        "x": 111.61,
+        "y": 46.51
+      },
+      "bottomLeft": {
+        "x": 31.79,
+        "y": 69.04
+      },
+      "bottomRight": {
+        "x": 111.61,
+        "y": 69.04
+      },
+      "type": "PathItem",
+      "units": "mm"
+    },
+    {
+      "name": "frame21",
+      "typename": "PathItem",
+      "layer": "label",
+      "x": 31.79,
+      "y": 72.42,
+      "width": 79.82,
+      "height": 39.91,
+      "topLeft": {
+        "x": 31.79,
+        "y": 72.42
+      },
+      "topRight": {
+        "x": 111.61,
+        "y": 72.42
+      },
+      "bottomLeft": {
+        "x": 31.79,
+        "y": 112.33
+      },
+      "bottomRight": {
+        "x": 111.61,
+        "y": 112.33
+      },
+      "type": "PathItem",
+      "units": "mm"
+    },
+    {
+      "name": "frame11",
+      "typename": "PathItem",
+      "layer": "label",
+      "x": 13.26,
+      "y": 44.27,
+      "width": 116.88,
+      "height": 206.68,
+      "topLeft": {
+        "x": 13.26,
+        "y": 44.27
+      },
+      "topRight": {
+        "x": 130.14,
+        "y": 44.27
+      },
+      "bottomLeft": {
+        "x": 13.26,
+        "y": 250.95
+      },
+      "bottomRight": {
+        "x": 130.14,
+        "y": 250.95
+      },
+      "type": "PathItem",
+      "units": "mm"
+    }
+  ]
+}

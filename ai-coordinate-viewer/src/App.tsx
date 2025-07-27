@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 
 interface AIObject {
   name: string;
@@ -19,9 +19,9 @@ interface AIData {
 function App() {
   const [data, setData] = useState<AIData | null>(null);
   const [selectedObject, setSelectedObject] = useState<AIObject | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  const handleFileUpload = (file: File) => {
     if (file && file.type === 'application/json') {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -36,67 +36,115 @@ function App() {
     }
   };
 
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      handleFileUpload(files[0]);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  }, []);
+
+  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      handleFileUpload(file);
+    }
+  };
+
   const renderObject = (obj: AIObject, index: number) => {
-    const scale = 0.8;
-    const offsetX = 100; 
+    // Better scaling and positioning
+    const scale = 2.0; // Increased scale
+    const offsetX = 50; 
     const offsetY = 50;
     
-    // Use direct coordinates from Illustrator (no Y-axis flipping needed)
     const baseX = offsetX + (obj.x * scale);
     const baseY = offsetY + (obj.y * scale);
-    const width = Math.max(obj.width * scale, 30);
-    const height = Math.max(obj.height * scale, 20);
+    const width = Math.max(obj.width * scale, 40); // Minimum 40px width
+    const height = Math.max(obj.height * scale, 30); // Minimum 30px height
     
     const isSelected = selectedObject === obj;
-    const strokeColor = isSelected ? '#667eea' : '#000';
-    const strokeWidth = isSelected ? '2' : '1';
     
-    // Show type label (mother/son relationships)
-    const typeLabel = obj.type || obj.typename;
+    // Different border styles for mother/son relationships
+    let strokeColor = '#333';
+    let strokeWidth = '2';
+    let strokeDasharray = 'none';
+    
+    if (obj.type?.includes('mother')) {
+      strokeColor = '#d32f2f';
+      strokeWidth = '3';
+      strokeDasharray = 'none'; // Solid thick line for mothers
+    } else if (obj.type?.includes('son')) {
+      strokeColor = '#388e3c';
+      strokeWidth = '2';
+      strokeDasharray = '5,5'; // Dashed line for sons
+    } else {
+      strokeColor = '#666';
+      strokeWidth = '1';
+      strokeDasharray = '2,2'; // Dotted line for regular objects
+    }
+    
+    if (isSelected) {
+      strokeColor = '#667eea';
+      strokeWidth = '4';
+      strokeDasharray = 'none';
+    }
     
     return (
       <g key={index}>
         <rect
           x={baseX} y={baseY} width={width} height={height}
-          fill="transparent" 
+          fill="transparent"
           stroke={strokeColor} 
           strokeWidth={strokeWidth}
+          strokeDasharray={strokeDasharray}
           onClick={() => setSelectedObject(obj)}
           style={{cursor: 'pointer'}}
         />
         <text
-          x={baseX + 2} y={baseY - 2}
-          fontSize="8" fill="#333"
+          x={baseX + 5} y={baseY + 15}
+          fontSize="12" fill="#333" fontWeight="bold"
         >
-          {typeLabel}
+          {obj.name}
+        </text>
+        <text
+          x={baseX + 5} y={baseY + 28}
+          fontSize="10" fill="#666"
+        >
+          {obj.type || obj.typename}
         </text>
       </g>
     );
   };
 
-  const getObjectColor = (obj: AIObject, index: number) => {
-    const colors = [
-      '#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57',
-      '#ff9ff3', '#54a0ff', '#5f27cd', '#00d2d3', '#ff9f43',
-      '#10ac84', '#ee5253', '#0abde3', '#3742fa', '#2f3542'
-    ];
-    
-    // Always use unique colors for each object
-    return colors[index % colors.length];
-  };
-
   if (!data) {
     return (
-      <div style={{
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: 'white',
-        fontFamily: 'Arial, sans-serif'
-      }}>
+      <div 
+        style={{
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'white',
+          fontFamily: 'Arial, sans-serif'
+        }}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+      >
         <h1 style={{fontSize: '4rem', margin: '0'}}>🎯 AI Coordinate Viewer</h1>
         <p style={{fontSize: '1.5rem', margin: '20px 0'}}>
           Drop your AI JSON file, see coordinates instantly
@@ -104,24 +152,27 @@ function App() {
         <p style={{fontSize: '1rem', opacity: 0.9, margin: '10px 0', background: 'rgba(255,255,255,0.2)', padding: '5px 15px', borderRadius: '15px'}}>v0.1.0</p>
         
         <label style={{
-          border: '3px dashed rgba(255,255,255,0.5)',
+          border: isDragOver ? '3px solid #4CAF50' : '3px dashed rgba(255,255,255,0.5)',
           padding: '60px',
           borderRadius: '20px',
           textAlign: 'center',
           marginTop: '40px',
-          background: 'rgba(255,255,255,0.1)',
+          background: isDragOver ? 'rgba(76,175,80,0.2)' : 'rgba(255,255,255,0.1)',
           cursor: 'pointer',
-          display: 'block'
+          display: 'block',
+          transition: 'all 0.3s ease'
         }}>
           <input 
             type="file" 
             accept=".json" 
-            onChange={handleFileUpload}
+            onChange={handleInputChange}
             style={{display: 'none'}}
           />
-          <div style={{fontSize: '4rem', marginBottom: '20px'}}>📁</div>
-          <h2>Click to select JSON file</h2>
-          <p>Choose your AI export file</p>
+          <div style={{fontSize: '4rem', marginBottom: '20px'}}>
+            {isDragOver ? '📥' : '📁'}
+          </div>
+          <h2>{isDragOver ? 'Drop file here!' : 'Drag & Drop JSON file'}</h2>
+          <p>{isDragOver ? 'Release to upload' : 'or click to browse'}</p>
         </label>
       </div>
     );
@@ -159,34 +210,24 @@ function App() {
       </div>
 
       <div style={{background: 'white', padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
-        <svg width="800" height="600" style={{border: '1px solid #ddd'}} viewBox="0 0 800 600">
+        <svg width="1200" height="800" style={{border: '1px solid #ddd'}} viewBox="0 0 1200 800">
           <defs>
-            <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
-              <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#f0f0f0" strokeWidth="1"/>
+            <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
+              <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#f0f0f0" strokeWidth="1"/>
             </pattern>
           </defs>
           <rect width="100%" height="100%" fill="url(#grid)" />
           
-          <line x1="400" y1="0" x2="400" y2="600" stroke="#ddd" strokeWidth="1"/>
-          <line x1="0" y1="300" x2="800" y2="300" stroke="#ddd" strokeWidth="1"/>
+          {/* Coordinate axes */}
+          <line x1="50" y1="0" x2="50" y2="800" stroke="#ccc" strokeWidth="2"/>
+          <line x1="0" y1="50" x2="1200" y2="50" stroke="#ccc" strokeWidth="2"/>
           
-          {data.objects.map((obj, index) => {
-            console.log(`Rendering object ${index}: ${obj.name}, type: ${obj.type}`);
-            return renderObject(obj, index);
-          })}
+          {/* Scale markers */}
+          <text x="10" y="45" fontSize="12" fill="#666">0</text>
+          <text x="10" y="150" fontSize="12" fill="#666">50mm</text>
+          <text x="10" y="250" fontSize="12" fill="#666">100mm</text>
           
-          <g transform="translate(10, 10)">
-            <rect width="120" height="80" fill="white" stroke="#ddd" strokeWidth="1"/>
-            <text x="5" y="15" fontSize="10" fontWeight="bold">Object Types:</text>
-            <circle cx="15" cy="25" r="3" fill="#4ecdc4"/>
-            <text x="25" y="29" fontSize="8">TextFrame</text>
-            <circle cx="15" cy="35" r="3" fill="#45b7d1"/>
-            <text x="25" y="39" fontSize="8">PathItem</text>
-            <rect x="12" y="42" width="6" height="6" fill="none" stroke="#96ceb4" strokeWidth="1" strokeDasharray="2,2"/>
-            <text x="25" y="49" fontSize="8">GroupItem</text>
-            <rect x="12" y="52" width="6" height="6" fill="#feca57"/>
-            <text x="25" y="59" fontSize="8">RasterItem</text>
-          </g>
+          {data.objects.map((obj, index) => renderObject(obj, index))}
         </svg>
       </div>
 
@@ -225,31 +266,6 @@ function App() {
 }
 
 export default App;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
