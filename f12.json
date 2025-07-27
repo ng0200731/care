@@ -1,0 +1,58 @@
+{
+  "scriptVersion": "4.5.0",
+  "exportDate": "Sun Jul 27 2025 19:22:37 GMT+0800",
+  "document": "temp.ai",
+  "totalObjects": 5,
+  "objects": [
+    {
+      "name": "frame4",
+      "typename": "TextFrame",
+      "layer": "label",
+      "x": 592.871003023874,
+      "y": 469.93735658067,
+      "width": 102.318878809321,
+      "height": 225.252525252525,
+      "type": "TextFrame"
+    },
+    {
+      "name": "frame3",
+      "typename": "PathItem",
+      "layer": "label",
+      "x": 263.578073730945,
+      "y": 468.590547527408,
+      "width": 431.275076939711,
+      "height": 226.262603143248,
+      "type": "PathItem"
+    },
+    {
+      "name": "frame2",
+      "typename": "PathItem",
+      "layer": "label",
+      "x": 531.25484140771,
+      "y": 468.590555233865,
+      "width": 163.598340088783,
+      "height": 226.262626262627,
+      "type": "PathItem"
+    },
+    {
+      "name": "frame1",
+      "typename": "PathItem",
+      "layer": "label",
+      "x": 611.05282120569,
+      "y": 416.065302708615,
+      "width": 136.325612816056,
+      "height": 331.313131313131,
+      "type": "PathItem"
+    },
+    {
+      "name": "frame4",
+      "typename": "TextFrame",
+      "layer": "label",
+      "x": 592.871003023874,
+      "y": 87.7824744257859,
+      "width": 279.836003345563,
+      "height": 225.252525252525,
+      "type": "mother 1"
+    }
+  ]
+}

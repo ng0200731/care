@@ -31,9 +31,9 @@ function stringifyJSON(obj, indent) {
 }
 
 // Script Version
-var SCRIPT_VERSION = "4.2.0";
+var SCRIPT_VERSION = "5.0.0";
 
-// Illustrator Object Export Script
+// Main export function
 function exportObjectsToJSON() {
     if (app.documents.length === 0) {
         alert("Please open a document first.");
@@ -49,10 +49,13 @@ function exportObjectsToJSON() {
         processLayer(layer, objects);
     }
     
-    // Apply outer frame and inner object logic
-    objects = processFrameHierarchy(objects);
+    // Process overlapping relationships
+    objects = processOverlappingHierarchy(objects);
     
-    // Create JSON with version info
+    // Remove duplicates
+    objects = removeDuplicates(objects);
+    
+    // Create JSON output
     var jsonData = {
         scriptVersion: SCRIPT_VERSION,
         exportDate: new Date().toString(),
@@ -61,7 +64,7 @@ function exportObjectsToJSON() {
         objects: objects
     };
     
-    // Export to file with save dialog
+    // Save to file
     var jsonString = stringifyJSON(jsonData, 0);
     var jsonFile = File.saveDialog("Save JSON file", "*.json");
 
@@ -72,62 +75,47 @@ function exportObjectsToJSON() {
     }
 }
 
-function processTextContent(textContent) {
-    if (!textContent) return null;
-    
-    // Check if it's a care label (mother)
-    if (textContent.indexOf("[CARE LABEL]") !== -1) {
-        if (textContent.indexOf("page 1") !== -1) {
-            return "mother 1";
-        } else if (textContent.indexOf("page 2") !== -1) {
-            return "mother 2";
-        }
-        return "mother";
-    }
-    
-    // Check if it's a child object
-    if (textContent.indexOf("object") !== -1) {
-        // Extract object number (e.g., "object2-3" -> "son-3")
-        var match = textContent.match(/object\d+-(\d+)/);
-        if (match) {
-            return "son-" + match[1];
-        }
-    }
-    
-    return null;
-}
-
 function processLayer(layer, objects) {
-    // Skip the "label" layer entirely
-    if (layer.name === "label") {
-        return;
-    }
-    
     for (var i = 0; i < layer.pageItems.length; i++) {
         var item = layer.pageItems[i];
-        var bounds = item.geometricBounds;
+        
+        // Convert points to millimeters (1 point = 0.352777778 mm)
+        var POINTS_TO_MM = 0.352777778;
+        
+        // Use item.position for real artboard coordinates
+        var x = item.position[0] * POINTS_TO_MM;  // Real X from origin
+        var y = item.position[1] * POINTS_TO_MM;  // Real Y from origin
+        var width = item.width * POINTS_TO_MM;
+        var height = item.height * POINTS_TO_MM;
         
         var objData = {
             name: item.name || "Unnamed",
             typename: item.typename,
             layer: layer.name,
-            x: bounds[1],
-            y: bounds[0],
-            width: Math.abs(bounds[2] - bounds[1]),
-            height: Math.abs(bounds[0] - bounds[2])
+            x: Math.round(x * 100) / 100,
+            y: Math.round(y * 100) / 100,
+            width: Math.round(width * 100) / 100,
+            height: Math.round(height * 100) / 100,
+            // Corner coordinates using real position
+            topLeft: { 
+                x: Math.round(x * 100) / 100, 
+                y: Math.round(y * 100) / 100 
+            },
+            topRight: { 
+                x: Math.round((x + width) * 100) / 100, 
+                y: Math.round(y * 100) / 100 
+            },
+            bottomLeft: { 
+                x: Math.round(x * 100) / 100, 
+                y: Math.round((y + height) * 100) / 100 
+            },
+            bottomRight: { 
+                x: Math.round((x + width) * 100) / 100, 
+                y: Math.round((y + height) * 100) / 100 
+            },
+            type: item.typename,
+            units: "mm"
         };
-        
-        // Process text content and determine type
-        if (item.typename === "TextFrame" && item.contents) {
-            var processedType = processTextContent(item.contents);
-            if (processedType) {
-                objData.type = processedType;
-            } else {
-                objData.type = item.typename;
-            }
-        } else {
-            objData.type = item.typename;
-        }
         
         objects.push(objData);
     }
@@ -138,68 +126,68 @@ function processLayer(layer, objects) {
     }
 }
 
-function processFrameHierarchy(objects) {
+function processOverlappingHierarchy(objects) {
     var mothers = [];
+    var motherCount = 0;
     
-    // Step 1: Find all mother objects
+    // Find all overlapping relationships
     for (var i = 0; i < objects.length; i++) {
-        var obj = objects[i];
-        if (obj.type && obj.type.indexOf("mother") !== -1) {
-            mothers.push(obj);
-        }
-    }
-    
-    // Step 2: For each non-mother object, check if it's inside a mother
-    for (var j = 0; j < objects.length; j++) {
-        var obj = objects[j];
+        var objA = objects[i];
+        var containedObjects = [];
         
-        // Skip if it's already a mother
-        if (obj.type && obj.type.indexOf("mother") !== -1) {
-            continue;
-        }
-        
-        // Check which mother contains this object
-        for (var k = 0; k < mothers.length; k++) {
-            var mother = mothers[k];
+        // Check what objects are inside this one
+        for (var j = 0; j < objects.length; j++) {
+            if (i === j) continue; // Skip self
+            var objB = objects[j];
             
-            if (isInsideFrame(obj, mother)) {
-                // Extract mother number (e.g., "mother 2" -> "2")
-                var motherNum = mother.type.replace("mother ", "");
-                
-                // Count position among objects in this mother
-                var position = 0;
-                for (var p = 0; p < objects.length; p++) {
-                    var checkObj = objects[p];
-                    if (checkObj.type && checkObj.type.indexOf("mother") === -1 && 
-                        isInsideFrame(checkObj, mother)) {
-                        position++;
-                        if (checkObj === obj) break;
-                    }
-                }
-                
-                obj.type = "son " + motherNum + "-" + position;
-                break;
+            if (isObjectInside(objB, objA)) {
+                containedObjects.push(j);
             }
         }
         
-        // If not inside any mother, keep original type
-        if (obj.type && obj.type.indexOf("son") === -1 && obj.type.indexOf("mother") === -1) {
-            // Keep as is for non-mother, non-son objects
+        // If this object contains others, it's a mother
+        if (containedObjects.length > 0) {
+            motherCount++;
+            objA.type = "mother " + motherCount;
+            mothers.push({
+                motherIndex: i,
+                motherNum: motherCount,
+                containedIndexes: containedObjects
+            });
+        }
+    }
+    
+    // Assign sons to mothers
+    for (var m = 0; m < mothers.length; m++) {
+        var mother = mothers[m];
+        var sonCount = 0;
+        
+        for (var c = 0; c < mother.containedIndexes.length; c++) {
+            var sonIndex = mother.containedIndexes[c];
+            sonCount++;
+            objects[sonIndex].type = "son " + mother.motherNum + "-" + sonCount;
         }
     }
     
     return objects;
 }
 
-function isInsideFrame(innerObj, outerFrame) {
-    // Use a proximity-based approach instead of strict containment
-    var distance = Math.sqrt(
-        Math.pow(innerObj.x - outerFrame.x, 2) + 
-        Math.pow(innerObj.y - outerFrame.y, 2)
-    );
+function isObjectInside(innerObj, outerObj) {
+    // All coordinates are now in mm, so comparison works directly
+    var innerLeft = innerObj.x;
+    var innerRight = innerObj.x + innerObj.width;
+    var innerTop = innerObj.y;
+    var innerBottom = innerObj.y - innerObj.height;
     
-    // If objects are close enough (within 200 units), consider them related
-    return distance < 200;
+    var outerLeft = outerObj.x;
+    var outerRight = outerObj.x + outerObj.width;
+    var outerTop = outerObj.y;
+    var outerBottom = outerObj.y - outerObj.height;
+    
+    return (innerLeft >= outerLeft && 
+            innerRight <= outerRight &&
+            innerTop <= outerTop && 
+            innerBottom >= outerBottom);
 }
 
 function removeDuplicates(objects) {
@@ -208,7 +196,7 @@ function removeDuplicates(objects) {
     
     for (var i = 0; i < objects.length; i++) {
         var obj = objects[i];
-        var key = obj.name + "|" + obj.type + "|" + obj.layer;
+        var key = obj.name + "|" + obj.x + "|" + obj.y + "|" + obj.layer;
         
         if (!seen[key]) {
             seen[key] = true;
