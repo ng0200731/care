@@ -37,84 +37,41 @@ function App() {
   };
 
   const renderObject = (obj: AIObject, index: number) => {
-    // Map coordinates to match Illustrator layout exactly
-    const scale = 0.8; // Larger scale to show proper proportions
+    const scale = 0.8;
     const offsetX = 100; 
     const offsetY = 50;
     
-    // Direct coordinate mapping - AI Y is negative, flip it
+    // Use direct coordinates from Illustrator (no Y-axis flipping needed)
     const baseX = offsetX + (obj.x * scale);
-    const baseY = offsetY + ((-obj.y) * scale); // Flip Y axis
+    const baseY = offsetY + (obj.y * scale);
     const width = Math.max(obj.width * scale, 30);
     const height = Math.max(obj.height * scale, 20);
     
     const isSelected = selectedObject === obj;
-    const fillColor = isSelected ? '#667eea' : getObjectColor(obj, index);
+    const strokeColor = isSelected ? '#667eea' : '#000';
+    const strokeWidth = isSelected ? '2' : '1';
     
-    // Add type label to show mother/son relationships
+    // Show type label (mother/son relationships)
     const typeLabel = obj.type || obj.typename;
     
-    switch (obj.typename) {
-      case 'TextFrame':
-        return (
-          <g key={index}>
-            <rect
-              x={baseX} y={baseY} width={width} height={height}
-              fill={fillColor} stroke="#333" strokeWidth="1"
-              onClick={() => setSelectedObject(obj)}
-              style={{cursor: 'pointer'}}
-            />
-            <text
-              x={baseX + width/2} y={baseY + height/2}
-              textAnchor="middle" dominantBaseline="middle"
-              fontSize="8" fill="white"
-            >
-              T
-            </text>
-          </g>
-        );
-        
-      case 'PathItem':
-        return (
-          <ellipse
-            key={index}
-            cx={baseX + width/2} cy={baseY + height/2}
-            rx={width/2} ry={height/2}
-            fill={fillColor} stroke="#333" strokeWidth="1"
-            onClick={() => setSelectedObject(obj)}
-            style={{cursor: 'pointer'}}
-          />
-        );
-        
-      case 'GroupItem':
-        return (
-          <g key={index}>
-            <rect
-              x={baseX} y={baseY} width={width} height={height}
-              fill="none" stroke={fillColor} strokeWidth="2" strokeDasharray="5,5"
-              onClick={() => setSelectedObject(obj)}
-              style={{cursor: 'pointer'}}
-            />
-            <text
-              x={baseX + 2} y={baseY + 12}
-              fontSize="10" fill={fillColor}
-            >
-              GROUP
-            </text>
-          </g>
-        );
-        
-      default:
-        return (
-          <rect
-            key={index}
-            x={baseX} y={baseY} width={width} height={height}
-            fill={fillColor} stroke="#333" strokeWidth="1"
-            onClick={() => setSelectedObject(obj)}
-            style={{cursor: 'pointer'}}
-          />
-        );
-    }
+    return (
+      <g key={index}>
+        <rect
+          x={baseX} y={baseY} width={width} height={height}
+          fill="transparent" 
+          stroke={strokeColor} 
+          strokeWidth={strokeWidth}
+          onClick={() => setSelectedObject(obj)}
+          style={{cursor: 'pointer'}}
+        />
+        <text
+          x={baseX + 2} y={baseY - 2}
+          fontSize="8" fill="#333"
+        >
+          {typeLabel}
+        </text>
+      </g>
+    );
   };
 
   const getObjectColor = (obj: AIObject, index: number) => {
@@ -268,6 +225,9 @@ function App() {
 }
 
 export default App;
+
+
+
 
 
 

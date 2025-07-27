@@ -76,42 +76,52 @@ function exportObjectsToJSON() {
 }
 
 function processLayer(layer, objects) {
+    // Get artboard reference
+    var doc = app.activeDocument;
+    var artboard = doc.artboards[doc.artboards.getActiveArtboardIndex()];
+    var artboardRect = artboard.artboardRect; // [left, top, right, bottom]
+    var artboardTop = artboardRect[1]; // Top edge of artboard
+    
     for (var i = 0; i < layer.pageItems.length; i++) {
         var item = layer.pageItems[i];
         
-        // Convert points to millimeters (1 point = 0.352777778 mm)
-        var POINTS_TO_MM = 0.352777778;
+        // Get position using UnitValue for exact mm conversion
+        var position = item.position;
+        var docX = new UnitValue(position[0], "pt").as("mm");
+        var docY = new UnitValue(position[1], "pt").as("mm");
+        var artboardTopMM = new UnitValue(artboardTop, "pt").as("mm");
         
-        // Use item.position for real artboard coordinates
-        var x = item.position[0] * POINTS_TO_MM;  // Real X from origin
-        var y = item.position[1] * POINTS_TO_MM;  // Real Y from origin
-        var width = item.width * POINTS_TO_MM;
-        var height = item.height * POINTS_TO_MM;
+        // Convert to artboard-relative coordinates
+        var x = docX;
+        var y = artboardTopMM - docY; // This makes Y positive from top
+        
+        var width = new UnitValue(item.width, "pt").as("mm");
+        var height = new UnitValue(item.height, "pt").as("mm");
         
         var objData = {
             name: item.name || "Unnamed",
             typename: item.typename,
             layer: layer.name,
-            x: Math.round(x * 100) / 100,
-            y: Math.round(y * 100) / 100,
-            width: Math.round(width * 100) / 100,
-            height: Math.round(height * 100) / 100,
-            // Corner coordinates using real position
+            x: parseFloat(x.toFixed(2)),
+            y: parseFloat(y.toFixed(2)),
+            width: parseFloat(width.toFixed(2)),
+            height: parseFloat(height.toFixed(2)),
+            // Corner coordinates using UnitValue conversion
             topLeft: { 
-                x: Math.round(x * 100) / 100, 
-                y: Math.round(y * 100) / 100 
+                x: parseFloat(x.toFixed(2)), 
+                y: parseFloat(y.toFixed(2))
             },
             topRight: { 
-                x: Math.round((x + width) * 100) / 100, 
-                y: Math.round(y * 100) / 100 
+                x: parseFloat((x + width).toFixed(2)), 
+                y: parseFloat(y.toFixed(2))
             },
             bottomLeft: { 
-                x: Math.round(x * 100) / 100, 
-                y: Math.round((y + height) * 100) / 100 
+                x: parseFloat(x.toFixed(2)), 
+                y: parseFloat((y + height).toFixed(2))
             },
             bottomRight: { 
-                x: Math.round((x + width) * 100) / 100, 
-                y: Math.round((y + height) * 100) / 100 
+                x: parseFloat((x + width).toFixed(2)), 
+                y: parseFloat((y + height).toFixed(2))
             },
             type: item.typename,
             units: "mm"
@@ -209,6 +219,8 @@ function removeDuplicates(objects) {
 
 // Run the script
 exportObjectsToJSON();
+
+
 
 
 

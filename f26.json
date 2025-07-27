@@ -1,0 +1,251 @@
+{
+  "scriptVersion": "5.0.0",
+  "exportDate": "Sun Jul 27 2025 20:28:31 GMT+0800",
+  "document": "temp.ai",
+  "totalObjects": 9,
+  "objects": [
+    {
+      "name": "frame4",
+      "typename": "TextFrame",
+      "layer": "label",
+      "x": 167.08,
+      "y": -23.33,
+      "width": 79.46,
+      "height": 14.97,
+      "topLeft": {
+        "x": 167.08,
+        "y": -23.33
+      },
+      "topRight": {
+        "x": 246.54,
+        "y": -23.33
+      },
+      "bottomLeft": {
+        "x": 167.08,
+        "y": -8.36
+      },
+      "bottomRight": {
+        "x": 246.54,
+        "y": -8.36
+      },
+      "type": "son 1-1",
+      "units": "mm"
+    },
+    {
+      "name": "frame3",
+      "typename": "PathItem",
+      "layer": "label",
+      "x": 166.6,
+      "y": -139.5,
+      "width": 79.82,
+      "height": 58.44,
+      "topLeft": {
+        "x": 166.6,
+        "y": -139.5
+      },
+      "topRight": {
+        "x": 246.42,
+        "y": -139.5
+      },
+      "bottomLeft": {
+        "x": 166.6,
+        "y": -81.06
+      },
+      "bottomRight": {
+        "x": 246.42,
+        "y": -81.06
+      },
+      "type": "son 1-2",
+      "units": "mm"
+    },
+    {
+      "name": "frame3",
+      "typename": "PathItem",
+      "layer": "label",
+      "x": 166.6,
+      "y": -101.19,
+      "width": 79.82,
+      "height": 25.84,
+      "topLeft": {
+        "x": 166.6,
+        "y": -101.19
+      },
+      "topRight": {
+        "x": 246.42,
+        "y": -101.19
+      },
+      "bottomLeft": {
+        "x": 166.6,
+        "y": -75.35
+      },
+      "bottomRight": {
+        "x": 246.42,
+        "y": -75.35
+      },
+      "type": "son 1-3",
+      "units": "mm"
+    },
+    {
+      "name": "frame2",
+      "typename": "PathItem",
+      "layer": "label",
+      "x": 166.6,
+      "y": -45.07,
+      "width": 79.82,
+      "height": 39.91,
+      "topLeft": {
+        "x": 166.6,
+        "y": -45.07
+      },
+      "topRight": {
+        "x": 246.42,
+        "y": -45.07
+      },
+      "bottomLeft": {
+        "x": 166.6,
+        "y": -5.16
+      },
+      "bottomRight": {
+        "x": 246.42,
+        "y": -5.16
+      },
+      "type": "son 1-4",
+      "units": "mm"
+    },
+    {
+      "name": "frame1",
+      "typename": "PathItem",
+      "layer": "label",
+      "x": 148.07,
+      "y": -16.92,
+      "width": 116.88,
+      "height": 206.68,
+      "topLeft": {
+        "x": 148.07,
+        "y": -16.92
+      },
+      "topRight": {
+        "x": 264.95,
+        "y": -16.92
+      },
+      "bottomLeft": {
+        "x": 148.07,
+        "y": 189.76
+      },
+      "bottomRight": {
+        "x": 264.95,
+        "y": 189.76
+      },
+      "type": "mother 1",
+      "units": "mm"
+    },
+    {
+      "name": "frame41",
+      "typename": "TextFrame",
+      "layer": "label",
+      "x": 32.26,
+      "y": -23.33,
+      "width": 79.46,
+      "height": 14.97,
+      "topLeft": {
+        "x": 32.26,
+        "y": -23.33
+      },
+      "topRight": {
+        "x": 111.73,
+        "y": -23.33
+      },
+      "bottomLeft": {
+        "x": 32.26,
+        "y": -8.36
+      },
+      "bottomRight": {
+        "x": 111.73,
+        "y": -8.36
+      },
+      "type": "son 2-1",
+      "units": "mm"
+    },
+    {
+      "name": "frame31",
+      "typename": "PathItem",
+      "layer": "label",
+      "x": 31.79,
+      "y": -101.19,
+      "width": 79.82,
+      "height": 96.75,
+      "topLeft": {
+        "x": 31.79,
+        "y": -101.19
+      },
+      "topRight": {
+        "x": 111.61,
+        "y": -101.19
+      },
+      "bottomLeft": {
+        "x": 31.79,
+        "y": -4.44
+      },
+      "bottomRight": {
+        "x": 111.61,
+        "y": -4.44
+      },
+      "type": "son 2-2",
+      "units": "mm"
+    },
+    {
+      "name": "frame21",
+      "typename": "PathItem",
+      "layer": "label",
+      "x": 31.79,
+      "y": -45.07,
+      "width": 79.82,
+      "height": 39.91,
+      "topLeft": {
+        "x": 31.79,
+        "y": -45.07
+      },
+      "topRight": {
+        "x": 111.61,
+        "y": -45.07
+      },
+      "bottomLeft": {
+        "x": 31.79,
+        "y": -5.16
+      },
+      "bottomRight": {
+        "x": 111.61,
+        "y": -5.16
+      },
+      "type": "son 2-3",
+      "units": "mm"
+    },
+    {
+      "name": "frame11",
+      "typename": "PathItem",
+      "layer": "label",
+      "x": 13.26,
+      "y": -16.92,
+      "width": 116.88,
+      "height": 206.68,
+      "topLeft": {
+        "x": 13.26,
+        "y": -16.92
+      },
+      "topRight": {
+        "x": 130.14,
+        "y": -16.92
+      },
+      "bottomLeft": {
+        "x": 13.26,
+        "y": 189.76
+      },
+      "bottomRight": {
+        "x": 130.14,
+        "y": 189.76
+      },
+      "type": "mother 2",
+      "units": "mm"
+    }
+  ]
+}
