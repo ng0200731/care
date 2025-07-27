@@ -187,17 +187,20 @@ function isObjectInside(innerObj, outerObj) {
     var innerLeft = innerObj.x;
     var innerRight = innerObj.x + innerObj.width;
     var innerTop = innerObj.y;
-    var innerBottom = innerObj.y - innerObj.height;
+    var innerBottom = innerObj.y + innerObj.height;
     
     var outerLeft = outerObj.x;
     var outerRight = outerObj.x + outerObj.width;
     var outerTop = outerObj.y;
-    var outerBottom = outerObj.y - outerObj.height;
+    var outerBottom = outerObj.y + outerObj.height;
     
-    return (innerLeft >= outerLeft && 
-            innerRight <= outerRight &&
-            innerTop <= outerTop && 
-            innerBottom >= outerBottom);
+    // Debug: Add some tolerance for floating point precision
+    var tolerance = 0.1; // 0.1mm tolerance
+    
+    return (innerLeft >= (outerLeft - tolerance) && 
+            innerRight <= (outerRight + tolerance) &&
+            innerTop >= (outerTop - tolerance) && 
+            innerBottom <= (outerBottom + tolerance));
 }
 
 function removeDuplicates(objects) {
