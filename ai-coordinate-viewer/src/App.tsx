@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import SonDetailsPanel from './SonDetailsPanel';
 
 interface AIObject {
   name: string;
@@ -8,6 +9,13 @@ interface AIObject {
   y: number;
   width: number;
   height: number;
+}
+
+interface SonMetadata {
+  id: string;
+  sonType: 'text' | 'barcode' | 'translation' | 'washing-symbol' | 'size-breakdown' | 'composition' | 'special-wording';
+  content: string;
+  details: any; // Type-specific details
 }
 
 interface HierarchyNode {
@@ -27,6 +35,7 @@ function App() {
   const [selectedObject, setSelectedObject] = useState<AIObject | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [expandedMothers, setExpandedMothers] = useState<Set<number>>(new Set());
+  const [sonMetadata, setSonMetadata] = useState<Map<string, SonMetadata>>(new Map());
 
   // Canvas view state
   const [zoom, setZoom] = useState(1); // 1 = 1:1 scale (1mm = 1px at 96 DPI)
@@ -218,6 +227,38 @@ function App() {
       // Expand only the clicked mother, collapse all others
       setExpandedMothers(new Set([motherId]));
     }
+  };
+
+  const handleUpdateSonMetadata = (objectName: string, metadata: SonMetadata) => {
+    setSonMetadata(prev => {
+      const newMap = new Map(prev);
+      newMap.set(objectName, metadata);
+      return newMap;
+    });
+  };
+
+  const exportSonMetadata = () => {
+    const metadataArray = Array.from(sonMetadata.entries()).map(([key, value]) => ({
+      objectName: key,
+      ...value
+    }));
+
+    const exportData = {
+      exportDate: new Date().toISOString(),
+      documentName: data?.document || 'unknown',
+      sonMetadata: metadataArray
+    };
+
+    const jsonString = JSON.stringify(exportData, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `son-metadata-${data?.document || 'export'}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const renderHierarchicalList = () => {
@@ -533,15 +574,61 @@ function App() {
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
     >
-      {/* Main Content - 70% Left / 30% Right */}
+      {/* Main Content - 25% Left / 50% Center / 25% Right */}
       <div style={{
         flex: 1,
         display: 'flex',
         height: '100vh'
       }}>
-        {/* Left Panel - 70% Canvas */}
+        {/* Left Panel - 25% Hierarchy */}
         <div style={{
-          width: '70%',
+          width: '25%',
+          background: 'white',
+          padding: '20px',
+          overflowY: 'auto',
+          borderRight: '1px solid #ddd'
+        }}>
+          <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', borderBottom: '1px solid #eee', paddingBottom: '10px'}}>
+            <h3 style={{margin: 0}}>
+              📋 {data ? (() => {
+                const { mothers } = buildHierarchy(data.objects);
+                return `${mothers.length} Pages (${data.totalObjects} Objects)`;
+              })() : 'Layer Objects'}
+            </h3>
+            {data && sonMetadata.size > 0 && (
+              <button
+                onClick={exportSonMetadata}
+                style={{
+                  padding: '4px 8px',
+                  fontSize: '10px',
+                  background: '#4CAF50',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '3px',
+                  cursor: 'pointer'
+                }}
+                title="Export son metadata"
+              >
+                💾 Export
+              </button>
+            )}
+          </div>
+
+          {data ? (
+            <div>
+              {renderHierarchicalList()}
+            </div>
+          ) : (
+            <div style={{color: '#999', textAlign: 'center', marginTop: '50px'}}>
+              <p>No objects to display</p>
+              <p>Upload a JSON file to see layer objects</p>
+            </div>
+          )}
+        </div>
+
+        {/* Center Panel - 50% Canvas */}
+        <div style={{
+          width: '50%',
           background: 'white',
           padding: '20px',
           display: 'flex',
@@ -649,30 +736,17 @@ function App() {
           )}
         </div>
 
-        {/* Right Panel - 30% Layer Objects */}
+        {/* Right Panel - 25% Son Details */}
         <div style={{
-          width: '30%',
+          width: '25%',
           background: 'white',
-          padding: '20px',
           overflowY: 'auto'
         }}>
-          <h3 style={{marginTop: 0, borderBottom: '1px solid #eee', paddingBottom: '10px'}}>
-            📋 {data ? (() => {
-              const { mothers } = buildHierarchy(data.objects);
-              return `${mothers.length} Pages (${data.totalObjects} Objects)`;
-            })() : 'Layer Objects'}
-          </h3>
-          
-          {data ? (
-            <div>
-              {renderHierarchicalList()}
-            </div>
-          ) : (
-            <div style={{color: '#999', textAlign: 'center', marginTop: '50px'}}>
-              <p>No objects to display</p>
-              <p>Upload a JSON file to see layer objects</p>
-            </div>
-          )}
+          <SonDetailsPanel
+            selectedObject={selectedObject}
+            sonMetadata={sonMetadata}
+            onUpdateMetadata={handleUpdateSonMetadata}
+          />
         </div>
       </div>
     </div>
