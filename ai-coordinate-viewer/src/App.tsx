@@ -28,6 +28,96 @@ function App() {
   const [isDragOver, setIsDragOver] = useState(false);
   const [expandedMothers, setExpandedMothers] = useState<Set<string>>(new Set());
 
+  // Canvas view state
+  const [zoom, setZoom] = useState(1); // 1 = 1:1 scale (1mm = 1px at 96 DPI)
+  const [panX, setPanX] = useState(0);
+  const [panY, setPanY] = useState(0);
+  const [isPanning, setIsPanning] = useState(false);
+  const [lastPanPoint, setLastPanPoint] = useState({ x: 0, y: 0 });
+  const [mouseCoords, setMouseCoords] = useState({ x: 0, y: 0 });
+  const [showDimensions, setShowDimensions] = useState(true);
+
+  // Canvas control functions
+  const handleZoomIn = () => setZoom(prev => Math.min(prev * 1.2, 5));
+  const handleZoomOut = () => setZoom(prev => Math.max(prev / 1.2, 0.1));
+  const handleZoomReset = () => {
+    setZoom(1);
+    setPanX(0);
+    setPanY(0);
+  };
+  const handleFitToScreen = () => {
+    if (!data || data.objects.length === 0) return;
+
+    // Calculate bounds of all objects
+    const bounds = data.objects.reduce((acc, obj) => ({
+      minX: Math.min(acc.minX, obj.x),
+      minY: Math.min(acc.minY, obj.y),
+      maxX: Math.max(acc.maxX, obj.x + obj.width),
+      maxY: Math.max(acc.maxY, obj.y + obj.height)
+    }), { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+
+    const contentWidth = bounds.maxX - bounds.minX;
+    const contentHeight = bounds.maxY - bounds.minY;
+    const viewportWidth = 1200; // SVG viewport width
+    const viewportHeight = 800; // SVG viewport height
+
+    const scaleX = viewportWidth / (contentWidth + 100); // Add padding
+    const scaleY = viewportHeight / (contentHeight + 100);
+    const newZoom = Math.min(scaleX, scaleY, 2); // Max zoom 2x for fit
+
+    setZoom(newZoom);
+    setPanX(-(bounds.minX + contentWidth / 2) * newZoom + viewportWidth / 2);
+    setPanY(-(bounds.minY + contentHeight / 2) * newZoom + viewportHeight / 2);
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button === 0) { // Left mouse button
+      setIsPanning(true);
+      setLastPanPoint({ x: e.clientX, y: e.clientY });
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    // Update mouse coordinates for display
+    const rect = e.currentTarget.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    // Convert screen coordinates to real coordinates (mm)
+    const mmToPx = 3.78;
+    const realX = (mouseX - panX) / (zoom * mmToPx);
+    const realY = (mouseY - panY) / (zoom * mmToPx);
+    setMouseCoords({ x: realX, y: realY });
+
+    if (isPanning) {
+      const deltaX = e.clientX - lastPanPoint.x;
+      const deltaY = e.clientY - lastPanPoint.y;
+      setPanX(prev => prev + deltaX);
+      setPanY(prev => prev + deltaY);
+      setLastPanPoint({ x: e.clientX, y: e.clientY });
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsPanning(false);
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+    const newZoom = Math.max(0.1, Math.min(5, zoom * zoomFactor));
+
+    // Zoom towards mouse position
+    const rect = e.currentTarget.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    const zoomRatio = newZoom / zoom;
+    setPanX(prev => mouseX - (mouseX - prev) * zoomRatio);
+    setPanY(prev => mouseY - (mouseY - prev) * zoomRatio);
+    setZoom(newZoom);
+  };
+
   // Build hierarchy from objects
   const buildHierarchy = (objects: AIObject[]) => {
     const mothers: HierarchyNode[] = [];
@@ -77,12 +167,12 @@ function App() {
   };
 
   const toggleMother = (motherName: string) => {
-    const newExpanded = new Set(expandedMothers);
-    if (newExpanded.has(motherName)) {
-      newExpanded.delete(motherName);
-    } else {
+    const newExpanded = new Set<string>();
+    if (!expandedMothers.has(motherName)) {
+      // Only expand the clicked mother, collapse all others
       newExpanded.add(motherName);
     }
+    // If the clicked mother was already expanded, leave newExpanded empty (collapse all)
     setExpandedMothers(newExpanded);
   };
 
@@ -232,22 +322,35 @@ function App() {
     }
   };
 
+  // Button style for canvas controls
+  const buttonStyle = {
+    padding: '5px 8px',
+    margin: '0',
+    border: '1px solid #ccc',
+    borderRadius: '3px',
+    background: 'white',
+    cursor: 'pointer',
+    fontSize: '12px',
+    minWidth: '30px'
+  };
+
   const renderObject = (obj: AIObject, index: number) => {
-    const scale = 2.0;
-    const offsetX = 50; 
-    const offsetY = 50;
-    
-    const baseX = offsetX + (obj.x * scale);
-    const baseY = offsetY + (obj.y * scale);
-    const width = Math.max(obj.width * scale, 40);
-    const height = Math.max(obj.height * scale, 30);
-    
+    // 1:1 scale: 1mm = 1px (at 96 DPI, 1mm ≈ 3.78px, but we'll use 1:1 for simplicity)
+    // Apply zoom and pan transformations
+    const mmToPx = 3.78; // Conversion factor for true 1:1 at 96 DPI
+    const scale = zoom * mmToPx;
+
+    const baseX = (obj.x * scale) + panX;
+    const baseY = (obj.y * scale) + panY;
+    const width = Math.max(obj.width * scale, 2);
+    const height = Math.max(obj.height * scale, 2);
+
     const isSelected = selectedObject === obj;
-    
+
     let strokeColor = '#333';
     let strokeWidth = '2';
     let strokeDasharray = 'none';
-    
+
     if (obj.type?.includes('mother')) {
       strokeColor = '#d32f2f';
       strokeWidth = '3';
@@ -261,36 +364,106 @@ function App() {
       strokeWidth = '1';
       strokeDasharray = '2,2';
     }
-    
+
     if (isSelected) {
       strokeColor = '#667eea';
       strokeWidth = '4';
       strokeDasharray = 'none';
     }
-    
+
+    // Calculate font size based on zoom level
+    const fontSize = Math.max(8, Math.min(14, 10 * zoom));
+    const smallFontSize = Math.max(6, Math.min(10, 8 * zoom));
+    const dimensionFontSize = Math.max(7, Math.min(12, 9 * zoom));
+
+    // Calculate positions for dimension labels
+    const centerX = baseX + width / 2;
+    const centerY = baseY + height / 2;
+    const topY = baseY - 5;
+    const leftX = baseX - 5;
+
+    // Format dimensions to appropriate precision
+    const widthMm = obj.width.toFixed(1);
+    const heightMm = obj.height.toFixed(1);
+
     return (
       <g key={index}>
+        {/* Main rectangle */}
         <rect
           x={baseX} y={baseY} width={width} height={height}
           fill="transparent"
-          stroke={strokeColor} 
+          stroke={strokeColor}
           strokeWidth={strokeWidth}
           strokeDasharray={strokeDasharray}
           onClick={() => setSelectedObject(obj)}
           style={{cursor: 'pointer'}}
         />
+
+        {/* Object name and type */}
         <text
           x={baseX + 5} y={baseY + 15}
-          fontSize="12" fill="#333" fontWeight="bold"
+          fontSize={fontSize} fill="#333" fontWeight="bold"
         >
           {obj.name}
         </text>
         <text
           x={baseX + 5} y={baseY + 28}
-          fontSize="10" fill="#666"
+          fontSize={smallFontSize} fill="#666"
         >
           {obj.type || obj.typename}
         </text>
+
+        {/* Dimension labels (only when enabled) */}
+        {showDimensions && (
+          <>
+            {/* Width label (top center) */}
+            <text
+              x={centerX} y={topY}
+              fontSize={dimensionFontSize}
+              fill="#0066cc"
+              fontWeight="bold"
+              textAnchor="middle"
+              dominantBaseline="bottom"
+            >
+              {widthMm}mm
+            </text>
+
+            {/* Height label (left center, rotated) */}
+            <text
+              x={leftX} y={centerY}
+              fontSize={dimensionFontSize}
+              fill="#cc6600"
+              fontWeight="bold"
+              textAnchor="middle"
+              dominantBaseline="middle"
+              transform={`rotate(-90, ${leftX}, ${centerY})`}
+            >
+              {heightMm}mm
+            </text>
+
+            {/* Dimension lines for better visibility (only when zoomed in enough) */}
+            {zoom > 0.5 && (
+              <>
+                {/* Top width line */}
+                <line
+                  x1={baseX} y1={topY + 3}
+                  x2={baseX + width} y2={topY + 3}
+                  stroke="#0066cc"
+                  strokeWidth="1"
+                  opacity="0.7"
+                />
+                {/* Left height line */}
+                <line
+                  x1={leftX + 3} y1={baseY}
+                  x2={leftX + 3} y2={baseY + height}
+                  stroke="#cc6600"
+                  strokeWidth="1"
+                  opacity="0.7"
+                />
+              </>
+            )}
+          </>
+        )}
       </g>
     );
   };
@@ -323,19 +496,83 @@ function App() {
           borderRight: '1px solid #ddd'
         }}>
           {data ? (
-            <svg width="100%" height="100%" style={{border: '1px solid #ddd'}} viewBox="0 0 1200 800">
-              <defs>
-                <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
-                  <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#f0f0f0" strokeWidth="1"/>
-                </pattern>
-              </defs>
-              <rect width="100%" height="100%" fill="url(#grid)" />
-              
-              <line x1="50" y1="0" x2="50" y2="800" stroke="#ccc" strokeWidth="2"/>
-              <line x1="0" y1="50" x2="1200" y2="50" stroke="#ccc" strokeWidth="2"/>
-              
-              {data.objects.map((obj, index) => renderObject(obj, index))}
-            </svg>
+            <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+              {/* Canvas Controls */}
+              <div style={{
+                position: 'absolute',
+                top: '10px',
+                left: '10px',
+                zIndex: 10,
+                background: 'rgba(255,255,255,0.9)',
+                padding: '10px',
+                borderRadius: '5px',
+                boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '5px'
+              }}>
+                <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>
+                  Zoom: {(zoom * 100).toFixed(0)}%
+                </div>
+                <div style={{ display: 'flex', gap: '5px' }}>
+                  <button onClick={handleZoomIn} style={buttonStyle}>+</button>
+                  <button onClick={handleZoomOut} style={buttonStyle}>-</button>
+                  <button onClick={handleZoomReset} style={buttonStyle}>1:1</button>
+                  <button onClick={handleFitToScreen} style={buttonStyle}>Fit</button>
+                </div>
+                <div style={{ display: 'flex', gap: '5px', marginTop: '5px' }}>
+                  <button
+                    onClick={() => setShowDimensions(!showDimensions)}
+                    style={{
+                      ...buttonStyle,
+                      background: showDimensions ? '#e3f2fd' : 'white',
+                      color: showDimensions ? '#1976d2' : '#666',
+                      fontSize: '10px',
+                      padding: '4px 6px'
+                    }}
+                  >
+                    📏 Dimensions
+                  </button>
+                </div>
+                <div style={{ fontSize: '10px', color: '#666', marginTop: '5px' }}>
+                  Pan: Click & drag<br/>
+                  Zoom: Mouse wheel
+                </div>
+                <div style={{ fontSize: '10px', color: '#333', marginTop: '5px', borderTop: '1px solid #eee', paddingTop: '5px' }}>
+                  <strong>Coordinates (mm):</strong><br/>
+                  X: {mouseCoords.x.toFixed(2)}<br/>
+                  Y: {mouseCoords.y.toFixed(2)}
+                </div>
+              </div>
+
+              <svg
+                width="100%"
+                height="100%"
+                style={{
+                  border: '1px solid #ddd',
+                  cursor: isPanning ? 'grabbing' : 'grab'
+                }}
+                viewBox="0 0 1200 800"
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+                onWheel={handleWheel}
+              >
+                <defs>
+                  <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
+                    <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#f0f0f0" strokeWidth="1"/>
+                  </pattern>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#grid)" />
+
+                {/* Origin lines */}
+                <line x1={panX} y1="0" x2={panX} y2="800" stroke="#ccc" strokeWidth="2"/>
+                <line x1="0" y1={panY} x2="1200" y2={panY} stroke="#ccc" strokeWidth="2"/>
+
+                {data.objects.map((obj, index) => renderObject(obj, index))}
+              </svg>
+            </div>
           ) : (
             <div style={{
               border: isDragOver ? '3px solid #4CAF50' : '3px dashed #ccc',
