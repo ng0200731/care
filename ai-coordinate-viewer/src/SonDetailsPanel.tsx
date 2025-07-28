@@ -12,7 +12,7 @@ interface AIObject {
 
 interface SonMetadata {
   id: string;
-  sonType: 'text' | 'barcode' | 'translation' | 'washing-symbol' | 'size-breakdown' | 'composition' | 'special-wording';
+  sonType: 'text' | 'image' | 'barcode' | 'translation' | 'washing-symbol' | 'size-breakdown' | 'composition' | 'special-wording';
   content: string;
   details: any;
 }
@@ -70,9 +70,12 @@ const SonDetailsPanel: React.FC<SonDetailsPanelProps> = ({
     );
   }
 
+  // Create unique identifier for this object (name + position to handle duplicate names)
+  const objectId = `${selectedObject.name}_${selectedObject.x}_${selectedObject.y}`;
+
   // Get or create metadata for this son
-  const currentMetadata = sonMetadata.get(selectedObject.name) || {
-    id: selectedObject.name,
+  const currentMetadata = sonMetadata.get(objectId) || {
+    id: objectId,
     sonType: 'text',
     content: '',
     details: {}
@@ -84,7 +87,7 @@ const SonDetailsPanel: React.FC<SonDetailsPanelProps> = ({
       sonType: newType,
       details: {} // Reset details when type changes
     };
-    onUpdateMetadata(selectedObject.name, updatedMetadata);
+    onUpdateMetadata(objectId, updatedMetadata);
   };
 
   const handleContentChange = (newContent: string) => {
@@ -92,7 +95,7 @@ const SonDetailsPanel: React.FC<SonDetailsPanelProps> = ({
       ...currentMetadata,
       content: newContent
     };
-    onUpdateMetadata(selectedObject.name, updatedMetadata);
+    onUpdateMetadata(objectId, updatedMetadata);
   };
 
   const renderTypeSpecificFields = () => {
@@ -118,7 +121,36 @@ const SonDetailsPanel: React.FC<SonDetailsPanelProps> = ({
             />
           </div>
         );
-      
+
+      case 'image':
+        return (
+          <div>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+              Image File:
+            </label>
+            <input
+              type="file"
+              accept="image/*"
+              style={{
+                width: '100%',
+                padding: '8px',
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+                fontSize: '14px'
+              }}
+            />
+            <div style={{
+              marginTop: '10px',
+              padding: '10px',
+              background: '#e3f2fd',
+              borderRadius: '4px',
+              fontSize: '12px'
+            }}>
+              🖼️ Image processing and optimization will be available in the next milestone
+            </div>
+          </div>
+        );
+
       case 'barcode':
         return (
           <div>
@@ -295,6 +327,7 @@ const SonDetailsPanel: React.FC<SonDetailsPanelProps> = ({
           }}
         >
           <option value="text">📝 Text</option>
+          <option value="image">🖼️ Image</option>
           <option value="barcode">📊 Barcode</option>
           <option value="translation">🌍 Translation</option>
           <option value="washing-symbol">🧺 Washing Symbol</option>

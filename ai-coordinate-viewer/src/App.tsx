@@ -13,7 +13,7 @@ interface AIObject {
 
 interface SonMetadata {
   id: string;
-  sonType: 'text' | 'barcode' | 'translation' | 'washing-symbol' | 'size-breakdown' | 'composition' | 'special-wording';
+  sonType: 'text' | 'image' | 'barcode' | 'translation' | 'washing-symbol' | 'size-breakdown' | 'composition' | 'special-wording';
   content: string;
   details: any; // Type-specific details
 }
@@ -45,6 +45,7 @@ function App() {
   const [lastPanPoint, setLastPanPoint] = useState({ x: 0, y: 0 });
   const [mouseCoords, setMouseCoords] = useState({ x: 0, y: 0 });
   const [showDimensions, setShowDimensions] = useState(true);
+  const [autoFitNotification, setAutoFitNotification] = useState(false);
 
   // Canvas control functions
   const handleZoomIn = () => setZoom(prev => Math.min(prev * 1.2, 5));
@@ -55,7 +56,22 @@ function App() {
     setPanY(0);
   };
   const handleFitToScreen = () => {
-    if (!data || data.objects.length === 0) return;
+    if (!data || data.objects.length === 0) {
+      console.log('No data or objects to fit');
+      return;
+    }
+
+    // Get actual SVG dimensions
+    const svgElement = document.querySelector('svg');
+    if (!svgElement) {
+      console.log('SVG element not found');
+      return;
+    }
+
+    const svgRect = svgElement.getBoundingClientRect();
+    const viewportWidth = svgRect.width;
+    const viewportHeight = svgRect.height;
+    console.log('SVG dimensions:', viewportWidth, 'x', viewportHeight);
 
     // Calculate bounds of all objects
     const bounds = data.objects.reduce((acc, obj) => ({
@@ -67,16 +83,19 @@ function App() {
 
     const contentWidth = bounds.maxX - bounds.minX;
     const contentHeight = bounds.maxY - bounds.minY;
-    const viewportWidth = 1200; // SVG viewport width
-    const viewportHeight = 800; // SVG viewport height
+    const padding = 100; // Padding in pixels
 
-    const scaleX = viewportWidth / (contentWidth + 100); // Add padding
-    const scaleY = viewportHeight / (contentHeight + 100);
+    const scaleX = (viewportWidth - padding) / (contentWidth * 3.78); // 3.78 = mmToPx conversion
+    const scaleY = (viewportHeight - padding) / (contentHeight * 3.78);
     const newZoom = Math.min(scaleX, scaleY, 2); // Max zoom 2x for fit
 
+    console.log('Content bounds:', bounds);
+    console.log('Content size:', contentWidth, 'x', contentHeight, 'mm');
+    console.log('Calculated zoom:', newZoom);
+
     setZoom(newZoom);
-    setPanX(-(bounds.minX + contentWidth / 2) * newZoom + viewportWidth / 2);
-    setPanY(-(bounds.minY + contentHeight / 2) * newZoom + viewportHeight / 2);
+    setPanX(-(bounds.minX + contentWidth / 2) * newZoom * 3.78 + viewportWidth / 2);
+    setPanY(-(bounds.minY + contentHeight / 2) * newZoom * 3.78 + viewportHeight / 2);
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -239,7 +258,7 @@ function App() {
 
   const exportSonMetadata = () => {
     const metadataArray = Array.from(sonMetadata.entries()).map(([key, value]) => ({
-      objectName: key,
+      objectId: key, // Format: "name_x_y" to handle duplicate names
       ...value
     }));
 
@@ -263,81 +282,163 @@ function App() {
 
   const renderHierarchicalList = () => {
     if (!data) return null;
-    
+
     const { mothers, orphans } = buildHierarchy(data.objects);
-    
+
     return (
       <div>
         <h4>📋 Objects Hierarchy:</h4>
-        
+
         {/* Mothers with their sons */}
         {mothers.map((mother, index) => {
           const isExpanded = expandedMothers.has(index);
 
           return (
-            <div key={index} style={{marginBottom: '10px'}}>
-              {/* Mother */}
-              <div
-                onClick={() => {
-                  setSelectedObject(mother.object);
-                  fitObjectToView(mother.object);
-                }}
-                style={{
-                  padding: '10px',
-                  background: selectedObject === mother.object ? '#d32f2f' : '#ffebee',
-                  color: selectedObject === mother.object ? 'white' : '#d32f2f',
-                  borderRadius: '5px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between'
-                }}
-              >
-                <div>
-                  <div>👑 {mother.object.name} ({mother.children.length + 1} objects)</div>
-                  <div style={{fontSize: '0.8em', opacity: 0.8}}>
-                    {mother.object.typename}
-                  </div>
-                </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleMother(index);
+            <div key={index} style={{marginBottom: '15px'}}>
+              {/* Mother Header - Enhanced with Fit View button (v1.3.0) */}
+              <div style={{
+                background: selectedObject === mother.object ? '#d32f2f' : '#ffebee',
+                color: selectedObject === mother.object ? 'white' : '#d32f2f',
+                borderRadius: '8px',
+                overflow: 'hidden'
+              }}>
+                {/* Mother Info Row */}
+                <div
+                  onClick={() => {
+                    setSelectedObject(mother.object);
                   }}
                   style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'inherit',
-                    fontSize: '1.2em',
+                    padding: '12px',
                     cursor: 'pointer',
-                    padding: '5px'
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
                   }}
                 >
-                  {isExpanded ? '▼' : '▶'}
-                </button>
+                  <div style={{flex: 1}}>
+                    <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleMother(index);
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'inherit',
+                          fontSize: '1.2em',
+                          cursor: 'pointer',
+                          padding: '2px'
+                        }}
+                      >
+                        {isExpanded ? '▼' : '▶'}
+                      </button>
+                      <span>👑 {mother.object.name} ({mother.children.length} objects)</span>
+                    </div>
+                    <div style={{fontSize: '0.8em', opacity: 0.8, marginLeft: '24px'}}>
+                      {mother.object.typename}
+                    </div>
+                  </div>
+
+                  {/* Fit View Button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedObject(mother.object);
+                      fitObjectToView(mother.object);
+                    }}
+                    style={{
+                      background: 'rgba(255,255,255,0.2)',
+                      border: '1px solid rgba(255,255,255,0.3)',
+                      color: 'inherit',
+                      fontSize: '10px',
+                      padding: '4px 8px',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      marginLeft: '8px'
+                    }}
+                    title="Fit to view (100% zoom, centered)"
+                  >
+                    👑 Fit View
+                  </button>
+                </div>
               </div>
-              
-              {/* Sons (collapsible) */}
+
+              {/* Sons (collapsible) - Enhanced with Pan To and Allocate Space buttons (v1.3.0) */}
               {isExpanded && mother.children.map((son, sonIndex) => (
                 <div
                   key={sonIndex}
-                  onClick={() => {
-                    setSelectedObject(son);
-                    panToObject(son);
-                  }}
                   style={{
-                    padding: '8px 10px 8px 30px',
-                    margin: '2px 0 2px 20px',
+                    margin: '4px 0 4px 20px',
                     background: selectedObject === son ? '#388e3c' : '#e8f5e8',
                     color: selectedObject === son ? 'white' : '#388e3c',
-                    borderRadius: '5px',
-                    cursor: 'pointer',
-                    borderLeft: '3px solid #388e3c'
+                    borderRadius: '6px',
+                    borderLeft: '3px solid #388e3c',
+                    overflow: 'hidden'
                   }}
                 >
-                  <div>👶 {son.name}</div>
-                  <div style={{fontSize: '0.8em', opacity: 0.8}}>{son.typename}</div>
+                  {/* Son Info Row */}
+                  <div
+                    onClick={() => {
+                      setSelectedObject(son);
+                    }}
+                    style={{
+                      padding: '10px 12px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between'
+                    }}
+                  >
+                    <div style={{flex: 1}}>
+                      <div>👶 {son.name}</div>
+                      <div style={{fontSize: '0.8em', opacity: 0.8}}>{son.typename}</div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div style={{display: 'flex', gap: '4px'}}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedObject(son);
+                          panToObject(son);
+                        }}
+                        style={{
+                          background: 'rgba(255,255,255,0.2)',
+                          border: '1px solid rgba(255,255,255,0.3)',
+                          color: 'inherit',
+                          fontSize: '9px',
+                          padding: '3px 6px',
+                          borderRadius: '3px',
+                          cursor: 'pointer'
+                        }}
+                        title="Pan to center (keep current zoom)"
+                      >
+                        🎯 Pan To
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedObject(son);
+                          // TODO: Implement space allocation dialog
+                          alert(`Space allocation for ${son.name} - Coming in v1.4.0!`);
+                        }}
+                        style={{
+                          background: 'rgba(255,255,255,0.2)',
+                          border: '1px solid rgba(255,255,255,0.3)',
+                          color: 'inherit',
+                          fontSize: '9px',
+                          padding: '3px 6px',
+                          borderRadius: '3px',
+                          cursor: 'pointer'
+                        }}
+                        title="Allocate space in region/row/column"
+                      >
+                        📐 Allocate Space
+                      </button>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -380,6 +481,44 @@ function App() {
         try {
           const jsonData = JSON.parse(e.target?.result as string);
           setData(jsonData);
+
+          // Auto-fit to screen after loading data
+          // Use setTimeout to ensure state is updated and DOM is ready
+          setTimeout(() => {
+            if (jsonData && jsonData.objects && jsonData.objects.length > 0) {
+              // Get actual SVG dimensions
+              const svgElement = document.querySelector('svg');
+              if (svgElement) {
+                const svgRect = svgElement.getBoundingClientRect();
+                const viewportWidth = svgRect.width;
+                const viewportHeight = svgRect.height;
+
+                // Calculate bounds of all objects
+                const bounds = jsonData.objects.reduce((acc: any, obj: AIObject) => ({
+                  minX: Math.min(acc.minX, obj.x),
+                  minY: Math.min(acc.minY, obj.y),
+                  maxX: Math.max(acc.maxX, obj.x + obj.width),
+                  maxY: Math.max(acc.maxY, obj.y + obj.height)
+                }), { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+
+                const contentWidth = bounds.maxX - bounds.minX;
+                const contentHeight = bounds.maxY - bounds.minY;
+                const padding = 100; // Padding in pixels
+
+                const scaleX = (viewportWidth - padding) / (contentWidth * 3.78); // 3.78 = mmToPx conversion
+                const scaleY = (viewportHeight - padding) / (contentHeight * 3.78);
+                const newZoom = Math.min(scaleX, scaleY, 2); // Max zoom 2x for fit
+
+                setZoom(newZoom);
+                setPanX(-(bounds.minX + contentWidth / 2) * newZoom * 3.78 + viewportWidth / 2);
+                setPanY(-(bounds.minY + contentHeight / 2) * newZoom * 3.78 + viewportHeight / 2);
+
+                // Show auto-fit notification
+                setAutoFitNotification(true);
+                setTimeout(() => setAutoFitNotification(false), 3000);
+              }
+            }
+          }, 200); // Increased timeout to ensure DOM is ready
         } catch (error) {
           alert('Invalid JSON file');
         }
@@ -574,19 +713,146 @@ function App() {
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
     >
-      {/* Main Content - 25% Left / 50% Center / 25% Right */}
+      {/* Main Content - 70% Canvas / 30% Hierarchy Panel (v1.1.0) */}
       <div style={{
         flex: 1,
         display: 'flex',
         height: '100vh'
       }}>
-        {/* Left Panel - 25% Hierarchy */}
+        {/* Canvas Area - 70% */}
         <div style={{
-          width: '25%',
+          width: '70%',
           background: 'white',
           padding: '20px',
-          overflowY: 'auto',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
           borderRight: '1px solid #ddd'
+        }}>
+          {data ? (
+            <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+              {/* Canvas Controls - FIXED: Moved to top-right corner (v1.2.0) */}
+              <div style={{
+                position: 'absolute',
+                top: '10px',
+                right: '10px',
+                zIndex: 1000,
+                background: 'rgba(255,255,255,0.9)',
+                padding: '12px',
+                borderRadius: '8px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '5px',
+                minWidth: '160px'
+              }}>
+                <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>
+                  Zoom: {(zoom * 100).toFixed(0)}%
+                </div>
+                <div style={{ display: 'flex', gap: '5px' }}>
+                  <button onClick={handleZoomIn} style={buttonStyle}>+</button>
+                  <button onClick={handleZoomOut} style={buttonStyle}>-</button>
+                  <button onClick={handleZoomReset} style={buttonStyle}>1:1</button>
+                  <button onClick={handleFitToScreen} style={buttonStyle}>Fit</button>
+                </div>
+                <div style={{ display: 'flex', gap: '5px', marginTop: '5px' }}>
+                  <button
+                    onClick={() => setShowDimensions(!showDimensions)}
+                    style={{
+                      ...buttonStyle,
+                      background: showDimensions ? '#e3f2fd' : 'white',
+                      color: showDimensions ? '#1976d2' : '#666',
+                      fontSize: '10px',
+                      padding: '4px 6px'
+                    }}
+                  >
+                    📏 Dimensions
+                  </button>
+                </div>
+                <div style={{ fontSize: '10px', color: '#666', marginTop: '5px' }}>
+                  Pan: Click & drag<br/>
+                  Zoom: Mouse wheel
+                </div>
+                <div style={{ fontSize: '10px', color: '#333', marginTop: '5px', borderTop: '1px solid #eee', paddingTop: '5px' }}>
+                  <strong>Coordinates (mm):</strong><br/>
+                  X: {mouseCoords.x.toFixed(2)}<br/>
+                  Y: {mouseCoords.y.toFixed(2)}
+                </div>
+              </div>
+
+              {/* Auto-fit notification */}
+              {autoFitNotification && (
+                <div style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  background: 'rgba(76, 175, 80, 0.9)',
+                  color: 'white',
+                  padding: '12px 20px',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  zIndex: 2000,
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+                }}>
+                  ✅ Auto-fitted to view - All objects are now visible!
+                </div>
+              )}
+
+              <svg
+                width="100%"
+                height="100%"
+                style={{
+                  border: '1px solid #ddd',
+                  cursor: isPanning ? 'grabbing' : 'grab'
+                }}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onWheel={handleWheel}
+              >
+                <defs>
+                  <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
+                    <path d="M 10 0 L 0 0 0 10" fill="none" stroke="#f0f0f0" strokeWidth="1"/>
+                  </pattern>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#grid)" />
+
+                {data.objects.map((obj, index) => renderObject(obj, index))}
+              </svg>
+            </div>
+          ) : (
+            <div style={{
+              border: isDragOver ? '3px solid #4CAF50' : '3px dashed #ccc',
+              padding: '60px',
+              textAlign: 'center',
+              borderRadius: '10px',
+              background: isDragOver ? 'rgba(76,175,80,0.1)' : '#f9f9f9'
+            }}>
+              <div style={{fontSize: '4rem', marginBottom: '20px'}}>
+                {isDragOver ? '📥' : '📁'}
+              </div>
+              <p>Drop JSON file here</p>
+              <p style={{fontSize: '12px', color: '#666', marginTop: '10px'}}>
+                ✨ Objects will be automatically fitted to view
+              </p>
+              <input
+                type="file"
+                accept=".json"
+                onChange={handleInputChange}
+                style={{marginTop: '10px'}}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Hierarchy Panel - 30% */}
+        <div style={{
+          width: '30%',
+          background: 'white',
+          padding: '20px',
+          overflowY: 'auto'
         }}>
           <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', borderBottom: '1px solid #eee', paddingBottom: '10px'}}>
             <h3 style={{margin: 0}}>
@@ -624,130 +890,17 @@ function App() {
               <p>Upload a JSON file to see layer objects</p>
             </div>
           )}
+
+          {/* Son Details Panel - Integrated into Hierarchy Panel */}
+          <div style={{marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '20px'}}>
+            <SonDetailsPanel
+              selectedObject={selectedObject}
+              sonMetadata={sonMetadata}
+              onUpdateMetadata={handleUpdateSonMetadata}
+            />
+          </div>
         </div>
 
-        {/* Center Panel - 50% Canvas */}
-        <div style={{
-          width: '50%',
-          background: 'white',
-          padding: '20px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          borderRight: '1px solid #ddd'
-        }}>
-          {data ? (
-            <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-              {/* Canvas Controls */}
-              <div style={{
-                position: 'absolute',
-                top: '10px',
-                left: '10px',
-                zIndex: 10,
-                background: 'rgba(255,255,255,0.9)',
-                padding: '10px',
-                borderRadius: '5px',
-                boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '5px'
-              }}>
-                <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>
-                  Zoom: {(zoom * 100).toFixed(0)}%
-                </div>
-                <div style={{ display: 'flex', gap: '5px' }}>
-                  <button onClick={handleZoomIn} style={buttonStyle}>+</button>
-                  <button onClick={handleZoomOut} style={buttonStyle}>-</button>
-                  <button onClick={handleZoomReset} style={buttonStyle}>1:1</button>
-                  <button onClick={handleFitToScreen} style={buttonStyle}>Fit</button>
-                </div>
-                <div style={{ display: 'flex', gap: '5px', marginTop: '5px' }}>
-                  <button
-                    onClick={() => setShowDimensions(!showDimensions)}
-                    style={{
-                      ...buttonStyle,
-                      background: showDimensions ? '#e3f2fd' : 'white',
-                      color: showDimensions ? '#1976d2' : '#666',
-                      fontSize: '10px',
-                      padding: '4px 6px'
-                    }}
-                  >
-                    📏 Dimensions
-                  </button>
-                </div>
-                <div style={{ fontSize: '10px', color: '#666', marginTop: '5px' }}>
-                  Pan: Click & drag<br/>
-                  Zoom: Mouse wheel
-                </div>
-                <div style={{ fontSize: '10px', color: '#333', marginTop: '5px', borderTop: '1px solid #eee', paddingTop: '5px' }}>
-                  <strong>Coordinates (mm):</strong><br/>
-                  X: {mouseCoords.x.toFixed(2)}<br/>
-                  Y: {mouseCoords.y.toFixed(2)}
-                </div>
-              </div>
-
-              <svg
-                width="100%"
-                height="100%"
-                style={{
-                  border: '1px solid #ddd',
-                  cursor: isPanning ? 'grabbing' : 'grab'
-                }}
-                viewBox="0 0 1200 800"
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseUp}
-                onWheel={handleWheel}
-              >
-                <defs>
-                  <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
-                    <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#f0f0f0" strokeWidth="1"/>
-                  </pattern>
-                </defs>
-                <rect width="100%" height="100%" fill="url(#grid)" />
-
-                {/* Origin lines */}
-                <line x1={panX} y1="0" x2={panX} y2="800" stroke="#ccc" strokeWidth="2"/>
-                <line x1="0" y1={panY} x2="1200" y2={panY} stroke="#ccc" strokeWidth="2"/>
-
-                {data.objects.map((obj, index) => renderObject(obj, index))}
-              </svg>
-            </div>
-          ) : (
-            <div style={{
-              border: isDragOver ? '3px solid #4CAF50' : '3px dashed #ccc',
-              padding: '60px',
-              textAlign: 'center',
-              borderRadius: '10px',
-              background: isDragOver ? 'rgba(76,175,80,0.1)' : '#f9f9f9'
-            }}>
-              <div style={{fontSize: '4rem', marginBottom: '20px'}}>
-                {isDragOver ? '📥' : '📁'}
-              </div>
-              <p>Drop JSON file here</p>
-              <input 
-                type="file" 
-                accept=".json" 
-                onChange={handleInputChange}
-                style={{marginTop: '10px'}}
-              />
-            </div>
-          )}
-        </div>
-
-        {/* Right Panel - 25% Son Details */}
-        <div style={{
-          width: '25%',
-          background: 'white',
-          overflowY: 'auto'
-        }}>
-          <SonDetailsPanel
-            selectedObject={selectedObject}
-            sonMetadata={sonMetadata}
-            onUpdateMetadata={handleUpdateSonMetadata}
-          />
-        </div>
       </div>
     </div>
   );
