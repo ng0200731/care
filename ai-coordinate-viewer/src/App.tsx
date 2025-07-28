@@ -118,9 +118,8 @@ function App() {
     setZoom(newZoom);
   };
 
-  const zoomToObject = (obj: AIObject) => {
+  const panToObject = (obj: AIObject) => {
     const mmToPx = 3.78;
-    const targetZoom = 1; // 1:1 ratio
     const viewportWidth = 1200; // SVG viewport width
     const viewportHeight = 800; // SVG viewport height
 
@@ -128,12 +127,36 @@ function App() {
     const objCenterX = obj.x + obj.width / 2;
     const objCenterY = obj.y + obj.height / 2;
 
-    // Calculate pan values to center the object
-    const newPanX = viewportWidth / 2 - (objCenterX * targetZoom * mmToPx);
-    const newPanY = viewportHeight / 2 - (objCenterY * targetZoom * mmToPx);
+    // Calculate pan values to center the object (keep current zoom)
+    const newPanX = viewportWidth / 2 - (objCenterX * zoom * mmToPx);
+    const newPanY = viewportHeight / 2 - (objCenterY * zoom * mmToPx);
+
+    // Apply pan only (keep current zoom)
+    setPanX(newPanX);
+    setPanY(newPanY);
+  };
+
+  const fitObjectToView = (obj: AIObject) => {
+    const mmToPx = 3.78;
+    const viewportWidth = 1200; // SVG viewport width
+    const viewportHeight = 800; // SVG viewport height
+    const padding = 50; // Padding around the object
+
+    // Calculate object center in real coordinates
+    const objCenterX = obj.x + obj.width / 2;
+    const objCenterY = obj.y + obj.height / 2;
+
+    // Calculate zoom to fit object with padding
+    const scaleX = (viewportWidth - padding * 2) / (obj.width * mmToPx);
+    const scaleY = (viewportHeight - padding * 2) / (obj.height * mmToPx);
+    const fitZoom = Math.min(scaleX, scaleY, 1); // Don't zoom in more than 100%
+
+    // Calculate pan values to center the object at the new zoom
+    const newPanX = viewportWidth / 2 - (objCenterX * fitZoom * mmToPx);
+    const newPanY = viewportHeight / 2 - (objCenterY * fitZoom * mmToPx);
 
     // Apply zoom and pan
-    setZoom(targetZoom);
+    setZoom(fitZoom);
     setPanX(newPanX);
     setPanY(newPanY);
   };
@@ -216,7 +239,7 @@ function App() {
               <div
                 onClick={() => {
                   setSelectedObject(mother.object);
-                  zoomToObject(mother.object);
+                  fitObjectToView(mother.object);
                 }}
                 style={{
                   padding: '10px',
@@ -260,7 +283,7 @@ function App() {
                   key={sonIndex}
                   onClick={() => {
                     setSelectedObject(son);
-                    zoomToObject(son);
+                    panToObject(son);
                   }}
                   style={{
                     padding: '8px 10px 8px 30px',
@@ -289,7 +312,6 @@ function App() {
                 key={index}
                 onClick={() => {
                   setSelectedObject(obj);
-                  zoomToObject(obj);
                 }}
                 style={{
                   padding: '8px 10px',
@@ -427,7 +449,6 @@ function App() {
           strokeDasharray={strokeDasharray}
           onClick={() => {
             setSelectedObject(obj);
-            zoomToObject(obj);
           }}
           style={{cursor: 'pointer'}}
         />
