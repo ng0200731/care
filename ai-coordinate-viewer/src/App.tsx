@@ -26,7 +26,7 @@ function App() {
   const [data, setData] = useState<AIData | null>(null);
   const [selectedObject, setSelectedObject] = useState<AIObject | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
-  const [expandedMothers, setExpandedMothers] = useState<Set<string>>(new Set());
+  const [expandedMothers, setExpandedMothers] = useState<Set<number>>(new Set());
 
   // Canvas view state
   const [zoom, setZoom] = useState(1); // 1 = 1:1 scale (1mm = 1px at 96 DPI)
@@ -118,6 +118,26 @@ function App() {
     setZoom(newZoom);
   };
 
+  const zoomToObject = (obj: AIObject) => {
+    const mmToPx = 3.78;
+    const targetZoom = 1; // 1:1 ratio
+    const viewportWidth = 1200; // SVG viewport width
+    const viewportHeight = 800; // SVG viewport height
+
+    // Calculate object center in real coordinates
+    const objCenterX = obj.x + obj.width / 2;
+    const objCenterY = obj.y + obj.height / 2;
+
+    // Calculate pan values to center the object
+    const newPanX = viewportWidth / 2 - (objCenterX * targetZoom * mmToPx);
+    const newPanY = viewportHeight / 2 - (objCenterY * targetZoom * mmToPx);
+
+    // Apply zoom and pan
+    setZoom(targetZoom);
+    setPanX(newPanX);
+    setPanY(newPanY);
+  };
+
   // Build hierarchy from objects
   const buildHierarchy = (objects: AIObject[]) => {
     const mothers: HierarchyNode[] = [];
@@ -144,7 +164,7 @@ function App() {
       mothers.push({
         object: mother,
         children: sons,
-        isExpanded: expandedMothers.has(mother.name)
+        isExpanded: false // Will be set correctly in render
       });
     });
     
@@ -166,14 +186,15 @@ function App() {
     return { mothers, orphans };
   };
 
-  const toggleMother = (motherName: string) => {
-    const newExpanded = new Set<string>();
-    if (!expandedMothers.has(motherName)) {
-      // Only expand the clicked mother, collapse all others
-      newExpanded.add(motherName);
+  const toggleMother = (motherId: number) => {
+    // Simple logic: if clicking the same mother, collapse it. Otherwise, expand only this one.
+    if (expandedMothers.has(motherId)) {
+      // Collapse the clicked mother
+      setExpandedMothers(new Set());
+    } else {
+      // Expand only the clicked mother, collapse all others
+      setExpandedMothers(new Set([motherId]));
     }
-    // If the clicked mother was already expanded, leave newExpanded empty (collapse all)
-    setExpandedMothers(newExpanded);
   };
 
   const renderHierarchicalList = () => {
@@ -187,13 +208,16 @@ function App() {
         
         {/* Mothers with their sons */}
         {mothers.map((mother, index) => {
-          const isExpanded = expandedMothers.has(mother.object.name);
-          
+          const isExpanded = expandedMothers.has(index);
+
           return (
             <div key={index} style={{marginBottom: '10px'}}>
               {/* Mother */}
-              <div 
-                onClick={() => setSelectedObject(mother.object)}
+              <div
+                onClick={() => {
+                  setSelectedObject(mother.object);
+                  zoomToObject(mother.object);
+                }}
                 style={{
                   padding: '10px',
                   background: selectedObject === mother.object ? '#d32f2f' : '#ffebee',
@@ -207,15 +231,15 @@ function App() {
                 }}
               >
                 <div>
-                  <div>👑 {mother.object.name}</div>
+                  <div>👑 {mother.object.name} ({mother.children.length + 1} objects)</div>
                   <div style={{fontSize: '0.8em', opacity: 0.8}}>
-                    {mother.object.typename} ({mother.children.length} sons)
+                    {mother.object.typename}
                   </div>
                 </div>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    toggleMother(mother.object.name);
+                    toggleMother(index);
                   }}
                   style={{
                     background: 'none',
@@ -232,9 +256,12 @@ function App() {
               
               {/* Sons (collapsible) */}
               {isExpanded && mother.children.map((son, sonIndex) => (
-                <div 
+                <div
                   key={sonIndex}
-                  onClick={() => setSelectedObject(son)}
+                  onClick={() => {
+                    setSelectedObject(son);
+                    zoomToObject(son);
+                  }}
                   style={{
                     padding: '8px 10px 8px 30px',
                     margin: '2px 0 2px 20px',
@@ -258,9 +285,12 @@ function App() {
           <div style={{marginTop: '20px'}}>
             <h5 style={{color: '#666', margin: '10px 0'}}>🔸 Other Objects:</h5>
             {orphans.map((obj, index) => (
-              <div 
+              <div
                 key={index}
-                onClick={() => setSelectedObject(obj)}
+                onClick={() => {
+                  setSelectedObject(obj);
+                  zoomToObject(obj);
+                }}
                 style={{
                   padding: '8px 10px',
                   margin: '2px 0',
@@ -395,7 +425,10 @@ function App() {
           stroke={strokeColor}
           strokeWidth={strokeWidth}
           strokeDasharray={strokeDasharray}
-          onClick={() => setSelectedObject(obj)}
+          onClick={() => {
+            setSelectedObject(obj);
+            zoomToObject(obj);
+          }}
           style={{cursor: 'pointer'}}
         />
 
@@ -603,7 +636,10 @@ function App() {
           overflowY: 'auto'
         }}>
           <h3 style={{marginTop: 0, borderBottom: '1px solid #eee', paddingBottom: '10px'}}>
-            📋 Layer Objects
+            📋 {data ? (() => {
+              const { mothers } = buildHierarchy(data.objects);
+              return `${mothers.length} Pages (${data.totalObjects} Objects)`;
+            })() : 'Layer Objects'}
           </h3>
           
           {data ? (

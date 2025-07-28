@@ -31,7 +31,13 @@ function stringifyJSON(obj, indent) {
 }
 
 // Script Version
-var SCRIPT_VERSION = "5.0.0";
+var SCRIPT_VERSION = "5.1.0";
+
+// This script handles locked layers and objects by skipping them:
+// - Locked layers are completely skipped (not processed)
+// - Locked objects within unlocked layers are skipped
+// - Only unlocked layers and unlocked objects are exported
+// - This preserves the user's intent to keep certain elements locked
 
 // Main export function
 function exportObjectsToJSON() {
@@ -76,60 +82,75 @@ function exportObjectsToJSON() {
 }
 
 function processLayer(layer, objects) {
+    // Skip locked layers entirely
+    if (layer.locked) {
+        return;
+    }
+
     // Get artboard reference
     var doc = app.activeDocument;
     var artboard = doc.artboards[doc.artboards.getActiveArtboardIndex()];
     var artboardRect = artboard.artboardRect; // [left, top, right, bottom]
     var artboardTop = artboardRect[1]; // Top edge of artboard
-    
+
     for (var i = 0; i < layer.pageItems.length; i++) {
         var item = layer.pageItems[i];
-        
-        // Get position using UnitValue for exact mm conversion
-        var position = item.position;
-        var docX = new UnitValue(position[0], "pt").as("mm");
-        var docY = new UnitValue(position[1], "pt").as("mm");
-        var artboardTopMM = new UnitValue(artboardTop, "pt").as("mm");
-        
-        // Convert to artboard-relative coordinates
-        var x = docX;
-        var y = artboardTopMM - docY; // This makes Y positive from top
-        
-        var width = new UnitValue(item.width, "pt").as("mm");
-        var height = new UnitValue(item.height, "pt").as("mm");
-        
-        var objData = {
-            name: item.name || "Unnamed",
-            typename: item.typename,
-            layer: layer.name,
-            x: parseFloat(x.toFixed(2)),
-            y: parseFloat(y.toFixed(2)),
-            width: parseFloat(width.toFixed(2)),
-            height: parseFloat(height.toFixed(2)),
-            // Corner coordinates using UnitValue conversion
-            topLeft: { 
-                x: parseFloat(x.toFixed(2)), 
-                y: parseFloat(y.toFixed(2))
-            },
-            topRight: { 
-                x: parseFloat((x + width).toFixed(2)), 
-                y: parseFloat(y.toFixed(2))
-            },
-            bottomLeft: { 
-                x: parseFloat(x.toFixed(2)), 
-                y: parseFloat((y + height).toFixed(2))
-            },
-            bottomRight: { 
-                x: parseFloat((x + width).toFixed(2)), 
-                y: parseFloat((y + height).toFixed(2))
-            },
-            type: item.typename,
-            units: "mm"
-        };
-        
-        objects.push(objData);
+
+        // Skip locked objects
+        if (item.locked) {
+            continue;
+        }
+
+        try {
+            // Get position using UnitValue for exact mm conversion
+            var position = item.position;
+            var docX = new UnitValue(position[0], "pt").as("mm");
+            var docY = new UnitValue(position[1], "pt").as("mm");
+            var artboardTopMM = new UnitValue(artboardTop, "pt").as("mm");
+
+            // Convert to artboard-relative coordinates
+            var x = docX;
+            var y = artboardTopMM - docY; // This makes Y positive from top
+
+            var width = new UnitValue(item.width, "pt").as("mm");
+            var height = new UnitValue(item.height, "pt").as("mm");
+
+            var objData = {
+                name: item.name || "Unnamed",
+                typename: item.typename,
+                layer: layer.name,
+                x: parseFloat(x.toFixed(2)),
+                y: parseFloat(y.toFixed(2)),
+                width: parseFloat(width.toFixed(2)),
+                height: parseFloat(height.toFixed(2)),
+                // Corner coordinates using UnitValue conversion
+                topLeft: {
+                    x: parseFloat(x.toFixed(2)),
+                    y: parseFloat(y.toFixed(2))
+                },
+                topRight: {
+                    x: parseFloat((x + width).toFixed(2)),
+                    y: parseFloat(y.toFixed(2))
+                },
+                bottomLeft: {
+                    x: parseFloat(x.toFixed(2)),
+                    y: parseFloat((y + height).toFixed(2))
+                },
+                bottomRight: {
+                    x: parseFloat((x + width).toFixed(2)),
+                    y: parseFloat((y + height).toFixed(2))
+                },
+                type: item.typename,
+                units: "mm"
+            };
+
+            objects.push(objData);
+        } catch (e) {
+            // If we can't access the object properties, skip it
+            // This might happen with some special object types
+        }
     }
-    
+
     // Process sublayers
     for (var j = 0; j < layer.layers.length; j++) {
         processLayer(layer.layers[j], objects);
