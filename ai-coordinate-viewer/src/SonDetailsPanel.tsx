@@ -15,6 +15,20 @@ interface SonMetadata {
   sonType: 'text' | 'image' | 'barcode' | 'translation' | 'washing-symbol' | 'size-breakdown' | 'composition' | 'special-wording';
   content: string;
   details: any;
+  fontFamily?: string;
+  fontSize?: number;
+  textAlign?: 'left' | 'center' | 'right';
+  fontWeight?: 'normal' | 'bold';
+  textOverflow?: 'resize' | 'linebreak';
+  lineBreakType?: 'word' | 'character';
+  characterConnector?: string;
+  spaceAllocation?: {
+    region: string;
+    rowHeight: number;
+    columns: number;
+    selectedColumn: number;
+    allocated: boolean;
+  };
 }
 
 interface SonDetailsPanelProps {
@@ -78,7 +92,14 @@ const SonDetailsPanel: React.FC<SonDetailsPanelProps> = ({
     id: objectId,
     sonType: 'text',
     content: '',
-    details: {}
+    details: {},
+    fontFamily: 'Arial',
+    fontSize: 12,
+    textAlign: 'left',
+    fontWeight: 'normal',
+    textOverflow: 'linebreak',
+    lineBreakType: 'word',
+    characterConnector: '-'
   };
 
   const handleTypeChange = (newType: SonMetadata['sonType']) => {
@@ -119,6 +140,240 @@ const SonDetailsPanel: React.FC<SonDetailsPanelProps> = ({
                 fontSize: '14px'
               }}
             />
+
+            {/* Font Formatting Controls */}
+            <div style={{ marginTop: '15px', padding: '10px', background: '#f8f9fa', borderRadius: '4px' }}>
+              <h4 style={{ margin: '0 0 10px 0', fontSize: '13px', color: '#666' }}>🎨 Text Formatting</h4>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+                {/* Font Family */}
+                <div>
+                  <label style={{ display: 'block', marginBottom: '3px', fontSize: '12px', fontWeight: 'bold' }}>
+                    Font Family:
+                  </label>
+                  <select
+                    value={currentMetadata.fontFamily || 'Arial'}
+                    onChange={(e) => {
+                      const updatedMetadata = { ...currentMetadata, fontFamily: e.target.value };
+                      onUpdateMetadata(objectId, updatedMetadata);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '4px',
+                      border: '1px solid #ddd',
+                      borderRadius: '3px',
+                      fontSize: '12px'
+                    }}
+                  >
+                    <option value="Arial">Arial</option>
+                    <option value="Helvetica">Helvetica</option>
+                    <option value="Times New Roman">Times New Roman</option>
+                    <option value="Courier New">Courier New</option>
+                    <option value="Verdana">Verdana</option>
+                    <option value="Georgia">Georgia</option>
+                  </select>
+                </div>
+
+                {/* Font Size */}
+                <div>
+                  <label style={{ display: 'block', marginBottom: '3px', fontSize: '12px', fontWeight: 'bold' }}>
+                    Font Size:
+                  </label>
+                  <input
+                    type="number"
+                    min="6"
+                    max="72"
+                    value={currentMetadata.fontSize || 12}
+                    onChange={(e) => {
+                      const updatedMetadata = { ...currentMetadata, fontSize: parseInt(e.target.value) };
+                      onUpdateMetadata(objectId, updatedMetadata);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '4px',
+                      border: '1px solid #ddd',
+                      borderRadius: '3px',
+                      fontSize: '12px'
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                {/* Text Alignment */}
+                <div>
+                  <label style={{ display: 'block', marginBottom: '3px', fontSize: '12px', fontWeight: 'bold' }}>
+                    Text Align:
+                  </label>
+                  <select
+                    value={currentMetadata.textAlign || 'left'}
+                    onChange={(e) => {
+                      const updatedMetadata = { ...currentMetadata, textAlign: e.target.value as 'left' | 'center' | 'right' };
+                      onUpdateMetadata(objectId, updatedMetadata);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '4px',
+                      border: '1px solid #ddd',
+                      borderRadius: '3px',
+                      fontSize: '12px'
+                    }}
+                  >
+                    <option value="left">⬅️ Left</option>
+                    <option value="center">⬅️➡️ Center</option>
+                    <option value="right">➡️ Right</option>
+                  </select>
+                </div>
+
+                {/* Font Weight */}
+                <div>
+                  <label style={{ display: 'block', marginBottom: '3px', fontSize: '12px', fontWeight: 'bold' }}>
+                    Font Weight:
+                  </label>
+                  <select
+                    value={currentMetadata.fontWeight || 'normal'}
+                    onChange={(e) => {
+                      const updatedMetadata = { ...currentMetadata, fontWeight: e.target.value as 'normal' | 'bold' };
+                      onUpdateMetadata(objectId, updatedMetadata);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '4px',
+                      border: '1px solid #ddd',
+                      borderRadius: '3px',
+                      fontSize: '12px'
+                    }}
+                  >
+                    <option value="normal">Normal</option>
+                    <option value="bold">Bold</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Text Overflow Handling */}
+              <div style={{ marginTop: '15px', padding: '10px', background: '#fff3e0', borderRadius: '4px' }}>
+                <h4 style={{ margin: '0 0 10px 0', fontSize: '13px', color: '#e65100' }}>📏 Text Overflow Handling</h4>
+
+                {/* Overflow Method */}
+                <div style={{ marginBottom: '10px' }}>
+                  <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px', fontWeight: 'bold' }}>
+                    When text is too long:
+                  </label>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', fontSize: '12px', cursor: 'pointer' }}>
+                      <input
+                        type="radio"
+                        name="textOverflow"
+                        value="resize"
+                        checked={currentMetadata.textOverflow === 'resize'}
+                        onChange={(e) => {
+                          const updatedMetadata = { ...currentMetadata, textOverflow: e.target.value as 'resize' | 'linebreak' };
+                          onUpdateMetadata(objectId, updatedMetadata);
+                        }}
+                        style={{ marginRight: '5px' }}
+                      />
+                      🔍 Resize to fit
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', fontSize: '12px', cursor: 'pointer' }}>
+                      <input
+                        type="radio"
+                        name="textOverflow"
+                        value="linebreak"
+                        checked={currentMetadata.textOverflow === 'linebreak'}
+                        onChange={(e) => {
+                          const updatedMetadata = { ...currentMetadata, textOverflow: e.target.value as 'resize' | 'linebreak' };
+                          onUpdateMetadata(objectId, updatedMetadata);
+                        }}
+                        style={{ marginRight: '5px' }}
+                      />
+                      📝 Accept line breaks
+                    </label>
+                  </div>
+                </div>
+
+                {/* Line Break Options (only show when linebreak is selected) */}
+                {currentMetadata.textOverflow === 'linebreak' && (
+                  <div style={{ marginLeft: '20px', padding: '8px', background: 'rgba(255,255,255,0.7)', borderRadius: '3px' }}>
+                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px', fontWeight: 'bold' }}>
+                      Line break method:
+                    </label>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', fontSize: '12px', cursor: 'pointer' }}>
+                        <input
+                          type="radio"
+                          name="lineBreakType"
+                          value="word"
+                          checked={currentMetadata.lineBreakType === 'word'}
+                          onChange={(e) => {
+                            const updatedMetadata = { ...currentMetadata, lineBreakType: e.target.value as 'word' | 'character' };
+                            onUpdateMetadata(objectId, updatedMetadata);
+                          }}
+                          style={{ marginRight: '5px' }}
+                        />
+                        🔤 Word break (break at word boundaries)
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', fontSize: '12px', cursor: 'pointer' }}>
+                        <input
+                          type="radio"
+                          name="lineBreakType"
+                          value="character"
+                          checked={currentMetadata.lineBreakType === 'character'}
+                          onChange={(e) => {
+                            const updatedMetadata = { ...currentMetadata, lineBreakType: e.target.value as 'word' | 'character' };
+                            onUpdateMetadata(objectId, updatedMetadata);
+                          }}
+                          style={{ marginRight: '5px' }}
+                        />
+                        ✂️ Character break with connector
+                      </label>
+
+                      {/* Character Connector Input (only show when character break is selected) */}
+                      {currentMetadata.lineBreakType === 'character' && (
+                        <div style={{ marginLeft: '20px', marginTop: '5px' }}>
+                          <label style={{ display: 'block', marginBottom: '3px', fontSize: '11px', fontWeight: 'bold' }}>
+                            Connector character:
+                          </label>
+                          <input
+                            type="text"
+                            maxLength={3}
+                            value={currentMetadata.characterConnector || '-'}
+                            onChange={(e) => {
+                              const updatedMetadata = { ...currentMetadata, characterConnector: e.target.value };
+                              onUpdateMetadata(objectId, updatedMetadata);
+                            }}
+                            placeholder="-"
+                            style={{
+                              width: '60px',
+                              padding: '3px 6px',
+                              border: '1px solid #ddd',
+                              borderRadius: '3px',
+                              fontSize: '12px',
+                              textAlign: 'center'
+                            }}
+                          />
+                          <span style={{ fontSize: '10px', color: '#666', marginLeft: '5px' }}>
+                            (e.g., -, /, |)
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Space Allocation Info (if allocated) */}
+              {currentMetadata.spaceAllocation?.allocated && (
+                <div style={{ marginTop: '15px', padding: '10px', background: '#e8f5e8', borderRadius: '4px' }}>
+                  <h4 style={{ margin: '0 0 8px 0', fontSize: '13px', color: '#2e7d32' }}>📐 Space Allocation</h4>
+                  <div style={{ fontSize: '12px', color: '#2e7d32' }}>
+                    <div><strong>Region:</strong> {currentMetadata.spaceAllocation.region}</div>
+                    <div><strong>Row Height:</strong> {currentMetadata.spaceAllocation.rowHeight}mm</div>
+                    <div><strong>Columns:</strong> {currentMetadata.spaceAllocation.columns}</div>
+                    <div><strong>Selected Column:</strong> {currentMetadata.spaceAllocation.selectedColumn}</div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         );
 

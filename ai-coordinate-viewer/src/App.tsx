@@ -16,6 +16,20 @@ interface SonMetadata {
   sonType: 'text' | 'image' | 'barcode' | 'translation' | 'washing-symbol' | 'size-breakdown' | 'composition' | 'special-wording';
   content: string;
   details: any; // Type-specific details
+  fontFamily?: string;
+  fontSize?: number;
+  textAlign?: 'left' | 'center' | 'right';
+  fontWeight?: 'normal' | 'bold';
+  textOverflow?: 'resize' | 'linebreak';
+  lineBreakType?: 'word' | 'character';
+  characterConnector?: string;
+  spaceAllocation?: {
+    region: string;
+    rowHeight: number;
+    columns: number;
+    selectedColumn: number;
+    allocated: boolean;
+  };
 }
 
 interface HierarchyNode {
@@ -47,16 +61,7 @@ function App() {
   const [showDimensions, setShowDimensions] = useState(true);
   const [autoFitNotification, setAutoFitNotification] = useState(false);
 
-  // Space allocation dialog state
-  const [spaceDialogOpen, setSpaceDialogOpen] = useState(false);
-  const [spaceDialogObject, setSpaceDialogObject] = useState<AIObject | null>(null);
-  const [spaceDialogStep, setSpaceDialogStep] = useState(1);
-  const [spaceAllocation, setSpaceAllocation] = useState({
-    region: '',
-    rowHeight: 10,
-    columnLayout: 1,
-    selectedColumn: 1
-  });
+  // Removed space allocation dialog - now handled directly in son regions
 
   // Canvas control functions
   const handleZoomIn = () => setZoom(prev => Math.min(prev * 1.2, 5));
@@ -211,46 +216,40 @@ function App() {
   };
 
   // Space allocation dialog functions
-  const openSpaceDialog = (obj: AIObject) => {
-    console.log('🏗️ Opening space allocation dialog for:', obj.name);
-    setSpaceDialogObject(obj);
-    setSpaceDialogOpen(true);
-    setSpaceDialogStep(1);
-    setSpaceAllocation({
-      region: '',
-      rowHeight: 10,
-      columnLayout: 1,
-      selectedColumn: 1
-    });
+  const handleSpaceAllocation = (obj: AIObject) => {
+    console.log('🏗️ Allocating space directly for:', obj.name);
+    const objectId = `${obj.name}_${obj.x}_${obj.y}`;
+    const currentMetadata = sonMetadata.get(objectId) || {
+      id: objectId,
+      sonType: 'text',
+      content: '',
+      details: {},
+      fontFamily: 'Arial',
+      fontSize: 12,
+      textAlign: 'left',
+      fontWeight: 'normal',
+      textOverflow: 'linebreak',
+      lineBreakType: 'word',
+      characterConnector: '-'
+    };
+
+    // Add space allocation info directly to metadata
+    const updatedMetadata = {
+      ...currentMetadata,
+      spaceAllocation: {
+        region: 'content',
+        rowHeight: 10,
+        columns: 1,
+        selectedColumn: 1,
+        allocated: true
+      }
+    };
+
+    handleUpdateSonMetadata(objectId, updatedMetadata);
+    setSelectedObject(obj); // Select the object to show details
   };
 
-  const closeSpaceDialog = () => {
-    console.log('❌ Closing space allocation dialog');
-    setSpaceDialogOpen(false);
-    setSpaceDialogObject(null);
-    setSpaceDialogStep(1);
-  };
-
-  const nextDialogStep = () => {
-    if (spaceDialogStep < 5) {
-      setSpaceDialogStep(spaceDialogStep + 1);
-      console.log('➡️ Moving to step:', spaceDialogStep + 1);
-    }
-  };
-
-  const prevDialogStep = () => {
-    if (spaceDialogStep > 1) {
-      setSpaceDialogStep(spaceDialogStep - 1);
-      console.log('⬅️ Moving to step:', spaceDialogStep - 1);
-    }
-  };
-
-  const confirmSpaceAllocation = () => {
-    console.log('✅ Confirming space allocation:', spaceAllocation);
-    // TODO: Apply the space allocation to the object
-    alert(`Space allocated for ${spaceDialogObject?.name}!\nRegion: ${spaceAllocation.region}\nRow Height: ${spaceAllocation.rowHeight}mm\nColumns: ${spaceAllocation.columnLayout}\nColumn: ${spaceAllocation.selectedColumn}`);
-    closeSpaceDialog();
-  };
+  // Dialog functions removed - space allocation now handled directly
 
   const fitObjectToView = (obj: AIObject) => {
     // Get actual SVG dimensions
@@ -396,8 +395,8 @@ function App() {
             <div key={index} style={{marginBottom: '15px'}}>
               {/* Mother Header - Enhanced with Fit View button (v1.3.0) */}
               <div style={{
-                background: selectedObject === mother.object ? '#d32f2f' : '#ffebee',
-                color: selectedObject === mother.object ? 'white' : '#d32f2f',
+                background: selectedObject === mother.object ? '#1976d2' : '#e3f2fd',
+                color: selectedObject === mother.object ? 'white' : '#1976d2',
                 borderRadius: '8px',
                 overflow: 'hidden'
               }}>
@@ -433,7 +432,7 @@ function App() {
                       >
                         {isExpanded ? '▼' : '▶'}
                       </button>
-                      <span>👑 {mother.object.name} ({mother.children.length} objects)</span>
+                      <span>{mother.object.name} ({mother.children.length} objects)</span>
                     </div>
                     <div style={{fontSize: '0.8em', opacity: 0.8, marginLeft: '24px'}}>
                       {mother.object.typename}
@@ -492,7 +491,7 @@ function App() {
                     }}
                   >
                     <div style={{flex: 1}}>
-                      <div>👶 {son.name}</div>
+                      <div>{son.name}</div>
                       <div style={{fontSize: '0.8em', opacity: 0.8}}>{son.typename}</div>
                     </div>
 
@@ -508,33 +507,37 @@ function App() {
                           background: 'rgba(255,255,255,0.2)',
                           border: '1px solid rgba(255,255,255,0.3)',
                           color: 'inherit',
-                          fontSize: '9px',
-                          padding: '3px 6px',
-                          borderRadius: '3px',
-                          cursor: 'pointer'
+                          fontSize: '14px',
+                          padding: '6px 10px',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          minWidth: '32px',
+                          minHeight: '28px'
                         }}
                         title="Pan to center (keep current zoom)"
                       >
-                        🎯 Pan To
+                        ✋
                       </button>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           setSelectedObject(son);
-                          openSpaceDialog(son);
+                          handleSpaceAllocation(son);
                         }}
                         style={{
                           background: 'rgba(255,255,255,0.2)',
                           border: '1px solid rgba(255,255,255,0.3)',
                           color: 'inherit',
-                          fontSize: '9px',
-                          padding: '3px 6px',
-                          borderRadius: '3px',
-                          cursor: 'pointer'
+                          fontSize: '14px',
+                          padding: '6px 10px',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          minWidth: '32px',
+                          minHeight: '28px'
                         }}
                         title="Allocate space in region/row/column"
                       >
-                        📐 Allocate Space
+                        📐
                       </button>
                     </div>
                   </div>
@@ -759,35 +762,90 @@ function App() {
             const contentWidth = width - 10; // Leave margins
 
             if (contentHeight > 10 && contentWidth > 20) {
-              // Split content into lines that fit the width
-              const maxCharsPerLine = Math.floor(contentWidth / (fontSize * 0.6));
-              const words = content.split(' ');
-              const lines = [];
-              let currentLine = '';
+              // Get text overflow settings
+              const textOverflow = metadata?.textOverflow || 'linebreak';
+              const lineBreakType = metadata?.lineBreakType || 'word';
+              const characterConnector = metadata?.characterConnector || '-';
 
-              for (const word of words) {
-                if ((currentLine + word).length <= maxCharsPerLine) {
-                  currentLine += (currentLine ? ' ' : '') + word;
+              let displayLines = [];
+              let actualFontSize = Math.max(6, (metadata?.fontSize || 12) * zoom);
+
+              if (textOverflow === 'resize') {
+                // Option 1: Resize text to fit in one line
+                const maxCharsPerLine = Math.floor(contentWidth / (actualFontSize * 0.6));
+                if (content.length > maxCharsPerLine) {
+                  // Calculate smaller font size to fit all text in one line
+                  actualFontSize = Math.max(6, (contentWidth / (content.length * 0.6)));
+                }
+                displayLines = [content]; // Single line
+              } else {
+                // Option 2: Accept line breaks
+                const maxCharsPerLine = Math.floor(contentWidth / (actualFontSize * 0.6));
+
+                if (lineBreakType === 'word') {
+                  // Word break: break at word boundaries
+                  const words = content.split(' ');
+                  let currentLine = '';
+
+                  for (const word of words) {
+                    if ((currentLine + word).length <= maxCharsPerLine) {
+                      currentLine += (currentLine ? ' ' : '') + word;
+                    } else {
+                      if (currentLine) displayLines.push(currentLine);
+                      currentLine = word;
+                    }
+                  }
+                  if (currentLine) displayLines.push(currentLine);
                 } else {
-                  if (currentLine) lines.push(currentLine);
-                  currentLine = word;
+                  // Character break: break at character boundaries with connector
+                  let remainingText = content;
+                  while (remainingText.length > 0) {
+                    if (remainingText.length <= maxCharsPerLine) {
+                      displayLines.push(remainingText);
+                      break;
+                    } else {
+                      // Take max chars minus connector length, add connector
+                      const lineLength = maxCharsPerLine - characterConnector.length;
+                      const lineText = remainingText.substring(0, lineLength) + characterConnector;
+                      displayLines.push(lineText);
+                      remainingText = remainingText.substring(lineLength);
+                    }
+                  }
                 }
               }
-              if (currentLine) lines.push(currentLine);
 
               // Limit lines to fit in available height
-              const lineHeight = fontSize + 2;
+              const lineHeight = actualFontSize + 2;
               const maxLines = Math.floor(contentHeight / lineHeight);
-              const displayLines = lines.slice(0, maxLines);
+              displayLines = displayLines.slice(0, maxLines);
+
+              // Apply font formatting from metadata
+              const fontFamily = metadata?.fontFamily || 'Arial';
+              const textAlign = metadata?.textAlign || 'left';
+              const fontWeight = metadata?.fontWeight || 'normal';
+
+              // Calculate text anchor based on alignment
+              let textAnchor: 'start' | 'middle' | 'end' = 'start';
+              let textX = baseX + 5;
+
+              if (textAlign === 'center') {
+                textAnchor = 'middle';
+                textX = baseX + (width / 2);
+              } else if (textAlign === 'right') {
+                textAnchor = 'end';
+                textX = baseX + width - 5;
+              }
 
               return displayLines.map((line, lineIndex) => (
                 <text
                   key={`content-${lineIndex}`}
-                  x={baseX + 5}
+                  x={textX}
                   y={contentY + (lineIndex * lineHeight)}
-                  fontSize={Math.max(6, fontSize - 1)}
+                  fontSize={actualFontSize}
                   fill="#2e7d32"
-                  fontWeight="normal"
+                  fontWeight={fontWeight}
+                  fontFamily={fontFamily}
+                  textAnchor={textAnchor}
                 >
                   {line}
                 </text>
@@ -852,316 +910,7 @@ function App() {
     );
   };
 
-  // Space Allocation Dialog Component
-  const renderSpaceAllocationDialog = () => {
-    if (!spaceDialogOpen || !spaceDialogObject) return null;
-
-    const regions = [
-      { id: 'header', name: '📋 Header', description: 'Top section for titles and logos' },
-      { id: 'content', name: '📝 Content', description: 'Main content area' },
-      { id: 'care', name: '🧺 Care', description: 'Care instructions section' },
-      { id: 'legal', name: '⚖️ Legal', description: 'Legal text and compliance' }
-    ];
-
-    return (
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'rgba(0, 0, 0, 0.7)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 2000
-      }}>
-        <div style={{
-          background: 'white',
-          borderRadius: '12px',
-          padding: '24px',
-          maxWidth: '600px',
-          width: '90%',
-          maxHeight: '80vh',
-          overflow: 'auto',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
-        }}>
-          {/* Dialog Header */}
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '20px',
-            borderBottom: '2px solid #f0f0f0',
-            paddingBottom: '16px'
-          }}>
-            <h3 style={{ margin: 0, color: '#333' }}>
-              📐 Allocate Space for "{spaceDialogObject.name}"
-            </h3>
-            <button
-              onClick={closeSpaceDialog}
-              style={{
-                background: 'none',
-                border: 'none',
-                fontSize: '24px',
-                cursor: 'pointer',
-                color: '#666'
-              }}
-            >
-              ✕
-            </button>
-          </div>
-
-          {/* Step Progress Indicator */}
-          <div style={{
-            display: 'flex',
-            justifyContent: 'center',
-            marginBottom: '24px'
-          }}>
-            {[1, 2, 3, 4, 5].map(step => (
-              <div
-                key={step}
-                style={{
-                  width: '40px',
-                  height: '40px',
-                  borderRadius: '50%',
-                  background: step <= spaceDialogStep ? '#4CAF50' : '#e0e0e0',
-                  color: step <= spaceDialogStep ? 'white' : '#666',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  margin: '0 8px',
-                  fontWeight: 'bold'
-                }}
-              >
-                {step}
-              </div>
-            ))}
-          </div>
-
-          {/* Step Content */}
-          <div style={{ minHeight: '200px', marginBottom: '24px' }}>
-            {/* Step 1: Region Selection */}
-            {spaceDialogStep === 1 && (
-              <div>
-                <h4>Step 1: Choose Region</h4>
-                <p style={{ color: '#666', marginBottom: '16px' }}>
-                  Select which region of the label this object should be placed in:
-                </p>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                  {regions.map(region => (
-                    <button
-                      key={region.id}
-                      onClick={() => setSpaceAllocation({...spaceAllocation, region: region.id})}
-                      style={{
-                        padding: '16px',
-                        border: spaceAllocation.region === region.id ? '3px solid #4CAF50' : '2px solid #ddd',
-                        borderRadius: '8px',
-                        background: spaceAllocation.region === region.id ? '#f8fff8' : 'white',
-                        cursor: 'pointer',
-                        textAlign: 'left'
-                      }}
-                    >
-                      <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>{region.name}</div>
-                      <div style={{ fontSize: '12px', color: '#666' }}>{region.description}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Step 2: Row Height */}
-            {spaceDialogStep === 2 && (
-              <div>
-                <h4>Step 2: Define Row Height</h4>
-                <p style={{ color: '#666', marginBottom: '16px' }}>
-                  Set the height of the row where this object will be placed:
-                </p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <label>Row Height:</label>
-                  <input
-                    type="number"
-                    min="5"
-                    max="100"
-                    value={spaceAllocation.rowHeight}
-                    onChange={(e) => setSpaceAllocation({...spaceAllocation, rowHeight: parseInt(e.target.value)})}
-                    style={{
-                      padding: '8px',
-                      border: '2px solid #ddd',
-                      borderRadius: '4px',
-                      width: '80px'
-                    }}
-                  />
-                  <span>mm</span>
-                </div>
-                <div style={{ marginTop: '12px', fontSize: '12px', color: '#666' }}>
-                  Recommended: 8-15mm for text, 20-50mm for images
-                </div>
-              </div>
-            )}
-
-            {/* Step 3: Column Layout */}
-            {spaceDialogStep === 3 && (
-              <div>
-                <h4>Step 3: Choose Column Layout</h4>
-                <p style={{ color: '#666', marginBottom: '16px' }}>
-                  Select how many columns this row should have:
-                </p>
-                <div style={{ display: 'flex', gap: '16px' }}>
-                  {[1, 2, 3].map(cols => (
-                    <button
-                      key={cols}
-                      onClick={() => setSpaceAllocation({...spaceAllocation, columnLayout: cols, selectedColumn: 1})}
-                      style={{
-                        padding: '16px',
-                        border: spaceAllocation.columnLayout === cols ? '3px solid #4CAF50' : '2px solid #ddd',
-                        borderRadius: '8px',
-                        background: spaceAllocation.columnLayout === cols ? '#f8fff8' : 'white',
-                        cursor: 'pointer',
-                        textAlign: 'center',
-                        minWidth: '100px'
-                      }}
-                    >
-                      <div style={{ fontWeight: 'bold' }}>{cols} Column{cols > 1 ? 's' : ''}</div>
-                      <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-                        {cols === 1 ? 'Full width' : cols === 2 ? 'Side by side' : 'Three columns'}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Step 4: Column Assignment */}
-            {spaceDialogStep === 4 && (
-              <div>
-                <h4>Step 4: Select Column</h4>
-                <p style={{ color: '#666', marginBottom: '16px' }}>
-                  Choose which column to place this object in:
-                </p>
-                <div style={{ display: 'flex', gap: '12px' }}>
-                  {Array.from({length: spaceAllocation.columnLayout}, (_, i) => i + 1).map(col => (
-                    <button
-                      key={col}
-                      onClick={() => setSpaceAllocation({...spaceAllocation, selectedColumn: col})}
-                      style={{
-                        padding: '16px',
-                        border: spaceAllocation.selectedColumn === col ? '3px solid #4CAF50' : '2px solid #ddd',
-                        borderRadius: '8px',
-                        background: spaceAllocation.selectedColumn === col ? '#f8fff8' : 'white',
-                        cursor: 'pointer',
-                        textAlign: 'center',
-                        flex: 1
-                      }}
-                    >
-                      <div style={{ fontWeight: 'bold' }}>Column {col}</div>
-                      <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-                        {col === 1 ? 'Left' : col === spaceAllocation.columnLayout ? 'Right' : 'Center'}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Step 5: Confirmation */}
-            {spaceDialogStep === 5 && (
-              <div>
-                <h4>Step 5: Confirm Allocation</h4>
-                <p style={{ color: '#666', marginBottom: '16px' }}>
-                  Review your space allocation settings:
-                </p>
-                <div style={{
-                  background: '#f8f9fa',
-                  padding: '16px',
-                  borderRadius: '8px',
-                  border: '1px solid #e9ecef'
-                }}>
-                  <div style={{ marginBottom: '8px' }}>
-                    <strong>Object:</strong> {spaceDialogObject.name}
-                  </div>
-                  <div style={{ marginBottom: '8px' }}>
-                    <strong>Region:</strong> {regions.find(r => r.id === spaceAllocation.region)?.name || 'Not selected'}
-                  </div>
-                  <div style={{ marginBottom: '8px' }}>
-                    <strong>Row Height:</strong> {spaceAllocation.rowHeight}mm
-                  </div>
-                  <div style={{ marginBottom: '8px' }}>
-                    <strong>Column Layout:</strong> {spaceAllocation.columnLayout} column{spaceAllocation.columnLayout > 1 ? 's' : ''}
-                  </div>
-                  <div>
-                    <strong>Selected Column:</strong> Column {spaceAllocation.selectedColumn}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Dialog Actions */}
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            borderTop: '1px solid #f0f0f0',
-            paddingTop: '16px'
-          }}>
-            <button
-              onClick={prevDialogStep}
-              disabled={spaceDialogStep === 1}
-              style={{
-                padding: '10px 20px',
-                border: '2px solid #ddd',
-                borderRadius: '6px',
-                background: spaceDialogStep === 1 ? '#f5f5f5' : 'white',
-                color: spaceDialogStep === 1 ? '#999' : '#333',
-                cursor: spaceDialogStep === 1 ? 'not-allowed' : 'pointer'
-              }}
-            >
-              ⬅️ Previous
-            </button>
-
-            <div style={{ color: '#666' }}>
-              Step {spaceDialogStep} of 5
-            </div>
-
-            {spaceDialogStep < 5 ? (
-              <button
-                onClick={nextDialogStep}
-                disabled={
-                  (spaceDialogStep === 1 && !spaceAllocation.region) ||
-                  (spaceDialogStep === 2 && spaceAllocation.rowHeight < 5)
-                }
-                style={{
-                  padding: '10px 20px',
-                  border: 'none',
-                  borderRadius: '6px',
-                  background: '#4CAF50',
-                  color: 'white',
-                  cursor: 'pointer'
-                }}
-              >
-                Next ➡️
-              </button>
-            ) : (
-              <button
-                onClick={confirmSpaceAllocation}
-                style={{
-                  padding: '10px 20px',
-                  border: 'none',
-                  borderRadius: '6px',
-                  background: '#2196F3',
-                  color: 'white',
-                  cursor: 'pointer'
-                }}
-              >
-                ✅ Confirm
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  };
+  // Space Allocation Dialog Component - REMOVED (now handled directly in son regions)
 
   return (
     <div style={{
@@ -1364,8 +1113,7 @@ function App() {
 
       </div>
 
-      {/* Space Allocation Dialog */}
-      {renderSpaceAllocationDialog()}
+      {/* Space Allocation Dialog - REMOVED (now handled directly in son regions) */}
     </div>
   );
 }
