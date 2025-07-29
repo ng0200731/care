@@ -47,6 +47,17 @@ function App() {
   const [showDimensions, setShowDimensions] = useState(true);
   const [autoFitNotification, setAutoFitNotification] = useState(false);
 
+  // Space allocation dialog state
+  const [spaceDialogOpen, setSpaceDialogOpen] = useState(false);
+  const [spaceDialogObject, setSpaceDialogObject] = useState<AIObject | null>(null);
+  const [spaceDialogStep, setSpaceDialogStep] = useState(1);
+  const [spaceAllocation, setSpaceAllocation] = useState({
+    region: '',
+    rowHeight: 10,
+    columnLayout: 1,
+    selectedColumn: 1
+  });
+
   // Canvas control functions
   const handleZoomIn = () => setZoom(prev => Math.min(prev * 1.2, 5));
   const handleZoomOut = () => setZoom(prev => Math.max(prev / 1.2, 0.1));
@@ -147,27 +158,113 @@ function App() {
   };
 
   const panToObject = (obj: AIObject) => {
+    console.log('🎯 === SIMPLE PAN TO OBJECT (v6.0 - BASIC) ===');
+    console.log('📊 Object to pan to:', obj.name, `at (${obj.x}, ${obj.y}) size ${obj.width}x${obj.height}mm`);
+
+    // Get SVG element and its dimensions
+    const svgElement = document.querySelector('svg');
+    if (!svgElement) {
+      console.error('❌ SVG element not found');
+      return;
+    }
+
+    const svgRect = svgElement.getBoundingClientRect();
+    console.log('📐 SVG viewport:', `${svgRect.width}x${svgRect.height}px`);
+
+    // Constants
     const mmToPx = 3.78;
-    const viewportWidth = 1200; // SVG viewport width
-    const viewportHeight = 800; // SVG viewport height
 
-    // Calculate object center in real coordinates
-    const objCenterX = obj.x + obj.width / 2;
-    const objCenterY = obj.y + obj.height / 2;
+    // Calculate object center in mm
+    const objCenterX = obj.x + (obj.width / 2);
+    const objCenterY = obj.y + (obj.height / 2);
+    console.log('🎯 Object center:', `(${objCenterX.toFixed(1)}, ${objCenterY.toFixed(1)}) mm`);
 
-    // Calculate pan values to center the object (keep current zoom)
-    const newPanX = viewportWidth / 2 - (objCenterX * zoom * mmToPx);
-    const newPanY = viewportHeight / 2 - (objCenterY * zoom * mmToPx);
+    // Calculate screen center (with some margin from edges)
+    const screenCenterX = svgRect.width / 2;
+    const screenCenterY = svgRect.height / 2;
+    console.log('📺 Screen center:', `(${screenCenterX.toFixed(1)}, ${screenCenterY.toFixed(1)}) px`);
 
-    // Apply pan only (keep current zoom)
+    // Current scale factor
+    const scale = zoom * mmToPx;
+    console.log('⚖️ Current scale:', scale.toFixed(3), `(zoom: ${(zoom * 100).toFixed(0)}%)`);
+
+    // Calculate where object currently appears on screen
+    const currentScreenX = (objCenterX * scale) + panX;
+    const currentScreenY = (objCenterY * scale) + panY;
+    console.log('📍 Object current screen pos:', `(${currentScreenX.toFixed(1)}, ${currentScreenY.toFixed(1)}) px`);
+
+    // Calculate how much to adjust pan to center the object
+    const panAdjustX = screenCenterX - currentScreenX;
+    const panAdjustY = screenCenterY - currentScreenY;
+    console.log('🔧 Pan adjustment needed:', `(${panAdjustX.toFixed(1)}, ${panAdjustY.toFixed(1)}) px`);
+
+    // Apply the pan adjustment
+    const newPanX = panX + panAdjustX;
+    const newPanY = panY + panAdjustY;
+    console.log('🎯 Setting new pan:', `(${newPanX.toFixed(1)}, ${newPanY.toFixed(1)}) px`);
+
     setPanX(newPanX);
     setPanY(newPanY);
+
+    console.log('✅ Basic pan applied - object should now be centered!');
+    console.log('🎯 === END SIMPLE PAN v6.0 ===');
+  };
+
+  // Space allocation dialog functions
+  const openSpaceDialog = (obj: AIObject) => {
+    console.log('🏗️ Opening space allocation dialog for:', obj.name);
+    setSpaceDialogObject(obj);
+    setSpaceDialogOpen(true);
+    setSpaceDialogStep(1);
+    setSpaceAllocation({
+      region: '',
+      rowHeight: 10,
+      columnLayout: 1,
+      selectedColumn: 1
+    });
+  };
+
+  const closeSpaceDialog = () => {
+    console.log('❌ Closing space allocation dialog');
+    setSpaceDialogOpen(false);
+    setSpaceDialogObject(null);
+    setSpaceDialogStep(1);
+  };
+
+  const nextDialogStep = () => {
+    if (spaceDialogStep < 5) {
+      setSpaceDialogStep(spaceDialogStep + 1);
+      console.log('➡️ Moving to step:', spaceDialogStep + 1);
+    }
+  };
+
+  const prevDialogStep = () => {
+    if (spaceDialogStep > 1) {
+      setSpaceDialogStep(spaceDialogStep - 1);
+      console.log('⬅️ Moving to step:', spaceDialogStep - 1);
+    }
+  };
+
+  const confirmSpaceAllocation = () => {
+    console.log('✅ Confirming space allocation:', spaceAllocation);
+    // TODO: Apply the space allocation to the object
+    alert(`Space allocated for ${spaceDialogObject?.name}!\nRegion: ${spaceAllocation.region}\nRow Height: ${spaceAllocation.rowHeight}mm\nColumns: ${spaceAllocation.columnLayout}\nColumn: ${spaceAllocation.selectedColumn}`);
+    closeSpaceDialog();
   };
 
   const fitObjectToView = (obj: AIObject) => {
+    // Get actual SVG dimensions
+    const svgElement = document.querySelector('svg');
+    if (!svgElement) {
+      console.log('SVG element not found for fit object');
+      return;
+    }
+
+    const svgRect = svgElement.getBoundingClientRect();
+    const viewportWidth = svgRect.width;
+    const viewportHeight = svgRect.height;
+
     const mmToPx = 3.78;
-    const viewportWidth = 1200; // SVG viewport width
-    const viewportHeight = 800; // SVG viewport height
     const padding = 50; // Padding around the object
 
     // Calculate object center in real coordinates
@@ -178,6 +275,8 @@ function App() {
     const scaleX = (viewportWidth - padding * 2) / (obj.width * mmToPx);
     const scaleY = (viewportHeight - padding * 2) / (obj.height * mmToPx);
     const fitZoom = Math.min(scaleX, scaleY, 1); // Don't zoom in more than 100%
+
+    console.log('Fitting object to view:', obj.name, 'zoom:', fitZoom);
 
     // Calculate pan values to center the object at the new zoom
     const newPanX = viewportWidth / 2 - (objCenterX * fitZoom * mmToPx);
@@ -382,6 +481,7 @@ function App() {
                   <div
                     onClick={() => {
                       setSelectedObject(son);
+                      panToObject(son); // Auto-pan when clicking son button
                     }}
                     style={{
                       padding: '10px 12px',
@@ -421,8 +521,7 @@ function App() {
                         onClick={(e) => {
                           e.stopPropagation();
                           setSelectedObject(son);
-                          // TODO: Implement space allocation dialog
-                          alert(`Space allocation for ${son.name} - Coming in v1.4.0!`);
+                          openSpaceDialog(son);
                         }}
                         style={{
                           background: 'rgba(255,255,255,0.2)',
@@ -647,6 +746,57 @@ function App() {
           {obj.type || obj.typename}
         </text>
 
+        {/* Display actual content for son objects */}
+        {obj.type?.includes('son') && (() => {
+          const objectId = `${obj.name}_${obj.x}_${obj.y}`;
+          const metadata = sonMetadata.get(objectId);
+          const content = metadata?.content;
+
+          if (content && content.trim()) {
+            // Calculate content area (below name and type)
+            const contentY = baseY + 45;
+            const contentHeight = height - 50; // Leave space for name/type
+            const contentWidth = width - 10; // Leave margins
+
+            if (contentHeight > 10 && contentWidth > 20) {
+              // Split content into lines that fit the width
+              const maxCharsPerLine = Math.floor(contentWidth / (fontSize * 0.6));
+              const words = content.split(' ');
+              const lines = [];
+              let currentLine = '';
+
+              for (const word of words) {
+                if ((currentLine + word).length <= maxCharsPerLine) {
+                  currentLine += (currentLine ? ' ' : '') + word;
+                } else {
+                  if (currentLine) lines.push(currentLine);
+                  currentLine = word;
+                }
+              }
+              if (currentLine) lines.push(currentLine);
+
+              // Limit lines to fit in available height
+              const lineHeight = fontSize + 2;
+              const maxLines = Math.floor(contentHeight / lineHeight);
+              const displayLines = lines.slice(0, maxLines);
+
+              return displayLines.map((line, lineIndex) => (
+                <text
+                  key={`content-${lineIndex}`}
+                  x={baseX + 5}
+                  y={contentY + (lineIndex * lineHeight)}
+                  fontSize={Math.max(6, fontSize - 1)}
+                  fill="#2e7d32"
+                  fontWeight="normal"
+                >
+                  {line}
+                </text>
+              ));
+            }
+          }
+          return null;
+        })()}
+
         {/* Dimension labels (only when enabled) */}
         {showDimensions && (
           <>
@@ -699,6 +849,317 @@ function App() {
           </>
         )}
       </g>
+    );
+  };
+
+  // Space Allocation Dialog Component
+  const renderSpaceAllocationDialog = () => {
+    if (!spaceDialogOpen || !spaceDialogObject) return null;
+
+    const regions = [
+      { id: 'header', name: '📋 Header', description: 'Top section for titles and logos' },
+      { id: 'content', name: '📝 Content', description: 'Main content area' },
+      { id: 'care', name: '🧺 Care', description: 'Care instructions section' },
+      { id: 'legal', name: '⚖️ Legal', description: 'Legal text and compliance' }
+    ];
+
+    return (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0, 0, 0, 0.7)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 2000
+      }}>
+        <div style={{
+          background: 'white',
+          borderRadius: '12px',
+          padding: '24px',
+          maxWidth: '600px',
+          width: '90%',
+          maxHeight: '80vh',
+          overflow: 'auto',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
+        }}>
+          {/* Dialog Header */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '20px',
+            borderBottom: '2px solid #f0f0f0',
+            paddingBottom: '16px'
+          }}>
+            <h3 style={{ margin: 0, color: '#333' }}>
+              📐 Allocate Space for "{spaceDialogObject.name}"
+            </h3>
+            <button
+              onClick={closeSpaceDialog}
+              style={{
+                background: 'none',
+                border: 'none',
+                fontSize: '24px',
+                cursor: 'pointer',
+                color: '#666'
+              }}
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Step Progress Indicator */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'center',
+            marginBottom: '24px'
+          }}>
+            {[1, 2, 3, 4, 5].map(step => (
+              <div
+                key={step}
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  background: step <= spaceDialogStep ? '#4CAF50' : '#e0e0e0',
+                  color: step <= spaceDialogStep ? 'white' : '#666',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 8px',
+                  fontWeight: 'bold'
+                }}
+              >
+                {step}
+              </div>
+            ))}
+          </div>
+
+          {/* Step Content */}
+          <div style={{ minHeight: '200px', marginBottom: '24px' }}>
+            {/* Step 1: Region Selection */}
+            {spaceDialogStep === 1 && (
+              <div>
+                <h4>Step 1: Choose Region</h4>
+                <p style={{ color: '#666', marginBottom: '16px' }}>
+                  Select which region of the label this object should be placed in:
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  {regions.map(region => (
+                    <button
+                      key={region.id}
+                      onClick={() => setSpaceAllocation({...spaceAllocation, region: region.id})}
+                      style={{
+                        padding: '16px',
+                        border: spaceAllocation.region === region.id ? '3px solid #4CAF50' : '2px solid #ddd',
+                        borderRadius: '8px',
+                        background: spaceAllocation.region === region.id ? '#f8fff8' : 'white',
+                        cursor: 'pointer',
+                        textAlign: 'left'
+                      }}
+                    >
+                      <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>{region.name}</div>
+                      <div style={{ fontSize: '12px', color: '#666' }}>{region.description}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Step 2: Row Height */}
+            {spaceDialogStep === 2 && (
+              <div>
+                <h4>Step 2: Define Row Height</h4>
+                <p style={{ color: '#666', marginBottom: '16px' }}>
+                  Set the height of the row where this object will be placed:
+                </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <label>Row Height:</label>
+                  <input
+                    type="number"
+                    min="5"
+                    max="100"
+                    value={spaceAllocation.rowHeight}
+                    onChange={(e) => setSpaceAllocation({...spaceAllocation, rowHeight: parseInt(e.target.value)})}
+                    style={{
+                      padding: '8px',
+                      border: '2px solid #ddd',
+                      borderRadius: '4px',
+                      width: '80px'
+                    }}
+                  />
+                  <span>mm</span>
+                </div>
+                <div style={{ marginTop: '12px', fontSize: '12px', color: '#666' }}>
+                  Recommended: 8-15mm for text, 20-50mm for images
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Column Layout */}
+            {spaceDialogStep === 3 && (
+              <div>
+                <h4>Step 3: Choose Column Layout</h4>
+                <p style={{ color: '#666', marginBottom: '16px' }}>
+                  Select how many columns this row should have:
+                </p>
+                <div style={{ display: 'flex', gap: '16px' }}>
+                  {[1, 2, 3].map(cols => (
+                    <button
+                      key={cols}
+                      onClick={() => setSpaceAllocation({...spaceAllocation, columnLayout: cols, selectedColumn: 1})}
+                      style={{
+                        padding: '16px',
+                        border: spaceAllocation.columnLayout === cols ? '3px solid #4CAF50' : '2px solid #ddd',
+                        borderRadius: '8px',
+                        background: spaceAllocation.columnLayout === cols ? '#f8fff8' : 'white',
+                        cursor: 'pointer',
+                        textAlign: 'center',
+                        minWidth: '100px'
+                      }}
+                    >
+                      <div style={{ fontWeight: 'bold' }}>{cols} Column{cols > 1 ? 's' : ''}</div>
+                      <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                        {cols === 1 ? 'Full width' : cols === 2 ? 'Side by side' : 'Three columns'}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Step 4: Column Assignment */}
+            {spaceDialogStep === 4 && (
+              <div>
+                <h4>Step 4: Select Column</h4>
+                <p style={{ color: '#666', marginBottom: '16px' }}>
+                  Choose which column to place this object in:
+                </p>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  {Array.from({length: spaceAllocation.columnLayout}, (_, i) => i + 1).map(col => (
+                    <button
+                      key={col}
+                      onClick={() => setSpaceAllocation({...spaceAllocation, selectedColumn: col})}
+                      style={{
+                        padding: '16px',
+                        border: spaceAllocation.selectedColumn === col ? '3px solid #4CAF50' : '2px solid #ddd',
+                        borderRadius: '8px',
+                        background: spaceAllocation.selectedColumn === col ? '#f8fff8' : 'white',
+                        cursor: 'pointer',
+                        textAlign: 'center',
+                        flex: 1
+                      }}
+                    >
+                      <div style={{ fontWeight: 'bold' }}>Column {col}</div>
+                      <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                        {col === 1 ? 'Left' : col === spaceAllocation.columnLayout ? 'Right' : 'Center'}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Step 5: Confirmation */}
+            {spaceDialogStep === 5 && (
+              <div>
+                <h4>Step 5: Confirm Allocation</h4>
+                <p style={{ color: '#666', marginBottom: '16px' }}>
+                  Review your space allocation settings:
+                </p>
+                <div style={{
+                  background: '#f8f9fa',
+                  padding: '16px',
+                  borderRadius: '8px',
+                  border: '1px solid #e9ecef'
+                }}>
+                  <div style={{ marginBottom: '8px' }}>
+                    <strong>Object:</strong> {spaceDialogObject.name}
+                  </div>
+                  <div style={{ marginBottom: '8px' }}>
+                    <strong>Region:</strong> {regions.find(r => r.id === spaceAllocation.region)?.name || 'Not selected'}
+                  </div>
+                  <div style={{ marginBottom: '8px' }}>
+                    <strong>Row Height:</strong> {spaceAllocation.rowHeight}mm
+                  </div>
+                  <div style={{ marginBottom: '8px' }}>
+                    <strong>Column Layout:</strong> {spaceAllocation.columnLayout} column{spaceAllocation.columnLayout > 1 ? 's' : ''}
+                  </div>
+                  <div>
+                    <strong>Selected Column:</strong> Column {spaceAllocation.selectedColumn}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Dialog Actions */}
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            borderTop: '1px solid #f0f0f0',
+            paddingTop: '16px'
+          }}>
+            <button
+              onClick={prevDialogStep}
+              disabled={spaceDialogStep === 1}
+              style={{
+                padding: '10px 20px',
+                border: '2px solid #ddd',
+                borderRadius: '6px',
+                background: spaceDialogStep === 1 ? '#f5f5f5' : 'white',
+                color: spaceDialogStep === 1 ? '#999' : '#333',
+                cursor: spaceDialogStep === 1 ? 'not-allowed' : 'pointer'
+              }}
+            >
+              ⬅️ Previous
+            </button>
+
+            <div style={{ color: '#666' }}>
+              Step {spaceDialogStep} of 5
+            </div>
+
+            {spaceDialogStep < 5 ? (
+              <button
+                onClick={nextDialogStep}
+                disabled={
+                  (spaceDialogStep === 1 && !spaceAllocation.region) ||
+                  (spaceDialogStep === 2 && spaceAllocation.rowHeight < 5)
+                }
+                style={{
+                  padding: '10px 20px',
+                  border: 'none',
+                  borderRadius: '6px',
+                  background: '#4CAF50',
+                  color: 'white',
+                  cursor: 'pointer'
+                }}
+              >
+                Next ➡️
+              </button>
+            ) : (
+              <button
+                onClick={confirmSpaceAllocation}
+                style={{
+                  padding: '10px 20px',
+                  border: 'none',
+                  borderRadius: '6px',
+                  background: '#2196F3',
+                  color: 'white',
+                  cursor: 'pointer'
+                }}
+              >
+                ✅ Confirm
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
     );
   };
 
@@ -902,6 +1363,9 @@ function App() {
         </div>
 
       </div>
+
+      {/* Space Allocation Dialog */}
+      {renderSpaceAllocationDialog()}
     </div>
   );
 }

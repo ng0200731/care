@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pan To Object Test - Version 4.0</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            display: flex;
+            height: 100vh;
+        }
+        
+        .sidebar {
+            width: 300px;
+            background: #f5f5f5;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .main-view {
+            flex: 1;
+            position: relative;
+            background: #e8f4fd;
+        }
+        
+        .controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 100;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        
+        .object-item {
+            background: white;
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #4CAF50;
+        }
+        
+        .pan-button {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        
+        .pan-button:hover {
+            background: #1976D2;
+        }
+        
+        svg {
+            width: 100%;
+            height: 100%;
+            cursor: grab;
+        }
+        
+        svg:active {
+            cursor: grabbing;
+        }
+        
+        .object-rect {
+            fill: rgba(76, 175, 80, 0.3);
+            stroke: #4CAF50;
+            stroke-width: 2;
+        }
+        
+        .debug-info {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h3>🎯 Pan To Object Test v4.0</h3>
+        <div id="object-list"></div>
+    </div>
+    
+    <div class="main-view">
+        <div class="controls">
+            <label>Zoom: <span id="zoom-display">100%</span></label>
+            <input type="range" id="zoom-slider" min="0.1" max="3" step="0.1" value="1">
+            <br><br>
+            <button onclick="resetView()">Reset View</button>
+        </div>
+        
+        <svg id="main-svg" viewBox="0 0 1000 1000">
+            <defs>
+                <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
+                    <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#ddd" stroke-width="1"/>
+                </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#grid)" />
+            <g id="objects-group"></g>
+        </svg>
+        
+        <div class="debug-info" id="debug-info">
+            Pan: (0, 0) | Zoom: 100% | Ready
+        </div>
+    </div>
+
+    <script>
+        // Test objects (same as your React app)
+        const testObjects = [
+            { id: 1, name: "Son Object 1", x: 232.1, y: 247.1, width: 33.7, height: 35.0 },
+            { id: 2, name: "Son Object 2", x: 150.5, y: 180.3, width: 25.2, height: 28.1 },
+            { id: 3, name: "Son Object 3", x: 300.8, y: 320.7, width: 40.1, height: 42.3 }
+        ];
+        
+        // State
+        let zoom = 1.0;
+        let panX = 0;
+        let panY = 0;
+        const mmToPx = 3.78;
+        
+        // Initialize
+        function init() {
+            renderObjects();
+            renderObjectList();
+            updateView();
+            setupEventListeners();
+        }
+        
+        // Render objects in SVG
+        function renderObjects() {
+            const group = document.getElementById('objects-group');
+            group.innerHTML = '';
+            
+            testObjects.forEach(obj => {
+                const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                rect.setAttribute('x', obj.x * mmToPx);
+                rect.setAttribute('y', obj.y * mmToPx);
+                rect.setAttribute('width', obj.width * mmToPx);
+                rect.setAttribute('height', obj.height * mmToPx);
+                rect.setAttribute('class', 'object-rect');
+                rect.setAttribute('data-name', obj.name);
+                group.appendChild(rect);
+            });
+        }
+        
+        // Render object list in sidebar
+        function renderObjectList() {
+            const list = document.getElementById('object-list');
+            list.innerHTML = '';
+            
+            testObjects.forEach(obj => {
+                const item = document.createElement('div');
+                item.className = 'object-item';
+                item.innerHTML = `
+                    <strong>${obj.name}</strong><br>
+                    Position: (${obj.x.toFixed(1)}, ${obj.y.toFixed(1)}) mm<br>
+                    Size: ${obj.width.toFixed(1)} × ${obj.height.toFixed(1)} mm
+                    <br>
+                    <button class="pan-button" onclick="panToObject(${obj.id - 1})">🎯 Pan To</button>
+                `;
+                list.appendChild(item);
+            });
+        }
+        
+        // 🎯 THE MAIN FUNCTION - Version 4.0
+        function panToObject(objIndex) {
+            const obj = testObjects[objIndex];
+            console.log('🎯 === FINAL PAN TO OBJECT (v4.0) ===');
+            
+            // Constants
+            const MARGIN_TOP = 100;
+            const MARGIN_BOTTOM = 100;
+            const MARGIN_LEFT = 150;
+            const MARGIN_RIGHT = 150;
+            
+            // Get SVG viewport dimensions
+            const svg = document.getElementById('main-svg');
+            const svgRect = svg.getBoundingClientRect();
+            const viewportWidth = svgRect.width;
+            const viewportHeight = svgRect.height;
+            
+            // Calculate object center in mm
+            const objCenterX = obj.x + (obj.width / 2);
+            const objCenterY = obj.y + (obj.height / 2);
+            
+            // Calculate target screen position (center with margins)
+            const targetX = MARGIN_LEFT + ((viewportWidth - MARGIN_LEFT - MARGIN_RIGHT) / 2);
+            const targetY = MARGIN_TOP + ((viewportHeight - MARGIN_TOP - MARGIN_BOTTOM) / 2);
+            
+            // Calculate required pan to center object at target position
+            const scale = zoom * mmToPx;
+            const requiredPanX = targetX - (objCenterX * scale);
+            const requiredPanY = targetY - (objCenterY * scale);
+            
+            console.log('📊 Object:', obj.name, `(${objCenterX.toFixed(1)}, ${objCenterY.toFixed(1)}) mm`);
+            console.log('📐 Viewport:', `${viewportWidth}x${viewportHeight}px`);
+            console.log('🎯 Target screen pos:', `(${targetX.toFixed(1)}, ${targetY.toFixed(1)})`);
+            console.log('⚡ Scale:', scale.toFixed(3));
+            console.log('🔧 Setting pan to:', `(${requiredPanX.toFixed(1)}, ${requiredPanY.toFixed(1)})`);
+            
+            // Apply the pan
+            panX = requiredPanX;
+            panY = requiredPanY;
+            updateView();
+            
+            console.log('✅ Pan applied - object should be centered with margins!');
+            console.log('🎯 === END PAN v4.0 ===');
+        }
+        
+        // Update SVG transform and debug info
+        function updateView() {
+            const group = document.getElementById('objects-group');
+            group.setAttribute('transform', `translate(${panX}, ${panY}) scale(${zoom})`);
+            
+            document.getElementById('debug-info').textContent = 
+                `Pan: (${panX.toFixed(1)}, ${panY.toFixed(1)}) | Zoom: ${(zoom * 100).toFixed(0)}% | v4.0 Ready`;
+            
+            document.getElementById('zoom-display').textContent = `${(zoom * 100).toFixed(0)}%`;
+            document.getElementById('zoom-slider').value = zoom;
+        }
+        
+        // Reset view
+        function resetView() {
+            zoom = 1.0;
+            panX = 0;
+            panY = 0;
+            updateView();
+        }
+        
+        // Setup event listeners
+        function setupEventListeners() {
+            const zoomSlider = document.getElementById('zoom-slider');
+            zoomSlider.addEventListener('input', (e) => {
+                zoom = parseFloat(e.target.value);
+                updateView();
+            });
+        }
+        
+        // Initialize when page loads
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>
