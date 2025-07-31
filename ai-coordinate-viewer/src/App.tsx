@@ -307,33 +307,37 @@ function App() {
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
     >
-      <div style={{background: 'white', padding: '20px', borderRight: '1px solid #ddd', overflowY: 'auto'}}>
-        <h3>📄 {data?.document || 'Drop JSON file'}</h3>
-        <p>Objects: {data?.totalObjects || 0} | v0.3.0</p>
-        
-        {!data && (
-          <div style={{
-            border: isDragOver ? '3px solid #4CAF50' : '3px dashed #ccc',
-            padding: '20px',
-            textAlign: 'center',
-            marginTop: '20px',
-            borderRadius: '10px',
-            background: isDragOver ? 'rgba(76,175,80,0.1)' : '#f9f9f9'
-          }}>
-            <div style={{fontSize: '2rem', marginBottom: '10px'}}>
-              {isDragOver ? '📥' : '📁'}
-            </div>
-            <p>Drop JSON file here</p>
-            <input 
-              type="file" 
-              accept=".json" 
-              onChange={handleInputChange}
-              style={{marginTop: '10px'}}
-            />
+      <div style={{background: 'white', padding: '20px', borderRight: '1px solid #ddd'}}>
+        {selectedObject ? (
+          <div>
+            <h4>📋 Object Details</h4>
+            <p><strong>Name:</strong> {selectedObject.name}</p>
+            <p><strong>Type:</strong> {selectedObject.typename}</p>
+            <p><strong>X:</strong> {selectedObject.x}</p>
+            <p><strong>Y:</strong> {selectedObject.y}</p>
+            <p><strong>Width:</strong> {selectedObject.width}</p>
+            <p><strong>Height:</strong> {selectedObject.height}</p>
           </div>
+        ) : (
+          <p>Click an object to see details</p>
         )}
         
-        {data && renderHierarchicalList()}
+        {data && (
+          <button 
+            onClick={() => setData(null)}
+            style={{
+              marginTop: '20px',
+              padding: '10px 20px',
+              background: '#667eea',
+              color: 'white',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer'
+            }}
+          >
+            📁 New File
+          </button>
+        )}
       </div>
 
       <div style={{background: 'white', padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
@@ -369,43 +373,40 @@ function App() {
         )}
       </div>
 
-      <div style={{background: 'white', padding: '20px', borderLeft: '1px solid #ddd'}}>
-        {selectedObject ? (
-          <div>
-            <h4>📋 Object Details</h4>
-            <p><strong>Name:</strong> {selectedObject.name}</p>
-            <p><strong>Type:</strong> {selectedObject.typename}</p>
-            <p><strong>X:</strong> {selectedObject.x}</p>
-            <p><strong>Y:</strong> {selectedObject.y}</p>
-            <p><strong>Width:</strong> {selectedObject.width}</p>
-            <p><strong>Height:</strong> {selectedObject.height}</p>
+      <div style={{background: 'white', padding: '20px', borderLeft: '1px solid #ddd', overflowY: 'auto'}}>
+        <h3>� {data?.document || 'Drop JSON file'}</h3>
+        <p>Objects: {data?.totalObjects || 0} | v0.3.0</p>
+        
+        {!data && (
+          <div style={{
+            border: isDragOver ? '3px solid #4CAF50' : '3px dashed #ccc',
+            padding: '20px',
+            textAlign: 'center',
+            marginTop: '20px',
+            borderRadius: '10px',
+            background: isDragOver ? 'rgba(76,175,80,0.1)' : '#f9f9f9'
+          }}>
+            <div style={{fontSize: '2rem', marginBottom: '10px'}}>
+              {isDragOver ? '📥' : '📁'}
+            </div>
+            <p>Drop JSON file here</p>
+            <input 
+              type="file" 
+              accept=".json" 
+              onChange={handleInputChange}
+              style={{marginTop: '10px'}}
+            />
           </div>
-        ) : (
-          <p>Click an object to see details</p>
         )}
         
-        {data && (
-          <button 
-            onClick={() => setData(null)}
-            style={{
-              marginTop: '20px',
-              padding: '10px 20px',
-              background: '#667eea',
-              color: 'white',
-              border: 'none',
-              borderRadius: '5px',
-              cursor: 'pointer'
-            }}
-          >
-            📁 New File
-          </button>
-        )}
+        {data && renderHierarchicalList()}
       </div>
     </div>
   );
 }
 
 export default App;
+
 
 
 
