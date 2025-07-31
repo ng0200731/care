@@ -22,6 +22,12 @@ interface SonMetadata {
   textOverflow?: 'resize' | 'linebreak';
   lineBreakType?: 'word' | 'character';
   characterConnector?: string;
+  margins?: {
+    top: number;
+    bottom: number;
+    left: number;
+    right: number;
+  };
   spaceAllocation?: {
     region: string;
     rowHeight: number;
@@ -99,7 +105,13 @@ const SonDetailsPanel: React.FC<SonDetailsPanelProps> = ({
     fontWeight: 'normal',
     textOverflow: 'linebreak',
     lineBreakType: 'word',
-    characterConnector: '-'
+    characterConnector: '-',
+    margins: {
+      top: 2,
+      bottom: 2,
+      left: 2,
+      right: 2
+    }
   };
 
   const handleTypeChange = (newType: SonMetadata['sonType']) => {
@@ -247,6 +259,213 @@ const SonDetailsPanel: React.FC<SonDetailsPanelProps> = ({
                     <option value="normal">Normal</option>
                     <option value="bold">Bold</option>
                   </select>
+                </div>
+              </div>
+
+              {/* Text Margins */}
+              <div style={{ marginTop: '15px', padding: '10px', background: '#f3e5f5', borderRadius: '4px' }}>
+                <h4 style={{ margin: '0 0 10px 0', fontSize: '13px', color: '#7b1fa2' }}>📏 Text Margins (mm)</h4>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  {/* Top Margin */}
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '3px', fontSize: '12px', fontWeight: 'bold' }}>
+                      ⬆️ Top:
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="20"
+                      step="0.5"
+                      value={currentMetadata.margins?.top || 2}
+                      onChange={(e) => {
+                        const updatedMetadata = {
+                          ...currentMetadata,
+                          margins: {
+                            ...currentMetadata.margins,
+                            top: parseFloat(e.target.value) || 2,
+                            bottom: currentMetadata.margins?.bottom || 2,
+                            left: currentMetadata.margins?.left || 2,
+                            right: currentMetadata.margins?.right || 2
+                          }
+                        };
+                        onUpdateMetadata(objectId, updatedMetadata);
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '4px 6px',
+                        border: '1px solid #ddd',
+                        borderRadius: '3px',
+                        fontSize: '12px'
+                      }}
+                    />
+                  </div>
+
+                  {/* Bottom Margin */}
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '3px', fontSize: '12px', fontWeight: 'bold' }}>
+                      ⬇️ Bottom:
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="20"
+                      step="0.5"
+                      value={currentMetadata.margins?.bottom || 2}
+                      onChange={(e) => {
+                        const updatedMetadata = {
+                          ...currentMetadata,
+                          margins: {
+                            ...currentMetadata.margins,
+                            top: currentMetadata.margins?.top || 2,
+                            bottom: parseFloat(e.target.value) || 2,
+                            left: currentMetadata.margins?.left || 2,
+                            right: currentMetadata.margins?.right || 2
+                          }
+                        };
+                        onUpdateMetadata(objectId, updatedMetadata);
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '4px 6px',
+                        border: '1px solid #ddd',
+                        borderRadius: '3px',
+                        fontSize: '12px'
+                      }}
+                    />
+                  </div>
+
+                  {/* Left Margin */}
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '3px', fontSize: '12px', fontWeight: 'bold' }}>
+                      ⬅️ Left:
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="20"
+                      step="0.5"
+                      value={currentMetadata.margins?.left || 2}
+                      onChange={(e) => {
+                        const updatedMetadata = {
+                          ...currentMetadata,
+                          margins: {
+                            ...currentMetadata.margins,
+                            top: currentMetadata.margins?.top || 2,
+                            bottom: currentMetadata.margins?.bottom || 2,
+                            left: parseFloat(e.target.value) || 2,
+                            right: currentMetadata.margins?.right || 2
+                          }
+                        };
+                        onUpdateMetadata(objectId, updatedMetadata);
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '4px 6px',
+                        border: '1px solid #ddd',
+                        borderRadius: '3px',
+                        fontSize: '12px'
+                      }}
+                    />
+                  </div>
+
+                  {/* Right Margin */}
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '3px', fontSize: '12px', fontWeight: 'bold' }}>
+                      ➡️ Right:
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="20"
+                      step="0.5"
+                      value={currentMetadata.margins?.right || 2}
+                      onChange={(e) => {
+                        const updatedMetadata = {
+                          ...currentMetadata,
+                          margins: {
+                            ...currentMetadata.margins,
+                            top: currentMetadata.margins?.top || 2,
+                            bottom: currentMetadata.margins?.bottom || 2,
+                            left: currentMetadata.margins?.left || 2,
+                            right: parseFloat(e.target.value) || 2
+                          }
+                        };
+                        onUpdateMetadata(objectId, updatedMetadata);
+                      }}
+                      style={{
+                        width: '100%',
+                        padding: '4px 6px',
+                        border: '1px solid #ddd',
+                        borderRadius: '3px',
+                        fontSize: '12px'
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Quick Preset Buttons */}
+                <div style={{ marginTop: '10px', display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={() => {
+                      const updatedMetadata = {
+                        ...currentMetadata,
+                        margins: { top: 2, bottom: 2, left: 2, right: 2 }
+                      };
+                      onUpdateMetadata(objectId, updatedMetadata);
+                    }}
+                    style={{
+                      padding: '3px 8px',
+                      border: '1px solid #7b1fa2',
+                      borderRadius: '3px',
+                      background: 'white',
+                      color: '#7b1fa2',
+                      fontSize: '10px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    📐 2mm All
+                  </button>
+                  <button
+                    onClick={() => {
+                      const updatedMetadata = {
+                        ...currentMetadata,
+                        margins: { top: 1, bottom: 1, left: 1, right: 1 }
+                      };
+                      onUpdateMetadata(objectId, updatedMetadata);
+                    }}
+                    style={{
+                      padding: '3px 8px',
+                      border: '1px solid #7b1fa2',
+                      borderRadius: '3px',
+                      background: 'white',
+                      color: '#7b1fa2',
+                      fontSize: '10px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    🔍 1mm All
+                  </button>
+                  <button
+                    onClick={() => {
+                      const updatedMetadata = {
+                        ...currentMetadata,
+                        margins: { top: 0, bottom: 0, left: 0, right: 0 }
+                      };
+                      onUpdateMetadata(objectId, updatedMetadata);
+                    }}
+                    style={{
+                      padding: '3px 8px',
+                      border: '1px solid #7b1fa2',
+                      borderRadius: '3px',
+                      background: 'white',
+                      color: '#7b1fa2',
+                      fontSize: '10px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    ⭕ No Margins
+                  </button>
                 </div>
               </div>
 

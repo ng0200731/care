@@ -23,6 +23,12 @@ interface SonMetadata {
   textOverflow?: 'resize' | 'linebreak';
   lineBreakType?: 'word' | 'character';
   characterConnector?: string;
+  margins?: {
+    top: number;
+    bottom: number;
+    left: number;
+    right: number;
+  };
   spaceAllocation?: {
     region: string;
     rowHeight: number;
@@ -230,7 +236,13 @@ function App() {
       fontWeight: 'normal',
       textOverflow: 'linebreak',
       lineBreakType: 'word',
-      characterConnector: '-'
+      characterConnector: '-',
+      margins: {
+        top: 2,
+        bottom: 2,
+        left: 2,
+        right: 2
+      }
     };
 
     // Add space allocation info directly to metadata
@@ -756,10 +768,18 @@ function App() {
           const content = metadata?.content;
 
           if (content && content.trim()) {
-            // Calculate content area (below name and type)
-            const contentY = baseY + 45;
-            const contentHeight = height - 50; // Leave space for name/type
-            const contentWidth = width - 10; // Leave margins
+            // Calculate content area (below name and type) with user-defined margins
+            const margins = metadata?.margins || { top: 2, bottom: 2, left: 2, right: 2 };
+            const mmToPx = 3.78; // Conversion factor from mm to pixels
+
+            const marginTopPx = margins.top * mmToPx;
+            const marginBottomPx = margins.bottom * mmToPx;
+            const marginLeftPx = margins.left * mmToPx;
+            const marginRightPx = margins.right * mmToPx;
+
+            const contentY = baseY + 45 + marginTopPx;
+            const contentHeight = height - 50 - marginTopPx - marginBottomPx; // Leave space for name/type and margins
+            const contentWidth = width - marginLeftPx - marginRightPx; // Apply left and right margins
 
             if (contentHeight > 10 && contentWidth > 20) {
               // Get text overflow settings
@@ -770,45 +790,91 @@ function App() {
               let displayLines = [];
               let actualFontSize = Math.max(6, (metadata?.fontSize || 12) * zoom);
 
+              // Create a more accurate text measurement function
+              const measureTextWidth = (text: string, fontSize: number, fontFamily: string) => {
+                // Create a temporary canvas for text measurement
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                  ctx.font = `${fontSize}px ${fontFamily}`;
+                  return ctx.measureText(text).width;
+                }
+                // Fallback to estimation if canvas not available
+                return text.length * fontSize * 0.5;
+              };
+
+              const fontFamily = metadata?.fontFamily || 'Arial';
+
               if (textOverflow === 'resize') {
-                // Option 1: Resize text to fit in one line
-                const maxCharsPerLine = Math.floor(contentWidth / (actualFontSize * 0.6));
-                if (content.length > maxCharsPerLine) {
+                // Option 1: Resize text to fit in one line using actual text measurement
+                const textWidth = measureTextWidth(content, actualFontSize, fontFamily);
+                if (textWidth > contentWidth) {
                   // Calculate smaller font size to fit all text in one line
-                  actualFontSize = Math.max(6, (contentWidth / (content.length * 0.6)));
+                  actualFontSize = Math.max(6, (contentWidth / textWidth) * actualFontSize);
                 }
                 displayLines = [content]; // Single line
               } else {
-                // Option 2: Accept line breaks
-                const maxCharsPerLine = Math.floor(contentWidth / (actualFontSize * 0.6));
+                // Option 2: Accept line breaks using accurate text measurement
 
                 if (lineBreakType === 'word') {
-                  // Word break: break at word boundaries
+                  // Word break: break at word boundaries using accurate text measurement
                   const words = content.split(' ');
                   let currentLine = '';
 
                   for (const word of words) {
-                    if ((currentLine + word).length <= maxCharsPerLine) {
-                      currentLine += (currentLine ? ' ' : '') + word;
+                    const testLine = currentLine ? currentLine + ' ' + word : word;
+                    const testLineWidth = measureTextWidth(testLine, actualFontSize, fontFamily);
+
+                    if (testLineWidth <= contentWidth) {
+                      currentLine = testLine;
                     } else {
-                      if (currentLine) displayLines.push(currentLine);
-                      currentLine = word;
+                      // If current line has content, push it and start new line
+                      if (currentLine) {
+                        displayLines.push(currentLine);
+                        currentLine = word;
+                      } else {
+                        // Single word is too long, force it on the line anyway
+                        displayLines.push(word);
+                        currentLine = '';
+                      }
                     }
                   }
                   if (currentLine) displayLines.push(currentLine);
                 } else {
-                  // Character break: break at character boundaries with connector
+                  // Character break: break at character boundaries with connector using accurate measurement
                   let remainingText = content;
                   while (remainingText.length > 0) {
-                    if (remainingText.length <= maxCharsPerLine) {
+                    // Try to fit as many characters as possible
+                    let lineText = '';
+                    let testLength = Math.min(remainingText.length, Math.floor(contentWidth / (actualFontSize * 0.5)));
+
+                    // Binary search to find maximum characters that fit
+                    let low = 1;
+                    let high = Math.min(remainingText.length, testLength);
+                    let bestFit = 1;
+
+                    while (low <= high) {
+                      const mid = Math.floor((low + high) / 2);
+                      const testText = remainingText.substring(0, mid);
+                      const testWidth = measureTextWidth(testText + characterConnector, actualFontSize, fontFamily);
+
+                      if (testWidth <= contentWidth) {
+                        bestFit = mid;
+                        low = mid + 1;
+                      } else {
+                        high = mid - 1;
+                      }
+                    }
+
+                    if (bestFit >= remainingText.length) {
+                      // Remaining text fits without connector
                       displayLines.push(remainingText);
                       break;
                     } else {
-                      // Take max chars minus connector length, add connector
-                      const lineLength = maxCharsPerLine - characterConnector.length;
-                      const lineText = remainingText.substring(0, lineLength) + characterConnector;
+                      // Add connector and continue
+                      lineText = remainingText.substring(0, bestFit) + characterConnector;
                       displayLines.push(lineText);
-                      remainingText = remainingText.substring(lineLength);
+                      remainingText = remainingText.substring(bestFit);
                     }
                   }
                 }
@@ -819,24 +885,23 @@ function App() {
               const maxLines = Math.floor(contentHeight / lineHeight);
               displayLines = displayLines.slice(0, maxLines);
 
-              // Apply font formatting from metadata
-              const fontFamily = metadata?.fontFamily || 'Arial';
+              // Apply font formatting from metadata (fontFamily already declared above)
               const textAlign = metadata?.textAlign || 'left';
               const fontWeight = metadata?.fontWeight || 'normal';
 
-              // Calculate text anchor based on alignment
+              // Calculate text anchor based on alignment with user-defined margins
               let textAnchor: 'start' | 'middle' | 'end' = 'start';
-              let textX = baseX + 5;
+              let textX = baseX + marginLeftPx; // Apply left margin
 
               if (textAlign === 'center') {
                 textAnchor = 'middle';
-                textX = baseX + (width / 2);
+                textX = baseX + marginLeftPx + (contentWidth / 2);
               } else if (textAlign === 'right') {
                 textAnchor = 'end';
-                textX = baseX + width - 5;
+                textX = baseX + width - marginRightPx;
               }
 
-              return displayLines.map((line, lineIndex) => (
+              const textElements = displayLines.map((line, lineIndex) => (
                 <text
                   key={`content-${lineIndex}`}
                   x={textX}
@@ -850,6 +915,60 @@ function App() {
                   {line}
                 </text>
               ));
+
+              // Add margin guide lines if this object is selected
+              const marginGuides = selectedObject === obj ? [
+                // Top margin line
+                <line
+                  key="margin-top"
+                  x1={baseX}
+                  y1={baseY + 45 + marginTopPx}
+                  x2={baseX + width}
+                  y2={baseY + 45 + marginTopPx}
+                  stroke="#ff9800"
+                  strokeWidth="1"
+                  strokeDasharray="2,2"
+                  opacity="0.7"
+                />,
+                // Bottom margin line
+                <line
+                  key="margin-bottom"
+                  x1={baseX}
+                  y1={baseY + height - marginBottomPx}
+                  x2={baseX + width}
+                  y2={baseY + height - marginBottomPx}
+                  stroke="#ff9800"
+                  strokeWidth="1"
+                  strokeDasharray="2,2"
+                  opacity="0.7"
+                />,
+                // Left margin line
+                <line
+                  key="margin-left"
+                  x1={baseX + marginLeftPx}
+                  y1={baseY + 45}
+                  x2={baseX + marginLeftPx}
+                  y2={baseY + height}
+                  stroke="#ff9800"
+                  strokeWidth="1"
+                  strokeDasharray="2,2"
+                  opacity="0.7"
+                />,
+                // Right margin line
+                <line
+                  key="margin-right"
+                  x1={baseX + width - marginRightPx}
+                  y1={baseY + 45}
+                  x2={baseX + width - marginRightPx}
+                  y2={baseY + height}
+                  stroke="#ff9800"
+                  strokeWidth="1"
+                  strokeDasharray="2,2"
+                  opacity="0.7"
+                />
+              ] : [];
+
+              return [...textElements, ...marginGuides];
             }
           }
           return null;
