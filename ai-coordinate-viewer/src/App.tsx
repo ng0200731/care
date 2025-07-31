@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import SonDetailsPanel from './SonDetailsPanel';
 
 interface AIObject {
   name: string;
@@ -8,6 +9,27 @@ interface AIObject {
   y: number;
   width: number;
   height: number;
+}
+
+interface SonMetadata {
+  id: string;
+  sonType: 'text' | 'image' | 'barcode' | 'translation' | 'washing-symbol' | 'size-breakdown' | 'composition' | 'special-wording';
+  content: string;
+  details: any; // Type-specific details
+  fontFamily?: string;
+  fontSize?: number;
+  textAlign?: 'left' | 'center' | 'right';
+  fontWeight?: 'normal' | 'bold';
+  textOverflow?: 'resize' | 'linebreak';
+  lineBreakType?: 'word' | 'character';
+  characterConnector?: string;
+  spaceAllocation?: {
+    region: string;
+    rowHeight: number;
+    columns: number;
+    selectedColumn: number;
+    allocated: boolean;
+  };
 }
 
 interface HierarchyNode {
@@ -26,7 +48,244 @@ function App() {
   const [data, setData] = useState<AIData | null>(null);
   const [selectedObject, setSelectedObject] = useState<AIObject | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
-  const [expandedMothers, setExpandedMothers] = useState<Set<string>>(new Set());
+  const [expandedMothers, setExpandedMothers] = useState<Set<number>>(new Set());
+  const [sonMetadata, setSonMetadata] = useState<Map<string, SonMetadata>>(new Map());
+
+  // Canvas view state
+  const [zoom, setZoom] = useState(1); // 1 = 1:1 scale (1mm = 1px at 96 DPI)
+  const [panX, setPanX] = useState(0);
+  const [panY, setPanY] = useState(0);
+  const [isPanning, setIsPanning] = useState(false);
+  const [lastPanPoint, setLastPanPoint] = useState({ x: 0, y: 0 });
+  const [mouseCoords, setMouseCoords] = useState({ x: 0, y: 0 });
+  const [showDimensions, setShowDimensions] = useState(true);
+  const [autoFitNotification, setAutoFitNotification] = useState(false);
+
+  // Removed space allocation dialog - now handled directly in son regions
+
+  // Canvas control functions
+  const handleZoomIn = () => setZoom(prev => Math.min(prev * 1.2, 5));
+  const handleZoomOut = () => setZoom(prev => Math.max(prev / 1.2, 0.1));
+  const handleZoomReset = () => {
+    setZoom(1);
+    setPanX(0);
+    setPanY(0);
+  };
+  const handleFitToScreen = () => {
+    if (!data || data.objects.length === 0) {
+      console.log('No data or objects to fit');
+      return;
+    }
+
+    // Get actual SVG dimensions
+    const svgElement = document.querySelector('svg');
+    if (!svgElement) {
+      console.log('SVG element not found');
+      return;
+    }
+
+    const svgRect = svgElement.getBoundingClientRect();
+    const viewportWidth = svgRect.width;
+    const viewportHeight = svgRect.height;
+    console.log('SVG dimensions:', viewportWidth, 'x', viewportHeight);
+
+    // Calculate bounds of all objects
+    const bounds = data.objects.reduce((acc, obj) => ({
+      minX: Math.min(acc.minX, obj.x),
+      minY: Math.min(acc.minY, obj.y),
+      maxX: Math.max(acc.maxX, obj.x + obj.width),
+      maxY: Math.max(acc.maxY, obj.y + obj.height)
+    }), { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+
+    const contentWidth = bounds.maxX - bounds.minX;
+    const contentHeight = bounds.maxY - bounds.minY;
+    const padding = 100; // Padding in pixels
+
+    const scaleX = (viewportWidth - padding) / (contentWidth * 3.78); // 3.78 = mmToPx conversion
+    const scaleY = (viewportHeight - padding) / (contentHeight * 3.78);
+    const newZoom = Math.min(scaleX, scaleY, 2); // Max zoom 2x for fit
+
+    console.log('Content bounds:', bounds);
+    console.log('Content size:', contentWidth, 'x', contentHeight, 'mm');
+    console.log('Calculated zoom:', newZoom);
+
+    setZoom(newZoom);
+    setPanX(-(bounds.minX + contentWidth / 2) * newZoom * 3.78 + viewportWidth / 2);
+    setPanY(-(bounds.minY + contentHeight / 2) * newZoom * 3.78 + viewportHeight / 2);
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button === 0) { // Left mouse button
+      setIsPanning(true);
+      setLastPanPoint({ x: e.clientX, y: e.clientY });
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    // Update mouse coordinates for display
+    const rect = e.currentTarget.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    // Convert screen coordinates to real coordinates (mm)
+    const mmToPx = 3.78;
+    const realX = (mouseX - panX) / (zoom * mmToPx);
+    const realY = (mouseY - panY) / (zoom * mmToPx);
+    setMouseCoords({ x: realX, y: realY });
+
+    if (isPanning) {
+      const deltaX = e.clientX - lastPanPoint.x;
+      const deltaY = e.clientY - lastPanPoint.y;
+      setPanX(prev => prev + deltaX);
+      setPanY(prev => prev + deltaY);
+      setLastPanPoint({ x: e.clientX, y: e.clientY });
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsPanning(false);
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+    const newZoom = Math.max(0.1, Math.min(5, zoom * zoomFactor));
+
+    // Zoom towards mouse position
+    const rect = e.currentTarget.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    const zoomRatio = newZoom / zoom;
+    setPanX(prev => mouseX - (mouseX - prev) * zoomRatio);
+    setPanY(prev => mouseY - (mouseY - prev) * zoomRatio);
+    setZoom(newZoom);
+  };
+
+  const panToObject = (obj: AIObject) => {
+    console.log('🎯 === SIMPLE PAN TO OBJECT (v6.0 - BASIC) ===');
+    console.log('📊 Object to pan to:', obj.name, `at (${obj.x}, ${obj.y}) size ${obj.width}x${obj.height}mm`);
+
+    // Get SVG element and its dimensions
+    const svgElement = document.querySelector('svg');
+    if (!svgElement) {
+      console.error('❌ SVG element not found');
+      return;
+    }
+
+    const svgRect = svgElement.getBoundingClientRect();
+    console.log('📐 SVG viewport:', `${svgRect.width}x${svgRect.height}px`);
+
+    // Constants
+    const mmToPx = 3.78;
+
+    // Calculate object center in mm
+    const objCenterX = obj.x + (obj.width / 2);
+    const objCenterY = obj.y + (obj.height / 2);
+    console.log('🎯 Object center:', `(${objCenterX.toFixed(1)}, ${objCenterY.toFixed(1)}) mm`);
+
+    // Calculate screen center (with some margin from edges)
+    const screenCenterX = svgRect.width / 2;
+    const screenCenterY = svgRect.height / 2;
+    console.log('📺 Screen center:', `(${screenCenterX.toFixed(1)}, ${screenCenterY.toFixed(1)}) px`);
+
+    // Current scale factor
+    const scale = zoom * mmToPx;
+    console.log('⚖️ Current scale:', scale.toFixed(3), `(zoom: ${(zoom * 100).toFixed(0)}%)`);
+
+    // Calculate where object currently appears on screen
+    const currentScreenX = (objCenterX * scale) + panX;
+    const currentScreenY = (objCenterY * scale) + panY;
+    console.log('📍 Object current screen pos:', `(${currentScreenX.toFixed(1)}, ${currentScreenY.toFixed(1)}) px`);
+
+    // Calculate how much to adjust pan to center the object
+    const panAdjustX = screenCenterX - currentScreenX;
+    const panAdjustY = screenCenterY - currentScreenY;
+    console.log('🔧 Pan adjustment needed:', `(${panAdjustX.toFixed(1)}, ${panAdjustY.toFixed(1)}) px`);
+
+    // Apply the pan adjustment
+    const newPanX = panX + panAdjustX;
+    const newPanY = panY + panAdjustY;
+    console.log('🎯 Setting new pan:', `(${newPanX.toFixed(1)}, ${newPanY.toFixed(1)}) px`);
+
+    setPanX(newPanX);
+    setPanY(newPanY);
+
+    console.log('✅ Basic pan applied - object should now be centered!');
+    console.log('🎯 === END SIMPLE PAN v6.0 ===');
+  };
+
+  // Space allocation dialog functions
+  const handleSpaceAllocation = (obj: AIObject) => {
+    console.log('🏗️ Allocating space directly for:', obj.name);
+    const objectId = `${obj.name}_${obj.x}_${obj.y}`;
+    const currentMetadata = sonMetadata.get(objectId) || {
+      id: objectId,
+      sonType: 'text',
+      content: '',
+      details: {},
+      fontFamily: 'Arial',
+      fontSize: 12,
+      textAlign: 'left',
+      fontWeight: 'normal',
+      textOverflow: 'linebreak',
+      lineBreakType: 'word',
+      characterConnector: '-'
+    };
+
+    // Add space allocation info directly to metadata
+    const updatedMetadata = {
+      ...currentMetadata,
+      spaceAllocation: {
+        region: 'content',
+        rowHeight: 10,
+        columns: 1,
+        selectedColumn: 1,
+        allocated: true
+      }
+    };
+
+    handleUpdateSonMetadata(objectId, updatedMetadata);
+    setSelectedObject(obj); // Select the object to show details
+  };
+
+  // Dialog functions removed - space allocation now handled directly
+
+  const fitObjectToView = (obj: AIObject) => {
+    // Get actual SVG dimensions
+    const svgElement = document.querySelector('svg');
+    if (!svgElement) {
+      console.log('SVG element not found for fit object');
+      return;
+    }
+
+    const svgRect = svgElement.getBoundingClientRect();
+    const viewportWidth = svgRect.width;
+    const viewportHeight = svgRect.height;
+
+    const mmToPx = 3.78;
+    const padding = 50; // Padding around the object
+
+    // Calculate object center in real coordinates
+    const objCenterX = obj.x + obj.width / 2;
+    const objCenterY = obj.y + obj.height / 2;
+
+    // Calculate zoom to fit object with padding
+    const scaleX = (viewportWidth - padding * 2) / (obj.width * mmToPx);
+    const scaleY = (viewportHeight - padding * 2) / (obj.height * mmToPx);
+    const fitZoom = Math.min(scaleX, scaleY, 1); // Don't zoom in more than 100%
+
+    console.log('Fitting object to view:', obj.name, 'zoom:', fitZoom);
+
+    // Calculate pan values to center the object at the new zoom
+    const newPanX = viewportWidth / 2 - (objCenterX * fitZoom * mmToPx);
+    const newPanY = viewportHeight / 2 - (objCenterY * fitZoom * mmToPx);
+
+    // Apply zoom and pan
+    setZoom(fitZoom);
+    setPanX(newPanX);
+    setPanY(newPanY);
+  };
 
   // Build hierarchy from objects
   const buildHierarchy = (objects: AIObject[]) => {
@@ -54,7 +313,7 @@ function App() {
       mothers.push({
         object: mother,
         children: sons,
-        isExpanded: expandedMothers.has(mother.name)
+        isExpanded: false // Will be set correctly in render
       });
     });
     
@@ -76,87 +335,212 @@ function App() {
     return { mothers, orphans };
   };
 
-  const toggleMother = (motherName: string) => {
-    const newExpanded = new Set(expandedMothers);
-    if (newExpanded.has(motherName)) {
-      newExpanded.delete(motherName);
+  const toggleMother = (motherId: number) => {
+    // Simple logic: if clicking the same mother, collapse it. Otherwise, expand only this one.
+    if (expandedMothers.has(motherId)) {
+      // Collapse the clicked mother
+      setExpandedMothers(new Set());
     } else {
-      newExpanded.add(motherName);
+      // Expand only the clicked mother, collapse all others
+      setExpandedMothers(new Set([motherId]));
     }
-    setExpandedMothers(newExpanded);
+  };
+
+  const handleUpdateSonMetadata = (objectName: string, metadata: SonMetadata) => {
+    setSonMetadata(prev => {
+      const newMap = new Map(prev);
+      newMap.set(objectName, metadata);
+      return newMap;
+    });
+  };
+
+  const exportSonMetadata = () => {
+    const metadataArray = Array.from(sonMetadata.entries()).map(([key, value]) => ({
+      objectId: key, // Format: "name_x_y" to handle duplicate names
+      ...value
+    }));
+
+    const exportData = {
+      exportDate: new Date().toISOString(),
+      documentName: data?.document || 'unknown',
+      sonMetadata: metadataArray
+    };
+
+    const jsonString = JSON.stringify(exportData, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `son-metadata-${data?.document || 'export'}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const renderHierarchicalList = () => {
     if (!data) return null;
-    
+
     const { mothers, orphans } = buildHierarchy(data.objects);
-    
+
     return (
       <div>
         <h4>📋 Objects Hierarchy:</h4>
-        
+
         {/* Mothers with their sons */}
         {mothers.map((mother, index) => {
-          const isExpanded = expandedMothers.has(mother.object.name);
-          
+          const isExpanded = expandedMothers.has(index);
+
           return (
-            <div key={index} style={{marginBottom: '10px'}}>
-              {/* Mother */}
-              <div 
-                onClick={() => setSelectedObject(mother.object)}
-                style={{
-                  padding: '10px',
-                  background: selectedObject === mother.object ? '#d32f2f' : '#ffebee',
-                  color: selectedObject === mother.object ? 'white' : '#d32f2f',
-                  borderRadius: '5px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between'
-                }}
-              >
-                <div>
-                  <div>👑 {mother.object.name}</div>
-                  <div style={{fontSize: '0.8em', opacity: 0.8}}>
-                    {mother.object.typename} ({mother.children.length} sons)
-                  </div>
-                </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleMother(mother.object.name);
+            <div key={index} style={{marginBottom: '15px'}}>
+              {/* Mother Header - Enhanced with Fit View button (v1.3.0) */}
+              <div style={{
+                background: selectedObject === mother.object ? '#1976d2' : '#e3f2fd',
+                color: selectedObject === mother.object ? 'white' : '#1976d2',
+                borderRadius: '8px',
+                overflow: 'hidden'
+              }}>
+                {/* Mother Info Row */}
+                <div
+                  onClick={() => {
+                    setSelectedObject(mother.object);
                   }}
                   style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'inherit',
-                    fontSize: '1.2em',
+                    padding: '12px',
                     cursor: 'pointer',
-                    padding: '5px'
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
                   }}
                 >
-                  {isExpanded ? '▼' : '▶'}
-                </button>
+                  <div style={{flex: 1}}>
+                    <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleMother(index);
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'inherit',
+                          fontSize: '1.2em',
+                          cursor: 'pointer',
+                          padding: '2px'
+                        }}
+                      >
+                        {isExpanded ? '▼' : '▶'}
+                      </button>
+                      <span>{mother.object.name} ({mother.children.length} objects)</span>
+                    </div>
+                    <div style={{fontSize: '0.8em', opacity: 0.8, marginLeft: '24px'}}>
+                      {mother.object.typename}
+                    </div>
+                  </div>
+
+                  {/* Fit View Button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedObject(mother.object);
+                      fitObjectToView(mother.object);
+                    }}
+                    style={{
+                      background: 'rgba(255,255,255,0.2)',
+                      border: '1px solid rgba(255,255,255,0.3)',
+                      color: 'inherit',
+                      fontSize: '10px',
+                      padding: '4px 8px',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      marginLeft: '8px'
+                    }}
+                    title="Fit to view (100% zoom, centered)"
+                  >
+                    👑 Fit View
+                  </button>
+                </div>
               </div>
-              
-              {/* Sons (collapsible) */}
+
+              {/* Sons (collapsible) - Enhanced with Pan To and Allocate Space buttons (v1.3.0) */}
               {isExpanded && mother.children.map((son, sonIndex) => (
-                <div 
+                <div
                   key={sonIndex}
-                  onClick={() => setSelectedObject(son)}
                   style={{
-                    padding: '8px 10px 8px 30px',
-                    margin: '2px 0 2px 20px',
+                    margin: '4px 0 4px 20px',
                     background: selectedObject === son ? '#388e3c' : '#e8f5e8',
                     color: selectedObject === son ? 'white' : '#388e3c',
-                    borderRadius: '5px',
-                    cursor: 'pointer',
-                    borderLeft: '3px solid #388e3c'
+                    borderRadius: '6px',
+                    borderLeft: '3px solid #388e3c',
+                    overflow: 'hidden'
                   }}
                 >
-                  <div>👶 {son.name}</div>
-                  <div style={{fontSize: '0.8em', opacity: 0.8}}>{son.typename}</div>
+                  {/* Son Info Row */}
+                  <div
+                    onClick={() => {
+                      setSelectedObject(son);
+                      panToObject(son); // Auto-pan when clicking son button
+                    }}
+                    style={{
+                      padding: '10px 12px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between'
+                    }}
+                  >
+                    <div style={{flex: 1}}>
+                      <div>{son.name}</div>
+                      <div style={{fontSize: '0.8em', opacity: 0.8}}>{son.typename}</div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div style={{display: 'flex', gap: '4px'}}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedObject(son);
+                          panToObject(son);
+                        }}
+                        style={{
+                          background: 'rgba(255,255,255,0.2)',
+                          border: '1px solid rgba(255,255,255,0.3)',
+                          color: 'inherit',
+                          fontSize: '14px',
+                          padding: '6px 10px',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          minWidth: '32px',
+                          minHeight: '28px'
+                        }}
+                        title="Pan to center (keep current zoom)"
+                      >
+                        ✋
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedObject(son);
+                          handleSpaceAllocation(son);
+                        }}
+                        style={{
+                          background: 'rgba(255,255,255,0.2)',
+                          border: '1px solid rgba(255,255,255,0.3)',
+                          color: 'inherit',
+                          fontSize: '14px',
+                          padding: '6px 10px',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          minWidth: '32px',
+                          minHeight: '28px'
+                        }}
+                        title="Allocate space in region/row/column"
+                      >
+                        📐
+                      </button>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -168,9 +552,11 @@ function App() {
           <div style={{marginTop: '20px'}}>
             <h5 style={{color: '#666', margin: '10px 0'}}>🔸 Other Objects:</h5>
             {orphans.map((obj, index) => (
-              <div 
+              <div
                 key={index}
-                onClick={() => setSelectedObject(obj)}
+                onClick={() => {
+                  setSelectedObject(obj);
+                }}
                 style={{
                   padding: '8px 10px',
                   margin: '2px 0',
@@ -197,6 +583,44 @@ function App() {
         try {
           const jsonData = JSON.parse(e.target?.result as string);
           setData(jsonData);
+
+          // Auto-fit to screen after loading data
+          // Use setTimeout to ensure state is updated and DOM is ready
+          setTimeout(() => {
+            if (jsonData && jsonData.objects && jsonData.objects.length > 0) {
+              // Get actual SVG dimensions
+              const svgElement = document.querySelector('svg');
+              if (svgElement) {
+                const svgRect = svgElement.getBoundingClientRect();
+                const viewportWidth = svgRect.width;
+                const viewportHeight = svgRect.height;
+
+                // Calculate bounds of all objects
+                const bounds = jsonData.objects.reduce((acc: any, obj: AIObject) => ({
+                  minX: Math.min(acc.minX, obj.x),
+                  minY: Math.min(acc.minY, obj.y),
+                  maxX: Math.max(acc.maxX, obj.x + obj.width),
+                  maxY: Math.max(acc.maxY, obj.y + obj.height)
+                }), { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+
+                const contentWidth = bounds.maxX - bounds.minX;
+                const contentHeight = bounds.maxY - bounds.minY;
+                const padding = 100; // Padding in pixels
+
+                const scaleX = (viewportWidth - padding) / (contentWidth * 3.78); // 3.78 = mmToPx conversion
+                const scaleY = (viewportHeight - padding) / (contentHeight * 3.78);
+                const newZoom = Math.min(scaleX, scaleY, 2); // Max zoom 2x for fit
+
+                setZoom(newZoom);
+                setPanX(-(bounds.minX + contentWidth / 2) * newZoom * 3.78 + viewportWidth / 2);
+                setPanY(-(bounds.minY + contentHeight / 2) * newZoom * 3.78 + viewportHeight / 2);
+
+                // Show auto-fit notification
+                setAutoFitNotification(true);
+                setTimeout(() => setAutoFitNotification(false), 3000);
+              }
+            }
+          }, 200); // Increased timeout to ensure DOM is ready
         } catch (error) {
           alert('Invalid JSON file');
         }
@@ -232,22 +656,35 @@ function App() {
     }
   };
 
+  // Button style for canvas controls
+  const buttonStyle = {
+    padding: '5px 8px',
+    margin: '0',
+    border: '1px solid #ccc',
+    borderRadius: '3px',
+    background: 'white',
+    cursor: 'pointer',
+    fontSize: '12px',
+    minWidth: '30px'
+  };
+
   const renderObject = (obj: AIObject, index: number) => {
-    const scale = 2.0;
-    const offsetX = 50; 
-    const offsetY = 50;
-    
-    const baseX = offsetX + (obj.x * scale);
-    const baseY = offsetY + (obj.y * scale);
-    const width = Math.max(obj.width * scale, 40);
-    const height = Math.max(obj.height * scale, 30);
-    
+    // 1:1 scale: 1mm = 1px (at 96 DPI, 1mm ≈ 3.78px, but we'll use 1:1 for simplicity)
+    // Apply zoom and pan transformations
+    const mmToPx = 3.78; // Conversion factor for true 1:1 at 96 DPI
+    const scale = zoom * mmToPx;
+
+    const baseX = (obj.x * scale) + panX;
+    const baseY = (obj.y * scale) + panY;
+    const width = Math.max(obj.width * scale, 2);
+    const height = Math.max(obj.height * scale, 2);
+
     const isSelected = selectedObject === obj;
-    
+
     let strokeColor = '#333';
     let strokeWidth = '2';
     let strokeDasharray = 'none';
-    
+
     if (obj.type?.includes('mother')) {
       strokeColor = '#d32f2f';
       strokeWidth = '3';
@@ -261,146 +698,422 @@ function App() {
       strokeWidth = '1';
       strokeDasharray = '2,2';
     }
-    
+
     if (isSelected) {
       strokeColor = '#667eea';
       strokeWidth = '4';
       strokeDasharray = 'none';
     }
-    
+
+    // Calculate font size based on zoom level
+    const fontSize = Math.max(8, Math.min(14, 10 * zoom));
+    const smallFontSize = Math.max(6, Math.min(10, 8 * zoom));
+    const dimensionFontSize = Math.max(7, Math.min(12, 9 * zoom));
+
+    // Calculate positions for dimension labels
+    const centerX = baseX + width / 2;
+    const centerY = baseY + height / 2;
+    const topY = baseY - 5;
+    const leftX = baseX - 5;
+
+    // Format dimensions to appropriate precision
+    const widthMm = obj.width.toFixed(1);
+    const heightMm = obj.height.toFixed(1);
+
     return (
       <g key={index}>
+        {/* Main rectangle */}
         <rect
           x={baseX} y={baseY} width={width} height={height}
           fill="transparent"
-          stroke={strokeColor} 
+          stroke={strokeColor}
           strokeWidth={strokeWidth}
           strokeDasharray={strokeDasharray}
-          onClick={() => setSelectedObject(obj)}
+          onClick={() => {
+            setSelectedObject(obj);
+          }}
           style={{cursor: 'pointer'}}
         />
+
+        {/* Object name and type */}
         <text
           x={baseX + 5} y={baseY + 15}
-          fontSize="12" fill="#333" fontWeight="bold"
+          fontSize={fontSize} fill="#333" fontWeight="bold"
         >
           {obj.name}
         </text>
         <text
           x={baseX + 5} y={baseY + 28}
-          fontSize="10" fill="#666"
+          fontSize={smallFontSize} fill="#666"
         >
           {obj.type || obj.typename}
         </text>
+
+        {/* Display actual content for son objects */}
+        {obj.type?.includes('son') && (() => {
+          const objectId = `${obj.name}_${obj.x}_${obj.y}`;
+          const metadata = sonMetadata.get(objectId);
+          const content = metadata?.content;
+
+          if (content && content.trim()) {
+            // Calculate content area (below name and type)
+            const contentY = baseY + 45;
+            const contentHeight = height - 50; // Leave space for name/type
+            const contentWidth = width - 10; // Leave margins
+
+            if (contentHeight > 10 && contentWidth > 20) {
+              // Get text overflow settings
+              const textOverflow = metadata?.textOverflow || 'linebreak';
+              const lineBreakType = metadata?.lineBreakType || 'word';
+              const characterConnector = metadata?.characterConnector || '-';
+
+              let displayLines = [];
+              let actualFontSize = Math.max(6, (metadata?.fontSize || 12) * zoom);
+
+              if (textOverflow === 'resize') {
+                // Option 1: Resize text to fit in one line
+                const maxCharsPerLine = Math.floor(contentWidth / (actualFontSize * 0.6));
+                if (content.length > maxCharsPerLine) {
+                  // Calculate smaller font size to fit all text in one line
+                  actualFontSize = Math.max(6, (contentWidth / (content.length * 0.6)));
+                }
+                displayLines = [content]; // Single line
+              } else {
+                // Option 2: Accept line breaks
+                const maxCharsPerLine = Math.floor(contentWidth / (actualFontSize * 0.6));
+
+                if (lineBreakType === 'word') {
+                  // Word break: break at word boundaries
+                  const words = content.split(' ');
+                  let currentLine = '';
+
+                  for (const word of words) {
+                    if ((currentLine + word).length <= maxCharsPerLine) {
+                      currentLine += (currentLine ? ' ' : '') + word;
+                    } else {
+                      if (currentLine) displayLines.push(currentLine);
+                      currentLine = word;
+                    }
+                  }
+                  if (currentLine) displayLines.push(currentLine);
+                } else {
+                  // Character break: break at character boundaries with connector
+                  let remainingText = content;
+                  while (remainingText.length > 0) {
+                    if (remainingText.length <= maxCharsPerLine) {
+                      displayLines.push(remainingText);
+                      break;
+                    } else {
+                      // Take max chars minus connector length, add connector
+                      const lineLength = maxCharsPerLine - characterConnector.length;
+                      const lineText = remainingText.substring(0, lineLength) + characterConnector;
+                      displayLines.push(lineText);
+                      remainingText = remainingText.substring(lineLength);
+                    }
+                  }
+                }
+              }
+
+              // Limit lines to fit in available height
+              const lineHeight = actualFontSize + 2;
+              const maxLines = Math.floor(contentHeight / lineHeight);
+              displayLines = displayLines.slice(0, maxLines);
+
+              // Apply font formatting from metadata
+              const fontFamily = metadata?.fontFamily || 'Arial';
+              const textAlign = metadata?.textAlign || 'left';
+              const fontWeight = metadata?.fontWeight || 'normal';
+
+              // Calculate text anchor based on alignment
+              let textAnchor: 'start' | 'middle' | 'end' = 'start';
+              let textX = baseX + 5;
+
+              if (textAlign === 'center') {
+                textAnchor = 'middle';
+                textX = baseX + (width / 2);
+              } else if (textAlign === 'right') {
+                textAnchor = 'end';
+                textX = baseX + width - 5;
+              }
+
+              return displayLines.map((line, lineIndex) => (
+                <text
+                  key={`content-${lineIndex}`}
+                  x={textX}
+                  y={contentY + (lineIndex * lineHeight)}
+                  fontSize={actualFontSize}
+                  fill="#2e7d32"
+                  fontWeight={fontWeight}
+                  fontFamily={fontFamily}
+                  textAnchor={textAnchor}
+                >
+                  {line}
+                </text>
+              ));
+            }
+          }
+          return null;
+        })()}
+
+        {/* Dimension labels (only when enabled) */}
+        {showDimensions && (
+          <>
+            {/* Width label (top center) */}
+            <text
+              x={centerX} y={topY}
+              fontSize={dimensionFontSize}
+              fill="#0066cc"
+              fontWeight="bold"
+              textAnchor="middle"
+              dominantBaseline="bottom"
+            >
+              {widthMm}mm
+            </text>
+
+            {/* Height label (left center, rotated) */}
+            <text
+              x={leftX} y={centerY}
+              fontSize={dimensionFontSize}
+              fill="#cc6600"
+              fontWeight="bold"
+              textAnchor="middle"
+              dominantBaseline="middle"
+              transform={`rotate(-90, ${leftX}, ${centerY})`}
+            >
+              {heightMm}mm
+            </text>
+
+            {/* Dimension lines for better visibility (only when zoomed in enough) */}
+            {zoom > 0.5 && (
+              <>
+                {/* Top width line */}
+                <line
+                  x1={baseX} y1={topY + 3}
+                  x2={baseX + width} y2={topY + 3}
+                  stroke="#0066cc"
+                  strokeWidth="1"
+                  opacity="0.7"
+                />
+                {/* Left height line */}
+                <line
+                  x1={leftX + 3} y1={baseY}
+                  x2={leftX + 3} y2={baseY + height}
+                  stroke="#cc6600"
+                  strokeWidth="1"
+                  opacity="0.7"
+                />
+              </>
+            )}
+          </>
+        )}
       </g>
     );
   };
 
+  // Space Allocation Dialog Component - REMOVED (now handled directly in son regions)
+
   return (
-    <div 
-      style={{
-        display: 'grid',
-        gridTemplateColumns: '300px 1fr 300px',
-        height: '100vh',
-        background: '#f5f5f5'
-      }}
+    <div style={{
+      height: '100vh',
+      display: 'flex',
+      flexDirection: 'column',
+      background: '#f5f5f5'
+    }}
       onDrop={handleDrop}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
     >
-      <div style={{background: 'white', padding: '20px', borderRight: '1px solid #ddd'}}>
-        {selectedObject ? (
-          <div>
-            <h4>📋 Object Details</h4>
-            <p><strong>Name:</strong> {selectedObject.name}</p>
-            <p><strong>Type:</strong> {selectedObject.typename}</p>
-            <p><strong>X:</strong> {selectedObject.x}</p>
-            <p><strong>Y:</strong> {selectedObject.y}</p>
-            <p><strong>Width:</strong> {selectedObject.width}</p>
-            <p><strong>Height:</strong> {selectedObject.height}</p>
-          </div>
-        ) : (
-          <p>Click an object to see details</p>
-        )}
-        
-        {data && (
-          <button 
-            onClick={() => setData(null)}
-            style={{
-              marginTop: '20px',
-              padding: '10px 20px',
-              background: '#667eea',
-              color: 'white',
-              border: 'none',
-              borderRadius: '5px',
-              cursor: 'pointer'
-            }}
-          >
-            📁 New File
-          </button>
-        )}
-      </div>
+      {/* Main Content - 70% Canvas / 30% Hierarchy Panel (v1.1.0) */}
+      <div style={{
+        flex: 1,
+        display: 'flex',
+        height: '100vh'
+      }}>
+        {/* Canvas Area - 70% */}
+        <div style={{
+          width: '70%',
+          background: 'white',
+          padding: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderRight: '1px solid #ddd'
+        }}>
+          {data ? (
+            <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+              {/* Canvas Controls - FIXED: Moved to top-right corner (v1.2.0) */}
+              <div style={{
+                position: 'absolute',
+                top: '10px',
+                right: '10px',
+                zIndex: 1000,
+                background: 'rgba(255,255,255,0.9)',
+                padding: '12px',
+                borderRadius: '8px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '5px',
+                minWidth: '160px'
+              }}>
+                <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>
+                  Zoom: {(zoom * 100).toFixed(0)}%
+                </div>
+                <div style={{ display: 'flex', gap: '5px' }}>
+                  <button onClick={handleZoomIn} style={buttonStyle}>+</button>
+                  <button onClick={handleZoomOut} style={buttonStyle}>-</button>
+                  <button onClick={handleZoomReset} style={buttonStyle}>1:1</button>
+                  <button onClick={handleFitToScreen} style={buttonStyle}>Fit</button>
+                </div>
+                <div style={{ display: 'flex', gap: '5px', marginTop: '5px' }}>
+                  <button
+                    onClick={() => setShowDimensions(!showDimensions)}
+                    style={{
+                      ...buttonStyle,
+                      background: showDimensions ? '#e3f2fd' : 'white',
+                      color: showDimensions ? '#1976d2' : '#666',
+                      fontSize: '10px',
+                      padding: '4px 6px'
+                    }}
+                  >
+                    📏 Dimensions
+                  </button>
+                </div>
+                <div style={{ fontSize: '10px', color: '#666', marginTop: '5px' }}>
+                  Pan: Click & drag<br/>
+                  Zoom: Mouse wheel
+                </div>
+                <div style={{ fontSize: '10px', color: '#333', marginTop: '5px', borderTop: '1px solid #eee', paddingTop: '5px' }}>
+                  <strong>Coordinates (mm):</strong><br/>
+                  X: {mouseCoords.x.toFixed(2)}<br/>
+                  Y: {mouseCoords.y.toFixed(2)}
+                </div>
+              </div>
 
-      <div style={{background: 'white', padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
-        {data ? (
-          <svg width="1200" height="800" style={{border: '1px solid #ddd'}} viewBox="0 0 1200 800">
-            <defs>
-              <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
-                <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#f0f0f0" strokeWidth="1"/>
-              </pattern>
-            </defs>
-            <rect width="100%" height="100%" fill="url(#grid)" />
-            
-            <line x1="50" y1="0" x2="50" y2="800" stroke="#ccc" strokeWidth="2"/>
-            <line x1="0" y1="50" x2="1200" y2="50" stroke="#ccc" strokeWidth="2"/>
-            
-            <text x="10" y="45" fontSize="12" fill="#666">0</text>
-            <text x="10" y="150" fontSize="12" fill="#666">50mm</text>
-            <text x="10" y="250" fontSize="12" fill="#666">100mm</text>
-            
-            {data.objects.map((obj, index) => renderObject(obj, index))}
-          </svg>
-        ) : (
-          <div style={{
-            textAlign: 'center',
-            color: '#999',
-            fontSize: '1.5rem'
-          }}>
-            <div style={{fontSize: '4rem', marginBottom: '20px'}}>
-              {isDragOver ? '📥' : '📁'}
-            </div>
-            <p>{isDragOver ? 'Drop your JSON file here!' : 'Drag & Drop JSON file to view'}</p>
-          </div>
-        )}
-      </div>
+              {/* Auto-fit notification */}
+              {autoFitNotification && (
+                <div style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  background: 'rgba(76, 175, 80, 0.9)',
+                  color: 'white',
+                  padding: '12px 20px',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  zIndex: 2000,
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+                }}>
+                  ✅ Auto-fitted to view - All objects are now visible!
+                </div>
+              )}
 
-      <div style={{background: 'white', padding: '20px', borderLeft: '1px solid #ddd', overflowY: 'auto'}}>
-        <h3>� {data?.document || 'Drop JSON file'}</h3>
-        <p>Objects: {data?.totalObjects || 0} | v0.3.0</p>
-        
-        {!data && (
-          <div style={{
-            border: isDragOver ? '3px solid #4CAF50' : '3px dashed #ccc',
-            padding: '20px',
-            textAlign: 'center',
-            marginTop: '20px',
-            borderRadius: '10px',
-            background: isDragOver ? 'rgba(76,175,80,0.1)' : '#f9f9f9'
-          }}>
-            <div style={{fontSize: '2rem', marginBottom: '10px'}}>
-              {isDragOver ? '📥' : '📁'}
+              <svg
+                width="100%"
+                height="100%"
+                style={{
+                  border: '1px solid #ddd',
+                  cursor: isPanning ? 'grabbing' : 'grab'
+                }}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onWheel={handleWheel}
+              >
+                <defs>
+                  <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
+                    <path d="M 10 0 L 0 0 0 10" fill="none" stroke="#f0f0f0" strokeWidth="1"/>
+                  </pattern>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#grid)" />
+
+                {data.objects.map((obj, index) => renderObject(obj, index))}
+              </svg>
             </div>
-            <p>Drop JSON file here</p>
-            <input 
-              type="file" 
-              accept=".json" 
-              onChange={handleInputChange}
-              style={{marginTop: '10px'}}
+          ) : (
+            <div style={{
+              border: isDragOver ? '3px solid #4CAF50' : '3px dashed #ccc',
+              padding: '60px',
+              textAlign: 'center',
+              borderRadius: '10px',
+              background: isDragOver ? 'rgba(76,175,80,0.1)' : '#f9f9f9'
+            }}>
+              <div style={{fontSize: '4rem', marginBottom: '20px'}}>
+                {isDragOver ? '📥' : '📁'}
+              </div>
+              <p>Drop JSON file here</p>
+              <p style={{fontSize: '12px', color: '#666', marginTop: '10px'}}>
+                ✨ Objects will be automatically fitted to view
+              </p>
+              <input
+                type="file"
+                accept=".json"
+                onChange={handleInputChange}
+                style={{marginTop: '10px'}}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Hierarchy Panel - 30% */}
+        <div style={{
+          width: '30%',
+          background: 'white',
+          padding: '20px',
+          overflowY: 'auto'
+        }}>
+          <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', borderBottom: '1px solid #eee', paddingBottom: '10px'}}>
+            <h3 style={{margin: 0}}>
+              📋 {data ? (() => {
+                const { mothers } = buildHierarchy(data.objects);
+                return `${mothers.length} Pages (${data.totalObjects} Objects)`;
+              })() : 'Layer Objects'}
+            </h3>
+            {data && sonMetadata.size > 0 && (
+              <button
+                onClick={exportSonMetadata}
+                style={{
+                  padding: '4px 8px',
+                  fontSize: '10px',
+                  background: '#4CAF50',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '3px',
+                  cursor: 'pointer'
+                }}
+                title="Export son metadata"
+              >
+                💾 Export
+              </button>
+            )}
+          </div>
+
+          {data ? (
+            <div>
+              {renderHierarchicalList()}
+            </div>
+          ) : (
+            <div style={{color: '#999', textAlign: 'center', marginTop: '50px'}}>
+              <p>No objects to display</p>
+              <p>Upload a JSON file to see layer objects</p>
+            </div>
+          )}
+
+          {/* Son Details Panel - Integrated into Hierarchy Panel */}
+          <div style={{marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '20px'}}>
+            <SonDetailsPanel
+              selectedObject={selectedObject}
+              sonMetadata={sonMetadata}
+              onUpdateMetadata={handleUpdateSonMetadata}
             />
           </div>
-        )}
-        
-        {data && renderHierarchicalList()}
+        </div>
+
       </div>
+
+      {/* Space Allocation Dialog - REMOVED (now handled directly in son regions) */}
     </div>
   );
 }

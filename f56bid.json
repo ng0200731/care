@@ -1,0 +1,116 @@
+{
+  "scriptVersion": "5.1.0",
+  "exportDate": "Mon Jul 28 2025 14:50:15 GMT+0800",
+  "document": "bid_layout.ai",
+  "totalObjects": 4,
+  "objects": [
+    {
+      "name": "Unnamed",
+      "typename": "PathItem",
+      "layer": "Layer 8",
+      "x": 90.05,
+      "y": 176.53,
+      "width": 39,
+      "height": 109,
+      "topLeft": {
+        "x": 90.05,
+        "y": 176.53
+      },
+      "topRight": {
+        "x": 129.05,
+        "y": 176.53
+      },
+      "bottomLeft": {
+        "x": 90.05,
+        "y": 285.53
+      },
+      "bottomRight": {
+        "x": 129.05,
+        "y": 285.53
+      },
+      "type": "PathItem",
+      "units": "mm"
+    },
+    {
+      "name": "Unnamed",
+      "typename": "PathItem",
+      "layer": "Layer 8",
+      "x": 229.47,
+      "y": 176.53,
+      "width": 39,
+      "height": 109,
+      "topLeft": {
+        "x": 229.47,
+        "y": 176.53
+      },
+      "topRight": {
+        "x": 268.47,
+        "y": 176.53
+      },
+      "bottomLeft": {
+        "x": 229.47,
+        "y": 285.53
+      },
+      "bottomRight": {
+        "x": 268.47,
+        "y": 285.53
+      },
+      "type": "PathItem",
+      "units": "mm"
+    },
+    {
+      "name": "Unnamed",
+      "typename": "PathItem",
+      "layer": "Layer 8",
+      "x": 182.88,
+      "y": 176.53,
+      "width": 39,
+      "height": 109,
+      "topLeft": {
+        "x": 182.88,
+        "y": 176.53
+      },
+      "topRight": {
+        "x": 221.88,
+        "y": 176.53
+      },
+      "bottomLeft": {
+        "x": 182.88,
+        "y": 285.53
+      },
+      "bottomRight": {
+        "x": 221.88,
+        "y": 285.53
+      },
+      "type": "PathItem",
+      "units": "mm"
+    },
+    {
+      "name": "Unnamed",
+      "typename": "PathItem",
+      "layer": "Layer 8",
+      "x": 136.47,
+      "y": 176.53,
+      "width": 39,
+      "height": 109,
+      "topLeft": {
+        "x": 136.47,
+        "y": 176.53
+      },
+      "topRight": {
+        "x": 175.47,
+        "y": 176.53
+      },
+      "bottomLeft": {
+        "x": 136.47,
+        "y": 285.53
+      },
+      "bottomRight": {
+        "x": 175.47,
+        "y": 285.53
+      },
+      "type": "PathItem",
+      "units": "mm"
+    }
+  ]
+}
