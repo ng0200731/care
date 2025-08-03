@@ -90,7 +90,6 @@ function App() {
 
   // Visual toggle states
   const [showMarginRectangles, setShowMarginRectangles] = useState(true);
-  const [showMidFoldLines, setShowMidFoldLines] = useState(true);
   const [showSewingLines, setShowSewingLines] = useState(true);
 
   // Sewing offset dialog state
@@ -1243,19 +1242,7 @@ function App() {
               );
             })()}
 
-            {/* Mid-Fold Line */}
-            {showMidFoldLines && (
-              <line
-                x1={baseX}
-                y1={baseY + height / 2}
-                x2={baseX + width}
-                y2={baseY + height / 2}
-                stroke="#4CAF50"
-                strokeWidth="2"
-                strokeDasharray="5,5"
-                opacity="0.8"
-              />
-            )}
+
 
             {/* Sewing Lines */}
             {showSewingLines && motherConfig.sewingPosition && (
@@ -1417,20 +1404,6 @@ function App() {
                         }}
                       >
                         📦 Margins
-                      </button>
-
-                      <button
-                        onClick={() => setShowMidFoldLines(!showMidFoldLines)}
-                        style={{
-                          ...buttonStyle,
-                          background: showMidFoldLines ? '#f1f8e9' : 'white',
-                          color: showMidFoldLines ? '#4CAF50' : '#666',
-                          fontSize: '9px',
-                          padding: '3px 5px',
-                          width: '100%'
-                        }}
-                      >
-                        📐 Mid-Fold
                       </button>
 
                       <button
