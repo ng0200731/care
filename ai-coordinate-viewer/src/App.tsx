@@ -1251,96 +1251,231 @@ function App() {
               const leftMarginPx = motherConfig.margins.left * scale;
               const rightMarginPx = motherConfig.margins.right * scale;
 
+              const marginFontSize = Math.max(8, Math.min(12, 10 * zoom));
+
               return (
-                <rect
-                  x={baseX + leftMarginPx}
-                  y={baseY + topMarginPx}
-                  width={width - leftMarginPx - rightMarginPx}
-                  height={height - topMarginPx - bottomMarginPx}
-                  fill="none"
-                  stroke="#4CAF50"
-                  strokeWidth="1"
-                  strokeDasharray="3,3"
-                  opacity="0.6"
-                />
+                <>
+                  {/* Margin Rectangle */}
+                  <rect
+                    x={baseX + leftMarginPx}
+                    y={baseY + topMarginPx}
+                    width={width - leftMarginPx - rightMarginPx}
+                    height={height - topMarginPx - bottomMarginPx}
+                    fill="none"
+                    stroke="#4CAF50"
+                    strokeWidth="1"
+                    strokeDasharray="3,3"
+                    opacity="0.6"
+                  />
+
+                  {/* Margin Dimension Labels */}
+                  {/* Top margin label */}
+                  <text
+                    x={baseX + width / 2}
+                    y={baseY + topMarginPx / 2}
+                    fill="#4CAF50"
+                    fontSize={marginFontSize}
+                    fontWeight="bold"
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    opacity="0.8"
+                  >
+                    {motherConfig.margins.top}mm
+                  </text>
+
+                  {/* Bottom margin label */}
+                  <text
+                    x={baseX + width / 2}
+                    y={baseY + height - bottomMarginPx / 2}
+                    fill="#4CAF50"
+                    fontSize={marginFontSize}
+                    fontWeight="bold"
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    opacity="0.8"
+                  >
+                    {motherConfig.margins.down}mm
+                  </text>
+
+                  {/* Left margin label */}
+                  <text
+                    x={baseX + leftMarginPx / 2}
+                    y={baseY + height / 2}
+                    fill="#4CAF50"
+                    fontSize={marginFontSize}
+                    fontWeight="bold"
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    opacity="0.8"
+                    transform={`rotate(-90, ${baseX + leftMarginPx / 2}, ${baseY + height / 2})`}
+                  >
+                    {motherConfig.margins.left}mm
+                  </text>
+
+                  {/* Right margin label */}
+                  <text
+                    x={baseX + width - rightMarginPx / 2}
+                    y={baseY + height / 2}
+                    fill="#4CAF50"
+                    fontSize={marginFontSize}
+                    fontWeight="bold"
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    opacity="0.8"
+                    transform={`rotate(90, ${baseX + width - rightMarginPx / 2}, ${baseY + height / 2})`}
+                  >
+                    {motherConfig.margins.right}mm
+                  </text>
+                </>
               );
             })()}
 
 
 
-            {/* Sewing Lines */}
+            {/* Sewing Lines with Dimensions */}
             {showSewingLines && motherConfig.sewingPosition && (
               (() => {
                 // Use the same scale as the object rendering
                 const mmToPx = 3.78;
                 const scale = zoom * mmToPx;
                 const offset = motherConfig.sewingOffset * scale;
+                const sewingFontSize = Math.max(8, Math.min(12, 10 * zoom));
 
                 switch (motherConfig.sewingPosition) {
                   case 'top':
                     return (
-                      <line
-                        x1={baseX}
-                        y1={baseY + offset}
-                        x2={baseX + width}
-                        y2={baseY + offset}
-                        stroke="#d32f2f"
-                        strokeWidth="3"
-                        strokeDasharray="4,4"
-                        opacity="0.9"
-                      />
+                      <>
+                        <line
+                          x1={baseX}
+                          y1={baseY + offset}
+                          x2={baseX + width}
+                          y2={baseY + offset}
+                          stroke="#d32f2f"
+                          strokeWidth="3"
+                          strokeDasharray="4,4"
+                          opacity="0.9"
+                        />
+                        <text
+                          x={baseX + width + 5}
+                          y={baseY + offset}
+                          fill="#d32f2f"
+                          fontSize={sewingFontSize}
+                          fontWeight="bold"
+                          textAnchor="start"
+                          dominantBaseline="middle"
+                          opacity="0.9"
+                        >
+                          {motherConfig.sewingOffset}mm
+                        </text>
+                      </>
                     );
                   case 'left':
                     return (
-                      <line
-                        x1={baseX + offset}
-                        y1={baseY}
-                        x2={baseX + offset}
-                        y2={baseY + height}
-                        stroke="#d32f2f"
-                        strokeWidth="3"
-                        strokeDasharray="4,4"
-                        opacity="0.9"
-                      />
+                      <>
+                        <line
+                          x1={baseX + offset}
+                          y1={baseY}
+                          x2={baseX + offset}
+                          y2={baseY + height}
+                          stroke="#d32f2f"
+                          strokeWidth="3"
+                          strokeDasharray="4,4"
+                          opacity="0.9"
+                        />
+                        <text
+                          x={baseX + offset}
+                          y={baseY - 5}
+                          fill="#d32f2f"
+                          fontSize={sewingFontSize}
+                          fontWeight="bold"
+                          textAnchor="middle"
+                          dominantBaseline="bottom"
+                          opacity="0.9"
+                        >
+                          {motherConfig.sewingOffset}mm
+                        </text>
+                      </>
                     );
                   case 'right':
                     return (
-                      <line
-                        x1={baseX + width - offset}
-                        y1={baseY}
-                        x2={baseX + width - offset}
-                        y2={baseY + height}
-                        stroke="#d32f2f"
-                        strokeWidth="3"
-                        strokeDasharray="4,4"
-                        opacity="0.9"
-                      />
+                      <>
+                        <line
+                          x1={baseX + width - offset}
+                          y1={baseY}
+                          x2={baseX + width - offset}
+                          y2={baseY + height}
+                          stroke="#d32f2f"
+                          strokeWidth="3"
+                          strokeDasharray="4,4"
+                          opacity="0.9"
+                        />
+                        <text
+                          x={baseX + width - offset}
+                          y={baseY - 5}
+                          fill="#d32f2f"
+                          fontSize={sewingFontSize}
+                          fontWeight="bold"
+                          textAnchor="middle"
+                          dominantBaseline="bottom"
+                          opacity="0.9"
+                        >
+                          {motherConfig.sewingOffset}mm
+                        </text>
+                      </>
                     );
                   case 'bottom':
                     return (
-                      <line
-                        x1={baseX}
-                        y1={baseY + height - offset}
-                        x2={baseX + width}
-                        y2={baseY + height - offset}
-                        stroke="#d32f2f"
-                        strokeWidth="3"
-                        strokeDasharray="4,4"
-                        opacity="0.9"
-                      />
+                      <>
+                        <line
+                          x1={baseX}
+                          y1={baseY + height - offset}
+                          x2={baseX + width}
+                          y2={baseY + height - offset}
+                          stroke="#d32f2f"
+                          strokeWidth="3"
+                          strokeDasharray="4,4"
+                          opacity="0.9"
+                        />
+                        <text
+                          x={baseX + width + 5}
+                          y={baseY + height - offset}
+                          fill="#d32f2f"
+                          fontSize={sewingFontSize}
+                          fontWeight="bold"
+                          textAnchor="start"
+                          dominantBaseline="middle"
+                          opacity="0.9"
+                        >
+                          {motherConfig.sewingOffset}mm
+                        </text>
+                      </>
                     );
                   case 'mid-fold':
                     return (
-                      <line
-                        x1={baseX}
-                        y1={baseY + height / 2}
-                        x2={baseX + width}
-                        y2={baseY + height / 2}
-                        stroke="#d32f2f"
-                        strokeWidth="3"
-                        strokeDasharray="4,4"
-                        opacity="0.9"
-                      />
+                      <>
+                        <line
+                          x1={baseX}
+                          y1={baseY + height / 2}
+                          x2={baseX + width}
+                          y2={baseY + height / 2}
+                          stroke="#d32f2f"
+                          strokeWidth="3"
+                          strokeDasharray="4,4"
+                          opacity="0.9"
+                        />
+                        <text
+                          x={baseX + width + 5}
+                          y={baseY + height / 2}
+                          fill="#d32f2f"
+                          fontSize={sewingFontSize}
+                          fontWeight="bold"
+                          textAnchor="start"
+                          dominantBaseline="middle"
+                          opacity="0.9"
+                        >
+                          Mid-Fold
+                        </text>
+                      </>
                     );
                   default:
                     return null;
