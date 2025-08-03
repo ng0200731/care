@@ -67,6 +67,10 @@ function App() {
   const [showDimensions, setShowDimensions] = useState(true);
   const [autoFitNotification, setAutoFitNotification] = useState(false);
 
+  // Web creation mode state
+  const [isWebCreationMode, setIsWebCreationMode] = useState(false);
+  const [webCreationData, setWebCreationData] = useState<AIData | null>(null);
+
   // Removed space allocation dialog - now handled directly in son regions
 
   // Canvas control functions
@@ -262,6 +266,59 @@ function App() {
   };
 
   // Dialog functions removed - space allocation now handled directly
+
+  // Web creation mode functions
+  const startWebCreationMode = () => {
+    console.log('🌐 Starting web creation mode');
+    setIsWebCreationMode(true);
+    // Initialize with empty data structure
+    const emptyData: AIData = {
+      document: 'Web Created Project',
+      totalObjects: 0,
+      objects: []
+    };
+    setWebCreationData(emptyData);
+    setData(emptyData); // Use the same data state for consistency
+
+    // Reset view state
+    setZoom(1);
+    setPanX(0);
+    setPanY(0);
+    setSelectedObject(null);
+    setSonMetadata(new Map());
+    setExpandedMothers(new Set());
+  };
+
+  const createMotherObject = () => {
+    console.log('👩 Creating new mother object');
+    if (!isWebCreationMode) return;
+
+    const currentData = data || webCreationData;
+    if (!currentData) return;
+
+    // Create a new mother object
+    const newMother: AIObject = {
+      name: `Mother_${currentData.objects.length + 1}`,
+      type: 'mother',
+      x: 50, // Default position
+      y: 50,
+      width: 200, // Default size
+      height: 150,
+      typename: 'mother'
+    };
+
+    const updatedData: AIData = {
+      ...currentData,
+      totalObjects: currentData.totalObjects + 1,
+      objects: [...currentData.objects, newMother]
+    };
+
+    setData(updatedData);
+    setWebCreationData(updatedData);
+    setSelectedObject(newMother);
+
+    console.log('✅ Mother object created:', newMother);
+  };
 
   const fitObjectToView = (obj: AIObject) => {
     // Get actual SVG dimensions
@@ -1058,7 +1115,7 @@ function App() {
           justifyContent: 'center',
           borderRight: '1px solid #ddd'
         }}>
-          {data ? (
+          {data || isWebCreationMode ? (
             <div style={{ position: 'relative', width: '100%', height: '100%' }}>
               {/* Canvas Controls - FIXED: Moved to top-right corner (v1.2.0) */}
               <div style={{
@@ -1148,7 +1205,22 @@ function App() {
                 </defs>
                 <rect width="100%" height="100%" fill="url(#grid)" />
 
-                {data.objects.map((obj, index) => renderObject(obj, index))}
+                {/* Web Creation Mode Indicator */}
+                {isWebCreationMode && (!data || data.objects.length === 0) && (
+                  <text
+                    x="50%"
+                    y="50%"
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    fontSize="24"
+                    fill="#ccc"
+                    fontWeight="bold"
+                  >
+                    🌐 Web Creation Canvas - Create your first mother object
+                  </text>
+                )}
+
+                {(data || webCreationData)?.objects.map((obj, index) => renderObject(obj, index))}
               </svg>
             </div>
           ) : (
@@ -1172,6 +1244,50 @@ function App() {
                 onChange={handleInputChange}
                 style={{marginTop: '10px'}}
               />
+
+              {/* OR Divider */}
+              <div style={{
+                margin: '30px 0',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '15px'
+              }}>
+                <div style={{flex: 1, height: '1px', background: '#ddd'}}></div>
+                <span style={{color: '#666', fontSize: '14px', fontWeight: 'bold'}}>OR</span>
+                <div style={{flex: 1, height: '1px', background: '#ddd'}}></div>
+              </div>
+
+              {/* Start Everything From Web Button */}
+              <button
+                onClick={startWebCreationMode}
+                style={{
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: 'white',
+                  border: 'none',
+                  padding: '15px 30px',
+                  borderRadius: '8px',
+                  fontSize: '16px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 15px rgba(102, 126, 234, 0.3)',
+                  transition: 'all 0.3s ease',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.4)';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.3)';
+                }}
+              >
+                🌐 Start Everything From Web
+              </button>
+              <p style={{fontSize: '12px', color: '#666', marginTop: '10px'}}>
+                🚀 Create layers and objects directly in the app
+              </p>
             </div>
           )}
         </div>
@@ -1185,9 +1301,15 @@ function App() {
         }}>
           <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', borderBottom: '1px solid #eee', paddingBottom: '10px'}}>
             <h3 style={{margin: 0}}>
-              📋 {data ? (() => {
-                const { mothers } = buildHierarchy(data.objects);
-                return `${mothers.length} Pages (${data.totalObjects} Objects)`;
+              📋 {(data || webCreationData) ? (() => {
+                const currentData = data || webCreationData;
+                if (currentData) {
+                  const { mothers } = buildHierarchy(currentData.objects);
+                  return isWebCreationMode
+                    ? `🌐 Web Project (${mothers.length} Pages, ${currentData.totalObjects} Objects)`
+                    : `${mothers.length} Pages (${currentData.totalObjects} Objects)`;
+                }
+                return 'Layer Objects';
               })() : 'Layer Objects'}
             </h3>
             {data && sonMetadata.size > 0 && (
@@ -1212,6 +1334,55 @@ function App() {
           {data ? (
             <div>
               {renderHierarchicalList()}
+            </div>
+          ) : isWebCreationMode ? (
+            <div style={{textAlign: 'center', marginTop: '30px'}}>
+              <div style={{
+                background: 'linear-gradient(135deg, #e8f5e8 0%, #f0f8f0 100%)',
+                padding: '20px',
+                borderRadius: '10px',
+                border: '2px dashed #4CAF50',
+                marginBottom: '20px'
+              }}>
+                <div style={{fontSize: '2rem', marginBottom: '10px'}}>🏗️</div>
+                <h4 style={{margin: '0 0 10px 0', color: '#2e7d32'}}>Web Creation Mode</h4>
+                <p style={{color: '#666', fontSize: '14px', margin: '0 0 20px 0'}}>
+                  Start by creating your first mother object
+                </p>
+
+                <button
+                  onClick={createMotherObject}
+                  style={{
+                    background: 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)',
+                    color: 'white',
+                    border: 'none',
+                    padding: '12px 24px',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    boxShadow: '0 3px 10px rgba(76, 175, 80, 0.3)',
+                    transition: 'all 0.3s ease'
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.boxShadow = '0 4px 15px rgba(76, 175, 80, 0.4)';
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 3px 10px rgba(76, 175, 80, 0.3)';
+                  }}
+                >
+                  👩 Create Mother
+                </button>
+              </div>
+
+              <div style={{fontSize: '12px', color: '#999', textAlign: 'left'}}>
+                <p><strong>Next Steps:</strong></p>
+                <p>1. Create a mother object (container)</p>
+                <p>2. Add son objects (text, images, etc.)</p>
+                <p>3. Configure properties and layout</p>
+              </div>
             </div>
           ) : (
             <div style={{color: '#999', textAlign: 'center', marginTop: '50px'}}>
