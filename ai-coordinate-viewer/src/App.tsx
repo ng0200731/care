@@ -73,10 +73,19 @@ function App() {
 
   // Mother creation dialog state
   const [showMotherDialog, setShowMotherDialog] = useState(false);
+  const [isEditingMother, setIsEditingMother] = useState(false);
+  const [editingMotherId, setEditingMotherId] = useState<string | null>(null);
   const [motherConfig, setMotherConfig] = useState({
     width: 200,
     height: 150,
-    positioning: 'top-wing' as 'top-wing' | 'mid-fold'
+    positioning: 'top-wing' as 'top-wing' | 'mid-fold',
+    margins: {
+      top: 5,
+      left: 5,
+      down: 5,
+      right: 5
+    },
+    sewingPosition: 'top' as 'top' | 'left' | 'right' | 'middle' | 'bottom-left' | 'bottom-right'
   });
 
   // Removed space allocation dialog - now handled directly in son regions
@@ -300,50 +309,108 @@ function App() {
   const openMotherDialog = () => {
     console.log('👩 Opening mother creation dialog');
     if (!isWebCreationMode) return;
+    setIsEditingMother(false);
+    setEditingMotherId(null);
+    // Reset to default values for new mother
+    setMotherConfig({
+      width: 200,
+      height: 150,
+      positioning: 'top-wing',
+      margins: { top: 5, left: 5, down: 5, right: 5 },
+      sewingPosition: 'top'
+    });
     setShowMotherDialog(true);
   };
 
-  const createMotherObject = () => {
-    console.log('👩 Creating new mother object with config:', motherConfig);
+  const openEditMotherDialog = (mother: AIObject) => {
+    console.log('✏️ Opening mother edit dialog for:', mother.name);
+    setIsEditingMother(true);
+    setEditingMotherId(mother.name);
+
+    // Load current mother properties
+    setMotherConfig({
+      width: mother.width,
+      height: mother.height,
+      positioning: 'top-wing', // Default, could be extended to store this
+      margins: { top: 5, left: 5, down: 5, right: 5 }, // Default, could be extended
+      sewingPosition: 'top' // Default, could be extended
+    });
+    setShowMotherDialog(true);
+  };
+
+  const createOrUpdateMotherObject = () => {
+    console.log(isEditingMother ? '✏️ Updating mother object' : '👩 Creating new mother object', 'with config:', motherConfig);
     if (!isWebCreationMode) return;
 
     const currentData = data || webCreationData;
     if (!currentData) return;
 
-    // Calculate position based on positioning option
-    let xPosition = 50;
-    let yPosition = 50;
+    if (isEditingMother && editingMotherId) {
+      // Update existing mother
+      const updatedObjects = currentData.objects.map(obj => {
+        if (obj.name === editingMotherId && obj.type === 'mother') {
+          return {
+            ...obj,
+            width: motherConfig.width,
+            height: motherConfig.height,
+            // Store additional properties (margins, sewing position) in a metadata-like way
+            // For now, we'll just update dimensions
+          };
+        }
+        return obj;
+      });
 
-    if (motherConfig.positioning === 'mid-fold') {
-      // Position in middle area
-      xPosition = 150;
-      yPosition = 100;
+      const updatedData: AIData = {
+        ...currentData,
+        objects: updatedObjects
+      };
+
+      setData(updatedData);
+      setWebCreationData(updatedData);
+
+      // Keep the edited object selected
+      const editedObject = updatedObjects.find(obj => obj.name === editingMotherId);
+      if (editedObject) setSelectedObject(editedObject);
+
+      console.log('✅ Mother object updated:', editingMotherId);
+    } else {
+      // Create new mother
+      // Calculate position based on positioning option
+      let xPosition = 50;
+      let yPosition = 50;
+
+      if (motherConfig.positioning === 'mid-fold') {
+        // Position in middle area
+        xPosition = 150;
+        yPosition = 100;
+      }
+      // top-wing uses default position (50, 50)
+
+      // Create a new mother object with user-specified dimensions
+      const newMother: AIObject = {
+        name: `Mother_${currentData.objects.length + 1}`,
+        type: 'mother',
+        x: xPosition,
+        y: yPosition,
+        width: motherConfig.width,
+        height: motherConfig.height,
+        typename: 'mother'
+      };
+
+      const updatedData: AIData = {
+        ...currentData,
+        totalObjects: currentData.totalObjects + 1,
+        objects: [...currentData.objects, newMother]
+      };
+
+      setData(updatedData);
+      setWebCreationData(updatedData);
+      setSelectedObject(newMother);
+
+      console.log('✅ Mother object created:', newMother);
     }
-    // top-wing uses default position (50, 50)
 
-    // Create a new mother object with user-specified dimensions
-    const newMother: AIObject = {
-      name: `Mother_${currentData.objects.length + 1}`,
-      type: 'mother',
-      x: xPosition,
-      y: yPosition,
-      width: motherConfig.width,
-      height: motherConfig.height,
-      typename: 'mother'
-    };
-
-    const updatedData: AIData = {
-      ...currentData,
-      totalObjects: currentData.totalObjects + 1,
-      objects: [...currentData.objects, newMother]
-    };
-
-    setData(updatedData);
-    setWebCreationData(updatedData);
-    setSelectedObject(newMother);
     setShowMotherDialog(false); // Close dialog
-
-    console.log('✅ Mother object created:', newMother);
   };
 
   const fitObjectToView = (obj: AIObject) => {
@@ -534,27 +601,51 @@ function App() {
                     </div>
                   </div>
 
-                  {/* Fit View Button */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedObject(mother.object);
-                      fitObjectToView(mother.object);
-                    }}
-                    style={{
-                      background: 'rgba(255,255,255,0.2)',
-                      border: '1px solid rgba(255,255,255,0.3)',
-                      color: 'inherit',
-                      fontSize: '10px',
-                      padding: '4px 8px',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      marginLeft: '8px'
-                    }}
+                  {/* Action Buttons */}
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    {/* Edit Button - Only show in web creation mode */}
+                    {isWebCreationMode && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEditMotherDialog(mother.object);
+                        }}
+                        style={{
+                          background: 'rgba(255,255,255,0.2)',
+                          border: '1px solid rgba(255,255,255,0.3)',
+                          color: 'inherit',
+                          fontSize: '10px',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          cursor: 'pointer'
+                        }}
+                        title="Edit mother object"
+                      >
+                        ✏️ Edit
+                      </button>
+                    )}
+
+                    {/* Fit View Button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedObject(mother.object);
+                        fitObjectToView(mother.object);
+                      }}
+                      style={{
+                        background: 'rgba(255,255,255,0.2)',
+                        border: '1px solid rgba(255,255,255,0.3)',
+                        color: 'inherit',
+                        fontSize: '10px',
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        cursor: 'pointer'
+                      }}
                     title="Fit to view (100% zoom, centered)"
-                  >
-                    👑 Fit View
-                  </button>
+                    >
+                      👑 Fit View
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -1457,7 +1548,7 @@ function App() {
               textAlign: 'center',
               fontSize: '24px'
             }}>
-              👩 Create Mother Object
+              {isEditingMother ? '✏️ Edit Mother Object' : '👩 Create Mother Object'}
             </h2>
 
             <div style={{ marginBottom: '20px' }}>
@@ -1584,6 +1675,171 @@ function App() {
               </div>
             </div>
 
+            {/* Margin Controls */}
+            <div style={{ marginBottom: '20px' }}>
+              <h3 style={{ margin: '0 0 15px 0', color: '#333', fontSize: '16px' }}>
+                📏 Margins (mm)
+              </h3>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>
+                    ⬆️ Top:
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="50"
+                    step="1"
+                    value={motherConfig.margins.top}
+                    onChange={(e) => setMotherConfig(prev => ({
+                      ...prev,
+                      margins: { ...prev.margins, top: parseInt(e.target.value) || 0 }
+                    }))}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: '2px solid #ddd',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      outline: 'none',
+                      transition: 'border-color 0.3s'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#4CAF50'}
+                    onBlur={(e) => e.target.style.borderColor = '#ddd'}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>
+                    ⬇️ Down:
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="50"
+                    step="1"
+                    value={motherConfig.margins.down}
+                    onChange={(e) => setMotherConfig(prev => ({
+                      ...prev,
+                      margins: { ...prev.margins, down: parseInt(e.target.value) || 0 }
+                    }))}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: '2px solid #ddd',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      outline: 'none',
+                      transition: 'border-color 0.3s'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#4CAF50'}
+                    onBlur={(e) => e.target.style.borderColor = '#ddd'}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>
+                    ⬅️ Left:
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="50"
+                    step="1"
+                    value={motherConfig.margins.left}
+                    onChange={(e) => setMotherConfig(prev => ({
+                      ...prev,
+                      margins: { ...prev.margins, left: parseInt(e.target.value) || 0 }
+                    }))}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: '2px solid #ddd',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      outline: 'none',
+                      transition: 'border-color 0.3s'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#4CAF50'}
+                    onBlur={(e) => e.target.style.borderColor = '#ddd'}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>
+                    ➡️ Right:
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="50"
+                    step="1"
+                    value={motherConfig.margins.right}
+                    onChange={(e) => setMotherConfig(prev => ({
+                      ...prev,
+                      margins: { ...prev.margins, right: parseInt(e.target.value) || 0 }
+                    }))}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: '2px solid #ddd',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      outline: 'none',
+                      transition: 'border-color 0.3s'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#4CAF50'}
+                    onBlur={(e) => e.target.style.borderColor = '#ddd'}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Sewing Position Controls */}
+            <div style={{ marginBottom: '25px' }}>
+              <h3 style={{ margin: '0 0 15px 0', color: '#333', fontSize: '16px' }}>
+                🧵 Sewing Position
+              </h3>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+                {[
+                  { value: 'top', label: '🔝 Top', icon: '⬆️' },
+                  { value: 'left', label: '⬅️ Left', icon: '⬅️' },
+                  { value: 'right', label: '➡️ Right', icon: '➡️' },
+                  { value: 'middle', label: '🎯 Middle', icon: '🎯' },
+                  { value: 'bottom-left', label: '↙️ Bottom Left', icon: '↙️' },
+                  { value: 'bottom-right', label: '↘️ Bottom Right', icon: '↘️' }
+                ].map((option) => (
+                  <label key={option.value} style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 12px',
+                    border: `2px solid ${motherConfig.sewingPosition === option.value ? '#4CAF50' : '#ddd'}`,
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    background: motherConfig.sewingPosition === option.value ? '#f1f8e9' : 'white',
+                    transition: 'all 0.3s',
+                    fontSize: '12px'
+                  }}>
+                    <input
+                      type="radio"
+                      name="sewingPosition"
+                      value={option.value}
+                      checked={motherConfig.sewingPosition === option.value}
+                      onChange={(e) => setMotherConfig(prev => ({
+                        ...prev,
+                        sewingPosition: e.target.value as any
+                      }))}
+                      style={{ margin: 0, transform: 'scale(0.8)' }}
+                    />
+                    <span style={{ fontWeight: 'bold', color: '#333' }}>{option.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
               <button
                 onClick={() => setShowMotherDialog(false)}
@@ -1611,7 +1867,7 @@ function App() {
               </button>
 
               <button
-                onClick={createMotherObject}
+                onClick={createOrUpdateMotherObject}
                 style={{
                   padding: '10px 20px',
                   border: 'none',
@@ -1633,7 +1889,7 @@ function App() {
                   e.currentTarget.style.boxShadow = '0 3px 10px rgba(76, 175, 80, 0.3)';
                 }}
               >
-                ✅ Create Mother
+                {isEditingMother ? '✅ Update Mother' : '✅ Create Mother'}
               </button>
             </div>
           </div>
