@@ -416,7 +416,17 @@ function App() {
   // Sewing position functions
   const handleSewingPositionClick = (position: 'top' | 'left' | 'right' | 'bottom' | 'mid-fold') => {
     setSelectedSewingPosition(position);
-    setShowSewingOffsetDialog(true);
+
+    // Mid-fold doesn't need offset dialog - set directly
+    if (position === 'mid-fold') {
+      setMotherConfig(prev => ({
+        ...prev,
+        sewingPosition: 'mid-fold',
+        sewingOffset: 0 // No offset needed for mid-fold
+      }));
+    } else {
+      setShowSewingOffsetDialog(true);
+    }
   };
 
   const confirmSewingOffset = (offset: number) => {
@@ -1220,12 +1230,13 @@ function App() {
           <>
             {/* Margin Rectangle */}
             {showMarginRectangles && (() => {
-              // Convert mm to pixels (3.78 pixels per mm at 96 DPI) and account for zoom
-              const mmToPx = 3.78 * zoom;
-              const topMarginPx = motherConfig.margins.top * mmToPx;
-              const bottomMarginPx = motherConfig.margins.down * mmToPx;
-              const leftMarginPx = motherConfig.margins.left * mmToPx;
-              const rightMarginPx = motherConfig.margins.right * mmToPx;
+              // Use the same scale as the object rendering
+              const mmToPx = 3.78;
+              const scale = zoom * mmToPx;
+              const topMarginPx = motherConfig.margins.top * scale;
+              const bottomMarginPx = motherConfig.margins.down * scale;
+              const leftMarginPx = motherConfig.margins.left * scale;
+              const rightMarginPx = motherConfig.margins.right * scale;
 
               return (
                 <rect
@@ -1247,7 +1258,10 @@ function App() {
             {/* Sewing Lines */}
             {showSewingLines && motherConfig.sewingPosition && (
               (() => {
-                const offset = motherConfig.sewingOffset * 3.78 * zoom; // Convert mm to pixels with zoom
+                // Use the same scale as the object rendering
+                const mmToPx = 3.78;
+                const scale = zoom * mmToPx;
+                const offset = motherConfig.sewingOffset * scale;
 
                 switch (motherConfig.sewingPosition) {
                   case 'top':
@@ -1996,7 +2010,7 @@ function App() {
                   🎯 Mid-Fold (Horizontal)
                   {motherConfig.sewingPosition === 'mid-fold' && (
                     <span style={{ fontSize: '12px', color: '#666' }}>
-                      ({motherConfig.sewingOffset}mm)
+                      (Center)
                     </span>
                   )}
                 </button>
