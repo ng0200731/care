@@ -71,6 +71,14 @@ function App() {
   const [isWebCreationMode, setIsWebCreationMode] = useState(false);
   const [webCreationData, setWebCreationData] = useState<AIData | null>(null);
 
+  // Mother creation dialog state
+  const [showMotherDialog, setShowMotherDialog] = useState(false);
+  const [motherConfig, setMotherConfig] = useState({
+    width: 200,
+    height: 150,
+    positioning: 'top-wing' as 'top-wing' | 'mid-fold'
+  });
+
   // Removed space allocation dialog - now handled directly in son regions
 
   // Canvas control functions
@@ -289,21 +297,38 @@ function App() {
     setExpandedMothers(new Set());
   };
 
+  const openMotherDialog = () => {
+    console.log('👩 Opening mother creation dialog');
+    if (!isWebCreationMode) return;
+    setShowMotherDialog(true);
+  };
+
   const createMotherObject = () => {
-    console.log('👩 Creating new mother object');
+    console.log('👩 Creating new mother object with config:', motherConfig);
     if (!isWebCreationMode) return;
 
     const currentData = data || webCreationData;
     if (!currentData) return;
 
-    // Create a new mother object
+    // Calculate position based on positioning option
+    let xPosition = 50;
+    let yPosition = 50;
+
+    if (motherConfig.positioning === 'mid-fold') {
+      // Position in middle area
+      xPosition = 150;
+      yPosition = 100;
+    }
+    // top-wing uses default position (50, 50)
+
+    // Create a new mother object with user-specified dimensions
     const newMother: AIObject = {
       name: `Mother_${currentData.objects.length + 1}`,
       type: 'mother',
-      x: 50, // Default position
-      y: 50,
-      width: 200, // Default size
-      height: 150,
+      x: xPosition,
+      y: yPosition,
+      width: motherConfig.width,
+      height: motherConfig.height,
       typename: 'mother'
     };
 
@@ -316,6 +341,7 @@ function App() {
     setData(updatedData);
     setWebCreationData(updatedData);
     setSelectedObject(newMother);
+    setShowMotherDialog(false); // Close dialog
 
     console.log('✅ Mother object created:', newMother);
   };
@@ -1351,7 +1377,7 @@ function App() {
                 </p>
 
                 <button
-                  onClick={createMotherObject}
+                  onClick={openMotherDialog}
                   style={{
                     background: 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)',
                     color: 'white',
@@ -1402,6 +1428,217 @@ function App() {
         </div>
 
       </div>
+
+      {/* Mother Creation Dialog */}
+      {showMotherDialog && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000
+        }}>
+          <div style={{
+            background: 'white',
+            padding: '30px',
+            borderRadius: '12px',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+            minWidth: '400px',
+            maxWidth: '500px'
+          }}>
+            <h2 style={{
+              margin: '0 0 20px 0',
+              color: '#2e7d32',
+              textAlign: 'center',
+              fontSize: '24px'
+            }}>
+              👩 Create Mother Object
+            </h2>
+
+            <div style={{ marginBottom: '20px' }}>
+              <h3 style={{ margin: '0 0 15px 0', color: '#333', fontSize: '16px' }}>
+                📏 Dimensions (mm)
+              </h3>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>
+                    Width (mm):
+                  </label>
+                  <input
+                    type="number"
+                    min="50"
+                    max="1000"
+                    step="10"
+                    value={motherConfig.width}
+                    onChange={(e) => setMotherConfig(prev => ({
+                      ...prev,
+                      width: parseInt(e.target.value) || 200
+                    }))}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: '2px solid #ddd',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      outline: 'none',
+                      transition: 'border-color 0.3s'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#4CAF50'}
+                    onBlur={(e) => e.target.style.borderColor = '#ddd'}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>
+                    Height (mm):
+                  </label>
+                  <input
+                    type="number"
+                    min="50"
+                    max="1000"
+                    step="10"
+                    value={motherConfig.height}
+                    onChange={(e) => setMotherConfig(prev => ({
+                      ...prev,
+                      height: parseInt(e.target.value) || 150
+                    }))}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: '2px solid #ddd',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      outline: 'none',
+                      transition: 'border-color 0.3s'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#4CAF50'}
+                    onBlur={(e) => e.target.style.borderColor = '#ddd'}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '25px' }}>
+              <h3 style={{ margin: '0 0 15px 0', color: '#333', fontSize: '16px' }}>
+                📍 Positioning
+              </h3>
+
+              <div style={{ display: 'flex', gap: '15px' }}>
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '12px 16px',
+                  border: `2px solid ${motherConfig.positioning === 'top-wing' ? '#4CAF50' : '#ddd'}`,
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  background: motherConfig.positioning === 'top-wing' ? '#f1f8e9' : 'white',
+                  transition: 'all 0.3s',
+                  flex: 1
+                }}>
+                  <input
+                    type="radio"
+                    name="positioning"
+                    value="top-wing"
+                    checked={motherConfig.positioning === 'top-wing'}
+                    onChange={(e) => setMotherConfig(prev => ({
+                      ...prev,
+                      positioning: e.target.value as 'top-wing' | 'mid-fold'
+                    }))}
+                    style={{ margin: 0 }}
+                  />
+                  <span style={{ fontWeight: 'bold', color: '#333' }}>🔝 Top Wing</span>
+                </label>
+
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '12px 16px',
+                  border: `2px solid ${motherConfig.positioning === 'mid-fold' ? '#4CAF50' : '#ddd'}`,
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  background: motherConfig.positioning === 'mid-fold' ? '#f1f8e9' : 'white',
+                  transition: 'all 0.3s',
+                  flex: 1
+                }}>
+                  <input
+                    type="radio"
+                    name="positioning"
+                    value="mid-fold"
+                    checked={motherConfig.positioning === 'mid-fold'}
+                    onChange={(e) => setMotherConfig(prev => ({
+                      ...prev,
+                      positioning: e.target.value as 'top-wing' | 'mid-fold'
+                    }))}
+                    style={{ margin: 0 }}
+                  />
+                  <span style={{ fontWeight: 'bold', color: '#333' }}>📐 Mid Fold</span>
+                </label>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setShowMotherDialog(false)}
+                style={{
+                  padding: '10px 20px',
+                  border: '2px solid #ddd',
+                  borderRadius: '6px',
+                  background: 'white',
+                  color: '#666',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.borderColor = '#999';
+                  e.currentTarget.style.color = '#333';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.borderColor = '#ddd';
+                  e.currentTarget.style.color = '#666';
+                }}
+              >
+                ❌ Cancel
+              </button>
+
+              <button
+                onClick={createMotherObject}
+                style={{
+                  padding: '10px 20px',
+                  border: 'none',
+                  borderRadius: '6px',
+                  background: 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)',
+                  color: 'white',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  boxShadow: '0 3px 10px rgba(76, 175, 80, 0.3)',
+                  transition: 'all 0.3s'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.boxShadow = '0 4px 15px rgba(76, 175, 80, 0.4)';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 3px 10px rgba(76, 175, 80, 0.3)';
+                }}
+              >
+                ✅ Create Mother
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Space Allocation Dialog - REMOVED (now handled directly in son regions) */}
     </div>
