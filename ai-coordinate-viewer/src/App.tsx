@@ -67,6 +67,38 @@ function App() {
   const [showDimensions, setShowDimensions] = useState(true);
   const [autoFitNotification, setAutoFitNotification] = useState(false);
 
+  // Web creation mode state
+  const [isWebCreationMode, setIsWebCreationMode] = useState(false);
+  const [webCreationData, setWebCreationData] = useState<AIData | null>(null);
+
+  // Mother creation dialog state
+  const [showMotherDialog, setShowMotherDialog] = useState(false);
+  const [isEditingMother, setIsEditingMother] = useState(false);
+  const [editingMotherId, setEditingMotherId] = useState<string | null>(null);
+  const [motherConfig, setMotherConfig] = useState({
+    width: 0,
+    height: 0,
+    margins: {
+      top: 5,
+      left: 5,
+      down: 5,
+      right: 5
+    },
+    sewingPosition: 'top' as 'top' | 'left' | 'right' | 'bottom' | 'mid-fold',
+    sewingOffset: 5
+  });
+
+  // Visual toggle states
+  const [showMarginRectangles, setShowMarginRectangles] = useState(true);
+  const [showSewingLines, setShowSewingLines] = useState(true);
+
+  // Sewing offset dialog state
+  const [showSewingOffsetDialog, setShowSewingOffsetDialog] = useState(false);
+  const [selectedSewingPosition, setSelectedSewingPosition] = useState<'top' | 'left' | 'right' | 'bottom' | 'mid-fold'>('top');
+
+  // Margin controls state
+  const [applyToAllSides, setApplyToAllSides] = useState(false);
+
   // Removed space allocation dialog - now handled directly in son regions
 
   // Canvas control functions
@@ -263,6 +295,162 @@ function App() {
 
   // Dialog functions removed - space allocation now handled directly
 
+  // Web creation mode functions
+  const startWebCreationMode = () => {
+    console.log('🌐 Starting web creation mode');
+    setIsWebCreationMode(true);
+    // Initialize with empty data structure
+    const emptyData: AIData = {
+      document: 'Web Created Project',
+      totalObjects: 0,
+      objects: []
+    };
+    setWebCreationData(emptyData);
+    setData(emptyData); // Use the same data state for consistency
+
+    // Reset view state
+    setZoom(1);
+    setPanX(0);
+    setPanY(0);
+    setSelectedObject(null);
+    setSonMetadata(new Map());
+    setExpandedMothers(new Set());
+  };
+
+  const openMotherDialog = () => {
+    console.log('👩 Opening mother creation dialog');
+    if (!isWebCreationMode) return;
+    setIsEditingMother(false);
+    setEditingMotherId(null);
+    // Reset to default values for new mother
+    setMotherConfig({
+      width: 0,
+      height: 0,
+      margins: { top: 5, left: 5, down: 5, right: 5 },
+      sewingPosition: 'top',
+      sewingOffset: 5
+    });
+    setShowMotherDialog(true);
+  };
+
+  const openEditMotherDialog = (mother: AIObject) => {
+    console.log('✏️ Opening mother edit dialog for:', mother.name);
+    setIsEditingMother(true);
+    setEditingMotherId(mother.name);
+
+    // Load current mother properties (with stored metadata if available)
+    const storedMargins = (mother as any).margins || { top: 5, left: 5, down: 5, right: 5 };
+    const storedSewingPosition = (mother as any).sewingPosition || 'top';
+    const storedSewingOffset = (mother as any).sewingOffset || 5;
+
+    setMotherConfig({
+      width: mother.width,
+      height: mother.height,
+      margins: storedMargins,
+      sewingPosition: storedSewingPosition,
+      sewingOffset: storedSewingOffset
+    });
+    setShowMotherDialog(true);
+  };
+
+  const createOrUpdateMotherObject = () => {
+    console.log(isEditingMother ? '✏️ Updating mother object' : '👩 Creating new mother object', 'with config:', motherConfig);
+    if (!isWebCreationMode) return;
+
+    const currentData = data || webCreationData;
+    if (!currentData) return;
+
+    if (isEditingMother && editingMotherId) {
+      // Update existing mother
+      const updatedObjects = currentData.objects.map(obj => {
+        if (obj.name === editingMotherId && obj.type === 'mother') {
+          return {
+            ...obj,
+            width: motherConfig.width,
+            height: motherConfig.height,
+            // Store additional properties (margins, sewing position) as metadata
+            margins: motherConfig.margins,
+            sewingPosition: motherConfig.sewingPosition,
+            sewingOffset: motherConfig.sewingOffset
+          } as any;
+        }
+        return obj;
+      });
+
+      const updatedData: AIData = {
+        ...currentData,
+        objects: updatedObjects
+      };
+
+      setData(updatedData);
+      setWebCreationData(updatedData);
+
+      // Keep the edited object selected
+      const editedObject = updatedObjects.find(obj => obj.name === editingMotherId);
+      if (editedObject) setSelectedObject(editedObject);
+
+      console.log('✅ Mother object updated:', editingMotherId);
+    } else {
+      // Create new mother at default position
+      const xPosition = 50;
+      const yPosition = 50;
+
+      // Create a new mother object with user-specified dimensions
+      const newMother: AIObject = {
+        name: `Mother_${currentData.objects.length + 1}`,
+        type: 'mother',
+        x: xPosition,
+        y: yPosition,
+        width: motherConfig.width,
+        height: motherConfig.height,
+        typename: 'mother',
+        // Store additional properties as metadata
+        margins: motherConfig.margins,
+        sewingPosition: motherConfig.sewingPosition,
+        sewingOffset: motherConfig.sewingOffset
+      } as any;
+
+      const updatedData: AIData = {
+        ...currentData,
+        totalObjects: currentData.totalObjects + 1,
+        objects: [...currentData.objects, newMother]
+      };
+
+      setData(updatedData);
+      setWebCreationData(updatedData);
+      setSelectedObject(newMother);
+
+      console.log('✅ Mother object created:', newMother);
+    }
+
+    setShowMotherDialog(false); // Close dialog
+  };
+
+  // Sewing position functions
+  const handleSewingPositionClick = (position: 'top' | 'left' | 'right' | 'bottom' | 'mid-fold') => {
+    setSelectedSewingPosition(position);
+
+    // Mid-fold doesn't need offset dialog - set directly
+    if (position === 'mid-fold') {
+      setMotherConfig(prev => ({
+        ...prev,
+        sewingPosition: 'mid-fold',
+        sewingOffset: 0 // No offset needed for mid-fold
+      }));
+    } else {
+      setShowSewingOffsetDialog(true);
+    }
+  };
+
+  const confirmSewingOffset = (offset: number) => {
+    setMotherConfig(prev => ({
+      ...prev,
+      sewingPosition: selectedSewingPosition,
+      sewingOffset: offset
+    }));
+    setShowSewingOffsetDialog(false);
+  };
+
   const fitObjectToView = (obj: AIObject) => {
     // Get actual SVG dimensions
     const svgElement = document.querySelector('svg');
@@ -451,27 +639,51 @@ function App() {
                     </div>
                   </div>
 
-                  {/* Fit View Button */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedObject(mother.object);
-                      fitObjectToView(mother.object);
-                    }}
-                    style={{
-                      background: 'rgba(255,255,255,0.2)',
-                      border: '1px solid rgba(255,255,255,0.3)',
-                      color: 'inherit',
-                      fontSize: '10px',
-                      padding: '4px 8px',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      marginLeft: '8px'
-                    }}
+                  {/* Action Buttons */}
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    {/* Edit Button - Only show in web creation mode */}
+                    {isWebCreationMode && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEditMotherDialog(mother.object);
+                        }}
+                        style={{
+                          background: 'rgba(255,255,255,0.2)',
+                          border: '1px solid rgba(255,255,255,0.3)',
+                          color: 'inherit',
+                          fontSize: '10px',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          cursor: 'pointer'
+                        }}
+                        title="Edit mother object"
+                      >
+                        ✏️ Edit
+                      </button>
+                    )}
+
+                    {/* Fit View Button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedObject(mother.object);
+                        fitObjectToView(mother.object);
+                      }}
+                      style={{
+                        background: 'rgba(255,255,255,0.2)',
+                        border: '1px solid rgba(255,255,255,0.3)',
+                        color: 'inherit',
+                        fontSize: '10px',
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        cursor: 'pointer'
+                      }}
                     title="Fit to view (100% zoom, centered)"
-                  >
-                    👑 Fit View
-                  </button>
+                    >
+                      👑 Fit View
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -1025,6 +1237,253 @@ function App() {
             )}
           </>
         )}
+
+        {/* Visual Indicators for Mother Objects in Web Creation Mode */}
+        {isWebCreationMode && obj.type?.includes('mother') && (
+          <>
+            {/* Margin Rectangle */}
+            {showMarginRectangles && (() => {
+              // Use the same scale as the object rendering
+              const mmToPx = 3.78;
+              const scale = zoom * mmToPx;
+              const topMarginPx = motherConfig.margins.top * scale;
+              const bottomMarginPx = motherConfig.margins.down * scale;
+              const leftMarginPx = motherConfig.margins.left * scale;
+              const rightMarginPx = motherConfig.margins.right * scale;
+
+              const marginFontSize = Math.max(8, Math.min(12, 10 * zoom));
+
+              return (
+                <>
+                  {/* Margin Rectangle */}
+                  <rect
+                    x={baseX + leftMarginPx}
+                    y={baseY + topMarginPx}
+                    width={width - leftMarginPx - rightMarginPx}
+                    height={height - topMarginPx - bottomMarginPx}
+                    fill="none"
+                    stroke="#4CAF50"
+                    strokeWidth="1"
+                    strokeDasharray="3,3"
+                    opacity="0.6"
+                  />
+
+                  {/* Margin Dimension Labels */}
+                  {/* Top margin label */}
+                  <text
+                    x={baseX + width / 2}
+                    y={baseY + topMarginPx / 2}
+                    fill="#4CAF50"
+                    fontSize={marginFontSize}
+                    fontWeight="bold"
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    opacity="0.8"
+                  >
+                    {motherConfig.margins.top}mm
+                  </text>
+
+                  {/* Bottom margin label */}
+                  <text
+                    x={baseX + width / 2}
+                    y={baseY + height - bottomMarginPx / 2}
+                    fill="#4CAF50"
+                    fontSize={marginFontSize}
+                    fontWeight="bold"
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    opacity="0.8"
+                  >
+                    {motherConfig.margins.down}mm
+                  </text>
+
+                  {/* Left margin label */}
+                  <text
+                    x={baseX + leftMarginPx / 2}
+                    y={baseY + height / 2}
+                    fill="#4CAF50"
+                    fontSize={marginFontSize}
+                    fontWeight="bold"
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    opacity="0.8"
+                    transform={`rotate(-90, ${baseX + leftMarginPx / 2}, ${baseY + height / 2})`}
+                  >
+                    {motherConfig.margins.left}mm
+                  </text>
+
+                  {/* Right margin label */}
+                  <text
+                    x={baseX + width - rightMarginPx / 2}
+                    y={baseY + height / 2}
+                    fill="#4CAF50"
+                    fontSize={marginFontSize}
+                    fontWeight="bold"
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    opacity="0.8"
+                    transform={`rotate(90, ${baseX + width - rightMarginPx / 2}, ${baseY + height / 2})`}
+                  >
+                    {motherConfig.margins.right}mm
+                  </text>
+                </>
+              );
+            })()}
+
+
+
+            {/* Sewing Lines with Dimensions */}
+            {showSewingLines && motherConfig.sewingPosition && (
+              (() => {
+                // Use the same scale as the object rendering
+                const mmToPx = 3.78;
+                const scale = zoom * mmToPx;
+                const offset = motherConfig.sewingOffset * scale;
+                const sewingFontSize = Math.max(8, Math.min(12, 10 * zoom));
+
+                switch (motherConfig.sewingPosition) {
+                  case 'top':
+                    return (
+                      <>
+                        <line
+                          x1={baseX}
+                          y1={baseY + offset}
+                          x2={baseX + width}
+                          y2={baseY + offset}
+                          stroke="#d32f2f"
+                          strokeWidth="3"
+                          strokeDasharray="4,4"
+                          opacity="0.9"
+                        />
+                        <text
+                          x={baseX + width + 5}
+                          y={baseY + offset}
+                          fill="#d32f2f"
+                          fontSize={sewingFontSize}
+                          fontWeight="bold"
+                          textAnchor="start"
+                          dominantBaseline="middle"
+                          opacity="0.9"
+                        >
+                          {motherConfig.sewingOffset}mm
+                        </text>
+                      </>
+                    );
+                  case 'left':
+                    return (
+                      <>
+                        <line
+                          x1={baseX + offset}
+                          y1={baseY}
+                          x2={baseX + offset}
+                          y2={baseY + height}
+                          stroke="#d32f2f"
+                          strokeWidth="3"
+                          strokeDasharray="4,4"
+                          opacity="0.9"
+                        />
+                        <text
+                          x={baseX + offset}
+                          y={baseY - 5}
+                          fill="#d32f2f"
+                          fontSize={sewingFontSize}
+                          fontWeight="bold"
+                          textAnchor="middle"
+                          dominantBaseline="bottom"
+                          opacity="0.9"
+                        >
+                          {motherConfig.sewingOffset}mm
+                        </text>
+                      </>
+                    );
+                  case 'right':
+                    return (
+                      <>
+                        <line
+                          x1={baseX + width - offset}
+                          y1={baseY}
+                          x2={baseX + width - offset}
+                          y2={baseY + height}
+                          stroke="#d32f2f"
+                          strokeWidth="3"
+                          strokeDasharray="4,4"
+                          opacity="0.9"
+                        />
+                        <text
+                          x={baseX + width - offset}
+                          y={baseY - 5}
+                          fill="#d32f2f"
+                          fontSize={sewingFontSize}
+                          fontWeight="bold"
+                          textAnchor="middle"
+                          dominantBaseline="bottom"
+                          opacity="0.9"
+                        >
+                          {motherConfig.sewingOffset}mm
+                        </text>
+                      </>
+                    );
+                  case 'bottom':
+                    return (
+                      <>
+                        <line
+                          x1={baseX}
+                          y1={baseY + height - offset}
+                          x2={baseX + width}
+                          y2={baseY + height - offset}
+                          stroke="#d32f2f"
+                          strokeWidth="3"
+                          strokeDasharray="4,4"
+                          opacity="0.9"
+                        />
+                        <text
+                          x={baseX + width + 5}
+                          y={baseY + height - offset}
+                          fill="#d32f2f"
+                          fontSize={sewingFontSize}
+                          fontWeight="bold"
+                          textAnchor="start"
+                          dominantBaseline="middle"
+                          opacity="0.9"
+                        >
+                          {motherConfig.sewingOffset}mm
+                        </text>
+                      </>
+                    );
+                  case 'mid-fold':
+                    return (
+                      <>
+                        <line
+                          x1={baseX}
+                          y1={baseY + height / 2}
+                          x2={baseX + width}
+                          y2={baseY + height / 2}
+                          stroke="#d32f2f"
+                          strokeWidth="3"
+                          strokeDasharray="4,4"
+                          opacity="0.9"
+                        />
+                        <text
+                          x={baseX + width + 5}
+                          y={baseY + height / 2}
+                          fill="#d32f2f"
+                          fontSize={sewingFontSize}
+                          fontWeight="bold"
+                          textAnchor="start"
+                          dominantBaseline="middle"
+                          opacity="0.9"
+                        >
+                          Mid-Fold
+                        </text>
+                      </>
+                    );
+                  default:
+                    return null;
+                }
+              })()
+            )}
+          </>
+        )}
       </g>
     );
   };
@@ -1058,7 +1517,7 @@ function App() {
           justifyContent: 'center',
           borderRight: '1px solid #ddd'
         }}>
-          {data ? (
+          {data || isWebCreationMode ? (
             <div style={{ position: 'relative', width: '100%', height: '100%' }}>
               {/* Canvas Controls - FIXED: Moved to top-right corner (v1.2.0) */}
               <div style={{
@@ -1098,6 +1557,44 @@ function App() {
                     📏 Dimensions
                   </button>
                 </div>
+
+                {/* Visual Indicators Toggle - Only show in web creation mode */}
+                {isWebCreationMode && (
+                  <div style={{ marginTop: '10px', borderTop: '1px solid #eee', paddingTop: '10px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 'bold', marginBottom: '8px', color: '#666' }}>
+                      Visual Indicators:
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                      <button
+                        onClick={() => setShowMarginRectangles(!showMarginRectangles)}
+                        style={{
+                          ...buttonStyle,
+                          background: showMarginRectangles ? '#f1f8e9' : 'white',
+                          color: showMarginRectangles ? '#4CAF50' : '#666',
+                          fontSize: '9px',
+                          padding: '3px 5px',
+                          width: '100%'
+                        }}
+                      >
+                        📦 Margins
+                      </button>
+
+                      <button
+                        onClick={() => setShowSewingLines(!showSewingLines)}
+                        style={{
+                          ...buttonStyle,
+                          background: showSewingLines ? '#f1f8e9' : 'white',
+                          color: showSewingLines ? '#4CAF50' : '#666',
+                          fontSize: '9px',
+                          padding: '3px 5px',
+                          width: '100%'
+                        }}
+                      >
+                        🧵 Sewing
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <div style={{ fontSize: '10px', color: '#666', marginTop: '5px' }}>
                   Pan: Click & drag<br/>
                   Zoom: Mouse wheel
@@ -1148,7 +1645,22 @@ function App() {
                 </defs>
                 <rect width="100%" height="100%" fill="url(#grid)" />
 
-                {data.objects.map((obj, index) => renderObject(obj, index))}
+                {/* Web Creation Mode Indicator */}
+                {isWebCreationMode && (!data || data.objects.length === 0) && (
+                  <text
+                    x="50%"
+                    y="50%"
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    fontSize="24"
+                    fill="#ccc"
+                    fontWeight="bold"
+                  >
+                    🌐 Web Creation Canvas - Create your first mother object
+                  </text>
+                )}
+
+                {(data || webCreationData)?.objects.map((obj, index) => renderObject(obj, index))}
               </svg>
             </div>
           ) : (
@@ -1172,6 +1684,50 @@ function App() {
                 onChange={handleInputChange}
                 style={{marginTop: '10px'}}
               />
+
+              {/* OR Divider */}
+              <div style={{
+                margin: '30px 0',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '15px'
+              }}>
+                <div style={{flex: 1, height: '1px', background: '#ddd'}}></div>
+                <span style={{color: '#666', fontSize: '14px', fontWeight: 'bold'}}>OR</span>
+                <div style={{flex: 1, height: '1px', background: '#ddd'}}></div>
+              </div>
+
+              {/* Start Everything From Web Button */}
+              <button
+                onClick={startWebCreationMode}
+                style={{
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  color: 'white',
+                  border: 'none',
+                  padding: '15px 30px',
+                  borderRadius: '8px',
+                  fontSize: '16px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 15px rgba(102, 126, 234, 0.3)',
+                  transition: 'all 0.3s ease',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.4)';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.3)';
+                }}
+              >
+                🌐 Start Everything From Web
+              </button>
+              <p style={{fontSize: '12px', color: '#666', marginTop: '10px'}}>
+                🚀 Create layers and objects directly in the app
+              </p>
             </div>
           )}
         </div>
@@ -1185,9 +1741,15 @@ function App() {
         }}>
           <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', borderBottom: '1px solid #eee', paddingBottom: '10px'}}>
             <h3 style={{margin: 0}}>
-              📋 {data ? (() => {
-                const { mothers } = buildHierarchy(data.objects);
-                return `${mothers.length} Pages (${data.totalObjects} Objects)`;
+              📋 {(data || webCreationData) ? (() => {
+                const currentData = data || webCreationData;
+                if (currentData) {
+                  const { mothers } = buildHierarchy(currentData.objects);
+                  return isWebCreationMode
+                    ? `🌐 Web Project (${mothers.length} Pages, ${currentData.totalObjects} Objects)`
+                    : `${mothers.length} Pages (${currentData.totalObjects} Objects)`;
+                }
+                return 'Layer Objects';
               })() : 'Layer Objects'}
             </h3>
             {data && sonMetadata.size > 0 && (
@@ -1209,9 +1771,58 @@ function App() {
             )}
           </div>
 
-          {data ? (
+          {data && data.objects.length > 0 ? (
             <div>
               {renderHierarchicalList()}
+            </div>
+          ) : isWebCreationMode ? (
+            <div style={{textAlign: 'center', marginTop: '30px'}}>
+              <div style={{
+                background: 'linear-gradient(135deg, #e8f5e8 0%, #f0f8f0 100%)',
+                padding: '20px',
+                borderRadius: '10px',
+                border: '2px dashed #4CAF50',
+                marginBottom: '20px'
+              }}>
+                <div style={{fontSize: '2rem', marginBottom: '10px'}}>🏗️</div>
+                <h4 style={{margin: '0 0 10px 0', color: '#2e7d32'}}>Web Creation Mode</h4>
+                <p style={{color: '#666', fontSize: '14px', margin: '0 0 20px 0'}}>
+                  Start by creating your first mother object
+                </p>
+
+                <button
+                  onClick={openMotherDialog}
+                  style={{
+                    background: 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)',
+                    color: 'white',
+                    border: 'none',
+                    padding: '12px 24px',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    boxShadow: '0 3px 10px rgba(76, 175, 80, 0.3)',
+                    transition: 'all 0.3s ease'
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.boxShadow = '0 4px 15px rgba(76, 175, 80, 0.4)';
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 3px 10px rgba(76, 175, 80, 0.3)';
+                  }}
+                >
+                  👩 Create Mother
+                </button>
+              </div>
+
+              <div style={{fontSize: '12px', color: '#999', textAlign: 'left'}}>
+                <p><strong>Next Steps:</strong></p>
+                <p>1. Create a mother object (container)</p>
+                <p>2. Add son objects (text, images, etc.)</p>
+                <p>3. Configure properties and layout</p>
+              </div>
             </div>
           ) : (
             <div style={{color: '#999', textAlign: 'center', marginTop: '50px'}}>
@@ -1231,6 +1842,515 @@ function App() {
         </div>
 
       </div>
+
+      {/* Mother Creation Dialog */}
+      {showMotherDialog && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000
+        }}>
+          <div style={{
+            background: 'white',
+            padding: '30px',
+            borderRadius: '12px',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+            minWidth: '400px',
+            maxWidth: '500px'
+          }}>
+            <h2 style={{
+              margin: '0 0 20px 0',
+              color: '#2e7d32',
+              textAlign: 'center',
+              fontSize: '24px'
+            }}>
+              {isEditingMother ? '✏️ Edit Mother Object' : '👩 Create Mother Object'}
+            </h2>
+
+            <div style={{ marginBottom: '20px' }}>
+              <h3 style={{ margin: '0 0 15px 0', color: '#333', fontSize: '16px' }}>
+                📏 Dimensions (mm)
+              </h3>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>
+                    Width (mm):
+                  </label>
+                  <input
+                    type="number"
+                    min="50"
+                    max="1000"
+                    step="10"
+                    value={motherConfig.width}
+                    onChange={(e) => setMotherConfig(prev => ({
+                      ...prev,
+                      width: parseInt(e.target.value) || 200
+                    }))}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: '2px solid #ddd',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      outline: 'none',
+                      transition: 'border-color 0.3s'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#4CAF50'}
+                    onBlur={(e) => e.target.style.borderColor = '#ddd'}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>
+                    Height (mm):
+                  </label>
+                  <input
+                    type="number"
+                    min="50"
+                    max="1000"
+                    step="10"
+                    value={motherConfig.height}
+                    onChange={(e) => setMotherConfig(prev => ({
+                      ...prev,
+                      height: parseInt(e.target.value) || 150
+                    }))}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: '2px solid #ddd',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      outline: 'none',
+                      transition: 'border-color 0.3s'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#4CAF50'}
+                    onBlur={(e) => e.target.style.borderColor = '#ddd'}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Margin Controls */}
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px' }}>
+                <h3 style={{ margin: '0', color: '#333', fontSize: '16px' }}>
+                  📏 Margins (mm)
+                </h3>
+
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontSize: '14px',
+                  color: '#666',
+                  cursor: 'pointer'
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={applyToAllSides}
+                    onChange={(e) => setApplyToAllSides(e.target.checked)}
+                    style={{ transform: 'scale(1.1)' }}
+                  />
+                  Apply to 4 sides
+                </label>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>
+                    ⬆️ Top:
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="50"
+                    step="1"
+                    value={motherConfig.margins.top}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value) || 0;
+                      setMotherConfig(prev => ({
+                        ...prev,
+                        margins: applyToAllSides
+                          ? { top: value, left: value, down: value, right: value }
+                          : { ...prev.margins, top: value }
+                      }));
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: '2px solid #ddd',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      outline: 'none',
+                      transition: 'border-color 0.3s'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#4CAF50'}
+                    onBlur={(e) => e.target.style.borderColor = '#ddd'}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>
+                    ⬇️ Down:
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="50"
+                    step="1"
+                    value={motherConfig.margins.down}
+                    disabled={applyToAllSides}
+                    onChange={(e) => setMotherConfig(prev => ({
+                      ...prev,
+                      margins: { ...prev.margins, down: parseInt(e.target.value) || 0 }
+                    }))}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: '2px solid #ddd',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      outline: 'none',
+                      transition: 'border-color 0.3s',
+                      backgroundColor: applyToAllSides ? '#f5f5f5' : 'white',
+                      color: applyToAllSides ? '#999' : '#333'
+                    }}
+                    onFocus={(e) => !applyToAllSides && (e.target.style.borderColor = '#4CAF50')}
+                    onBlur={(e) => !applyToAllSides && (e.target.style.borderColor = '#ddd')}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>
+                    ⬅️ Left:
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="50"
+                    step="1"
+                    value={motherConfig.margins.left}
+                    disabled={applyToAllSides}
+                    onChange={(e) => setMotherConfig(prev => ({
+                      ...prev,
+                      margins: { ...prev.margins, left: parseInt(e.target.value) || 0 }
+                    }))}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: '2px solid #ddd',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      outline: 'none',
+                      transition: 'border-color 0.3s',
+                      backgroundColor: applyToAllSides ? '#f5f5f5' : 'white',
+                      color: applyToAllSides ? '#999' : '#333'
+                    }}
+                    onFocus={(e) => !applyToAllSides && (e.target.style.borderColor = '#4CAF50')}
+                    onBlur={(e) => !applyToAllSides && (e.target.style.borderColor = '#ddd')}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>
+                    ➡️ Right:
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="50"
+                    step="1"
+                    value={motherConfig.margins.right}
+                    disabled={applyToAllSides}
+                    onChange={(e) => setMotherConfig(prev => ({
+                      ...prev,
+                      margins: { ...prev.margins, right: parseInt(e.target.value) || 0 }
+                    }))}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: '2px solid #ddd',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      outline: 'none',
+                      transition: 'border-color 0.3s',
+                      backgroundColor: applyToAllSides ? '#f5f5f5' : 'white',
+                      color: applyToAllSides ? '#999' : '#333'
+                    }}
+                    onFocus={(e) => !applyToAllSides && (e.target.style.borderColor = '#4CAF50')}
+                    onBlur={(e) => !applyToAllSides && (e.target.style.borderColor = '#ddd')}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Sewing Position Controls */}
+            <div style={{ marginBottom: '25px' }}>
+              <h3 style={{ margin: '0 0 15px 0', color: '#333', fontSize: '16px' }}>
+                🧵 Sewing Position (Click to set offset)
+              </h3>
+
+              {/* Group 1: Edge Positions */}
+              <div style={{ marginBottom: '15px' }}>
+                <h4 style={{ margin: '0 0 10px 0', color: '#666', fontSize: '14px' }}>
+                  📍 Edge Positions:
+                </h4>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  {[
+                    { value: 'top', label: '🔝 Top' },
+                    { value: 'left', label: '⬅️ Left' },
+                    { value: 'right', label: '➡️ Right' },
+                    { value: 'bottom', label: '⬇️ Bottom' }
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => handleSewingPositionClick(option.value as 'top' | 'left' | 'right' | 'bottom' | 'mid-fold')}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        padding: '12px 16px',
+                        border: `2px solid ${motherConfig.sewingPosition === option.value ? '#d32f2f' : '#ddd'}`,
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        background: motherConfig.sewingPosition === option.value ? '#ffebee' : 'white',
+                        transition: 'all 0.3s',
+                        fontSize: '14px',
+                        fontWeight: 'bold',
+                        color: '#333'
+                      }}
+                      onMouseOver={(e) => {
+                        if (motherConfig.sewingPosition !== option.value) {
+                          e.currentTarget.style.borderColor = '#d32f2f';
+                          e.currentTarget.style.background = '#f9f9f9';
+                        }
+                      }}
+                      onMouseOut={(e) => {
+                        if (motherConfig.sewingPosition !== option.value) {
+                          e.currentTarget.style.borderColor = '#ddd';
+                          e.currentTarget.style.background = 'white';
+                        }
+                      }}
+                    >
+                      {option.label}
+                      {motherConfig.sewingPosition === option.value && (
+                        <span style={{ fontSize: '12px', color: '#666' }}>
+                          ({motherConfig.sewingOffset}mm)
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Group 2: Mid-Fold Position */}
+              <div>
+                <h4 style={{ margin: '0 0 10px 0', color: '#666', fontSize: '14px' }}>
+                  📐 Mid-Fold Position:
+                </h4>
+                <button
+                  onClick={() => handleSewingPositionClick('mid-fold')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    padding: '12px 16px',
+                    border: `2px solid ${motherConfig.sewingPosition === 'mid-fold' ? '#d32f2f' : '#ddd'}`,
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    background: motherConfig.sewingPosition === 'mid-fold' ? '#ffebee' : 'white',
+                    transition: 'all 0.3s',
+                    fontSize: '14px',
+                    fontWeight: 'bold',
+                    color: '#333',
+                    width: '100%'
+                  }}
+                  onMouseOver={(e) => {
+                    if (motherConfig.sewingPosition !== 'mid-fold') {
+                      e.currentTarget.style.borderColor = '#d32f2f';
+                      e.currentTarget.style.background = '#f9f9f9';
+                    }
+                  }}
+                  onMouseOut={(e) => {
+                    if (motherConfig.sewingPosition !== 'mid-fold') {
+                      e.currentTarget.style.borderColor = '#ddd';
+                      e.currentTarget.style.background = 'white';
+                    }
+                  }}
+                >
+                  🎯 Mid-Fold (Horizontal)
+                  {motherConfig.sewingPosition === 'mid-fold' && (
+                    <span style={{ fontSize: '12px', color: '#666' }}>
+                      (Center)
+                    </span>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setShowMotherDialog(false)}
+                style={{
+                  padding: '10px 20px',
+                  border: '2px solid #ddd',
+                  borderRadius: '6px',
+                  background: 'white',
+                  color: '#666',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.borderColor = '#999';
+                  e.currentTarget.style.color = '#333';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.borderColor = '#ddd';
+                  e.currentTarget.style.color = '#666';
+                }}
+              >
+                ❌ Cancel
+              </button>
+
+              <button
+                onClick={createOrUpdateMotherObject}
+                style={{
+                  padding: '10px 20px',
+                  border: 'none',
+                  borderRadius: '6px',
+                  background: 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)',
+                  color: 'white',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  boxShadow: '0 3px 10px rgba(76, 175, 80, 0.3)',
+                  transition: 'all 0.3s'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.boxShadow = '0 4px 15px rgba(76, 175, 80, 0.4)';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 3px 10px rgba(76, 175, 80, 0.3)';
+                }}
+              >
+                {isEditingMother ? '✅ Update Mother' : '✅ Create Mother'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sewing Offset Dialog */}
+      {showSewingOffsetDialog && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10001
+        }}>
+          <div style={{
+            background: 'white',
+            padding: '25px',
+            borderRadius: '10px',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+            minWidth: '300px',
+            textAlign: 'center'
+          }}>
+            <h3 style={{
+              margin: '0 0 15px 0',
+              color: '#2e7d32',
+              fontSize: '18px'
+            }}>
+              🧵 Set Sewing Offset
+            </h3>
+
+            <p style={{ margin: '0 0 15px 0', color: '#666', fontSize: '14px' }}>
+              Distance from <strong>{selectedSewingPosition}</strong> edge in mm:
+            </p>
+
+            <input
+              type="number"
+              min="1"
+              max="50"
+              step="1"
+              defaultValue={motherConfig.sewingOffset}
+              autoFocus
+              style={{
+                width: '100px',
+                padding: '8px 12px',
+                border: '2px solid #4CAF50',
+                borderRadius: '6px',
+                fontSize: '16px',
+                textAlign: 'center',
+                outline: 'none',
+                marginBottom: '20px'
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  const value = parseInt((e.target as HTMLInputElement).value) || 5;
+                  confirmSewingOffset(value);
+                }
+              }}
+            />
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+              <button
+                onClick={() => setShowSewingOffsetDialog(false)}
+                style={{
+                  padding: '8px 16px',
+                  border: '2px solid #ddd',
+                  borderRadius: '6px',
+                  background: 'white',
+                  color: '#666',
+                  fontSize: '14px',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={() => {
+                  const input = document.querySelector('input[type="number"]') as HTMLInputElement;
+                  const value = parseInt(input.value) || 5;
+                  confirmSewingOffset(value);
+                }}
+                style={{
+                  padding: '8px 16px',
+                  border: 'none',
+                  borderRadius: '6px',
+                  background: '#4CAF50',
+                  color: 'white',
+                  fontSize: '14px',
+                  cursor: 'pointer'
+                }}
+              >
+                ✅ Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Space Allocation Dialog - REMOVED (now handled directly in son regions) */}
     </div>
