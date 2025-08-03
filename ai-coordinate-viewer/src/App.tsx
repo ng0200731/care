@@ -1357,7 +1357,7 @@ function App() {
             )}
           </div>
 
-          {data ? (
+          {data && data.objects.length > 0 ? (
             <div>
               {renderHierarchicalList()}
             </div>
