@@ -1220,19 +1220,28 @@ function App() {
         {isWebCreationMode && obj.type?.includes('mother') && (
           <>
             {/* Margin Rectangle */}
-            {showMarginRectangles && (
-              <rect
-                x={baseX + 5} // Default 5mm margin
-                y={baseY + 5}
-                width={width - 10}
-                height={height - 10}
-                fill="none"
-                stroke="#4CAF50"
-                strokeWidth="1"
-                strokeDasharray="3,3"
-                opacity="0.6"
-              />
-            )}
+            {showMarginRectangles && (() => {
+              // Convert mm to pixels (3.78 pixels per mm at 96 DPI)
+              const mmToPx = 3.78;
+              const topMarginPx = motherConfig.margins.top * mmToPx;
+              const bottomMarginPx = motherConfig.margins.down * mmToPx;
+              const leftMarginPx = motherConfig.margins.left * mmToPx;
+              const rightMarginPx = motherConfig.margins.right * mmToPx;
+
+              return (
+                <rect
+                  x={baseX + leftMarginPx}
+                  y={baseY + topMarginPx}
+                  width={width - leftMarginPx - rightMarginPx}
+                  height={height - topMarginPx - bottomMarginPx}
+                  fill="none"
+                  stroke="#4CAF50"
+                  strokeWidth="1"
+                  strokeDasharray="3,3"
+                  opacity="0.6"
+                />
+              );
+            })()}
 
             {/* Mid-Fold Line */}
             {showMidFoldLines && (
@@ -1253,7 +1262,7 @@ function App() {
               (() => {
                 const offset = motherConfig.sewingOffset * 3.78; // Convert mm to pixels
                 const isMidFold = false; // For now, we'll implement mid-fold detection later
-                const lineLength = isMidFold ? 0.5 : 1; // Half length for mid-fold
+                // const lineLength = isMidFold ? 0.5 : 1; // Half length for mid-fold (unused for now)
 
                 switch (motherConfig.sewingPosition) {
                   case 'top':
