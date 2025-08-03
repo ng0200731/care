@@ -76,8 +76,8 @@ function App() {
   const [isEditingMother, setIsEditingMother] = useState(false);
   const [editingMotherId, setEditingMotherId] = useState<string | null>(null);
   const [motherConfig, setMotherConfig] = useState({
-    width: 200,
-    height: 150,
+    width: 0,
+    height: 0,
     margins: {
       top: 5,
       left: 5,
@@ -95,6 +95,9 @@ function App() {
   // Sewing offset dialog state
   const [showSewingOffsetDialog, setShowSewingOffsetDialog] = useState(false);
   const [selectedSewingPosition, setSelectedSewingPosition] = useState<'top' | 'left' | 'right' | 'bottom' | 'mid-fold'>('top');
+
+  // Margin controls state
+  const [applyToAllSides, setApplyToAllSides] = useState(false);
 
   // Removed space allocation dialog - now handled directly in son regions
 
@@ -321,8 +324,8 @@ function App() {
     setEditingMotherId(null);
     // Reset to default values for new mother
     setMotherConfig({
-      width: 200,
-      height: 150,
+      width: 0,
+      height: 0,
       margins: { top: 5, left: 5, down: 5, right: 5 },
       sewingPosition: 'top',
       sewingOffset: 5
@@ -335,13 +338,17 @@ function App() {
     setIsEditingMother(true);
     setEditingMotherId(mother.name);
 
-    // Load current mother properties
+    // Load current mother properties (with stored metadata if available)
+    const storedMargins = (mother as any).margins || { top: 5, left: 5, down: 5, right: 5 };
+    const storedSewingPosition = (mother as any).sewingPosition || 'top';
+    const storedSewingOffset = (mother as any).sewingOffset || 5;
+
     setMotherConfig({
       width: mother.width,
       height: mother.height,
-      margins: { top: 5, left: 5, down: 5, right: 5 }, // Default, could be extended
-      sewingPosition: 'top', // Default, could be extended
-      sewingOffset: 5 // Default, could be extended
+      margins: storedMargins,
+      sewingPosition: storedSewingPosition,
+      sewingOffset: storedSewingOffset
     });
     setShowMotherDialog(true);
   };
@@ -361,9 +368,11 @@ function App() {
             ...obj,
             width: motherConfig.width,
             height: motherConfig.height,
-            // Store additional properties (margins, sewing position) in a metadata-like way
-            // For now, we'll just update dimensions
-          };
+            // Store additional properties (margins, sewing position) as metadata
+            margins: motherConfig.margins,
+            sewingPosition: motherConfig.sewingPosition,
+            sewingOffset: motherConfig.sewingOffset
+          } as any;
         }
         return obj;
       });
@@ -394,8 +403,12 @@ function App() {
         y: yPosition,
         width: motherConfig.width,
         height: motherConfig.height,
-        typename: 'mother'
-      };
+        typename: 'mother',
+        // Store additional properties as metadata
+        margins: motherConfig.margins,
+        sewingPosition: motherConfig.sewingPosition,
+        sewingOffset: motherConfig.sewingOffset
+      } as any;
 
       const updatedData: AIData = {
         ...currentData,
@@ -1792,9 +1805,28 @@ function App() {
 
             {/* Margin Controls */}
             <div style={{ marginBottom: '20px' }}>
-              <h3 style={{ margin: '0 0 15px 0', color: '#333', fontSize: '16px' }}>
-                📏 Margins (mm)
-              </h3>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px' }}>
+                <h3 style={{ margin: '0', color: '#333', fontSize: '16px' }}>
+                  📏 Margins (mm)
+                </h3>
+
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontSize: '14px',
+                  color: '#666',
+                  cursor: 'pointer'
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={applyToAllSides}
+                    onChange={(e) => setApplyToAllSides(e.target.checked)}
+                    style={{ transform: 'scale(1.1)' }}
+                  />
+                  Apply to 4 sides
+                </label>
+              </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                 <div>
@@ -1807,10 +1839,15 @@ function App() {
                     max="50"
                     step="1"
                     value={motherConfig.margins.top}
-                    onChange={(e) => setMotherConfig(prev => ({
-                      ...prev,
-                      margins: { ...prev.margins, top: parseInt(e.target.value) || 0 }
-                    }))}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value) || 0;
+                      setMotherConfig(prev => ({
+                        ...prev,
+                        margins: applyToAllSides
+                          ? { top: value, left: value, down: value, right: value }
+                          : { ...prev.margins, top: value }
+                      }));
+                    }}
                     style={{
                       width: '100%',
                       padding: '8px 12px',
@@ -1835,6 +1872,7 @@ function App() {
                     max="50"
                     step="1"
                     value={motherConfig.margins.down}
+                    disabled={applyToAllSides}
                     onChange={(e) => setMotherConfig(prev => ({
                       ...prev,
                       margins: { ...prev.margins, down: parseInt(e.target.value) || 0 }
@@ -1846,10 +1884,12 @@ function App() {
                       borderRadius: '6px',
                       fontSize: '14px',
                       outline: 'none',
-                      transition: 'border-color 0.3s'
+                      transition: 'border-color 0.3s',
+                      backgroundColor: applyToAllSides ? '#f5f5f5' : 'white',
+                      color: applyToAllSides ? '#999' : '#333'
                     }}
-                    onFocus={(e) => e.target.style.borderColor = '#4CAF50'}
-                    onBlur={(e) => e.target.style.borderColor = '#ddd'}
+                    onFocus={(e) => !applyToAllSides && (e.target.style.borderColor = '#4CAF50')}
+                    onBlur={(e) => !applyToAllSides && (e.target.style.borderColor = '#ddd')}
                   />
                 </div>
 
@@ -1863,6 +1903,7 @@ function App() {
                     max="50"
                     step="1"
                     value={motherConfig.margins.left}
+                    disabled={applyToAllSides}
                     onChange={(e) => setMotherConfig(prev => ({
                       ...prev,
                       margins: { ...prev.margins, left: parseInt(e.target.value) || 0 }
@@ -1874,10 +1915,12 @@ function App() {
                       borderRadius: '6px',
                       fontSize: '14px',
                       outline: 'none',
-                      transition: 'border-color 0.3s'
+                      transition: 'border-color 0.3s',
+                      backgroundColor: applyToAllSides ? '#f5f5f5' : 'white',
+                      color: applyToAllSides ? '#999' : '#333'
                     }}
-                    onFocus={(e) => e.target.style.borderColor = '#4CAF50'}
-                    onBlur={(e) => e.target.style.borderColor = '#ddd'}
+                    onFocus={(e) => !applyToAllSides && (e.target.style.borderColor = '#4CAF50')}
+                    onBlur={(e) => !applyToAllSides && (e.target.style.borderColor = '#ddd')}
                   />
                 </div>
 
@@ -1891,6 +1934,7 @@ function App() {
                     max="50"
                     step="1"
                     value={motherConfig.margins.right}
+                    disabled={applyToAllSides}
                     onChange={(e) => setMotherConfig(prev => ({
                       ...prev,
                       margins: { ...prev.margins, right: parseInt(e.target.value) || 0 }
@@ -1902,10 +1946,12 @@ function App() {
                       borderRadius: '6px',
                       fontSize: '14px',
                       outline: 'none',
-                      transition: 'border-color 0.3s'
+                      transition: 'border-color 0.3s',
+                      backgroundColor: applyToAllSides ? '#f5f5f5' : 'white',
+                      color: applyToAllSides ? '#999' : '#333'
                     }}
-                    onFocus={(e) => e.target.style.borderColor = '#4CAF50'}
-                    onBlur={(e) => e.target.style.borderColor = '#ddd'}
+                    onFocus={(e) => !applyToAllSides && (e.target.style.borderColor = '#4CAF50')}
+                    onBlur={(e) => !applyToAllSides && (e.target.style.borderColor = '#ddd')}
                   />
                 </div>
               </div>
