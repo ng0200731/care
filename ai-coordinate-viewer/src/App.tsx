@@ -78,15 +78,24 @@ function App() {
   const [motherConfig, setMotherConfig] = useState({
     width: 200,
     height: 150,
-    positioning: 'top-wing' as 'top-wing' | 'mid-fold',
     margins: {
       top: 5,
       left: 5,
       down: 5,
       right: 5
     },
-    sewingPosition: 'top' as 'top' | 'left' | 'right' | 'middle' | 'bottom-left' | 'bottom-right'
+    sewingPosition: 'top' as 'top' | 'left' | 'right' | 'bottom',
+    sewingOffset: 5
   });
+
+  // Visual toggle states
+  const [showMarginRectangles, setShowMarginRectangles] = useState(true);
+  const [showMidFoldLines, setShowMidFoldLines] = useState(true);
+  const [showSewingLines, setShowSewingLines] = useState(true);
+
+  // Sewing offset dialog state
+  const [showSewingOffsetDialog, setShowSewingOffsetDialog] = useState(false);
+  const [selectedSewingPosition, setSelectedSewingPosition] = useState<'top' | 'left' | 'right' | 'bottom'>('top');
 
   // Removed space allocation dialog - now handled directly in son regions
 
@@ -315,9 +324,9 @@ function App() {
     setMotherConfig({
       width: 200,
       height: 150,
-      positioning: 'top-wing',
       margins: { top: 5, left: 5, down: 5, right: 5 },
-      sewingPosition: 'top'
+      sewingPosition: 'top',
+      sewingOffset: 5
     });
     setShowMotherDialog(true);
   };
@@ -331,9 +340,9 @@ function App() {
     setMotherConfig({
       width: mother.width,
       height: mother.height,
-      positioning: 'top-wing', // Default, could be extended to store this
       margins: { top: 5, left: 5, down: 5, right: 5 }, // Default, could be extended
-      sewingPosition: 'top' // Default, could be extended
+      sewingPosition: 'top', // Default, could be extended
+      sewingOffset: 5 // Default, could be extended
     });
     setShowMotherDialog(true);
   };
@@ -374,17 +383,9 @@ function App() {
 
       console.log('✅ Mother object updated:', editingMotherId);
     } else {
-      // Create new mother
-      // Calculate position based on positioning option
-      let xPosition = 50;
-      let yPosition = 50;
-
-      if (motherConfig.positioning === 'mid-fold') {
-        // Position in middle area
-        xPosition = 150;
-        yPosition = 100;
-      }
-      // top-wing uses default position (50, 50)
+      // Create new mother at default position
+      const xPosition = 50;
+      const yPosition = 50;
 
       // Create a new mother object with user-specified dimensions
       const newMother: AIObject = {
@@ -411,6 +412,21 @@ function App() {
     }
 
     setShowMotherDialog(false); // Close dialog
+  };
+
+  // Sewing position functions
+  const handleSewingPositionClick = (position: 'top' | 'left' | 'right' | 'bottom') => {
+    setSelectedSewingPosition(position);
+    setShowSewingOffsetDialog(true);
+  };
+
+  const confirmSewingOffset = (offset: number) => {
+    setMotherConfig(prev => ({
+      ...prev,
+      sewingPosition: selectedSewingPosition,
+      sewingOffset: offset
+    }));
+    setShowSewingOffsetDialog(false);
   };
 
   const fitObjectToView = (obj: AIObject) => {
@@ -1199,6 +1215,106 @@ function App() {
             )}
           </>
         )}
+
+        {/* Visual Indicators for Mother Objects in Web Creation Mode */}
+        {isWebCreationMode && obj.type?.includes('mother') && (
+          <>
+            {/* Margin Rectangle */}
+            {showMarginRectangles && (
+              <rect
+                x={baseX + 5} // Default 5mm margin
+                y={baseY + 5}
+                width={width - 10}
+                height={height - 10}
+                fill="none"
+                stroke="#4CAF50"
+                strokeWidth="1"
+                strokeDasharray="3,3"
+                opacity="0.6"
+              />
+            )}
+
+            {/* Mid-Fold Line */}
+            {showMidFoldLines && (
+              <line
+                x1={baseX}
+                y1={baseY + height / 2}
+                x2={baseX + width}
+                y2={baseY + height / 2}
+                stroke="#4CAF50"
+                strokeWidth="2"
+                strokeDasharray="5,5"
+                opacity="0.8"
+              />
+            )}
+
+            {/* Sewing Lines */}
+            {showSewingLines && motherConfig.sewingPosition && (
+              (() => {
+                const offset = motherConfig.sewingOffset * 3.78; // Convert mm to pixels
+                const isMidFold = false; // For now, we'll implement mid-fold detection later
+                const lineLength = isMidFold ? 0.5 : 1; // Half length for mid-fold
+
+                switch (motherConfig.sewingPosition) {
+                  case 'top':
+                    return (
+                      <line
+                        x1={baseX + (isMidFold ? width * 0.25 : 0)}
+                        y1={baseY + offset}
+                        x2={baseX + (isMidFold ? width * 0.75 : width)}
+                        y2={baseY + offset}
+                        stroke="#4CAF50"
+                        strokeWidth="3"
+                        strokeDasharray="4,4"
+                        opacity="0.9"
+                      />
+                    );
+                  case 'left':
+                    return (
+                      <line
+                        x1={baseX + offset}
+                        y1={baseY + (isMidFold ? height * 0.25 : 0)}
+                        x2={baseX + offset}
+                        y2={baseY + (isMidFold ? height * 0.75 : height)}
+                        stroke="#4CAF50"
+                        strokeWidth="3"
+                        strokeDasharray="4,4"
+                        opacity="0.9"
+                      />
+                    );
+                  case 'right':
+                    return (
+                      <line
+                        x1={baseX + width - offset}
+                        y1={baseY + (isMidFold ? height * 0.25 : 0)}
+                        x2={baseX + width - offset}
+                        y2={baseY + (isMidFold ? height * 0.75 : height)}
+                        stroke="#4CAF50"
+                        strokeWidth="3"
+                        strokeDasharray="4,4"
+                        opacity="0.9"
+                      />
+                    );
+                  case 'bottom':
+                    return (
+                      <line
+                        x1={baseX + (isMidFold ? width * 0.25 : 0)}
+                        y1={baseY + height - offset}
+                        x2={baseX + (isMidFold ? width * 0.75 : width)}
+                        y2={baseY + height - offset}
+                        stroke="#4CAF50"
+                        strokeWidth="3"
+                        strokeDasharray="4,4"
+                        opacity="0.9"
+                      />
+                    );
+                  default:
+                    return null;
+                }
+              })()
+            )}
+          </>
+        )}
       </g>
     );
   };
@@ -1272,6 +1388,58 @@ function App() {
                     📏 Dimensions
                   </button>
                 </div>
+
+                {/* Visual Indicators Toggle - Only show in web creation mode */}
+                {isWebCreationMode && (
+                  <div style={{ marginTop: '10px', borderTop: '1px solid #eee', paddingTop: '10px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 'bold', marginBottom: '8px', color: '#666' }}>
+                      Visual Indicators:
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                      <button
+                        onClick={() => setShowMarginRectangles(!showMarginRectangles)}
+                        style={{
+                          ...buttonStyle,
+                          background: showMarginRectangles ? '#f1f8e9' : 'white',
+                          color: showMarginRectangles ? '#4CAF50' : '#666',
+                          fontSize: '9px',
+                          padding: '3px 5px',
+                          width: '100%'
+                        }}
+                      >
+                        📦 Margins
+                      </button>
+
+                      <button
+                        onClick={() => setShowMidFoldLines(!showMidFoldLines)}
+                        style={{
+                          ...buttonStyle,
+                          background: showMidFoldLines ? '#f1f8e9' : 'white',
+                          color: showMidFoldLines ? '#4CAF50' : '#666',
+                          fontSize: '9px',
+                          padding: '3px 5px',
+                          width: '100%'
+                        }}
+                      >
+                        📐 Mid-Fold
+                      </button>
+
+                      <button
+                        onClick={() => setShowSewingLines(!showSewingLines)}
+                        style={{
+                          ...buttonStyle,
+                          background: showSewingLines ? '#f1f8e9' : 'white',
+                          color: showSewingLines ? '#4CAF50' : '#666',
+                          fontSize: '9px',
+                          padding: '3px 5px',
+                          width: '100%'
+                        }}
+                      >
+                        🧵 Sewing
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <div style={{ fontSize: '10px', color: '#666', marginTop: '5px' }}>
                   Pan: Click & drag<br/>
                   Zoom: Mouse wheel
@@ -1615,66 +1783,6 @@ function App() {
               </div>
             </div>
 
-            <div style={{ marginBottom: '25px' }}>
-              <h3 style={{ margin: '0 0 15px 0', color: '#333', fontSize: '16px' }}>
-                📍 Positioning
-              </h3>
-
-              <div style={{ display: 'flex', gap: '15px' }}>
-                <label style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '12px 16px',
-                  border: `2px solid ${motherConfig.positioning === 'top-wing' ? '#4CAF50' : '#ddd'}`,
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  background: motherConfig.positioning === 'top-wing' ? '#f1f8e9' : 'white',
-                  transition: 'all 0.3s',
-                  flex: 1
-                }}>
-                  <input
-                    type="radio"
-                    name="positioning"
-                    value="top-wing"
-                    checked={motherConfig.positioning === 'top-wing'}
-                    onChange={(e) => setMotherConfig(prev => ({
-                      ...prev,
-                      positioning: e.target.value as 'top-wing' | 'mid-fold'
-                    }))}
-                    style={{ margin: 0 }}
-                  />
-                  <span style={{ fontWeight: 'bold', color: '#333' }}>🔝 Top Wing</span>
-                </label>
-
-                <label style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '12px 16px',
-                  border: `2px solid ${motherConfig.positioning === 'mid-fold' ? '#4CAF50' : '#ddd'}`,
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  background: motherConfig.positioning === 'mid-fold' ? '#f1f8e9' : 'white',
-                  transition: 'all 0.3s',
-                  flex: 1
-                }}>
-                  <input
-                    type="radio"
-                    name="positioning"
-                    value="mid-fold"
-                    checked={motherConfig.positioning === 'mid-fold'}
-                    onChange={(e) => setMotherConfig(prev => ({
-                      ...prev,
-                      positioning: e.target.value as 'top-wing' | 'mid-fold'
-                    }))}
-                    style={{ margin: 0 }}
-                  />
-                  <span style={{ fontWeight: 'bold', color: '#333' }}>📐 Mid Fold</span>
-                </label>
-              </div>
-            </div>
-
             {/* Margin Controls */}
             <div style={{ marginBottom: '20px' }}>
               <h3 style={{ margin: '0 0 15px 0', color: '#333', fontSize: '16px' }}>
@@ -1799,43 +1907,54 @@ function App() {
             {/* Sewing Position Controls */}
             <div style={{ marginBottom: '25px' }}>
               <h3 style={{ margin: '0 0 15px 0', color: '#333', fontSize: '16px' }}>
-                🧵 Sewing Position
+                🧵 Sewing Position (Click to set offset)
               </h3>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 {[
-                  { value: 'top', label: '🔝 Top', icon: '⬆️' },
-                  { value: 'left', label: '⬅️ Left', icon: '⬅️' },
-                  { value: 'right', label: '➡️ Right', icon: '➡️' },
-                  { value: 'middle', label: '🎯 Middle', icon: '🎯' },
-                  { value: 'bottom-left', label: '↙️ Bottom Left', icon: '↙️' },
-                  { value: 'bottom-right', label: '↘️ Bottom Right', icon: '↘️' }
+                  { value: 'top', label: '🔝 Top' },
+                  { value: 'left', label: '⬅️ Left' },
+                  { value: 'right', label: '➡️ Right' },
+                  { value: 'bottom', label: '⬇️ Bottom' }
                 ].map((option) => (
-                  <label key={option.value} style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '8px 12px',
-                    border: `2px solid ${motherConfig.sewingPosition === option.value ? '#4CAF50' : '#ddd'}`,
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    background: motherConfig.sewingPosition === option.value ? '#f1f8e9' : 'white',
-                    transition: 'all 0.3s',
-                    fontSize: '12px'
-                  }}>
-                    <input
-                      type="radio"
-                      name="sewingPosition"
-                      value={option.value}
-                      checked={motherConfig.sewingPosition === option.value}
-                      onChange={(e) => setMotherConfig(prev => ({
-                        ...prev,
-                        sewingPosition: e.target.value as any
-                      }))}
-                      style={{ margin: 0, transform: 'scale(0.8)' }}
-                    />
-                    <span style={{ fontWeight: 'bold', color: '#333' }}>{option.label}</span>
-                  </label>
+                  <button
+                    key={option.value}
+                    onClick={() => handleSewingPositionClick(option.value as 'top' | 'left' | 'right' | 'bottom')}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      padding: '12px 16px',
+                      border: `2px solid ${motherConfig.sewingPosition === option.value ? '#4CAF50' : '#ddd'}`,
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      background: motherConfig.sewingPosition === option.value ? '#f1f8e9' : 'white',
+                      transition: 'all 0.3s',
+                      fontSize: '14px',
+                      fontWeight: 'bold',
+                      color: '#333'
+                    }}
+                    onMouseOver={(e) => {
+                      if (motherConfig.sewingPosition !== option.value) {
+                        e.currentTarget.style.borderColor = '#4CAF50';
+                        e.currentTarget.style.background = '#f9f9f9';
+                      }
+                    }}
+                    onMouseOut={(e) => {
+                      if (motherConfig.sewingPosition !== option.value) {
+                        e.currentTarget.style.borderColor = '#ddd';
+                        e.currentTarget.style.background = 'white';
+                      }
+                    }}
+                  >
+                    {option.label}
+                    {motherConfig.sewingPosition === option.value && (
+                      <span style={{ fontSize: '12px', color: '#666' }}>
+                        ({motherConfig.sewingOffset}mm)
+                      </span>
+                    )}
+                  </button>
                 ))}
               </div>
             </div>
@@ -1890,6 +2009,104 @@ function App() {
                 }}
               >
                 {isEditingMother ? '✅ Update Mother' : '✅ Create Mother'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sewing Offset Dialog */}
+      {showSewingOffsetDialog && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10001
+        }}>
+          <div style={{
+            background: 'white',
+            padding: '25px',
+            borderRadius: '10px',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+            minWidth: '300px',
+            textAlign: 'center'
+          }}>
+            <h3 style={{
+              margin: '0 0 15px 0',
+              color: '#2e7d32',
+              fontSize: '18px'
+            }}>
+              🧵 Set Sewing Offset
+            </h3>
+
+            <p style={{ margin: '0 0 15px 0', color: '#666', fontSize: '14px' }}>
+              Distance from <strong>{selectedSewingPosition}</strong> edge in mm:
+            </p>
+
+            <input
+              type="number"
+              min="1"
+              max="50"
+              step="1"
+              defaultValue={motherConfig.sewingOffset}
+              autoFocus
+              style={{
+                width: '100px',
+                padding: '8px 12px',
+                border: '2px solid #4CAF50',
+                borderRadius: '6px',
+                fontSize: '16px',
+                textAlign: 'center',
+                outline: 'none',
+                marginBottom: '20px'
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  const value = parseInt((e.target as HTMLInputElement).value) || 5;
+                  confirmSewingOffset(value);
+                }
+              }}
+            />
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+              <button
+                onClick={() => setShowSewingOffsetDialog(false)}
+                style={{
+                  padding: '8px 16px',
+                  border: '2px solid #ddd',
+                  borderRadius: '6px',
+                  background: 'white',
+                  color: '#666',
+                  fontSize: '14px',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={() => {
+                  const input = document.querySelector('input[type="number"]') as HTMLInputElement;
+                  const value = parseInt(input.value) || 5;
+                  confirmSewingOffset(value);
+                }}
+                style={{
+                  padding: '8px 16px',
+                  border: 'none',
+                  borderRadius: '6px',
+                  background: '#4CAF50',
+                  color: 'white',
+                  fontSize: '14px',
+                  cursor: 'pointer'
+                }}
+              >
+                ✅ Confirm
               </button>
             </div>
           </div>
