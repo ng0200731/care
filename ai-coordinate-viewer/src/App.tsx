@@ -84,7 +84,7 @@ function App() {
       down: 5,
       right: 5
     },
-    sewingPosition: 'top' as 'top' | 'left' | 'right' | 'bottom',
+    sewingPosition: 'top' as 'top' | 'left' | 'right' | 'bottom' | 'mid-fold',
     sewingOffset: 5
   });
 
@@ -94,7 +94,7 @@ function App() {
 
   // Sewing offset dialog state
   const [showSewingOffsetDialog, setShowSewingOffsetDialog] = useState(false);
-  const [selectedSewingPosition, setSelectedSewingPosition] = useState<'top' | 'left' | 'right' | 'bottom'>('top');
+  const [selectedSewingPosition, setSelectedSewingPosition] = useState<'top' | 'left' | 'right' | 'bottom' | 'mid-fold'>('top');
 
   // Removed space allocation dialog - now handled directly in son regions
 
@@ -414,7 +414,7 @@ function App() {
   };
 
   // Sewing position functions
-  const handleSewingPositionClick = (position: 'top' | 'left' | 'right' | 'bottom') => {
+  const handleSewingPositionClick = (position: 'top' | 'left' | 'right' | 'bottom' | 'mid-fold') => {
     setSelectedSewingPosition(position);
     setShowSewingOffsetDialog(true);
   };
@@ -1248,18 +1248,16 @@ function App() {
             {showSewingLines && motherConfig.sewingPosition && (
               (() => {
                 const offset = motherConfig.sewingOffset * 3.78 * zoom; // Convert mm to pixels with zoom
-                const isMidFold = false; // For now, we'll implement mid-fold detection later
-                // const lineLength = isMidFold ? 0.5 : 1; // Half length for mid-fold (unused for now)
 
                 switch (motherConfig.sewingPosition) {
                   case 'top':
                     return (
                       <line
-                        x1={baseX + (isMidFold ? width * 0.25 : 0)}
+                        x1={baseX}
                         y1={baseY + offset}
-                        x2={baseX + (isMidFold ? width * 0.75 : width)}
+                        x2={baseX + width}
                         y2={baseY + offset}
-                        stroke="#4CAF50"
+                        stroke="#d32f2f"
                         strokeWidth="3"
                         strokeDasharray="4,4"
                         opacity="0.9"
@@ -1269,10 +1267,10 @@ function App() {
                     return (
                       <line
                         x1={baseX + offset}
-                        y1={baseY + (isMidFold ? height * 0.25 : 0)}
+                        y1={baseY}
                         x2={baseX + offset}
-                        y2={baseY + (isMidFold ? height * 0.75 : height)}
-                        stroke="#4CAF50"
+                        y2={baseY + height}
+                        stroke="#d32f2f"
                         strokeWidth="3"
                         strokeDasharray="4,4"
                         opacity="0.9"
@@ -1282,10 +1280,10 @@ function App() {
                     return (
                       <line
                         x1={baseX + width - offset}
-                        y1={baseY + (isMidFold ? height * 0.25 : 0)}
+                        y1={baseY}
                         x2={baseX + width - offset}
-                        y2={baseY + (isMidFold ? height * 0.75 : height)}
-                        stroke="#4CAF50"
+                        y2={baseY + height}
+                        stroke="#d32f2f"
                         strokeWidth="3"
                         strokeDasharray="4,4"
                         opacity="0.9"
@@ -1294,11 +1292,24 @@ function App() {
                   case 'bottom':
                     return (
                       <line
-                        x1={baseX + (isMidFold ? width * 0.25 : 0)}
+                        x1={baseX}
                         y1={baseY + height - offset}
-                        x2={baseX + (isMidFold ? width * 0.75 : width)}
+                        x2={baseX + width}
                         y2={baseY + height - offset}
-                        stroke="#4CAF50"
+                        stroke="#d32f2f"
+                        strokeWidth="3"
+                        strokeDasharray="4,4"
+                        opacity="0.9"
+                      />
+                    );
+                  case 'mid-fold':
+                    return (
+                      <line
+                        x1={baseX}
+                        y1={baseY + height / 2}
+                        x2={baseX + width}
+                        y2={baseY + height / 2}
+                        stroke="#d32f2f"
                         strokeWidth="3"
                         strokeDasharray="4,4"
                         opacity="0.9"
@@ -1892,52 +1903,103 @@ function App() {
                 🧵 Sewing Position (Click to set offset)
               </h3>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                {[
-                  { value: 'top', label: '🔝 Top' },
-                  { value: 'left', label: '⬅️ Left' },
-                  { value: 'right', label: '➡️ Right' },
-                  { value: 'bottom', label: '⬇️ Bottom' }
-                ].map((option) => (
-                  <button
-                    key={option.value}
-                    onClick={() => handleSewingPositionClick(option.value as 'top' | 'left' | 'right' | 'bottom')}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '6px',
-                      padding: '12px 16px',
-                      border: `2px solid ${motherConfig.sewingPosition === option.value ? '#4CAF50' : '#ddd'}`,
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      background: motherConfig.sewingPosition === option.value ? '#f1f8e9' : 'white',
-                      transition: 'all 0.3s',
-                      fontSize: '14px',
-                      fontWeight: 'bold',
-                      color: '#333'
-                    }}
-                    onMouseOver={(e) => {
-                      if (motherConfig.sewingPosition !== option.value) {
-                        e.currentTarget.style.borderColor = '#4CAF50';
-                        e.currentTarget.style.background = '#f9f9f9';
-                      }
-                    }}
-                    onMouseOut={(e) => {
-                      if (motherConfig.sewingPosition !== option.value) {
-                        e.currentTarget.style.borderColor = '#ddd';
-                        e.currentTarget.style.background = 'white';
-                      }
-                    }}
-                  >
-                    {option.label}
-                    {motherConfig.sewingPosition === option.value && (
-                      <span style={{ fontSize: '12px', color: '#666' }}>
-                        ({motherConfig.sewingOffset}mm)
-                      </span>
-                    )}
-                  </button>
-                ))}
+              {/* Group 1: Edge Positions */}
+              <div style={{ marginBottom: '15px' }}>
+                <h4 style={{ margin: '0 0 10px 0', color: '#666', fontSize: '14px' }}>
+                  📍 Edge Positions:
+                </h4>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  {[
+                    { value: 'top', label: '🔝 Top' },
+                    { value: 'left', label: '⬅️ Left' },
+                    { value: 'right', label: '➡️ Right' },
+                    { value: 'bottom', label: '⬇️ Bottom' }
+                  ].map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => handleSewingPositionClick(option.value as 'top' | 'left' | 'right' | 'bottom' | 'mid-fold')}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        padding: '12px 16px',
+                        border: `2px solid ${motherConfig.sewingPosition === option.value ? '#d32f2f' : '#ddd'}`,
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        background: motherConfig.sewingPosition === option.value ? '#ffebee' : 'white',
+                        transition: 'all 0.3s',
+                        fontSize: '14px',
+                        fontWeight: 'bold',
+                        color: '#333'
+                      }}
+                      onMouseOver={(e) => {
+                        if (motherConfig.sewingPosition !== option.value) {
+                          e.currentTarget.style.borderColor = '#d32f2f';
+                          e.currentTarget.style.background = '#f9f9f9';
+                        }
+                      }}
+                      onMouseOut={(e) => {
+                        if (motherConfig.sewingPosition !== option.value) {
+                          e.currentTarget.style.borderColor = '#ddd';
+                          e.currentTarget.style.background = 'white';
+                        }
+                      }}
+                    >
+                      {option.label}
+                      {motherConfig.sewingPosition === option.value && (
+                        <span style={{ fontSize: '12px', color: '#666' }}>
+                          ({motherConfig.sewingOffset}mm)
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Group 2: Mid-Fold Position */}
+              <div>
+                <h4 style={{ margin: '0 0 10px 0', color: '#666', fontSize: '14px' }}>
+                  📐 Mid-Fold Position:
+                </h4>
+                <button
+                  onClick={() => handleSewingPositionClick('mid-fold')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    padding: '12px 16px',
+                    border: `2px solid ${motherConfig.sewingPosition === 'mid-fold' ? '#d32f2f' : '#ddd'}`,
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    background: motherConfig.sewingPosition === 'mid-fold' ? '#ffebee' : 'white',
+                    transition: 'all 0.3s',
+                    fontSize: '14px',
+                    fontWeight: 'bold',
+                    color: '#333',
+                    width: '100%'
+                  }}
+                  onMouseOver={(e) => {
+                    if (motherConfig.sewingPosition !== 'mid-fold') {
+                      e.currentTarget.style.borderColor = '#d32f2f';
+                      e.currentTarget.style.background = '#f9f9f9';
+                    }
+                  }}
+                  onMouseOut={(e) => {
+                    if (motherConfig.sewingPosition !== 'mid-fold') {
+                      e.currentTarget.style.borderColor = '#ddd';
+                      e.currentTarget.style.background = 'white';
+                    }
+                  }}
+                >
+                  🎯 Mid-Fold (Horizontal)
+                  {motherConfig.sewingPosition === 'mid-fold' && (
+                    <span style={{ fontSize: '12px', color: '#666' }}>
+                      ({motherConfig.sewingOffset}mm)
+                    </span>
+                  )}
+                </button>
               </div>
             </div>
 
