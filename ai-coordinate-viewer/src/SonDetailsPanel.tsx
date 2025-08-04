@@ -85,15 +85,22 @@ const SonDetailsPanel: React.FC<SonDetailsPanelProps> = ({
 
 
 
-    // Get or create metadata for this mother object
+    // Get margin data from the object itself (where it's actually stored)
+    const objectMargins = (selectedObject as any).margins || {
+      top: 5,
+      bottom: 5,
+      left: 5,
+      right: 5
+    };
+
+    // Get sewing position data from the object itself
+    const objectSewingPosition = (selectedObject as any).sewingPosition;
+    const objectSewingOffset = (selectedObject as any).sewingOffset;
+
+    // Get or create metadata for this mother object (for compatibility)
     const currentMotherMetadata = motherMetadata.get(objectId) || {
       id: objectId,
-      margins: {
-        top: 5,
-        bottom: 5,
-        left: 5,
-        right: 5
-      },
+      margins: objectMargins,
       sewingPosition: {
         x: 0,
         y: 0,
@@ -125,25 +132,25 @@ const SonDetailsPanel: React.FC<SonDetailsPanelProps> = ({
         <div style={{ marginBottom: '15px' }}>
           <strong>📏 MARGINS (mm):</strong>
           <div style={{ marginLeft: '10px', fontSize: '14px' }}>
-            Top: {currentMotherMetadata.margins?.top || 5}
+            Top: {objectMargins.top}
           </div>
           <div style={{ marginLeft: '10px', fontSize: '14px' }}>
-            Bottom: {currentMotherMetadata.margins?.bottom || 5}
+            Bottom: {objectMargins.bottom}
           </div>
           <div style={{ marginLeft: '10px', fontSize: '14px' }}>
-            Left: {currentMotherMetadata.margins?.left || 5}
+            Left: {objectMargins.left}
           </div>
           <div style={{ marginLeft: '10px', fontSize: '14px' }}>
-            Right: {currentMotherMetadata.margins?.right || 5}
+            Right: {objectMargins.right}
           </div>
         </div>
 
         {/* Sewing Position (Plain Text) */}
         <div style={{ marginBottom: '15px' }}>
           <strong>🧵 SEWING POSITION:</strong>
-          {currentMotherMetadata.sewingPosition?.isSet ? (
+          {objectSewingPosition ? (
             <div style={{ marginLeft: '10px', fontSize: '14px' }}>
-              Position: ({currentMotherMetadata.sewingPosition.x.toFixed(1)}, {currentMotherMetadata.sewingPosition.y.toFixed(1)})
+              Position: {objectSewingPosition} {objectSewingOffset ? `(${objectSewingOffset}mm offset)` : ''}
             </div>
           ) : (
             <div style={{ marginLeft: '10px', fontSize: '14px', color: '#666' }}>
