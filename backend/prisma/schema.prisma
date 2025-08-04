@@ -1,0 +1,101 @@
+// Care Label Layout System Database Schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model with role-based access
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  username  String   @unique
+  password  String
+  role      UserRole @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  masterFiles MasterFile[]
+  suppliers   Supplier[]
+  orders      Order[]
+
+  @@map("users")
+}
+
+// User roles enum
+enum UserRole {
+  ADMIN
+  USER
+}
+
+// Master File model - stores the coordinate viewer data
+model MasterFile {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  data        Json     // Stores the complete coordinate viewer JSON data
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders Order[]
+
+  @@map("master_files")
+}
+
+// Supplier model
+model Supplier {
+  id          String   @id @default(cuid())
+  name        String
+  contactInfo Json     // Flexible JSON for contact details
+  capabilities Json?   // Supplier capabilities, pricing, etc.
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders Order[]
+
+  @@map("suppliers")
+}
+
+// Order model
+model Order {
+  id          String      @id @default(cuid())
+  orderNumber String      @unique @default(cuid())
+  status      OrderStatus @default(DRAFT)
+  quantity    Int
+  notes       String?
+  orderData   Json?       // Additional order specifications
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  masterFileId String
+  masterFile   MasterFile @relation(fields: [masterFileId], references: [id], onDelete: Cascade)
+  supplierId   String
+  supplier     Supplier   @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@map("orders")
+}
+
+// Order status enum
+enum OrderStatus {
+  DRAFT
+  SENT
+  CONFIRMED
+  IN_PRODUCTION
+  DELIVERED
+  CANCELLED
+}
