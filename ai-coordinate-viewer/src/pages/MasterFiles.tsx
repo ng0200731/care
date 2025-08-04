@@ -131,7 +131,7 @@ const MasterFiles: React.FC = () => {
 
         {/* Master File Management Button */}
         <Link
-          to="/master-files/management"
+          to="/master-files-management"
           style={{
             display: 'block',
             padding: '40px 30px',

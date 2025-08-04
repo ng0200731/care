@@ -92,6 +92,11 @@ function App() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [motherMetadata, setMotherMetadata] = useState<Map<string, MotherMetadata>>(new Map());
 
+  // Edit mode state
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingMasterFileId, setEditingMasterFileId] = useState<string | null>(null);
+  const [originalMasterFile, setOriginalMasterFile] = useState<any>(null);
+
   // Canvas view state
   const [zoom, setZoom] = useState(1); // 1 = 1:1 scale (1mm = 1px at 96 DPI)
   const [panX, setPanX] = useState(0);
@@ -461,11 +466,30 @@ function App() {
       return;
     }
 
-    // Generate default name automatically
-    const defaultName = await generateDefaultMasterFileName();
+    // Check if we're in edit mode
+    if (isEditMode && editingMasterFileId && originalMasterFile) {
+      // Show overwrite confirmation
+      const confirmOverwrite = window.confirm(
+        `⚠️ This will overwrite the existing master file:\n\n` +
+        `"${originalMasterFile.name}"\n\n` +
+        `Current revision: ${originalMasterFile.revisionNumber}\n` +
+        `New revision will be: ${originalMasterFile.revisionNumber + 1}\n\n` +
+        `Do you want to continue?`
+      );
 
-    // Save directly without showing dialog
-    await performSave(defaultName);
+      if (!confirmOverwrite) {
+        return; // User cancelled
+      }
+
+      // Perform overwrite save
+      await performOverwriteSave();
+    } else {
+      // Generate default name automatically for new files
+      const defaultName = await generateDefaultMasterFileName();
+
+      // Save directly without showing dialog
+      await performSave(defaultName);
+    }
   };
 
   const performSave = async (fileName: string) => {
@@ -554,6 +578,81 @@ function App() {
     }
   };
 
+  // Overwrite Save Function for Edit Mode
+  const performOverwriteSave = async () => {
+    if (!editingMasterFileId || !originalMasterFile || !data) {
+      alert('❌ Error: Missing edit mode data.');
+      return;
+    }
+
+    try {
+      // Capture canvas as SVG
+      const canvasImage = captureCanvasAsSVG();
+
+      // Calculate canvas dimensions from objects or use original dimensions
+      let widthInMm = originalMasterFile.width;
+      let heightInMm = originalMasterFile.height;
+
+      if (data.objects.length > 0) {
+        // Calculate bounds from all objects
+        const bounds = data.objects.reduce((acc, obj) => ({
+          minX: Math.min(acc.minX, obj.x),
+          minY: Math.min(acc.minY, obj.y),
+          maxX: Math.max(acc.maxX, obj.x + obj.width),
+          maxY: Math.max(acc.maxY, obj.y + obj.height)
+        }), {
+          minX: Infinity,
+          minY: Infinity,
+          maxX: -Infinity,
+          maxY: -Infinity
+        });
+
+        // Add some padding around the objects
+        const padding = 20; // 20mm padding
+        widthInMm = Math.max(200, Math.ceil(bounds.maxX - bounds.minX + padding));
+        heightInMm = Math.max(150, Math.ceil(bounds.maxY - bounds.minY + padding));
+      }
+
+      // Update the master file (overwrite)
+      const result = await masterFileService.updateMasterFile({
+        id: editingMasterFileId,
+        name: originalMasterFile.name, // Keep original name
+        width: widthInMm,
+        height: heightInMm,
+        description: `Updated: ${data.objects.length} objects`,
+        designData: {
+          objects: data.objects,
+          metadata: {
+            createdInWebMode: true,
+            objectCount: data.objects.length,
+            customerName: selectedCustomer?.customerName,
+            updatedAt: new Date().toISOString(),
+            canvasDimensions: {
+              width: widthInMm,
+              height: heightInMm
+            }
+          }
+        },
+        canvasImage: canvasImage
+      });
+
+      if (result.success) {
+        const newRevision = originalMasterFile.revisionNumber + 1;
+        alert(`✅ Master File Updated Successfully!\n\nName: ${originalMasterFile.name}\nCustomer: ${selectedCustomer?.customerName}\nDimensions: ${widthInMm} × ${heightInMm} mm\nObjects: ${data.objects.length}\nRevision: ${newRevision}\n\nChanges have been saved.\n\n🔄 Returning to Master Files Management...`);
+
+        // Navigate back to Master Files Management
+        setTimeout(() => {
+          window.location.href = '/master-files-management';
+        }, 2000);
+      } else {
+        alert(`❌ Error updating master file: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error updating master file:', error);
+      alert('❌ Failed to update master file. Please try again.');
+    }
+  };
+
   // Master File Loading Functions
   const loadMasterFileForEditing = async (masterFileId: string) => {
     try {
@@ -576,8 +675,11 @@ function App() {
         return;
       }
 
-      // Enter web creation mode
+      // Enter web creation mode and edit mode
       setIsWebCreationMode(true);
+      setIsEditMode(true);
+      setEditingMasterFileId(masterFileId);
+      setOriginalMasterFile(masterFile);
 
       // Restore canvas data from master file
       const restoredData: AIData = {
@@ -589,10 +691,19 @@ function App() {
       setData(restoredData);
       setWebCreationData(restoredData);
 
-      // Restore customer context if available
-      if (masterFile.designData.metadata?.customerName) {
-        // Try to find and set the customer (this is optional)
-        console.log('📋 Customer context:', masterFile.designData.metadata.customerName);
+      // Restore customer context from master file
+      if (masterFile.customerId) {
+        // Set the customer from the master file
+        const customer: Customer = {
+          id: masterFile.customerId,
+          customerName: masterFile.designData.metadata?.customerName || 'Unknown Customer',
+          person: '',
+          email: '',
+          phone: '',
+          address: ''
+        };
+        setSelectedCustomer(customer);
+        console.log('📋 Customer restored from master file:', customer.customerName);
       }
 
       // Reset view state to show the loaded design

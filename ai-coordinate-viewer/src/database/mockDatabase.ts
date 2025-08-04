@@ -139,10 +139,24 @@ class MockDatabase {
     
     if (index === -1) return null;
     
+    const now = new Date();
+    const currentRevision = masterFiles[index].revisionNumber;
+    const newRevision = currentRevision + 1;
+
+    // Add to revision history
+    const newRevisionEntry = {
+      version: newRevision,
+      updatedAt: now,
+      changes: `Updated via web editor: ${updates.designData?.objects?.length || 0} objects`,
+      canvasImage: updates.canvasImage
+    };
+
     masterFiles[index] = {
       ...masterFiles[index],
       ...updates,
-      updatedAt: new Date()
+      revisionNumber: newRevision,
+      revisionHistory: [...masterFiles[index].revisionHistory, newRevisionEntry],
+      updatedAt: now
     };
     
     this.saveTable('master_files', masterFiles);

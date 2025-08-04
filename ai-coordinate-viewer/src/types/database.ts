@@ -51,6 +51,8 @@ export interface UpdateMasterFileRequest {
   width?: number;
   height?: number;
   description?: string;
+  designData?: any;                 // Optional design data (objects, metadata, etc.)
+  canvasImage?: string;             // SVG image of the design
 }
 
 // =====================================================

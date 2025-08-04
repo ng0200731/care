@@ -130,6 +130,8 @@ class MasterFileService {
       if (request.width) updates.width = request.width;
       if (request.height) updates.height = request.height;
       if (request.description !== undefined) updates.description = request.description;
+      if (request.designData !== undefined) updates.designData = request.designData;
+      if (request.canvasImage !== undefined) updates.canvasImage = request.canvasImage;
 
       const updatedMasterFile = await mockDatabase.updateMasterFile(request.id, updates);
 

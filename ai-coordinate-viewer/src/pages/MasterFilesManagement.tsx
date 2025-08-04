@@ -123,6 +123,35 @@ const MasterFilesManagement: React.FC = () => {
 
   return (
     <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
+      {/* Back to Master Files Button */}
+      <div style={{ marginBottom: '20px' }}>
+        <button
+          onClick={() => navigate('/master-files')}
+          style={{
+            padding: '10px 20px',
+            backgroundColor: '#4a5568',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: '500',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            transition: 'all 0.3s ease'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = '#2d3748';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = '#4a5568';
+          }}
+        >
+          ← Back to Master Files
+        </button>
+      </div>
+
       {/* Header */}
       <div style={{ marginBottom: '30px' }}>
         <h1 style={{ margin: '0 0 10px 0', fontSize: '28px', fontWeight: 'bold' }}>
