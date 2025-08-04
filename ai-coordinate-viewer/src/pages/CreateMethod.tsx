@@ -25,11 +25,11 @@ const CreateMethod: React.FC = () => {
   }, [navigate]);
 
   const handleCreateFromZero = () => {
-    navigate('/master-files/create-from-zero');
+    navigate('/master-files/create');
   };
 
   const handleCreateFromJson = () => {
-    navigate('/master-files/create-from-json');
+    navigate('/coordinate-viewer');
   };
 
   if (!selectedCustomer) {

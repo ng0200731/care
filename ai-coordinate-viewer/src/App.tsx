@@ -1,5 +1,15 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import SonDetailsPanel from './SonDetailsPanel';
+
+interface Customer {
+  id: string;
+  customerName: string;
+  person: string;
+  email: string;
+  phone: string;
+  address: string;
+  createdAt?: string;
+}
 
 interface AIObject {
   name: string;
@@ -71,6 +81,7 @@ function App() {
   const [isDragOver, setIsDragOver] = useState(false);
   const [expandedMothers, setExpandedMothers] = useState<Set<number>>(new Set());
   const [sonMetadata, setSonMetadata] = useState<Map<string, SonMetadata>>(new Map());
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [motherMetadata, setMotherMetadata] = useState<Map<string, MotherMetadata>>(new Map());
 
   // Canvas view state
@@ -114,6 +125,19 @@ function App() {
 
   // Margin controls state
   const [applyToAllSides, setApplyToAllSides] = useState(false);
+
+  // Load selected customer from sessionStorage
+  useEffect(() => {
+    const storedCustomer = sessionStorage.getItem('selectedCustomer');
+    if (storedCustomer) {
+      try {
+        const customer = JSON.parse(storedCustomer);
+        setSelectedCustomer(customer);
+      } catch (error) {
+        console.error('Error parsing stored customer:', error);
+      }
+    }
+  }, []);
 
   // Removed space allocation dialog - now handled directly in son regions
 
@@ -1592,6 +1616,49 @@ function App() {
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
     >
+      {/* Customer Header */}
+      {selectedCustomer && (
+        <div style={{
+          background: '#2d3748',
+          color: 'white',
+          padding: '12px 20px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          borderBottom: '1px solid #4a5568'
+        }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600' }}>
+              🏷️ Care Label Designer - {selectedCustomer.customerName}
+            </h3>
+            <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#a0aec0' }}>
+              Contact: {selectedCustomer.person} • {selectedCustomer.email}
+            </p>
+          </div>
+          <button
+            onClick={() => window.location.href = '/master-files'}
+            style={{
+              background: 'transparent',
+              border: '1px solid #4a5568',
+              color: 'white',
+              padding: '8px 16px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              borderRadius: '4px',
+              transition: 'all 0.3s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = '#4a5568';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent';
+            }}
+          >
+            ← Back to System
+          </button>
+        </div>
+      )}
+
       {/* Main Content - 70% Canvas / 30% Hierarchy Panel (v1.1.0) */}
       <div style={{
         flex: 1,

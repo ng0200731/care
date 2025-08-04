@@ -14,6 +14,7 @@ import EditCustomer from './components/customers/EditCustomer';
 import Customers from './pages/Customers';
 import SelectCustomer from './pages/SelectCustomer';
 import CreateMethod from './pages/CreateMethod';
+
 import reportWebVitals from './reportWebVitals';
 
 const root = ReactDOM.createRoot(
@@ -65,6 +66,7 @@ root.render(
             <CreateMethod />
           </Layout>
         } />
+
         <Route path="/suppliers" element={
           <Layout>
             <Suppliers />

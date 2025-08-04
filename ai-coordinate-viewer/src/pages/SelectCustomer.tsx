@@ -44,14 +44,14 @@ const SelectCustomer: React.FC = () => {
     setSelectedCustomer(customer);
   };
 
-  const handleProceedToCreation = () => {
+  const handleProceedToDesigner = () => {
     if (!selectedCustomer) return;
 
-    // Store selected customer in sessionStorage for the next step
+    // Store selected customer in sessionStorage for the label designer
     sessionStorage.setItem('selectedCustomer', JSON.stringify(selectedCustomer));
 
-    // Navigate to creation method selection page
-    navigate('/master-files/create-method');
+    // Navigate directly to the coordinate viewer (label designer)
+    navigate('/coordinate-viewer');
   };
 
   return (
@@ -74,14 +74,14 @@ const SelectCustomer: React.FC = () => {
             color: '#2d3748',
             margin: '0 0 8px 0'
           }}>
-            Select Customer
+            Select Customer for Label Design
           </h1>
           <p style={{
             fontSize: '15px',
             color: '#718096',
             margin: 0
           }}>
-            Choose a customer to create a master file for
+            Choose a customer to start designing care labels in the visual layout system
           </p>
         </div>
         
@@ -358,7 +358,7 @@ const SelectCustomer: React.FC = () => {
 
               {/* Continue Button */}
               <button
-                onClick={handleProceedToCreation}
+                onClick={handleProceedToDesigner}
                 style={{
                   width: '100%',
                   padding: '20px',
@@ -380,7 +380,7 @@ const SelectCustomer: React.FC = () => {
                   e.currentTarget.style.borderColor = '#4a5568';
                 }}
               >
-                Continue to Creation Method
+                🎨 Start Label Designer
               </button>
             </div>
           )}
