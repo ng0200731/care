@@ -86,9 +86,10 @@ const SonDetailsPanel: React.FC<SonDetailsPanelProps> = ({
 
 
     // Get margin data from the object itself (where it's actually stored)
+    // Note: The object uses 'down' instead of 'bottom' for the bottom margin
     const objectMargins = (selectedObject as any).margins || {
       top: 5,
-      bottom: 5,
+      down: 5,
       left: 5,
       right: 5
     };
@@ -100,7 +101,12 @@ const SonDetailsPanel: React.FC<SonDetailsPanelProps> = ({
     // Get or create metadata for this mother object (for compatibility)
     const currentMotherMetadata = motherMetadata.get(objectId) || {
       id: objectId,
-      margins: objectMargins,
+      margins: {
+        top: objectMargins.top,
+        bottom: objectMargins.down, // Convert 'down' to 'bottom' for compatibility
+        left: objectMargins.left,
+        right: objectMargins.right
+      },
       sewingPosition: {
         x: 0,
         y: 0,
@@ -135,7 +141,7 @@ const SonDetailsPanel: React.FC<SonDetailsPanelProps> = ({
             Top: {objectMargins.top}
           </div>
           <div style={{ marginLeft: '10px', fontSize: '14px' }}>
-            Bottom: {objectMargins.bottom}
+            Bottom: {objectMargins.down}
           </div>
           <div style={{ marginLeft: '10px', fontSize: '14px' }}>
             Left: {objectMargins.left}
