@@ -20,7 +20,7 @@ const loginSchema = z.object({
 });
 
 // Helper function to generate JWT
-const generateToken = (user: { id: string; email: string; username: string; role: string }) => {
+const generateToken = (user: { id: string; email: string; username: string; role: string }): string => {
   const secret = process.env.JWT_SECRET;
   if (!secret) {
     throw new Error('JWT_SECRET not configured');
@@ -34,12 +34,12 @@ const generateToken = (user: { id: string; email: string; username: string; role
       role: user.role,
     },
     secret,
-    { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+    { expiresIn: process.env.JWT_EXPIRES_IN || '7d' } as jwt.SignOptions
   );
 };
 
 // POST /api/auth/register
-router.post('/register', async (req, res) => {
+router.post('/register', async (req, res): Promise<any> => {
   try {
     const { email, username, password } = registerSchema.parse(req.body);
 
@@ -97,7 +97,7 @@ router.post('/register', async (req, res) => {
 });
 
 // POST /api/auth/login
-router.post('/login', async (req, res) => {
+router.post('/login', async (req, res): Promise<any> => {
   try {
     const { email, password } = loginSchema.parse(req.body);
 
@@ -137,7 +137,7 @@ router.post('/login', async (req, res) => {
 });
 
 // GET /api/auth/me - Get current user info
-router.get('/me', authenticateToken, async (req, res) => {
+router.get('/me', authenticateToken, async (req, res): Promise<any> => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.user!.id },

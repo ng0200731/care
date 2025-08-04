@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -16,7 +16,7 @@ model User {
   email     String   @unique
   username  String   @unique
   password  String
-  role      UserRole @default(USER)
+  role      String   @default("USER") // "ADMIN" or "USER"
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -28,18 +28,12 @@ model User {
   @@map("users")
 }
 
-// User roles enum
-enum UserRole {
-  ADMIN
-  USER
-}
-
 // Master File model - stores the coordinate viewer data
 model MasterFile {
   id          String   @id @default(cuid())
   name        String
   description String?
-  data        Json     // Stores the complete coordinate viewer JSON data
+  data        String   // Stores the complete coordinate viewer JSON data as string
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -55,8 +49,8 @@ model MasterFile {
 model Supplier {
   id          String   @id @default(cuid())
   name        String
-  contactInfo Json     // Flexible JSON for contact details
-  capabilities Json?   // Supplier capabilities, pricing, etc.
+  contactInfo String   // JSON string for contact details
+  capabilities String? // JSON string for supplier capabilities, pricing, etc.
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -70,14 +64,14 @@ model Supplier {
 
 // Order model
 model Order {
-  id          String      @id @default(cuid())
-  orderNumber String      @unique @default(cuid())
-  status      OrderStatus @default(DRAFT)
+  id          String   @id @default(cuid())
+  orderNumber String   @unique @default(cuid())
+  status      String   @default("DRAFT") // "DRAFT", "SENT", "CONFIRMED", "IN_PRODUCTION", "DELIVERED", "CANCELLED"
   quantity    Int
   notes       String?
-  orderData   Json?       // Additional order specifications
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  orderData   String?  // JSON string for additional order specifications
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   // Relations
   userId       String
@@ -88,14 +82,4 @@ model Order {
   supplier     Supplier   @relation(fields: [supplierId], references: [id], onDelete: Cascade)
 
   @@map("orders")
-}
-
-// Order status enum
-enum OrderStatus {
-  DRAFT
-  SENT
-  CONFIRMED
-  IN_PRODUCTION
-  DELIVERED
-  CANCELLED
 }
