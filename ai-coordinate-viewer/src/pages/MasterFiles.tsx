@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 
 const MasterFiles: React.FC = () => {
-  const [searchTerm, setSearchTerm] = useState('');
 
   // Mock data - will be replaced with API calls later
   const masterFiles = [
@@ -32,10 +31,7 @@ const MasterFiles: React.FC = () => {
     }
   ];
 
-  const filteredFiles = masterFiles.filter(file =>
-    file.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    file.description.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredFiles = masterFiles;
 
   return (
     <div>
@@ -48,7 +44,7 @@ const MasterFiles: React.FC = () => {
       }}>
         <div>
           <h1 style={{
-            fontSize: '32px',
+            fontSize: '29px', // 32px -> 29px (-10%)
             fontWeight: 'bold',
             color: '#2d3748',
             margin: '0 0 5px 0'
@@ -56,7 +52,7 @@ const MasterFiles: React.FC = () => {
             Master Files
           </h1>
           <p style={{
-            fontSize: '16px',
+            fontSize: '14px', // 16px -> 14px (-10%)
             color: '#718096',
             margin: 0
           }}>
@@ -67,25 +63,23 @@ const MasterFiles: React.FC = () => {
         <Link
           to="/master-files/create"
           style={{
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            background: '#2d3748',
             color: 'white',
             padding: '12px 24px',
-            borderRadius: '8px',
             textDecoration: 'none',
             fontWeight: '600',
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
-            boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-            transition: 'all 0.3s ease'
+            border: '1px solid #4a5568',
+            transition: 'all 0.3s ease',
+            fontSize: '14px' // Add font size (-10% from default)
           }}
           onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => {
-            e.currentTarget.style.transform = 'translateY(-2px)';
-            e.currentTarget.style.boxShadow = '0 8px 15px rgba(0,0,0,0.2)';
+            e.currentTarget.style.background = '#4a5568';
           }}
           onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => {
-            e.currentTarget.style.transform = 'translateY(0)';
-            e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+            e.currentTarget.style.background = '#2d3748';
           }}
         >
           <span>➕</span>
@@ -96,14 +90,12 @@ const MasterFiles: React.FC = () => {
       {/* Create New Section */}
       <div style={{
         background: 'white',
-        borderRadius: '12px',
         padding: '25px',
         marginBottom: '30px',
-        boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
         border: '1px solid #e2e8f0'
       }}>
         <h2 style={{
-          fontSize: '20px',
+          fontSize: '18px', // 20px -> 18px (-10%)
           fontWeight: '600',
           color: '#2d3748',
           marginBottom: '20px'
@@ -196,53 +188,21 @@ const MasterFiles: React.FC = () => {
         </div>
       </div>
 
-      {/* Search and Filter */}
+      {/* Files List */}
       <div style={{
         background: 'white',
-        borderRadius: '12px',
         padding: '25px',
         marginBottom: '20px',
-        boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
         border: '1px solid #e2e8f0'
       }}>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '20px'
+        <h2 style={{
+          fontSize: '18px', // 20px -> 18px (-10%)
+          fontWeight: '600',
+          color: '#2d3748',
+          margin: '0 0 20px 0'
         }}>
-          <h2 style={{
-            fontSize: '20px',
-            fontWeight: '600',
-            color: '#2d3748',
-            margin: 0
-          }}>
-            Your Master Files ({filteredFiles.length})
-          </h2>
-          
-          <input
-            type="text"
-            placeholder="Search files..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{
-              padding: '10px 15px',
-              border: '1px solid #e2e8f0',
-              borderRadius: '8px',
-              fontSize: '14px',
-              width: '250px',
-              outline: 'none'
-            }}
-            onFocus={(e) => {
-              e.currentTarget.style.borderColor = '#667eea';
-              e.currentTarget.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.1)';
-            }}
-            onBlur={(e) => {
-              e.currentTarget.style.borderColor = '#e2e8f0';
-              e.currentTarget.style.boxShadow = 'none';
-            }}
-          />
-        </div>
+          Your Master Files ({filteredFiles.length})
+        </h2>
 
         {/* Files List */}
         {filteredFiles.length > 0 ? (
@@ -349,7 +309,7 @@ const MasterFiles: React.FC = () => {
           }}>
             <div style={{ fontSize: '48px', marginBottom: '15px' }}>🔍</div>
             <p style={{ fontSize: '16px', margin: 0 }}>
-              {searchTerm ? 'No files match your search' : 'No master files found'}
+              No master files found
             </p>
           </div>
         )}

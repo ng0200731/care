@@ -8,64 +8,63 @@ const Dashboard: React.FC = () => {
       description: 'Start a new label layout design',
       icon: '📄',
       path: '/master-files/create',
-      color: '#4299e1',
-      bgColor: '#ebf8ff'
+      color: '#2d3748',
+      bgColor: '#f7fafc'
     },
     {
       title: 'Import from JSON',
       description: 'Load existing design from file',
       icon: '📥',
       path: '/master-files/import',
-      color: '#38a169',
-      bgColor: '#f0fff4'
+      color: '#2d3748',
+      bgColor: '#f7fafc'
     },
     {
       title: 'Add Supplier',
       description: 'Register new supplier information',
       icon: '🏭',
       path: '/suppliers/create',
-      color: '#ed8936',
-      bgColor: '#fffaf0'
+      color: '#2d3748',
+      bgColor: '#f7fafc'
     },
     {
       title: 'Create Order',
       description: 'Place new order with supplier',
       icon: '📋',
       path: '/orders/create',
-      color: '#9f7aea',
-      bgColor: '#faf5ff'
+      color: '#2d3748',
+      bgColor: '#f7fafc'
     }
   ];
 
   const stats = [
-    { label: 'Master Files', value: '12', icon: '📁', color: '#4299e1' },
-    { label: 'Suppliers', value: '5', icon: '🏭', color: '#38a169' },
-    { label: 'Active Orders', value: '8', icon: '📋', color: '#ed8936' },
-    { label: 'Completed', value: '24', icon: '✅', color: '#9f7aea' }
+    { label: 'Master Files', value: '12', icon: '📁', color: '#2d3748' },
+    { label: 'Suppliers', value: '5', icon: '🏭', color: '#2d3748' },
+    { label: 'Active Orders', value: '8', icon: '📋', color: '#2d3748' },
+    { label: 'Completed', value: '24', icon: '✅', color: '#2d3748' }
   ];
 
   return (
     <div>
       {/* Welcome Section */}
       <div style={{
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        borderRadius: '16px',
+        background: '#2d3748',
         padding: '40px',
         marginBottom: '30px',
         color: 'white',
-        textAlign: 'center'
+        textAlign: 'center',
+        border: '1px solid #4a5568'
       }}>
         <h1 style={{
-          fontSize: '36px',
+          fontSize: '32px', // 36px -> 32px (-10%)
           fontWeight: 'bold',
-          margin: '0 0 10px 0',
-          textShadow: '0 2px 4px rgba(0,0,0,0.3)'
+          margin: '0 0 10px 0'
         }}>
           Welcome to Care Label Layout System
         </h1>
         <p style={{
-          fontSize: '18px',
-          opacity: 0.9,
+          fontSize: '16px', // 18px -> 16px (-10%)
+          color: '#e2e8f0',
           margin: 0
         }}>
           Manage your label designs, suppliers, and orders all in one place
@@ -85,20 +84,18 @@ const Dashboard: React.FC = () => {
             style={{
               background: 'white',
               padding: '25px',
-              borderRadius: '12px',
-              boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
               border: '1px solid #e2e8f0',
               textAlign: 'center'
             }}
           >
             <div style={{
-              fontSize: '32px',
+              fontSize: '29px', // 32px -> 29px (-10%)
               marginBottom: '10px'
             }}>
               {stat.icon}
             </div>
             <div style={{
-              fontSize: '28px',
+              fontSize: '25px', // 28px -> 25px (-10%)
               fontWeight: 'bold',
               color: stat.color,
               marginBottom: '5px'
@@ -106,7 +103,7 @@ const Dashboard: React.FC = () => {
               {stat.value}
             </div>
             <div style={{
-              fontSize: '14px',
+              fontSize: '13px', // 14px -> 13px (-10%)
               color: '#718096',
               fontWeight: '500'
             }}>
@@ -145,19 +142,15 @@ const Dashboard: React.FC = () => {
                 style={{
                   background: 'white',
                   padding: '25px',
-                  borderRadius: '12px',
-                  boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
                   border: '1px solid #e2e8f0',
                   transition: 'all 0.3s ease',
                   cursor: 'pointer'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = '0 8px 15px rgba(0,0,0,0.15)';
+                  e.currentTarget.style.background = '#f7fafc';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+                  e.currentTarget.style.background = 'white';
                 }}
               >
                 <div style={{
@@ -168,12 +161,12 @@ const Dashboard: React.FC = () => {
                   <div style={{
                     width: '60px',
                     height: '60px',
-                    borderRadius: '12px',
                     background: action.bgColor,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: '24px'
+                    fontSize: '24px',
+                    border: '1px solid #e2e8f0'
                   }}>
                     {action.icon}
                   </div>
@@ -214,8 +207,6 @@ const Dashboard: React.FC = () => {
         
         <div style={{
           background: 'white',
-          borderRadius: '12px',
-          boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
           border: '1px solid #e2e8f0',
           padding: '25px'
         }}>

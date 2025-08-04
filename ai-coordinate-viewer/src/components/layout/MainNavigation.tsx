@@ -40,11 +40,12 @@ const MainNavigation: React.FC = () => {
 
   return (
     <nav style={{
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      background: '#2d3748',
       padding: '20px',
       minHeight: '100vh',
       width: '280px',
-      boxShadow: '2px 0 10px rgba(0,0,0,0.1)'
+      boxShadow: '2px 0 10px rgba(0,0,0,0.1)',
+      boxSizing: 'border-box'
     }}>
       {/* Logo/Title */}
       <div style={{
@@ -53,7 +54,7 @@ const MainNavigation: React.FC = () => {
       }}>
         <h1 style={{
           color: 'white',
-          fontSize: '24px',
+          fontSize: '22px', // 24px -> 22px (-10%)
           fontWeight: 'bold',
           margin: '0',
           textShadow: '0 2px 4px rgba(0,0,0,0.3)'
@@ -61,8 +62,8 @@ const MainNavigation: React.FC = () => {
           Care Label Layout
         </h1>
         <p style={{
-          color: 'rgba(255,255,255,0.8)',
-          fontSize: '14px',
+          color: '#a0aec0',
+          fontSize: '13px', // 14px -> 13px (-10%)
           margin: '5px 0 0 0'
         }}>
           Management System
@@ -78,28 +79,27 @@ const MainNavigation: React.FC = () => {
             style={{
               display: 'block',
               padding: '15px 20px',
-              borderRadius: '12px',
+              borderRadius: '0px',
               textDecoration: 'none',
-              color: isActive(item.path) ? '#667eea' : 'white',
-              background: isActive(item.path) 
-                ? 'white' 
-                : 'rgba(255,255,255,0.1)',
-              border: isActive(item.path) 
-                ? '2px solid #667eea' 
+              color: isActive(item.path) ? '#2d3748' : '#e2e8f0',
+              background: isActive(item.path)
+                ? '#f7fafc'
+                : 'transparent',
+              border: isActive(item.path)
+                ? '2px solid #e2e8f0'
                 : '2px solid transparent',
-              transition: 'all 0.3s ease',
-              backdropFilter: 'blur(10px)'
+              transition: 'all 0.3s ease'
             }}
             onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => {
               if (!isActive(item.path)) {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.2)';
-                e.currentTarget.style.transform = 'translateX(5px)';
+                e.currentTarget.style.background = '#4a5568';
+                e.currentTarget.style.color = 'white';
               }
             }}
             onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => {
               if (!isActive(item.path)) {
-                e.currentTarget.style.background = 'rgba(255,255,255,0.1)';
-                e.currentTarget.style.transform = 'translateX(0)';
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.color = '#e2e8f0';
               }
             }}
           >
@@ -108,17 +108,17 @@ const MainNavigation: React.FC = () => {
               alignItems: 'center',
               gap: '15px'
             }}>
-              <span style={{ fontSize: '24px' }}>{item.icon}</span>
+              <span style={{ fontSize: '22px' }}>{item.icon}</span>
               <div>
                 <div style={{
-                  fontSize: '16px',
+                  fontSize: '14px', // 16px -> 14px (-10%)
                   fontWeight: '600',
                   marginBottom: '2px'
                 }}>
                   {item.label}
                 </div>
                 <div style={{
-                  fontSize: '12px',
+                  fontSize: '11px', // 12px -> 11px (-10%)
                   opacity: 0.8
                 }}>
                   {item.description}
@@ -129,43 +129,24 @@ const MainNavigation: React.FC = () => {
         ))}
       </div>
 
-      {/* User Info */}
+      {/* User Icon */}
       <div style={{
         position: 'absolute',
         bottom: '20px',
-        left: '20px',
-        right: '20px',
-        padding: '15px',
-        background: 'rgba(255,255,255,0.1)',
-        borderRadius: '12px',
-        backdropFilter: 'blur(10px)'
+        left: '20px'
       }}>
         <div style={{
+          width: '32px',
+          height: '32px',
+          background: '#4a5568',
           display: 'flex',
           alignItems: 'center',
-          gap: '10px',
-          color: 'white'
+          justifyContent: 'center',
+          fontSize: '16px',
+          color: '#e2e8f0',
+          border: '1px solid #718096'
         }}>
-          <div style={{
-            width: '40px',
-            height: '40px',
-            borderRadius: '50%',
-            background: 'rgba(255,255,255,0.2)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '18px'
-          }}>
-            👤
-          </div>
-          <div>
-            <div style={{ fontSize: '14px', fontWeight: '600' }}>
-              Demo User
-            </div>
-            <div style={{ fontSize: '12px', opacity: 0.8 }}>
-              Administrator
-            </div>
-          </div>
+          👤
         </div>
       </div>
     </nav>

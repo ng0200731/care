@@ -8,25 +8,34 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   return (
     <div style={{
-      display: 'flex',
       minHeight: '100vh',
       background: '#f5f7fa'
     }}>
-      {/* Sidebar Navigation */}
-      <MainNavigation />
-      
+      {/* Sidebar Navigation - Fixed */}
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '280px',
+        height: '100vh',
+        zIndex: 10
+      }}>
+        <MainNavigation />
+      </div>
+
       {/* Main Content Area */}
       <div style={{
-        flex: 1,
+        marginLeft: '280px', // Now matches menu width exactly with border-box
+        minHeight: '100vh',
         display: 'flex',
         flexDirection: 'column'
       }}>
         {/* Header */}
         <header style={{
-          background: 'white',
+          background: '#f7fafc',
           padding: '20px 30px',
-          borderBottom: '1px solid #e1e5e9',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+          borderBottom: '1px solid #e2e8f0',
+          boxShadow: 'none'
         }}>
           <div style={{
             display: 'flex',
@@ -36,7 +45,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <h2 style={{
               margin: 0,
               color: '#2d3748',
-              fontSize: '24px',
+              fontSize: '22px', // 24px -> 22px (-10%)
               fontWeight: '600'
             }}>
               Care Label Layout System
@@ -48,20 +57,18 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             }}>
               <div style={{
                 padding: '8px 16px',
-                background: '#e6fffa',
-                color: '#234e52',
-                borderRadius: '20px',
-                fontSize: '14px',
+                background: '#2d3748',
+                color: 'white',
+                fontSize: '13px', // 14px -> 13px (-10%)
                 fontWeight: '500'
               }}>
                 🟢 System Online
               </div>
               <div style={{
                 padding: '8px 16px',
-                background: '#f7fafc',
+                background: 'white',
                 color: '#4a5568',
-                borderRadius: '8px',
-                fontSize: '14px',
+                fontSize: '13px', // 14px -> 13px (-10%)
                 border: '1px solid #e2e8f0'
               }}>
                 {new Date().toLocaleDateString()}
