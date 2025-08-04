@@ -41,15 +41,15 @@ const MainNavigation: React.FC = () => {
   return (
     <nav style={{
       background: '#2d3748',
-      padding: '20px',
+      padding: '15px', // Reduced padding from 20px to 15px
       minHeight: '100vh',
-      width: '280px',
+      width: '220px', // Reduced from 280px to 220px
       boxShadow: '2px 0 10px rgba(0,0,0,0.1)',
       boxSizing: 'border-box'
     }}>
       {/* Logo/Title */}
       <div style={{
-        marginBottom: '40px',
+        marginBottom: '30px', // Reduced from 40px to 30px
         textAlign: 'center'
       }}>
         <h1 style={{
@@ -78,7 +78,7 @@ const MainNavigation: React.FC = () => {
             to={item.path}
             style={{
               display: 'block',
-              padding: '15px 20px',
+              padding: '12px 15px', // Reduced padding for narrower menu
               borderRadius: '0px',
               textDecoration: 'none',
               color: isActive(item.path) ? '#2d3748' : '#e2e8f0',
@@ -132,8 +132,8 @@ const MainNavigation: React.FC = () => {
       {/* User Icon */}
       <div style={{
         position: 'absolute',
-        bottom: '20px',
-        left: '20px'
+        bottom: '15px', // Reduced from 20px to 15px
+        left: '15px' // Reduced from 20px to 15px
       }}>
         <div style={{
           width: '32px',

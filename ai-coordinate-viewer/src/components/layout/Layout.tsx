@@ -16,7 +16,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         position: 'fixed',
         top: 0,
         left: 0,
-        width: '280px',
+        width: '220px', // Reduced from 280px to 220px
         height: '100vh',
         zIndex: 10
       }}>
@@ -25,7 +25,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       {/* Main Content Area */}
       <div style={{
-        marginLeft: '280px', // Now matches menu width exactly with border-box
+        marginLeft: '220px', // Reduced from 280px to 220px for more content space
         minHeight: '100vh',
         display: 'flex',
         flexDirection: 'column'

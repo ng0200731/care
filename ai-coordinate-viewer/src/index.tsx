@@ -40,8 +40,12 @@ root.render(
           </Layout>
         } />
 
-        {/* Coordinate viewer - full screen without layout */}
-        <Route path="/coordinate-viewer" element={<CoordinateViewer />} />
+        {/* Coordinate viewer - with layout to keep left menu */}
+        <Route path="/coordinate-viewer" element={
+          <Layout>
+            <CoordinateViewer />
+          </Layout>
+        } />
       </Routes>
     </Router>
   </React.StrictMode>

@@ -4,16 +4,15 @@ import App from '../../App'; // Your existing coordinate viewer
 
 const CoordinateViewer: React.FC = () => {
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
-      {/* Header with navigation */}
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {/* Action buttons bar - simplified since Layout provides the main header */}
       <div style={{
         background: 'white',
         padding: '15px 25px',
         borderBottom: '1px solid #e2e8f0',
         display: 'flex',
         justifyContent: 'space-between',
-        alignItems: 'center',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+        alignItems: 'center'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
           <Link
@@ -22,61 +21,44 @@ const CoordinateViewer: React.FC = () => {
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
-              color: '#4299e1',
+              color: '#2d3748',
               textDecoration: 'none',
-              fontSize: '14px',
+              fontSize: '13px', // Reduced font size
               fontWeight: '500',
-              padding: '8px 12px',
-              borderRadius: '6px',
-              border: '1px solid #e2e8f0',
+              padding: '6px 10px', // Reduced padding
+              border: '1px solid #4a5568',
               transition: 'all 0.3s ease'
             }}
             onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => {
-              e.currentTarget.style.background = '#f7faff';
-              e.currentTarget.style.borderColor = '#4299e1';
+              e.currentTarget.style.background = '#4a5568';
+              e.currentTarget.style.color = 'white';
             }}
             onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => {
               e.currentTarget.style.background = 'transparent';
-              e.currentTarget.style.borderColor = '#e2e8f0';
+              e.currentTarget.style.color = '#2d3748';
             }}
           >
             <span>←</span>
             Back to Master Files
           </Link>
-          
-          <div style={{
-            height: '20px',
-            width: '1px',
-            background: '#e2e8f0'
-          }} />
-          
-          <div>
-            <h1 style={{
-              fontSize: '18px',
-              fontWeight: '600',
-              color: '#2d3748',
-              margin: 0
-            }}>
-              Coordinate Viewer
-            </h1>
-            <p style={{
-              fontSize: '14px',
-              color: '#718096',
-              margin: 0
-            }}>
-              Design your care label layout
-            </p>
-          </div>
+
+          <h2 style={{
+            fontSize: '16px', // Reduced from 18px
+            fontWeight: '600',
+            color: '#2d3748',
+            margin: 0
+          }}>
+            Coordinate Viewer
+          </h2>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '8px' }}>
           <button style={{
-            padding: '8px 16px',
+            padding: '6px 12px', // Reduced padding
             background: '#f7fafc',
             color: '#4a5568',
             border: '1px solid #e2e8f0',
-            borderRadius: '6px',
-            fontSize: '14px',
+            fontSize: '13px', // Reduced font size
             fontWeight: '500',
             cursor: 'pointer',
             transition: 'all 0.3s ease'
@@ -90,25 +72,22 @@ const CoordinateViewer: React.FC = () => {
           >
             💾 Save Draft
           </button>
-          
+
           <button style={{
-            padding: '8px 16px',
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            padding: '6px 12px', // Reduced padding
+            background: '#2d3748',
             color: 'white',
             border: 'none',
-            borderRadius: '6px',
-            fontSize: '14px',
+            fontSize: '13px', // Reduced font size
             fontWeight: '500',
             cursor: 'pointer',
             transition: 'all 0.3s ease'
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'translateY(-1px)';
-            e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)';
+            e.currentTarget.style.background = '#4a5568';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'translateY(0)';
-            e.currentTarget.style.boxShadow = 'none';
+            e.currentTarget.style.background = '#2d3748';
           }}
           >
             💾 Save & Close
