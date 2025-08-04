@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import SonDetailsPanel from './SonDetailsPanel';
 import NavigationButtons from './components/NavigationButtons';
 import SonObjectManager, { SonObject } from './components/content-editors/SonObjectManager';
@@ -82,6 +83,7 @@ interface AIData {
 }
 
 function App() {
+  const location = useLocation();
   const [data, setData] = useState<AIData | null>(null);
   const [selectedObject, setSelectedObject] = useState<AIObject | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -150,6 +152,17 @@ function App() {
       }
     }
   }, []);
+
+  // Check for master file ID in URL parameters and load for editing
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    const masterFileId = urlParams.get('masterFileId');
+
+    if (masterFileId) {
+      console.log('🔍 Master file ID detected in URL:', masterFileId);
+      loadMasterFileForEditing(masterFileId);
+    }
+  }, [location.search]);
 
   // Removed space allocation dialog - now handled directly in son regions
 
@@ -538,6 +551,64 @@ function App() {
       } else {
         alert('❌ Failed to save master file. Please try again.');
       }
+    }
+  };
+
+  // Master File Loading Functions
+  const loadMasterFileForEditing = async (masterFileId: string) => {
+    try {
+      console.log('🔄 Loading master file for editing:', masterFileId);
+
+      // Fetch master file from database
+      const result = await masterFileService.getMasterFileById(masterFileId);
+
+      if (!result.success || !result.data) {
+        alert(`❌ Error loading master file: ${result.error || 'Master file not found'}`);
+        return;
+      }
+
+      const masterFile = result.data;
+      console.log('✅ Master file loaded:', masterFile);
+
+      // Check if master file has design data
+      if (!masterFile.designData || !masterFile.designData.objects) {
+        alert('❌ This master file has no design data to edit.');
+        return;
+      }
+
+      // Enter web creation mode
+      setIsWebCreationMode(true);
+
+      // Restore canvas data from master file
+      const restoredData: AIData = {
+        document: `Editing: ${masterFile.name}`,
+        totalObjects: masterFile.designData.objects.length,
+        objects: masterFile.designData.objects
+      };
+
+      setData(restoredData);
+      setWebCreationData(restoredData);
+
+      // Restore customer context if available
+      if (masterFile.designData.metadata?.customerName) {
+        // Try to find and set the customer (this is optional)
+        console.log('📋 Customer context:', masterFile.designData.metadata.customerName);
+      }
+
+      // Reset view state to show the loaded design
+      setZoom(1);
+      setPanX(0);
+      setPanY(0);
+      setSelectedObject(null);
+      setSonMetadata(new Map());
+      setExpandedMothers(new Set());
+
+      // Show success message
+      alert(`✅ Master File Loaded Successfully!\n\nName: ${masterFile.name}\nObjects: ${masterFile.designData.objects.length}\nDimensions: ${masterFile.width} × ${masterFile.height} mm\n\nYou can now edit the design and save changes.`);
+
+    } catch (error) {
+      console.error('❌ Error loading master file:', error);
+      alert('❌ Failed to load master file. Please try again.');
     }
   };
 

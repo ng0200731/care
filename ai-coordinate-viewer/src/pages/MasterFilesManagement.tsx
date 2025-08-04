@@ -102,6 +102,11 @@ const MasterFilesManagement: React.FC = () => {
     navigate(`/master-files/${masterFile.id}/templates`);
   };
 
+  const handleEditMasterFile = (masterFile: MasterFileWithSummary) => {
+    // Navigate to coordinate viewer with master file ID for editing
+    navigate(`/coordinate-viewer?masterFileId=${masterFile.id}`);
+  };
+
   const filteredMasterFiles = masterFiles.filter(mf => 
     (!searchTerm || mf.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
      (mf.description && mf.description.toLowerCase().includes(searchTerm.toLowerCase()))) &&
@@ -315,6 +320,23 @@ const MasterFilesManagement: React.FC = () => {
 
             {/* Actions */}
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleEditMasterFile(masterFile);
+                }}
+                style={{
+                  padding: '6px 12px',
+                  backgroundColor: '#28a745',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '12px'
+                }}
+              >
+                ✏️ Edit
+              </button>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
