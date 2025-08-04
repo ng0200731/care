@@ -38,6 +38,21 @@ interface SonMetadata {
   };
 }
 
+interface MotherMetadata {
+  id: string;
+  margins?: {
+    top: number;
+    bottom: number;
+    left: number;
+    right: number;
+  };
+  sewingPosition?: {
+    x: number;
+    y: number;
+    isSet: boolean;
+  };
+}
+
 interface HierarchyNode {
   object: AIObject;
   children: AIObject[];
@@ -56,6 +71,7 @@ function App() {
   const [isDragOver, setIsDragOver] = useState(false);
   const [expandedMothers, setExpandedMothers] = useState<Set<number>>(new Set());
   const [sonMetadata, setSonMetadata] = useState<Map<string, SonMetadata>>(new Map());
+  const [motherMetadata, setMotherMetadata] = useState<Map<string, MotherMetadata>>(new Map());
 
   // Canvas view state
   const [zoom, setZoom] = useState(1); // 1 = 1:1 scale (1mm = 1px at 96 DPI)
@@ -548,6 +564,14 @@ function App() {
 
   const handleUpdateSonMetadata = (objectName: string, metadata: SonMetadata) => {
     setSonMetadata(prev => {
+      const newMap = new Map(prev);
+      newMap.set(objectName, metadata);
+      return newMap;
+    });
+  };
+
+  const handleUpdateMotherMetadata = (objectName: string, metadata: MotherMetadata) => {
+    setMotherMetadata(prev => {
       const newMap = new Map(prev);
       newMap.set(objectName, metadata);
       return newMap;
@@ -1484,6 +1508,73 @@ function App() {
             )}
           </>
         )}
+
+        {/* Mother Object Margin and Sewing Position Visualization */}
+        {obj.type?.includes('mother') && (() => {
+          const objectId = `${obj.name}_${obj.x}_${obj.y}`;
+          const motherMeta = motherMetadata.get(objectId);
+
+          if (!motherMeta) return null;
+
+          const mmToPx = 3.78;
+          const scale = zoom * mmToPx;
+
+          return (
+            <>
+              {/* Margin Rectangle */}
+              {motherMeta.margins && selectedObject === obj && (
+                <>
+                  <rect
+                    x={baseX + (motherMeta.margins.left * scale)}
+                    y={baseY + (motherMeta.margins.top * scale)}
+                    width={width - ((motherMeta.margins.left + motherMeta.margins.right) * scale)}
+                    height={height - ((motherMeta.margins.top + motherMeta.margins.bottom) * scale)}
+                    fill="none"
+                    stroke="#4CAF50"
+                    strokeWidth="2"
+                    strokeDasharray="5,5"
+                    opacity="0.8"
+                  />
+
+                  {/* Margin Labels */}
+                  <text
+                    x={baseX + width / 2}
+                    y={baseY - 5}
+                    fill="#4CAF50"
+                    fontSize="10"
+                    fontWeight="bold"
+                    textAnchor="middle"
+                  >
+                    Margins: {motherMeta.margins.top}mm
+                  </text>
+                </>
+              )}
+
+              {/* Sewing Position Indicator */}
+              {motherMeta.sewingPosition?.isSet && (
+                <>
+                  <circle
+                    cx={baseX + ((motherMeta.sewingPosition.x - obj.x) * scale)}
+                    cy={baseY + ((motherMeta.sewingPosition.y - obj.y) * scale)}
+                    r="4"
+                    fill="#ff5722"
+                    stroke="#fff"
+                    strokeWidth="2"
+                  />
+                  <text
+                    x={baseX + ((motherMeta.sewingPosition.x - obj.x) * scale) + 8}
+                    y={baseY + ((motherMeta.sewingPosition.y - obj.y) * scale) - 8}
+                    fill="#ff5722"
+                    fontSize="10"
+                    fontWeight="bold"
+                  >
+                    🧵
+                  </text>
+                </>
+              )}
+            </>
+          );
+        })()}
       </g>
     );
   };
@@ -1837,6 +1928,8 @@ function App() {
               selectedObject={selectedObject}
               sonMetadata={sonMetadata}
               onUpdateMetadata={handleUpdateSonMetadata}
+              motherMetadata={motherMetadata}
+              onUpdateMotherMetadata={handleUpdateMotherMetadata}
             />
           </div>
         </div>

@@ -37,16 +37,35 @@ interface SonMetadata {
   };
 }
 
+interface MotherMetadata {
+  id: string;
+  margins?: {
+    top: number;
+    bottom: number;
+    left: number;
+    right: number;
+  };
+  sewingPosition?: {
+    x: number;
+    y: number;
+    isSet: boolean;
+  };
+}
+
 interface SonDetailsPanelProps {
   selectedObject: AIObject | null;
   sonMetadata: Map<string, SonMetadata>;
   onUpdateMetadata: (objectName: string, metadata: SonMetadata) => void;
+  motherMetadata?: Map<string, MotherMetadata>;
+  onUpdateMotherMetadata?: (objectName: string, metadata: MotherMetadata) => void;
 }
 
 const SonDetailsPanel: React.FC<SonDetailsPanelProps> = ({
   selectedObject,
   sonMetadata,
-  onUpdateMetadata
+  onUpdateMetadata,
+  motherMetadata = new Map(),
+  onUpdateMotherMetadata = () => {}
 }) => {
   // Check if selected object is a son
   const isSon = selectedObject?.type?.includes('son');
@@ -61,6 +80,29 @@ const SonDetailsPanel: React.FC<SonDetailsPanelProps> = ({
   }
 
   if (!isSon) {
+    // Create unique identifier for this object
+    const objectId = `${selectedObject.name}_${selectedObject.x}_${selectedObject.y}`;
+
+
+
+    // Get or create metadata for this mother object
+    const currentMotherMetadata = motherMetadata.get(objectId) || {
+      id: objectId,
+      margins: {
+        top: 5,
+        bottom: 5,
+        left: 5,
+        right: 5
+      },
+      sewingPosition: {
+        x: 0,
+        y: 0,
+        isSet: false
+      }
+    };
+
+
+
     return (
       <div style={{ padding: '20px' }}>
         <h3>📋 Object Details</h3>
@@ -76,12 +118,49 @@ const SonDetailsPanel: React.FC<SonDetailsPanelProps> = ({
         <div style={{ marginBottom: '15px' }}>
           <strong>Size:</strong> {selectedObject.width.toFixed(1)} × {selectedObject.height.toFixed(1)} mm
         </div>
+
+
+
+        {/* Margins (Plain Text) */}
+        <div style={{ marginBottom: '15px' }}>
+          <strong>📏 MARGINS (mm):</strong>
+          <div style={{ marginLeft: '10px', fontSize: '14px' }}>
+            Top: {currentMotherMetadata.margins?.top || 5}
+          </div>
+          <div style={{ marginLeft: '10px', fontSize: '14px' }}>
+            Bottom: {currentMotherMetadata.margins?.bottom || 5}
+          </div>
+          <div style={{ marginLeft: '10px', fontSize: '14px' }}>
+            Left: {currentMotherMetadata.margins?.left || 5}
+          </div>
+          <div style={{ marginLeft: '10px', fontSize: '14px' }}>
+            Right: {currentMotherMetadata.margins?.right || 5}
+          </div>
+        </div>
+
+        {/* Sewing Position (Plain Text) */}
+        <div style={{ marginBottom: '15px' }}>
+          <strong>🧵 SEWING POSITION:</strong>
+          {currentMotherMetadata.sewingPosition?.isSet ? (
+            <div style={{ marginLeft: '10px', fontSize: '14px' }}>
+              Position: ({currentMotherMetadata.sewingPosition.x.toFixed(1)}, {currentMotherMetadata.sewingPosition.y.toFixed(1)})
+            </div>
+          ) : (
+            <div style={{ marginLeft: '10px', fontSize: '14px', color: '#666' }}>
+              No sewing position set
+            </div>
+          )}
+          <div style={{ marginLeft: '10px', fontSize: '14px' }}>
+            📍 Set Sewing Position
+          </div>
+        </div>
+
         {selectedObject.type?.includes('mother') && (
-          <div style={{ 
-            padding: '10px', 
-            background: '#fff3e0', 
+          <div style={{
+            padding: '10px',
+            background: '#e8f5e8',
             borderRadius: '5px',
-            color: '#e65100'
+            color: '#2e7d32'
           }}>
             👑 This is a mother object. Click on son objects to configure their types and content.
           </div>
