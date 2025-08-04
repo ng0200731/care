@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import NavigationButtons from '../NavigationButtons';
 
 interface MasterFileData {
   name: string;
@@ -117,57 +118,34 @@ const CreateMasterFile: React.FC = () => {
 
   return (
     <div>
+      {/* Navigation Buttons */}
+      <NavigationButtons
+        previousPagePath="/master-files/select-customer"
+        previousPageLabel="Select Customer"
+        showMasterFilesButton={true}
+        showPreviousButton={true}
+      />
+
       {/* Header */}
       <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '25px'
+        marginBottom: '25px',
+        padding: '0 20px'
       }}>
-        <div>
-          <h1 style={{
-            fontSize: '26px', // Reduced by 10%
-            fontWeight: 'bold',
-            color: '#2d3748',
-            margin: '0 0 5px 0'
-          }}>
-            Create New Master File
-          </h1>
-          <p style={{
-            fontSize: '14px', // Reduced by 10%
-            color: '#718096',
-            margin: 0
-          }}>
-            Set up a new label layout design
-          </p>
-        </div>
-        
-        <Link
-          to="/master-files"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            color: '#2d3748',
-            textDecoration: 'none',
-            fontSize: '13px',
-            fontWeight: '500',
-            padding: '8px 12px',
-            border: '1px solid #4a5568',
-            transition: 'all 0.3s ease'
-          }}
-          onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => {
-            e.currentTarget.style.background = '#4a5568';
-            e.currentTarget.style.color = 'white';
-          }}
-          onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => {
-            e.currentTarget.style.background = 'transparent';
-            e.currentTarget.style.color = '#2d3748';
-          }}
-        >
-          <span>←</span>
-          Back to Master Files
-        </Link>
+        <h1 style={{
+          fontSize: '26px', // Reduced by 10%
+          fontWeight: 'bold',
+          color: '#2d3748',
+          margin: '0 0 5px 0'
+        }}>
+          Create New Master File
+        </h1>
+        <p style={{
+          fontSize: '14px', // Reduced by 10%
+          color: '#718096',
+          margin: 0
+        }}>
+          Set up a new label layout design
+        </p>
       </div>
 
       {/* Form */}

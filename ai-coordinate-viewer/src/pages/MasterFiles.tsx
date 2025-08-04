@@ -1,33 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
-import { masterFileService, MasterFile } from '../services/masterFileService';
-import { customerService, Customer } from '../services/customerService';
 
 const MasterFiles: React.FC = () => {
-  const [masterFiles, setMasterFiles] = useState<MasterFile[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Load data on component mount
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
-    try {
-      setIsLoading(true);
-      const [filesData, customersData] = await Promise.all([
-        masterFileService.getAllMasterFiles(),
-        customerService.getAllCustomers()
-      ]);
-      setMasterFiles(filesData);
-      setCustomers(customersData);
-    } catch (error) {
-      console.error('Error loading data:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   return (
     <div>
@@ -37,74 +11,74 @@ const MasterFiles: React.FC = () => {
         marginBottom: '50px'
       }}>
         <h1 style={{
-          fontSize: '32px',
+          fontSize: '36px',
           fontWeight: 'bold',
           color: '#2d3748',
-          margin: '0 0 12px 0'
+          margin: '0 0 15px 0'
         }}>
-          Care Label Layout System
+          🗄️ Care Label System
         </h1>
         <p style={{
-          fontSize: '16px',
+          fontSize: '18px',
           color: '#718096',
           margin: 0
         }}>
-          Professional label design and layout management
+          Choose what you'd like to do
         </p>
       </div>
 
-      {/* Main Action Buttons */}
+      {/* Main Action Buttons - 3 Buttons */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
         gap: '30px',
-        maxWidth: '800px',
+        maxWidth: '1200px',
         margin: '0 auto 50px auto'
       }}>
-        {/* Label Designer Button */}
+        {/* Start Label Design Button */}
         <Link
           to="/master-files/select-customer"
           style={{
             display: 'block',
             padding: '40px 30px',
-            background: 'white',
-            border: '2px solid #e2e8f0',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white',
             textDecoration: 'none',
+            borderRadius: '12px',
             textAlign: 'center',
-            transition: 'all 0.3s ease'
+            transition: 'all 0.3s ease',
+            boxShadow: '0 8px 25px rgba(102, 126, 234, 0.3)',
+            border: 'none'
           }}
           onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => {
-            e.currentTarget.style.borderColor = '#2d3748';
-            e.currentTarget.style.background = '#f7fafc';
-            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.transform = 'translateY(-4px)';
+            e.currentTarget.style.boxShadow = '0 12px 35px rgba(102, 126, 234, 0.4)';
           }}
           onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => {
-            e.currentTarget.style.borderColor = '#e2e8f0';
-            e.currentTarget.style.background = 'white';
             e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = '0 8px 25px rgba(102, 126, 234, 0.3)';
           }}
         >
           <div style={{
-            fontSize: '48px',
+            fontSize: '64px',
             marginBottom: '20px'
           }}>
             🎨
           </div>
           <h2 style={{
-            fontSize: '24px',
+            fontSize: '28px',
             fontWeight: 'bold',
-            color: '#2d3748',
-            margin: '0 0 12px 0'
+            margin: '0 0 15px 0'
           }}>
             Start Label Design
           </h2>
           <p style={{
-            fontSize: '14px',
-            color: '#718096',
+            fontSize: '16px',
             margin: 0,
+            opacity: 0.9,
             lineHeight: '1.5'
           }}>
-            Select customer and design care labels with visual layout system
+            Create new care label layouts from scratch or import existing designs
           </p>
         </Link>
 
@@ -114,303 +88,134 @@ const MasterFiles: React.FC = () => {
           style={{
             display: 'block',
             padding: '40px 30px',
-            background: 'white',
-            border: '2px solid #e2e8f0',
+            background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+            color: 'white',
             textDecoration: 'none',
+            borderRadius: '12px',
             textAlign: 'center',
-            transition: 'all 0.3s ease'
+            transition: 'all 0.3s ease',
+            boxShadow: '0 8px 25px rgba(79, 172, 254, 0.3)',
+            border: 'none'
           }}
           onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => {
-            e.currentTarget.style.borderColor = '#2d3748';
-            e.currentTarget.style.background = '#f7fafc';
-            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.transform = 'translateY(-4px)';
+            e.currentTarget.style.boxShadow = '0 12px 35px rgba(79, 172, 254, 0.4)';
           }}
           onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => {
-            e.currentTarget.style.borderColor = '#e2e8f0';
-            e.currentTarget.style.background = 'white';
             e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = '0 8px 25px rgba(79, 172, 254, 0.3)';
           }}
         >
           <div style={{
-            fontSize: '48px',
+            fontSize: '64px',
             marginBottom: '20px'
           }}>
             👥
           </div>
           <h2 style={{
-            fontSize: '24px',
+            fontSize: '28px',
             fontWeight: 'bold',
-            color: '#2d3748',
-            margin: '0 0 12px 0'
+            margin: '0 0 15px 0'
           }}>
             Customer Management
           </h2>
           <p style={{
-            fontSize: '14px',
-            color: '#718096',
+            fontSize: '16px',
             margin: 0,
+            opacity: 0.9,
             lineHeight: '1.5'
           }}>
-            Manage customer database and contact information
+            Manage customer information, contacts, and account settings
+          </p>
+        </Link>
+
+        {/* Master File Management Button */}
+        <Link
+          to="/master-files/management"
+          style={{
+            display: 'block',
+            padding: '40px 30px',
+            background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+            color: 'white',
+            textDecoration: 'none',
+            borderRadius: '12px',
+            textAlign: 'center',
+            transition: 'all 0.3s ease',
+            boxShadow: '0 8px 25px rgba(240, 147, 251, 0.3)',
+            border: 'none'
+          }}
+          onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => {
+            e.currentTarget.style.transform = 'translateY(-4px)';
+            e.currentTarget.style.boxShadow = '0 12px 35px rgba(240, 147, 251, 0.4)';
+          }}
+          onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => {
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = '0 8px 25px rgba(240, 147, 251, 0.3)';
+          }}
+        >
+          <div style={{
+            fontSize: '64px',
+            marginBottom: '20px'
+          }}>
+            🗄️
+          </div>
+          <h2 style={{
+            fontSize: '28px',
+            fontWeight: 'bold',
+            margin: '0 0 15px 0'
+          }}>
+            Master File Management
+          </h2>
+          <p style={{
+            fontSize: '16px',
+            margin: 0,
+            opacity: 0.9,
+            lineHeight: '1.5'
+          }}>
+            View, edit, and organize all your saved master files and templates
           </p>
         </Link>
       </div>
 
-      {/* System Status Cards */}
+      {/* Additional Info Section */}
       <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(3, 1fr)',
-        gap: '20px',
-        marginBottom: '40px'
-      }}>
-        <div style={{
-          background: 'white',
-          padding: '25px',
-          border: '1px solid #e2e8f0',
-          textAlign: 'center'
-        }}>
-          <div style={{
-            fontSize: '32px',
-            fontWeight: 'bold',
-            color: '#48bb78',
-            marginBottom: '8px'
-          }}>
-            🟢
-          </div>
-          <div style={{
-            fontSize: '14px',
-            color: '#718096'
-          }}>
-            System Online
-          </div>
-        </div>
-
-        <div style={{
-          background: 'white',
-          padding: '25px',
-          border: '1px solid #e2e8f0',
-          textAlign: 'center'
-        }}>
-          <div style={{
-            fontSize: '32px',
-            fontWeight: 'bold',
-            color: '#2d3748',
-            marginBottom: '8px'
-          }}>
-            {isLoading ? '...' : customers.length}
-          </div>
-          <div style={{
-            fontSize: '14px',
-            color: '#718096'
-          }}>
-            Active Customers
-          </div>
-        </div>
-
-        <div style={{
-          background: 'white',
-          padding: '25px',
-          border: '1px solid #e2e8f0',
-          textAlign: 'center'
-        }}>
-          <div style={{
-            fontSize: '32px',
-            fontWeight: 'bold',
-            color: '#2d3748',
-            marginBottom: '8px'
-          }}>
-            8
-          </div>
-          <div style={{
-            fontSize: '14px',
-            color: '#718096'
-          }}>
-            Content Types
-          </div>
-        </div>
-      </div>
-
-      {/* Quick Access Links */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        gap: '20px',
-        marginBottom: '40px'
-      }}>
-        <Link
-          to="/master-files/select-customer"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '12px 24px',
-            background: '#2d3748',
-            color: 'white',
-            textDecoration: 'none',
-            fontSize: '14px',
-            fontWeight: '500',
-            border: '1px solid #2d3748',
-            transition: 'all 0.3s ease'
-          }}
-          onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => {
-            e.currentTarget.style.background = '#4a5568';
-            e.currentTarget.style.borderColor = '#4a5568';
-          }}
-          onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => {
-            e.currentTarget.style.background = '#2d3748';
-            e.currentTarget.style.borderColor = '#2d3748';
-          }}
-        >
-          🎨 Start Designing
-        </Link>
-
-        <Link
-          to="/suppliers"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '12px 24px',
-            background: '#f7fafc',
-            color: '#2d3748',
-            textDecoration: 'none',
-            fontSize: '14px',
-            fontWeight: '500',
-            border: '1px solid #e2e8f0',
-            transition: 'all 0.3s ease'
-          }}
-          onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => {
-            e.currentTarget.style.background = '#edf2f7';
-            e.currentTarget.style.borderColor = '#2d3748';
-          }}
-          onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => {
-            e.currentTarget.style.background = '#f7fafc';
-            e.currentTarget.style.borderColor = '#e2e8f0';
-          }}
-        >
-          🏭 Suppliers
-        </Link>
-
-        <Link
-          to="/orders"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '12px 24px',
-            background: '#f7fafc',
-            color: '#2d3748',
-            textDecoration: 'none',
-            fontSize: '14px',
-            fontWeight: '500',
-            border: '1px solid #e2e8f0',
-            transition: 'all 0.3s ease'
-          }}
-          onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => {
-            e.currentTarget.style.background = '#edf2f7';
-            e.currentTarget.style.borderColor = '#2d3748';
-          }}
-          onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => {
-            e.currentTarget.style.background = '#f7fafc';
-            e.currentTarget.style.borderColor = '#e2e8f0';
-          }}
-        >
-          📦 Orders
-        </Link>
-      </div>
-
-      {/* System Features */}
-      <div style={{
-        background: '#f7fafc',
+        background: 'linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%)',
         border: '1px solid #e2e8f0',
+        borderRadius: '12px',
         padding: '30px',
-        marginBottom: '40px'
+        textAlign: 'center'
       }}>
         <h3 style={{
           fontSize: '20px',
           fontWeight: '600',
           color: '#2d3748',
-          margin: '0 0 20px 0',
-          textAlign: 'center'
+          margin: '0 0 15px 0'
         }}>
-          🏷️ Care Label Layout System Features
+          💡 Getting Started
         </h3>
-
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(4, 1fr)',
-          gap: '20px'
+          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+          gap: '20px',
+          marginTop: '20px'
         }}>
-          <div style={{
-            textAlign: 'center',
-            padding: '15px'
-          }}>
-            <div style={{ fontSize: '24px', marginBottom: '8px' }}>📝</div>
-            <h4 style={{ fontSize: '14px', fontWeight: '600', color: '#2d3748', margin: '0 0 4px 0' }}>Text Content</h4>
-            <p style={{ fontSize: '12px', color: '#718096', margin: 0 }}>Brand names, product info</p>
+          <div style={{ textAlign: 'left' }}>
+            <h4 style={{ color: '#4a5568', margin: '0 0 8px 0' }}>🎨 New to the system?</h4>
+            <p style={{ color: '#666', fontSize: '14px', margin: 0, lineHeight: '1.5' }}>
+              Start with <strong>Start Label Design</strong> to create your first care label layout
+            </p>
           </div>
-
-          <div style={{
-            textAlign: 'center',
-            padding: '15px'
-          }}>
-            <div style={{ fontSize: '24px', marginBottom: '8px' }}>🖼️</div>
-            <h4 style={{ fontSize: '14px', fontWeight: '600', color: '#2d3748', margin: '0 0 4px 0' }}>Images</h4>
-            <p style={{ fontSize: '12px', color: '#718096', margin: 0 }}>Logos, graphics, photos</p>
+          <div style={{ textAlign: 'left' }}>
+            <h4 style={{ color: '#4a5568', margin: '0 0 8px 0' }}>👥 Need to add customers?</h4>
+            <p style={{ color: '#666', fontSize: '14px', margin: 0, lineHeight: '1.5' }}>
+              Use <strong>Customer Management</strong> to add and organize your client information
+            </p>
           </div>
-
-          <div style={{
-            textAlign: 'center',
-            padding: '15px'
-          }}>
-            <div style={{ fontSize: '24px', marginBottom: '8px' }}>📊</div>
-            <h4 style={{ fontSize: '14px', fontWeight: '600', color: '#2d3748', margin: '0 0 4px 0' }}>Barcodes</h4>
-            <p style={{ fontSize: '12px', color: '#718096', margin: 0 }}>QR codes, product codes</p>
-          </div>
-
-          <div style={{
-            textAlign: 'center',
-            padding: '15px'
-          }}>
-            <div style={{ fontSize: '24px', marginBottom: '8px' }}>🌐</div>
-            <h4 style={{ fontSize: '14px', fontWeight: '600', color: '#2d3748', margin: '0 0 4px 0' }}>Translation</h4>
-            <p style={{ fontSize: '12px', color: '#718096', margin: 0 }}>Multi-language support</p>
-          </div>
-
-          <div style={{
-            textAlign: 'center',
-            padding: '15px'
-          }}>
-            <div style={{ fontSize: '24px', marginBottom: '8px' }}>🧺</div>
-            <h4 style={{ fontSize: '14px', fontWeight: '600', color: '#2d3748', margin: '0 0 4px 0' }}>Washing Symbols</h4>
-            <p style={{ fontSize: '12px', color: '#718096', margin: 0 }}>Care instructions</p>
-          </div>
-
-          <div style={{
-            textAlign: 'center',
-            padding: '15px'
-          }}>
-            <div style={{ fontSize: '24px', marginBottom: '8px' }}>📏</div>
-            <h4 style={{ fontSize: '14px', fontWeight: '600', color: '#2d3748', margin: '0 0 4px 0' }}>Size Breakdown</h4>
-            <p style={{ fontSize: '12px', color: '#718096', margin: 0 }}>Size charts, measurements</p>
-          </div>
-
-          <div style={{
-            textAlign: 'center',
-            padding: '15px'
-          }}>
-            <div style={{ fontSize: '24px', marginBottom: '8px' }}>📊</div>
-            <h4 style={{ fontSize: '14px', fontWeight: '600', color: '#2d3748', margin: '0 0 4px 0' }}>% Composition</h4>
-            <p style={{ fontSize: '12px', color: '#718096', margin: 0 }}>Material percentages</p>
-          </div>
-
-          <div style={{
-            textAlign: 'center',
-            padding: '15px'
-          }}>
-            <div style={{ fontSize: '24px', marginBottom: '8px' }}>⭐</div>
-            <h4 style={{ fontSize: '14px', fontWeight: '600', color: '#2d3748', margin: '0 0 4px 0' }}>Special Wording</h4>
-            <p style={{ fontSize: '12px', color: '#718096', margin: 0 }}>Legal text, warnings</p>
+          <div style={{ textAlign: 'left' }}>
+            <h4 style={{ color: '#4a5568', margin: '0 0 8px 0' }}>🗄️ Have existing files?</h4>
+            <p style={{ color: '#666', fontSize: '14px', margin: 0, lineHeight: '1.5' }}>
+              Access <strong>Master File Management</strong> to view and edit your saved layouts
+            </p>
           </div>
         </div>
       </div>

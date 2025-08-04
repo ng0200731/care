@@ -14,6 +14,7 @@ import EditCustomer from './components/customers/EditCustomer';
 import Customers from './pages/Customers';
 import SelectCustomer from './pages/SelectCustomer';
 import CreateMethod from './pages/CreateMethod';
+import MasterFilesManagement from './pages/MasterFilesManagement';
 
 import reportWebVitals from './reportWebVitals';
 
@@ -34,6 +35,11 @@ root.render(
         <Route path="/master-files" element={
           <Layout>
             <MasterFiles />
+          </Layout>
+        } />
+        <Route path="/master-files-management" element={
+          <Layout>
+            <MasterFilesManagement />
           </Layout>
         } />
         <Route path="/master-files/create" element={

@@ -18,6 +18,12 @@ const MainNavigation: React.FC = () => {
       description: 'Create and manage master files'
     },
     {
+      path: '/master-files-management',
+      label: 'Master Files DB',
+      icon: '🗄️',
+      description: 'Database master files management'
+    },
+    {
       path: '/suppliers',
       label: 'Suppliers',
       icon: '🏭',

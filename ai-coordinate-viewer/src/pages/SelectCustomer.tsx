@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { customerService, Customer } from '../services/customerService';
+import NavigationButtons from '../components/NavigationButtons';
 
 const SelectCustomer: React.FC = () => {
   const navigate = useNavigate();
@@ -60,57 +61,34 @@ const SelectCustomer: React.FC = () => {
       margin: '0 auto',
       padding: '20px'
     }}>
+      {/* Navigation Buttons */}
+      <NavigationButtons
+        previousPagePath="/master-files"
+        previousPageLabel="Master Files"
+        showMasterFilesButton={true}
+        showPreviousButton={true}
+      />
+
       {/* Header */}
       <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '30px'
+        marginBottom: '30px',
+        padding: '0 20px'
       }}>
-        <div>
-          <h1 style={{
-            fontSize: '28px',
-            fontWeight: 'bold',
-            color: '#2d3748',
-            margin: '0 0 8px 0'
-          }}>
-            Select Customer for Label Design
-          </h1>
-          <p style={{
-            fontSize: '15px',
-            color: '#718096',
-            margin: 0
-          }}>
-            Choose a customer to start designing care labels in the visual layout system
-          </p>
-        </div>
-        
-        <Link
-          to="/master-files"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            color: '#2d3748',
-            textDecoration: 'none',
-            fontSize: '14px',
-            fontWeight: '500',
-            padding: '10px 15px',
-            border: '1px solid #4a5568',
-            transition: 'all 0.3s ease'
-          }}
-          onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => {
-            e.currentTarget.style.background = '#4a5568';
-            e.currentTarget.style.color = 'white';
-          }}
-          onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => {
-            e.currentTarget.style.background = 'transparent';
-            e.currentTarget.style.color = '#2d3748';
-          }}
-        >
-          <span>←</span>
-          Back to Master Files
-        </Link>
+        <h1 style={{
+          fontSize: '28px',
+          fontWeight: 'bold',
+          color: '#2d3748',
+          margin: '0 0 8px 0'
+        }}>
+          Select Customer for Label Design
+        </h1>
+        <p style={{
+          fontSize: '15px',
+          color: '#718096',
+          margin: 0
+        }}>
+          Choose a customer to start designing care labels in the visual layout system
+        </p>
       </div>
 
       {/* Search Bar */}

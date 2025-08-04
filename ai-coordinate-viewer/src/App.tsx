@@ -1,5 +1,11 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import SonDetailsPanel from './SonDetailsPanel';
+import NavigationButtons from './components/NavigationButtons';
+import SonObjectManager, { SonObject } from './components/content-editors/SonObjectManager';
+import { masterFileService } from './services/masterFileService';
+
+// Import version from package.json
+const packageJson = require('../package.json');
 
 interface Customer {
   id: string;
@@ -97,6 +103,12 @@ function App() {
   // Web creation mode state
   const [isWebCreationMode, setIsWebCreationMode] = useState(false);
   const [webCreationData, setWebCreationData] = useState<AIData | null>(null);
+
+  // Son Object Manager state
+  const [sonObjects, setSonObjects] = useState<SonObject[]>([]);
+  const [showSonObjectManager, setShowSonObjectManager] = useState(false);
+
+
 
   // Mother creation dialog state
   const [showMotherDialog, setShowMotherDialog] = useState(false);
@@ -335,6 +347,200 @@ function App() {
 
   // Dialog functions removed - space allocation now handled directly
 
+  // Canvas capture function
+  const captureCanvasAsSVG = (): string => {
+    try {
+      const svgElement = document.querySelector('svg');
+      if (!svgElement) {
+        throw new Error('SVG canvas not found');
+      }
+
+      // Clone the SVG to avoid modifying the original
+      const svgClone = svgElement.cloneNode(true) as SVGElement;
+
+      // Calculate bounds of all objects for cropping
+      if (data && data.objects.length > 0) {
+        const bounds = data.objects.reduce((acc, obj) => ({
+          minX: Math.min(acc.minX, obj.x),
+          minY: Math.min(acc.minY, obj.y),
+          maxX: Math.max(acc.maxX, obj.x + obj.width),
+          maxY: Math.max(acc.maxY, obj.y + obj.height)
+        }), {
+          minX: Infinity, minY: Infinity,
+          maxX: -Infinity, maxY: -Infinity
+        });
+
+        // Add padding around the design
+        const padding = 20;
+        const viewBoxX = bounds.minX - padding;
+        const viewBoxY = bounds.minY - padding;
+        const viewBoxWidth = (bounds.maxX - bounds.minX) + (padding * 2);
+        const viewBoxHeight = (bounds.maxY - bounds.minY) + (padding * 2);
+
+        // Set viewBox to crop to content
+        svgClone.setAttribute('viewBox', `${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`);
+        svgClone.setAttribute('width', viewBoxWidth.toString());
+        svgClone.setAttribute('height', viewBoxHeight.toString());
+      }
+
+      // Convert to string
+      const serializer = new XMLSerializer();
+      const svgString = serializer.serializeToString(svgClone);
+
+      return svgString;
+    } catch (error) {
+      console.error('Error capturing canvas as SVG:', error);
+      throw error;
+    }
+  };
+
+  // Helper function to check if mother objects exist
+  const hasMotherObjects = (): boolean => {
+    const hasMother = data?.objects.some(obj => obj.type === 'mother') || false;
+    console.log('🔍 hasMotherObjects check:', {
+      hasData: !!data,
+      objectCount: data?.objects?.length || 0,
+      objects: data?.objects?.map(obj => ({ name: obj.name, type: obj.type })) || [],
+      hasMother
+    });
+    return hasMother;
+  };
+
+  // Generate smart default name with incremental numbering
+  const generateDefaultMasterFileName = async (): Promise<string> => {
+    if (!selectedCustomer) return 'Design_1';
+
+    const customerName = selectedCustomer.customerName.replace(/[^a-zA-Z0-9]/g, '_');
+    const basePattern = `${customerName}_Design_`;
+
+    try {
+      // Get existing master files to find next available number
+      const response = await masterFileService.getAllMasterFiles();
+      if (response.success && response.data) {
+        const existingNumbers = response.data
+          .filter((file: any) => file.name.startsWith(basePattern))
+          .map((file: any) => {
+            const match = file.name.match(new RegExp(`${basePattern}(\\d+)`));
+            return match ? parseInt(match[1], 10) : 0;
+          })
+          .filter((num: number) => !isNaN(num));
+
+        const nextNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 1;
+        return `${basePattern}${nextNumber}`;
+      }
+    } catch (error) {
+      console.error('Error getting existing files:', error);
+    }
+
+    // Fallback to _1 if there's an error
+    return `${basePattern}1`;
+  };
+
+  // Save Master File functions - Direct save without dialog
+  const saveDirectly = async () => {
+    if (!isWebCreationMode || !data || data.objects.length === 0) {
+      alert('Please create some objects before saving as master file.');
+      return;
+    }
+
+    if (!selectedCustomer) {
+      alert('No customer selected.');
+      return;
+    }
+
+    // Generate default name automatically
+    const defaultName = await generateDefaultMasterFileName();
+
+    // Save directly without showing dialog
+    await performSave(defaultName);
+  };
+
+  const performSave = async (fileName: string) => {
+    if (!fileName.trim()) {
+      alert('Please enter a master file name.');
+      return;
+    }
+
+    if (!selectedCustomer) {
+      alert('No customer selected.');
+      return;
+    }
+
+    if (!data || data.objects.length === 0) {
+      alert('No data to save.');
+      return;
+    }
+
+    try {
+      // Capture canvas as SVG
+      const canvasImage = captureCanvasAsSVG();
+
+      // Calculate canvas dimensions from objects or use defaults
+      let widthInMm = 200; // Default width
+      let heightInMm = 150; // Default height
+
+      if (data.objects.length > 0) {
+        // Calculate bounds from all objects
+        const bounds = data.objects.reduce((acc, obj) => ({
+          minX: Math.min(acc.minX, obj.x),
+          minY: Math.min(acc.minY, obj.y),
+          maxX: Math.max(acc.maxX, obj.x + obj.width),
+          maxY: Math.max(acc.maxY, obj.y + obj.height)
+        }), {
+          minX: Infinity,
+          minY: Infinity,
+          maxX: -Infinity,
+          maxY: -Infinity
+        });
+
+        // Add some padding around the objects
+        const padding = 20; // 20mm padding
+        widthInMm = Math.max(200, Math.ceil(bounds.maxX - bounds.minX + padding));
+        heightInMm = Math.max(150, Math.ceil(bounds.maxY - bounds.minY + padding));
+      }
+
+      const result = await masterFileService.createMasterFile({
+        name: fileName.trim(),
+        width: widthInMm,
+        height: heightInMm,
+        customerId: selectedCustomer.id,
+        description: `Web created master file with ${data.objects.length} objects`,
+        canvasImage: canvasImage,
+        designData: {
+          objects: data.objects,
+          metadata: {
+            createdInWebMode: true,
+            objectCount: data.objects.length,
+            customerName: selectedCustomer.customerName,
+            createdAt: new Date().toISOString(),
+            canvasDimensions: {
+              width: widthInMm,
+              height: heightInMm
+            }
+          }
+        }
+      });
+
+      if (result.success) {
+        alert(`✅ Master File Saved Successfully!\n\nName: ${fileName}\nCustomer: ${selectedCustomer.customerName}\nDimensions: ${widthInMm} × ${heightInMm} mm\nObjects: ${data.objects.length}\nRevision: 1\n\nThe master file has been saved and is now available in Master File Management.\n\n🔄 Redirecting to Master Files...`);
+
+        // Navigate back to master files management after 2 seconds
+        setTimeout(() => {
+          window.location.href = '/master-files';
+        }, 2000);
+      } else {
+        alert(`❌ Error saving master file: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error saving master file:', error);
+      if (error instanceof Error && error.message.includes('already exists')) {
+        alert(`❌ ${error.message}`);
+      } else {
+        alert('❌ Failed to save master file. Please try again.');
+      }
+    }
+  };
+
   // Web creation mode functions
   const startWebCreationMode = () => {
     console.log('🌐 Starting web creation mode');
@@ -400,6 +606,17 @@ function App() {
     const currentData = data || webCreationData;
     if (!currentData) return;
 
+    // Validate dimensions
+    if (motherConfig.width <= 0 || motherConfig.height <= 0) {
+      alert('❌ Invalid dimensions!\n\nPlease enter valid width and height values greater than 0.');
+      return;
+    }
+
+    if (motherConfig.width > 1000 || motherConfig.height > 1000) {
+      alert('❌ Dimensions too large!\n\nPlease enter dimensions smaller than 1000mm for both width and height.');
+      return;
+    }
+
     if (isEditingMother && editingMotherId) {
       // Update existing mother
       const updatedObjects = currentData.objects.map(obj => {
@@ -430,6 +647,9 @@ function App() {
       if (editedObject) setSelectedObject(editedObject);
 
       console.log('✅ Mother object updated:', editingMotherId);
+
+      // Show success feedback for update
+      alert(`✅ Mother Container Updated!\n\n"${editingMotherId}" has been updated successfully.\n\n📐 Size: ${motherConfig.width} × ${motherConfig.height} mm\n📏 Margins: ${motherConfig.margins.top}mm (top), ${motherConfig.margins.left}mm (left), ${motherConfig.margins.down}mm (bottom), ${motherConfig.margins.right}mm (right)`);
     } else {
       // Create new mother at default position
       const xPosition = 50;
@@ -461,6 +681,9 @@ function App() {
       setSelectedObject(newMother);
 
       console.log('✅ Mother object created:', newMother);
+
+      // Show success feedback for creation
+      alert(`🎉 Mother Container Created!\n\n"${newMother.name}" has been created successfully and is ready for son objects.\n\n📐 Size: ${motherConfig.width} × ${motherConfig.height} mm\n📍 Position: ${xPosition}, ${yPosition} mm\n📏 Margins: ${motherConfig.margins.top}mm (top), ${motherConfig.margins.left}mm (left), ${motherConfig.margins.down}mm (bottom), ${motherConfig.margins.right}mm (right)\n\n💡 Next: Click "🎯 Manage Son Objects" to add content!`);
     }
 
     setShowMotherDialog(false); // Close dialog
@@ -731,6 +954,29 @@ function App() {
                     >
                       👑 Fit View
                     </button>
+
+                    {/* Save Button - Only show in web creation mode when mother objects exist */}
+                    {isWebCreationMode && hasMotherObjects() && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          saveDirectly();
+                        }}
+                        style={{
+                          background: 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)',
+                          border: '1px solid #4CAF50',
+                          color: 'white',
+                          fontSize: '10px',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontWeight: 'bold'
+                        }}
+                        title="Save canvas design to Master Files"
+                      >
+                        💾 Save
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1616,18 +1862,34 @@ function App() {
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
     >
-      {/* Customer Header */}
+      {/* Add CSS animation for pulse effect */}
+      <style>
+        {`
+          @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+          }
+        `}
+      </style>
+      {/* Customer Header and Navigation */}
       {selectedCustomer && (
-        <div style={{
-          background: '#2d3748',
-          color: 'white',
-          padding: '12px 20px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          borderBottom: '1px solid #4a5568'
-        }}>
-          <div>
+        <>
+          {/* Navigation Buttons */}
+          <NavigationButtons
+            previousPagePath="/master-files/select-customer"
+            previousPageLabel="Select Customer"
+            showMasterFilesButton={true}
+            showPreviousButton={true}
+          />
+
+          {/* Customer Info Header */}
+          <div style={{
+            background: '#2d3748',
+            color: 'white',
+            padding: '12px 20px',
+            borderBottom: '1px solid #4a5568'
+          }}>
             <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600' }}>
               🏷️ Care Label Designer - {selectedCustomer.customerName}
             </h3>
@@ -1635,28 +1897,7 @@ function App() {
               Contact: {selectedCustomer.person} • {selectedCustomer.email}
             </p>
           </div>
-          <button
-            onClick={() => window.location.href = '/master-files'}
-            style={{
-              background: 'transparent',
-              border: '1px solid #4a5568',
-              color: 'white',
-              padding: '8px 16px',
-              cursor: 'pointer',
-              fontSize: '14px',
-              borderRadius: '4px',
-              transition: 'all 0.3s ease'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = '#4a5568';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'transparent';
-            }}
-          >
-            ← Back to System
-          </button>
-        </div>
+        </>
       )}
 
       {/* Main Content - 70% Canvas / 30% Hierarchy Panel (v1.1.0) */}
@@ -1823,69 +2064,150 @@ function App() {
             </div>
           ) : (
             <div style={{
-              border: isDragOver ? '3px solid #4CAF50' : '3px dashed #ccc',
-              padding: '60px',
-              textAlign: 'center',
-              borderRadius: '10px',
-              background: isDragOver ? 'rgba(76,175,80,0.1)' : '#f9f9f9'
+              padding: '40px',
+              textAlign: 'center'
             }}>
-              <div style={{fontSize: '4rem', marginBottom: '20px'}}>
-                {isDragOver ? '📥' : '📁'}
-              </div>
-              <p>Drop JSON file here</p>
-              <p style={{fontSize: '12px', color: '#666', marginTop: '10px'}}>
-                ✨ Objects will be automatically fitted to view
-              </p>
-              <input
-                type="file"
-                accept=".json"
-                onChange={handleInputChange}
-                style={{marginTop: '10px'}}
-              />
-
-              {/* OR Divider */}
+              {/* Header */}
               <div style={{
-                margin: '30px 0',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '15px'
+                marginBottom: '40px'
               }}>
-                <div style={{flex: 1, height: '1px', background: '#ddd'}}></div>
-                <span style={{color: '#666', fontSize: '14px', fontWeight: 'bold'}}>OR</span>
-                <div style={{flex: 1, height: '1px', background: '#ddd'}}></div>
+                <h2 style={{
+                  fontSize: '28px',
+                  fontWeight: 'bold',
+                  color: '#2d3748',
+                  margin: '0 0 12px 0'
+                }}>
+                  🏷️ Care Label Layout System
+                </h2>
+                <p style={{
+                  fontSize: '16px',
+                  color: '#718096',
+                  margin: 0
+                }}>
+                  Choose how to start designing your care labels
+                </p>
               </div>
 
-              {/* Start Everything From Web Button */}
-              <button
-                onClick={startWebCreationMode}
-                style={{
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  color: 'white',
-                  border: 'none',
-                  padding: '15px 30px',
-                  borderRadius: '8px',
-                  fontSize: '16px',
-                  fontWeight: 'bold',
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 15px rgba(102, 126, 234, 0.3)',
+              {/* Two Button Layout */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '30px',
+                maxWidth: '800px',
+                margin: '0 auto'
+              }}>
+                {/* Start Everything From Web Button */}
+                <div style={{
+                  border: '2px solid #e2e8f0',
+                  borderRadius: '12px',
+                  padding: '40px 30px',
+                  background: 'white',
+                  textAlign: 'center',
                   transition: 'all 0.3s ease',
-                  textTransform: 'uppercase',
-                  letterSpacing: '1px'
+                  cursor: 'pointer'
                 }}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.4)';
+                  onClick={startWebCreationMode}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = '#667eea';
+                    e.currentTarget.style.background = '#f7fafc';
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 8px 25px rgba(102, 126, 234, 0.15)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = '#e2e8f0';
+                    e.currentTarget.style.background = 'white';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                >
+                  <div style={{
+                    fontSize: '48px',
+                    marginBottom: '20px'
+                  }}>
+                    🌐
+                  </div>
+                  <h3 style={{
+                    fontSize: '20px',
+                    fontWeight: 'bold',
+                    color: '#2d3748',
+                    margin: '0 0 12px 0'
+                  }}>
+                    Start Everything From Web
+                  </h3>
+                  <p style={{
+                    fontSize: '14px',
+                    color: '#718096',
+                    margin: 0,
+                    lineHeight: '1.5'
+                  }}>
+                    Create layers and objects directly in the visual designer with drag-and-drop tools
+                  </p>
+                </div>
+
+                {/* Import JSON File Button */}
+                <div style={{
+                  border: isDragOver ? '2px solid #4CAF50' : '2px solid #e2e8f0',
+                  borderRadius: '12px',
+                  padding: '40px 30px',
+                  background: isDragOver ? 'rgba(76,175,80,0.05)' : 'white',
+                  textAlign: 'center',
+                  transition: 'all 0.3s ease',
+                  cursor: 'pointer',
+                  position: 'relative'
                 }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.3)';
-                }}
-              >
-                🌐 Start Everything From Web
-              </button>
-              <p style={{fontSize: '12px', color: '#666', marginTop: '10px'}}>
-                🚀 Create layers and objects directly in the app
-              </p>
+                  onMouseEnter={(e) => {
+                    if (!isDragOver) {
+                      e.currentTarget.style.borderColor = '#4CAF50';
+                      e.currentTarget.style.background = '#f0f9f0';
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.boxShadow = '0 8px 25px rgba(76, 175, 80, 0.15)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isDragOver) {
+                      e.currentTarget.style.borderColor = '#e2e8f0';
+                      e.currentTarget.style.background = 'white';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }
+                  }}
+                >
+                  <div style={{
+                    fontSize: '48px',
+                    marginBottom: '20px'
+                  }}>
+                    {isDragOver ? '📥' : '📁'}
+                  </div>
+                  <h3 style={{
+                    fontSize: '20px',
+                    fontWeight: 'bold',
+                    color: '#2d3748',
+                    margin: '0 0 12px 0'
+                  }}>
+                    Import JSON File
+                  </h3>
+                  <p style={{
+                    fontSize: '14px',
+                    color: '#718096',
+                    margin: '0 0 15px 0',
+                    lineHeight: '1.5'
+                  }}>
+                    Drop JSON file here or click to browse and import existing label data
+                  </p>
+                  <input
+                    type="file"
+                    accept=".json"
+                    onChange={handleInputChange}
+                    style={{
+                      padding: '8px 16px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      cursor: 'pointer'
+                    }}
+                  />
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -1973,7 +2295,90 @@ function App() {
                 >
                   👩 Create Mother
                 </button>
+
+
               </div>
+
+              {/* Debug Panel - Remove this after testing */}
+              <div style={{
+                marginTop: '10px',
+                padding: '10px',
+                background: '#f0f0f0',
+                borderRadius: '5px',
+                fontSize: '12px',
+                fontFamily: 'monospace'
+              }}>
+                <strong>🔍 Debug Info:</strong><br/>
+                Objects: {data?.objects?.length || 0}<br/>
+                Has Mother: {hasMotherObjects() ? 'YES' : 'NO'}<br/>
+                Types: {data?.objects?.map(obj => obj.type).join(', ') || 'none'}
+              </div>
+
+
+
+              {/* Save and Close Button - Show when there are objects, green when mother exists */}
+              {data && data.objects.length > 0 && (
+                <div style={{
+                  marginTop: '20px',
+                  padding: '15px',
+                  background: hasMotherObjects()
+                    ? 'linear-gradient(135deg, #e8f5e8 0%, #f0f8f0 100%)'
+                    : 'linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%)',
+                  borderRadius: '10px',
+                  border: hasMotherObjects()
+                    ? '2px solid #4CAF50'
+                    : '2px solid #f39c12',
+                  textAlign: 'center',
+                  animation: hasMotherObjects() ? 'pulse 2s infinite' : 'none'
+                }}>
+                  <div style={{fontSize: '1.5rem', marginBottom: '10px'}}>💾</div>
+                  <h4 style={{
+                    margin: '0 0 10px 0',
+                    color: hasMotherObjects() ? '#2e7d32' : '#d68910'
+                  }}>
+                    {hasMotherObjects() ? 'Ready to Save & Close!' : 'Ready to Save?'}
+                  </h4>
+                  <p style={{color: '#666', fontSize: '14px', margin: '0 0 15px 0'}}>
+                    {hasMotherObjects()
+                      ? 'Your mother container is ready - save and close to finish'
+                      : 'Save your current design as a master file'
+                    }
+                  </p>
+                  <button
+                    onClick={saveDirectly}
+                    style={{
+                      background: hasMotherObjects()
+                        ? 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)'
+                        : 'linear-gradient(135deg, #f39c12 0%, #e67e22 100%)',
+                      color: 'white',
+                      border: 'none',
+                      padding: '12px 24px',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      boxShadow: hasMotherObjects()
+                        ? '0 3px 10px rgba(76, 175, 80, 0.3)'
+                        : '0 3px 10px rgba(243, 156, 18, 0.3)',
+                      transition: 'all 0.3s ease'
+                    }}
+                    onMouseOver={(e) => {
+                      e.currentTarget.style.transform = 'translateY(-1px)';
+                      e.currentTarget.style.boxShadow = hasMotherObjects()
+                        ? '0 4px 15px rgba(76, 175, 80, 0.4)'
+                        : '0 4px 15px rgba(243, 156, 18, 0.4)';
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = hasMotherObjects()
+                        ? '0 3px 10px rgba(76, 175, 80, 0.3)'
+                        : '0 3px 10px rgba(243, 156, 18, 0.3)';
+                    }}
+                  >
+                    {hasMotherObjects() ? '💾 Save and Close' : '💾 Save as Master File'}
+                  </button>
+                </div>
+              )}
 
               <div style={{fontSize: '12px', color: '#999', textAlign: 'left'}}>
                 <p><strong>Next Steps:</strong></p>
@@ -2407,7 +2812,7 @@ function App() {
                   e.currentTarget.style.boxShadow = '0 3px 10px rgba(76, 175, 80, 0.3)';
                 }}
               >
-                {isEditingMother ? '✅ Update Mother' : '✅ Create Mother'}
+                {isEditingMother ? '✅ Update' : '✅ Create'}
               </button>
             </div>
           </div>
@@ -2513,7 +2918,33 @@ function App() {
         </div>
       )}
 
+      {/* Son Object Manager */}
+      {showSonObjectManager && (
+        <SonObjectManager
+          sonObjects={sonObjects}
+          onSonObjectsChange={setSonObjects}
+        />
+      )}
+
+
+
       {/* Space Allocation Dialog - REMOVED (now handled directly in son regions) */}
+
+      {/* Version Footer */}
+      <div style={{
+        position: 'fixed',
+        bottom: '10px',
+        right: '10px',
+        background: 'rgba(0,0,0,0.7)',
+        color: 'white',
+        padding: '4px 8px',
+        borderRadius: '4px',
+        fontSize: '11px',
+        fontFamily: 'monospace',
+        zIndex: 1000
+      }}>
+        v{packageJson.version} | Port: {window.location.port || '80'} | {new Date().toLocaleString()}
+      </div>
     </div>
   );
 }

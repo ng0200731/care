@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Customer } from '../services/customerService';
+import NavigationButtons from '../components/NavigationButtons';
 
 const CreateMethod: React.FC = () => {
   const navigate = useNavigate();
@@ -56,57 +57,34 @@ const CreateMethod: React.FC = () => {
       margin: '0 auto',
       padding: '20px'
     }}>
+      {/* Navigation Buttons */}
+      <NavigationButtons
+        previousPagePath="/master-files/select-customer"
+        previousPageLabel="Select Customer"
+        showMasterFilesButton={true}
+        showPreviousButton={true}
+      />
+
       {/* Header */}
       <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '40px'
+        marginBottom: '40px',
+        padding: '0 20px'
       }}>
-        <div>
-          <h1 style={{
-            fontSize: '28px',
-            fontWeight: 'bold',
-            color: '#2d3748',
-            margin: '0 0 8px 0'
-          }}>
-            Choose Creation Method
-          </h1>
-          <p style={{
-            fontSize: '15px',
-            color: '#718096',
-            margin: 0
-          }}>
-            How would you like to create the master file for <strong>{selectedCustomer.customerName}</strong>?
-          </p>
-        </div>
-        
-        <Link
-          to="/master-files/select-customer"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            color: '#2d3748',
-            textDecoration: 'none',
-            fontSize: '14px',
-            fontWeight: '500',
-            padding: '10px 15px',
-            border: '1px solid #4a5568',
-            transition: 'all 0.3s ease'
-          }}
-          onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => {
-            e.currentTarget.style.background = '#4a5568';
-            e.currentTarget.style.color = 'white';
-          }}
-          onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => {
-            e.currentTarget.style.background = 'transparent';
-            e.currentTarget.style.color = '#2d3748';
-          }}
-        >
-          <span>←</span>
-          Back to Customer Selection
-        </Link>
+        <h1 style={{
+          fontSize: '28px',
+          fontWeight: 'bold',
+          color: '#2d3748',
+          margin: '0 0 8px 0'
+        }}>
+          Choose Creation Method
+        </h1>
+        <p style={{
+          fontSize: '15px',
+          color: '#718096',
+          margin: 0
+        }}>
+          How would you like to create the master file for <strong>{selectedCustomer.customerName}</strong>?
+        </p>
       </div>
 
       {/* Selected Customer Info */}
