@@ -1,318 +1,295 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { masterFileService, MasterFile } from '../services/masterFileService';
+import { customerService, Customer } from '../services/customerService';
 
 const MasterFiles: React.FC = () => {
+  const [masterFiles, setMasterFiles] = useState<MasterFile[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Mock data - will be replaced with API calls later
-  const masterFiles = [
-    {
-      id: '1',
-      name: 'Mother_1.json',
-      description: 'Basic care label layout',
-      lastModified: '2 hours ago',
-      size: '2.4 KB',
-      objects: 5
-    },
-    {
-      id: '2',
-      name: 'Complex_Layout.json',
-      description: 'Multi-object care label design',
-      lastModified: '1 day ago',
-      size: '4.1 KB',
-      objects: 12
-    },
-    {
-      id: '3',
-      name: 'Simple_Design.json',
-      description: 'Minimal care label',
-      lastModified: '3 days ago',
-      size: '1.8 KB',
-      objects: 3
+  // Load data on component mount
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      setIsLoading(true);
+      const [filesData, customersData] = await Promise.all([
+        masterFileService.getAllMasterFiles(),
+        customerService.getAllCustomers()
+      ]);
+      setMasterFiles(filesData);
+      setCustomers(customersData);
+    } catch (error) {
+      console.error('Error loading data:', error);
+    } finally {
+      setIsLoading(false);
     }
-  ];
-
-  const filteredFiles = masterFiles;
+  };
 
   return (
     <div>
       {/* Header */}
       <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '30px'
+        textAlign: 'center',
+        marginBottom: '50px'
       }}>
-        <div>
-          <h1 style={{
-            fontSize: '29px', // 32px -> 29px (-10%)
-            fontWeight: 'bold',
-            color: '#2d3748',
-            margin: '0 0 5px 0'
-          }}>
-            Master Files
-          </h1>
-          <p style={{
-            fontSize: '14px', // 16px -> 14px (-10%)
-            color: '#718096',
-            margin: 0
-          }}>
-            Create and manage your label layout designs
-          </p>
-        </div>
-        
+        <h1 style={{
+          fontSize: '32px',
+          fontWeight: 'bold',
+          color: '#2d3748',
+          margin: '0 0 12px 0'
+        }}>
+          Master Files Management
+        </h1>
+        <p style={{
+          fontSize: '16px',
+          color: '#718096',
+          margin: 0
+        }}>
+          Choose an action to get started
+        </p>
+      </div>
+
+      {/* Main Action Buttons */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: '30px',
+        maxWidth: '800px',
+        margin: '0 auto 50px auto'
+      }}>
+        {/* Create Customer Button */}
         <Link
-          to="/master-files/create"
+          to="/customers/create"
           style={{
-            background: '#2d3748',
-            color: 'white',
-            padding: '12px 24px',
+            display: 'block',
+            padding: '40px 30px',
+            background: 'white',
+            border: '2px solid #e2e8f0',
             textDecoration: 'none',
-            fontWeight: '600',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            border: '1px solid #4a5568',
-            transition: 'all 0.3s ease',
-            fontSize: '14px' // Add font size (-10% from default)
+            textAlign: 'center',
+            transition: 'all 0.3s ease'
           }}
           onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => {
-            e.currentTarget.style.background = '#4a5568';
+            e.currentTarget.style.borderColor = '#2d3748';
+            e.currentTarget.style.background = '#f7fafc';
+            e.currentTarget.style.transform = 'translateY(-2px)';
           }}
           onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => {
-            e.currentTarget.style.background = '#2d3748';
+            e.currentTarget.style.borderColor = '#e2e8f0';
+            e.currentTarget.style.background = 'white';
+            e.currentTarget.style.transform = 'translateY(0)';
           }}
         >
-          <span>➕</span>
-          New Master File
+          <div style={{
+            fontSize: '48px',
+            marginBottom: '20px'
+          }}>
+            🏢
+          </div>
+          <h2 style={{
+            fontSize: '24px',
+            fontWeight: 'bold',
+            color: '#2d3748',
+            margin: '0 0 12px 0'
+          }}>
+            Create Customer
+          </h2>
+          <p style={{
+            fontSize: '14px',
+            color: '#718096',
+            margin: 0,
+            lineHeight: '1.5'
+          }}>
+            Add a new customer with contact information to your database
+          </p>
+        </Link>
+
+        {/* Create Master File Button */}
+        <Link
+          to="/master-files/select-customer"
+          style={{
+            display: 'block',
+            padding: '40px 30px',
+            background: 'white',
+            border: '2px solid #e2e8f0',
+            textDecoration: 'none',
+            textAlign: 'center',
+            transition: 'all 0.3s ease'
+          }}
+          onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => {
+            e.currentTarget.style.borderColor = '#2d3748';
+            e.currentTarget.style.background = '#f7fafc';
+            e.currentTarget.style.transform = 'translateY(-2px)';
+          }}
+          onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => {
+            e.currentTarget.style.borderColor = '#e2e8f0';
+            e.currentTarget.style.background = 'white';
+            e.currentTarget.style.transform = 'translateY(0)';
+          }}
+        >
+          <div style={{
+            fontSize: '48px',
+            marginBottom: '20px'
+          }}>
+            📄
+          </div>
+          <h2 style={{
+            fontSize: '24px',
+            fontWeight: 'bold',
+            color: '#2d3748',
+            margin: '0 0 12px 0'
+          }}>
+            Create Master File
+          </h2>
+          <p style={{
+            fontSize: '14px',
+            color: '#718096',
+            margin: 0,
+            lineHeight: '1.5'
+          }}>
+            Create a new label layout design for an existing customer
+          </p>
         </Link>
       </div>
 
-      {/* Create New Section */}
+      {/* Statistics Cards */}
       <div style={{
-        background: 'white',
-        padding: '25px',
-        marginBottom: '30px',
-        border: '1px solid #e2e8f0'
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, 1fr)',
+        gap: '20px',
+        marginBottom: '40px'
       }}>
-        <h2 style={{
-          fontSize: '18px', // 20px -> 18px (-10%)
-          fontWeight: '600',
-          color: '#2d3748',
-          marginBottom: '20px'
-        }}>
-          Create New Master File
-        </h2>
-        
         <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-          gap: '20px'
+          background: 'white',
+          padding: '25px',
+          border: '1px solid #e2e8f0',
+          textAlign: 'center'
         }}>
-          <Link
-            to="/coordinate-viewer"
-            style={{
-              textDecoration: 'none',
-              display: 'block'
-            }}
-          >
-            <div style={{
-              padding: '20px',
-              border: '2px dashed #cbd5e0',
-              borderRadius: '12px',
-              textAlign: 'center',
-              transition: 'all 0.3s ease',
-              cursor: 'pointer'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = '#667eea';
-              e.currentTarget.style.background = '#f7faff';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = '#cbd5e0';
-              e.currentTarget.style.background = 'transparent';
-            }}
-            >
-              <div style={{ fontSize: '48px', marginBottom: '15px' }}>📄</div>
-              <h3 style={{
-                fontSize: '18px',
-                fontWeight: '600',
-                color: '#4299e1',
-                margin: '0 0 8px 0'
-              }}>
-                Create from Zero
-              </h3>
-              <p style={{
-                fontSize: '14px',
-                color: '#718096',
-                margin: 0
-              }}>
-                Start with a blank canvas and design your layout
-              </p>
-            </div>
-          </Link>
-
           <div style={{
-            padding: '20px',
-            border: '2px dashed #cbd5e0',
-            borderRadius: '12px',
-            textAlign: 'center',
-            transition: 'all 0.3s ease',
-            cursor: 'pointer'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = '#38a169';
-            e.currentTarget.style.background = '#f0fff4';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = '#cbd5e0';
-            e.currentTarget.style.background = 'transparent';
-          }}
-          >
-            <div style={{ fontSize: '48px', marginBottom: '15px' }}>📥</div>
-            <h3 style={{
-              fontSize: '18px',
-              fontWeight: '600',
-              color: '#38a169',
-              margin: '0 0 8px 0'
-            }}>
-              Import from JSON
-            </h3>
-            <p style={{
-              fontSize: '14px',
-              color: '#718096',
-              margin: 0
-            }}>
-              Load an existing design from a JSON file
-            </p>
+            fontSize: '32px',
+            fontWeight: 'bold',
+            color: '#2d3748',
+            marginBottom: '8px'
+          }}>
+            {isLoading ? '...' : customers.length}
+          </div>
+          <div style={{
+            fontSize: '14px',
+            color: '#718096'
+          }}>
+            Total Customers
+          </div>
+        </div>
+
+        <div style={{
+          background: 'white',
+          padding: '25px',
+          border: '1px solid #e2e8f0',
+          textAlign: 'center'
+        }}>
+          <div style={{
+            fontSize: '32px',
+            fontWeight: 'bold',
+            color: '#2d3748',
+            marginBottom: '8px'
+          }}>
+            {isLoading ? '...' : masterFiles.length}
+          </div>
+          <div style={{
+            fontSize: '14px',
+            color: '#718096'
+          }}>
+            Master Files
+          </div>
+        </div>
+
+        <div style={{
+          background: 'white',
+          padding: '25px',
+          border: '1px solid #e2e8f0',
+          textAlign: 'center'
+        }}>
+          <div style={{
+            fontSize: '32px',
+            fontWeight: 'bold',
+            color: '#2d3748',
+            marginBottom: '8px'
+          }}>
+            {isLoading ? '...' : masterFiles.filter(f => f.lastModified.includes('hour') || f.lastModified.includes('Just now')).length}
+          </div>
+          <div style={{
+            fontSize: '14px',
+            color: '#718096'
+          }}>
+            Recent Files
           </div>
         </div>
       </div>
 
-      {/* Files List */}
+      {/* Quick Links */}
       <div style={{
-        background: 'white',
-        padding: '25px',
-        marginBottom: '20px',
-        border: '1px solid #e2e8f0'
+        display: 'flex',
+        justifyContent: 'center',
+        gap: '20px',
+        marginBottom: '40px'
       }}>
-        <h2 style={{
-          fontSize: '18px', // 20px -> 18px (-10%)
-          fontWeight: '600',
-          color: '#2d3748',
-          margin: '0 0 20px 0'
-        }}>
-          Your Master Files ({filteredFiles.length})
-        </h2>
+        <Link
+          to="/customers"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '10px 20px',
+            background: '#f7fafc',
+            color: '#2d3748',
+            textDecoration: 'none',
+            fontSize: '14px',
+            fontWeight: '500',
+            border: '1px solid #e2e8f0',
+            transition: 'all 0.3s ease'
+          }}
+          onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => {
+            e.currentTarget.style.background = '#edf2f7';
+            e.currentTarget.style.borderColor = '#2d3748';
+          }}
+          onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => {
+            e.currentTarget.style.background = '#f7fafc';
+            e.currentTarget.style.borderColor = '#e2e8f0';
+          }}
+        >
+          👥 Manage Customers
+        </Link>
 
-        {/* Files List */}
-        {filteredFiles.length > 0 ? (
-          <div style={{
-            display: 'grid',
-            gap: '15px'
-          }}>
-            {filteredFiles.map((file) => (
-              <div
-                key={file.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '20px',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '8px',
-                  transition: 'all 0.3s ease',
-                  cursor: 'pointer'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = '#667eea';
-                  e.currentTarget.style.background = '#f7faff';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = '#e2e8f0';
-                  e.currentTarget.style.background = 'white';
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                  <div style={{
-                    width: '50px',
-                    height: '50px',
-                    borderRadius: '8px',
-                    background: '#ebf8ff',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '20px'
-                  }}>
-                    📄
-                  </div>
-                  <div>
-                    <h3 style={{
-                      fontSize: '16px',
-                      fontWeight: '600',
-                      color: '#2d3748',
-                      margin: '0 0 5px 0'
-                    }}>
-                      {file.name}
-                    </h3>
-                    <p style={{
-                      fontSize: '14px',
-                      color: '#718096',
-                      margin: '0 0 5px 0'
-                    }}>
-                      {file.description}
-                    </p>
-                    <div style={{
-                      fontSize: '12px',
-                      color: '#a0aec0'
-                    }}>
-                      {file.objects} objects • {file.size} • Modified {file.lastModified}
-                    </div>
-                  </div>
-                </div>
-                
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <Link
-                    to={`/coordinate-viewer?file=${file.id}`}
-                    style={{
-                      padding: '8px 16px',
-                      background: '#4299e1',
-                      color: 'white',
-                      borderRadius: '6px',
-                      textDecoration: 'none',
-                      fontSize: '14px',
-                      fontWeight: '500'
-                    }}
-                  >
-                    Edit
-                  </Link>
-                  <button style={{
-                    padding: '8px 16px',
-                    background: '#f7fafc',
-                    color: '#4a5568',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    cursor: 'pointer'
-                  }}>
-                    Download
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div style={{
-            textAlign: 'center',
-            padding: '40px',
-            color: '#718096'
-          }}>
-            <div style={{ fontSize: '48px', marginBottom: '15px' }}>🔍</div>
-            <p style={{ fontSize: '16px', margin: 0 }}>
-              No master files found
-            </p>
-          </div>
-        )}
+        <Link
+          to="/master-files/list"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '10px 20px',
+            background: '#f7fafc',
+            color: '#2d3748',
+            textDecoration: 'none',
+            fontSize: '14px',
+            fontWeight: '500',
+            border: '1px solid #e2e8f0',
+            transition: 'all 0.3s ease'
+          }}
+          onMouseEnter={(e: React.MouseEvent<HTMLAnchorElement>) => {
+            e.currentTarget.style.background = '#edf2f7';
+            e.currentTarget.style.borderColor = '#2d3748';
+          }}
+          onMouseLeave={(e: React.MouseEvent<HTMLAnchorElement>) => {
+            e.currentTarget.style.background = '#f7fafc';
+            e.currentTarget.style.borderColor = '#e2e8f0';
+          }}
+        >
+          📋 View All Files
+        </Link>
       </div>
     </div>
   );

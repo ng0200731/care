@@ -8,6 +8,12 @@ import MasterFiles from './pages/MasterFiles';
 import Suppliers from './pages/Suppliers';
 import Orders from './pages/Orders';
 import CoordinateViewer from './components/masterfiles/CoordinateViewer';
+import CreateMasterFile from './components/masterfiles/CreateMasterFile';
+import CreateCustomer from './components/customers/CreateCustomer';
+import EditCustomer from './components/customers/EditCustomer';
+import Customers from './pages/Customers';
+import SelectCustomer from './pages/SelectCustomer';
+import CreateMethod from './pages/CreateMethod';
 import reportWebVitals from './reportWebVitals';
 
 const root = ReactDOM.createRoot(
@@ -27,6 +33,36 @@ root.render(
         <Route path="/master-files" element={
           <Layout>
             <MasterFiles />
+          </Layout>
+        } />
+        <Route path="/master-files/create" element={
+          <Layout>
+            <CreateMasterFile />
+          </Layout>
+        } />
+        <Route path="/customers" element={
+          <Layout>
+            <Customers />
+          </Layout>
+        } />
+        <Route path="/customers/create" element={
+          <Layout>
+            <CreateCustomer />
+          </Layout>
+        } />
+        <Route path="/customers/edit/:id" element={
+          <Layout>
+            <EditCustomer />
+          </Layout>
+        } />
+        <Route path="/master-files/select-customer" element={
+          <Layout>
+            <SelectCustomer />
+          </Layout>
+        } />
+        <Route path="/master-files/create-method" element={
+          <Layout>
+            <CreateMethod />
           </Layout>
         } />
         <Route path="/suppliers" element={
