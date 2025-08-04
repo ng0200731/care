@@ -2388,6 +2388,7 @@ function App() {
               step="1"
               defaultValue={motherConfig.sewingOffset}
               autoFocus
+              id="sewing-offset-input"
               style={{
                 width: '100px',
                 padding: '8px 12px',
@@ -2424,7 +2425,7 @@ function App() {
 
               <button
                 onClick={() => {
-                  const input = document.querySelector('input[type="number"]') as HTMLInputElement;
+                  const input = document.getElementById('sewing-offset-input') as HTMLInputElement;
                   const value = parseInt(input.value) || 5;
                   confirmSewingOffset(value);
                 }}
