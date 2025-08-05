@@ -1437,9 +1437,8 @@ function App() {
 
           return (
             <div key={index} style={{marginBottom: '15px'}}>
-              {/* Mother Header with Add Son Button Side by Side */}
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginBottom: '8px' }}>
-                {/* Add Son Button - Outside and Side by Side */}
+              {/* Add Son Button - Positioned Above Mother */}
+              <div style={{ marginBottom: '8px' }}>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -1447,29 +1446,31 @@ function App() {
                   }}
                   style={{
                     background: '#4CAF50',
-                    border: '1px solid #45a049',
+                    border: '2px solid #45a049',
                     color: 'white',
-                    fontSize: '12px',
-                    padding: '8px 12px',
-                    borderRadius: '6px',
+                    fontSize: '14px',
+                    padding: '10px 16px',
+                    borderRadius: '8px',
                     cursor: 'pointer',
                     fontWeight: 'bold',
                     whiteSpace: 'nowrap',
-                    minWidth: '90px'
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                    zIndex: 10,
+                    position: 'relative'
                   }}
                   title="Add son object to this mother"
                 >
                   ➕ Add Son
                 </button>
+              </div>
 
-                {/* Mother Info Container */}
-                <div style={{
-                  flex: 1,
-                  background: selectedObject === mother.object ? '#1976d2' : '#e3f2fd',
-                  color: selectedObject === mother.object ? 'white' : '#1976d2',
-                  borderRadius: '8px',
-                  overflow: 'hidden'
-                }}>
+              {/* Mother Header */}
+              <div style={{
+                background: selectedObject === mother.object ? '#1976d2' : '#e3f2fd',
+                color: selectedObject === mother.object ? 'white' : '#1976d2',
+                borderRadius: '8px',
+                overflow: 'hidden'
+              }}>
                 {/* Mother Info Row */}
                 <div
                   onClick={() => {
@@ -1601,8 +1602,7 @@ function App() {
                     )}
                   </div>
                 </div>
-                </div> {/* Close Mother Info Container */}
-              </div> {/* Close Flex Container */}
+              </div>
 
               {/* Sons (collapsible) - Enhanced with Pan To and Allocate Space buttons (v1.3.0) */}
               {isExpanded && mother.children.map((son, sonIndex) => (
