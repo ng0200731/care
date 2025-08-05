@@ -84,6 +84,12 @@ interface AIData {
 
 function App() {
   const location = useLocation();
+
+  // Get URL parameters to determine context
+  const urlParams = new URLSearchParams(location.search);
+  const context = urlParams.get('context');
+  const projectSlug = urlParams.get('projectSlug');
+  const projectName = urlParams.get('projectName');
   const [data, setData] = useState<AIData | null>(null);
   const [selectedObject, setSelectedObject] = useState<AIObject | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -2447,9 +2453,21 @@ function App() {
         <>
           {/* Navigation Buttons */}
           <NavigationButtons
-            previousPagePath={isEditMode ? "/master-files-management" : "/coordinate-viewer"}
-            previousPageLabel={isEditMode ? "Master Files Management" : "Create Method"}
-            showMasterFilesButton={true}
+            previousPagePath={
+              context === 'projects' && projectSlug
+                ? `/projects/${projectSlug}`
+                : isEditMode
+                  ? "/master-files-management"
+                  : "/coordinate-viewer"
+            }
+            previousPageLabel={
+              context === 'projects' && projectName
+                ? `Project: ${decodeURIComponent(projectName)}`
+                : isEditMode
+                  ? "Master Files Management"
+                  : "Create Method"
+            }
+            showMasterFilesButton={context !== 'projects'}
             showPreviousButton={true}
           />
 

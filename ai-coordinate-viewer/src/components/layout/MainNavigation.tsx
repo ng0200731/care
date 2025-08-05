@@ -18,6 +18,12 @@ const MainNavigation: React.FC = () => {
       description: 'Create and manage master files'
     },
     {
+      path: '/projects',
+      label: 'Projects',
+      icon: '📋',
+      description: 'Multi-page label projects'
+    },
+    {
       path: '/suppliers',
       label: 'Suppliers',
       icon: '🏭',
@@ -26,7 +32,7 @@ const MainNavigation: React.FC = () => {
     {
       path: '/orders',
       label: 'Orders',
-      icon: '📋',
+      icon: '📦',
       description: 'Track and manage orders'
     }
   ];
@@ -36,11 +42,21 @@ const MainNavigation: React.FC = () => {
       return location.pathname === '/';
     }
 
-    // Special handling for Master Files - include coordinate-viewer and create_zero as part of master files workflow
+    // Check URL parameters for context when in canvas
+    const urlParams = new URLSearchParams(location.search);
+    const context = urlParams.get('context');
+
+    // Special handling for Master Files
     if (path === '/master-files') {
       return location.pathname.startsWith('/master-files') ||
              location.pathname === '/coordinate-viewer' ||
-             location.pathname === '/create_zero';
+             (location.pathname === '/create_zero' && context !== 'projects');
+    }
+
+    // Special handling for Projects - include project routes and canvas when from projects
+    if (path === '/projects') {
+      return location.pathname.startsWith('/projects') ||
+             (location.pathname === '/create_zero' && context === 'projects');
     }
 
     return location.pathname.startsWith(path);

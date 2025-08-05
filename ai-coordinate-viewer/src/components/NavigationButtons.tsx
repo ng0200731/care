@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 interface NavigationButtonsProps {
   previousPagePath?: string;
@@ -15,11 +15,18 @@ const NavigationButtons: React.FC<NavigationButtonsProps> = ({
   showPreviousButton = true
 }) => {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Check if we're in project context
+  const urlParams = new URLSearchParams(location.search);
+  const context = urlParams.get('context');
+  const isProjectContext = context === 'projects';
 
   const handleBackToMasterFiles = () => {
-    // If we're coming from master-files-management (edit mode), go back there
-    // Otherwise go to the main master-files page
-    if (previousPagePath === '/master-files-management') {
+    // If we're in project context, go to projects page
+    if (isProjectContext) {
+      navigate('/projects');
+    } else if (previousPagePath === '/master-files-management') {
       navigate('/master-files-management');
     } else {
       navigate('/master-files');
@@ -67,7 +74,7 @@ const NavigationButtons: React.FC<NavigationButtonsProps> = ({
             e.currentTarget.style.transform = 'translateY(0)';
           }}
         >
-          🏠 Back to Master Files
+          {isProjectContext ? '📋 Back to Projects' : '🏠 Back to Master Files'}
         </button>
       )}
 

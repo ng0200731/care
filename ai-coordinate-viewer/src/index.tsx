@@ -5,6 +5,9 @@ import './index.css';
 import Layout from './components/layout/Layout';
 import Dashboard from './pages/Dashboard';
 import MasterFiles from './pages/MasterFiles';
+import Projects from './pages/Projects';
+import ProjectReport from './pages/ProjectReport';
+import ProjectDetail from './pages/ProjectDetail';
 import Suppliers from './pages/Suppliers';
 import Orders from './pages/Orders';
 import CanvasOnly from './components/masterfiles/CanvasOnly';
@@ -40,6 +43,21 @@ root.render(
         <Route path="/master-files-management" element={
           <Layout>
             <MasterFilesManagement />
+          </Layout>
+        } />
+        <Route path="/projects" element={
+          <Layout>
+            <Projects />
+          </Layout>
+        } />
+        <Route path="/projects/report" element={
+          <Layout>
+            <ProjectReport />
+          </Layout>
+        } />
+        <Route path="/projects/:slug" element={
+          <Layout>
+            <ProjectDetail />
           </Layout>
         } />
         <Route path="/customers" element={
