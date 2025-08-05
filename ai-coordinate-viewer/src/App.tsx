@@ -1349,8 +1349,6 @@ function App() {
   const handleAddSonObject = (motherObject: AIObject) => {
     console.log('➕ Adding son object to mother:', motherObject.name);
 
-    // For now, we'll create a simple text son object
-    // In the future, this could open a dialog to choose son object type
     const motherNum = motherObject.type?.match(/mother (\d+)/)?.[1];
     if (!motherNum) {
       console.error('Could not determine mother number');
@@ -1366,7 +1364,7 @@ function App() {
     );
     const nextSonNumber = existingSons.length + 1;
 
-    // Create new son object positioned inside the mother
+    // Create new son object (basic structure)
     const newSon: AIObject = {
       name: `son_${motherNum}_${nextSonNumber}`,
       typename: 'TextFrame',
@@ -1375,6 +1373,99 @@ function App() {
       y: motherObject.y + 5,
       width: Math.max(20, motherObject.width - 10), // Smaller than mother
       height: Math.max(10, motherObject.height - 10)
+    };
+
+    // Create comprehensive son metadata with all attributes
+    const sonMetadataObj: SonMetadata = {
+      id: `${newSon.name}_${newSon.x}_${newSon.y}`,
+      sonType: 'text', // Default to text, can be: text, image, barcode, translation, washing-symbol, size-breakdown, composition, special-wording
+      content: 'New Text Content',
+      details: {
+        // Text Formatting
+        fontFamily: 'Arial',
+        fontSize: 12,
+        textAlign: 'left' as const,
+        fontWeight: 'normal' as const,
+
+        // Text Overflow Handling
+        textOverflow: 'resize' as const, // 'resize' or 'linebreak'
+        lineBreakType: 'word' as const, // 'word' or 'character'
+        characterConnector: '',
+
+        // Additional Properties for Different Son Types
+        imageProperties: {
+          src: '',
+          alt: '',
+          scaling: 'fit' // 'fit', 'fill', 'stretch'
+        },
+
+        barcodeProperties: {
+          format: 'QR', // 'QR', 'Code128', 'EAN13', etc.
+          data: '',
+          showText: true
+        },
+
+        translationProperties: {
+          languages: ['en', 'es', 'fr'],
+          currentLanguage: 'en',
+          translations: {
+            en: 'English text',
+            es: 'Texto en español',
+            fr: 'Texte français'
+          }
+        },
+
+        washingProperties: {
+          symbols: [],
+          temperature: '',
+          instructions: ''
+        },
+
+        sizeProperties: {
+          sizes: ['XS', 'S', 'M', 'L', 'XL'],
+          breakdown: {
+            XS: '10%',
+            S: '20%',
+            M: '40%',
+            L: '20%',
+            XL: '10%'
+          }
+        },
+
+        compositionProperties: {
+          materials: [
+            { name: 'Cotton', percentage: 80 },
+            { name: 'Polyester', percentage: 20 }
+          ],
+          totalPercentage: 100
+        }
+      },
+
+      // Text Formatting (top level for compatibility)
+      fontFamily: 'Arial',
+      fontSize: 12,
+      textAlign: 'left' as const,
+      fontWeight: 'normal' as const,
+      textOverflow: 'resize' as const,
+      lineBreakType: 'word' as const,
+      characterConnector: '',
+
+      // Margins
+      margins: {
+        top: 2,
+        bottom: 2,
+        left: 2,
+        right: 2
+      },
+
+      // Space Allocation
+      spaceAllocation: {
+        region: 'main',
+        rowHeight: 10,
+        columns: 1,
+        selectedColumn: 1,
+        allocated: false
+      }
     };
 
     // Add to data
@@ -1390,10 +1481,18 @@ function App() {
       setWebCreationData(updatedData);
     }
 
-    // Select the new son object
+    // Add son metadata with all attributes
+    setSonMetadata(prev => {
+      const newMap = new Map(prev);
+      newMap.set(`${newSon.name}_${newSon.x}_${newSon.y}`, sonMetadataObj);
+      return newMap;
+    });
+
+    // Select the new son object to show its properties
     setSelectedObject(newSon);
 
-    console.log('✅ Created new son object:', newSon);
+    console.log('✅ Created new son object with all attributes:', newSon);
+    console.log('✅ Son metadata:', sonMetadataObj);
   };
 
 
