@@ -106,6 +106,7 @@ function App() {
   const [mouseCoords, setMouseCoords] = useState({ x: 0, y: 0 });
   const [showDimensions, setShowDimensions] = useState(true);
   const [autoFitNotification, setAutoFitNotification] = useState(false);
+  // Removed unused capture mode states
 
   // Web creation mode state - Check for canvas-only flag immediately
   const [isWebCreationMode, setIsWebCreationMode] = useState(() => {
@@ -225,6 +226,10 @@ function App() {
   const handleFitToScreen = () => {
     if (!data || data.objects.length === 0) {
       console.log('No data or objects to fit');
+      // Reset to default view if no objects
+      setZoom(1);
+      setPanX(0);
+      setPanY(0);
       return;
     }
 
@@ -238,7 +243,6 @@ function App() {
     const svgRect = svgElement.getBoundingClientRect();
     const viewportWidth = svgRect.width;
     const viewportHeight = svgRect.height;
-    console.log('SVG dimensions:', viewportWidth, 'x', viewportHeight);
 
     // Calculate bounds of all objects
     const bounds = data.objects.reduce((acc, obj) => ({
@@ -250,19 +254,35 @@ function App() {
 
     const contentWidth = bounds.maxX - bounds.minX;
     const contentHeight = bounds.maxY - bounds.minY;
+
+    // Ensure minimum content size to avoid division by zero
+    const minContentWidth = Math.max(contentWidth, 10);
+    const minContentHeight = Math.max(contentHeight, 10);
+
     const padding = 100; // Padding in pixels
+    const mmToPx = 3.78; // Conversion factor
 
-    const scaleX = (viewportWidth - padding) / (contentWidth * 3.78); // 3.78 = mmToPx conversion
-    const scaleY = (viewportHeight - padding) / (contentHeight * 3.78);
-    const newZoom = Math.min(scaleX, scaleY, 2); // Max zoom 2x for fit
+    const scaleX = (viewportWidth - padding) / (minContentWidth * mmToPx);
+    const scaleY = (viewportHeight - padding) / (minContentHeight * mmToPx);
+    const newZoom = Math.min(scaleX, scaleY, 3); // Max zoom 3x for better fit
 
-    console.log('Content bounds:', bounds);
-    console.log('Content size:', contentWidth, 'x', contentHeight, 'mm');
-    console.log('Calculated zoom:', newZoom);
+    // Ensure minimum zoom level
+    const finalZoom = Math.max(newZoom, 0.1);
 
-    setZoom(newZoom);
-    setPanX(-(bounds.minX + contentWidth / 2) * newZoom * 3.78 + viewportWidth / 2);
-    setPanY(-(bounds.minY + contentHeight / 2) * newZoom * 3.78 + viewportHeight / 2);
+    console.log('🎯 Fit to Screen:');
+    console.log('  Content bounds:', bounds);
+    console.log('  Content size:', contentWidth.toFixed(1), 'x', contentHeight.toFixed(1), 'mm');
+    console.log('  Viewport size:', viewportWidth.toFixed(0), 'x', viewportHeight.toFixed(0), 'px');
+    console.log('  Calculated zoom:', finalZoom.toFixed(2));
+
+    setZoom(finalZoom);
+
+    // Center the content in the viewport
+    const centerX = bounds.minX + contentWidth / 2;
+    const centerY = bounds.minY + contentHeight / 2;
+
+    setPanX(-(centerX * finalZoom * mmToPx) + viewportWidth / 2);
+    setPanY(-(centerY * finalZoom * mmToPx) + viewportHeight / 2);
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -408,52 +428,274 @@ function App() {
 
   // Dialog functions removed - space allocation now handled directly
 
-  // Canvas capture function
-  const captureCanvasAsSVG = (): string => {
-    try {
-      const svgElement = document.querySelector('svg');
-      if (!svgElement) {
-        throw new Error('SVG canvas not found');
-      }
-
-      // Clone the SVG to avoid modifying the original
-      const svgClone = svgElement.cloneNode(true) as SVGElement;
-
-      // Calculate bounds of all objects for cropping
-      if (data && data.objects.length > 0) {
-        const bounds = data.objects.reduce((acc, obj) => ({
-          minX: Math.min(acc.minX, obj.x),
-          minY: Math.min(acc.minY, obj.y),
-          maxX: Math.max(acc.maxX, obj.x + obj.width),
-          maxY: Math.max(acc.maxY, obj.y + obj.height)
-        }), {
-          minX: Infinity, minY: Infinity,
-          maxX: -Infinity, maxY: -Infinity
-        });
-
-        // Add padding around the design
-        const padding = 20;
-        const viewBoxX = bounds.minX - padding;
-        const viewBoxY = bounds.minY - padding;
-        const viewBoxWidth = (bounds.maxX - bounds.minX) + (padding * 2);
-        const viewBoxHeight = (bounds.maxY - bounds.minY) + (padding * 2);
-
-        // Set viewBox to crop to content
-        svgClone.setAttribute('viewBox', `${viewBoxX} ${viewBoxY} ${viewBoxWidth} ${viewBoxHeight}`);
-        svgClone.setAttribute('width', viewBoxWidth.toString());
-        svgClone.setAttribute('height', viewBoxHeight.toString());
-      }
-
-      // Convert to string
-      const serializer = new XMLSerializer();
-      const svgString = serializer.serializeToString(svgClone);
-
-      return svgString;
-    } catch (error) {
-      console.error('Error capturing canvas as SVG:', error);
-      throw error;
+  // Generate SMALL thumbnail SVG (simple - just layout + folder lines)
+  const generateSmallThumbnailSVG = (thumbnailSize: { width: number; height: number }): string => {
+    if (!data || data.objects.length === 0) {
+      // Return empty thumbnail
+      return `<svg width="${thumbnailSize.width}" height="${thumbnailSize.height}" viewBox="0 0 ${thumbnailSize.width} ${thumbnailSize.height}" xmlns="http://www.w3.org/2000/svg">
+        <rect width="100%" height="100%" fill="#f5f5f5"/>
+        <text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" fill="#999" font-size="12">No Content</text>
+      </svg>`;
     }
+
+    // Calculate bounds from object coordinates
+    const bounds = data.objects.reduce((acc, obj) => ({
+      minX: Math.min(acc.minX, obj.x),
+      minY: Math.min(acc.minY, obj.y),
+      maxX: Math.max(acc.maxX, obj.x + obj.width),
+      maxY: Math.max(acc.maxY, obj.y + obj.height)
+    }), { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+
+    // Add padding
+    const padding = 10;
+    const contentWidth = bounds.maxX - bounds.minX;
+    const contentHeight = bounds.maxY - bounds.minY;
+    const totalWidth = contentWidth + (padding * 2);
+    const totalHeight = contentHeight + (padding * 2);
+
+    // Calculate scale to fit thumbnail size while maintaining aspect ratio
+    const scaleX = thumbnailSize.width / totalWidth;
+    const scaleY = thumbnailSize.height / totalHeight;
+    const scale = Math.min(scaleX, scaleY);
+
+    // Calculate final dimensions and centering offset
+    const finalWidth = totalWidth * scale;
+    const finalHeight = totalHeight * scale;
+    const offsetX = (thumbnailSize.width - finalWidth) / 2;
+    const offsetY = (thumbnailSize.height - finalHeight) / 2;
+
+    // Generate SVG content with clean professional styling
+    let svgContent = `<svg width="${thumbnailSize.width}" height="${thumbnailSize.height}" viewBox="0 0 ${thumbnailSize.width} ${thumbnailSize.height}" xmlns="http://www.w3.org/2000/svg">`;
+
+    // Define subtle drop shadow only (remove grid)
+    svgContent += `<defs>
+      <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="1" dy="1" stdDeviation="1" flood-color="#000" flood-opacity="0.1"/>
+      </filter>
+    </defs>`;
+
+    // Clean white background
+    svgContent += `<rect width="100%" height="100%" fill="white"/>`;
+
+    // Create group with transform for scaling and positioning
+    svgContent += `<g transform="translate(${offsetX}, ${offsetY}) scale(${scale})">`;
+    svgContent += `<g transform="translate(${-bounds.minX + padding}, ${-bounds.minY + padding})">`;
+
+    // Render each object with complete details
+    data.objects.forEach(obj => {
+      const x = obj.x;
+      const y = obj.y;
+      const width = obj.width;
+      const height = obj.height;
+
+      // Determine object style based on type
+      let fillColor = 'none';
+      let strokeColor = '#333';
+      let strokeWidth = '1';
+      let strokeDasharray = 'none';
+
+      if (obj.type === 'mother') {
+        fillColor = '#f8f9fa';
+        strokeColor = '#2196F3';
+        strokeWidth = '2';
+      } else if (obj.type?.includes('son')) {
+        fillColor = '#fff3e0';
+        strokeColor = '#FF9800';
+        strokeWidth = '1';
+        strokeDasharray = '2,2';
+      } else {
+        fillColor = '#f5f5f5';
+        strokeColor = '#666';
+      }
+
+      // Main object rectangle
+      svgContent += `<rect x="${x}" y="${y}" width="${width}" height="${height}"
+        fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}"
+        stroke-dasharray="${strokeDasharray}" filter="url(#shadow)"/>`;
+
+      // Small thumbnails - NO folder line for simplicity
+      // (Folder line only shown in large detailed view)
+
+      // Small thumbnails: NO margins, keep it simple
+    });
+
+    svgContent += `</g></g>`;
+
+    // Add subtle border around entire thumbnail
+    svgContent += `<rect x="0.5" y="0.5" width="${thumbnailSize.width - 1}" height="${thumbnailSize.height - 1}"
+      fill="none" stroke="#e0e0e0" stroke-width="1"/>`;
+
+    svgContent += `</svg>`;
+
+    console.log('🎨 Generated SMALL thumbnail SVG:', {
+      originalBounds: bounds,
+      contentSize: { width: contentWidth, height: contentHeight },
+      thumbnailSize,
+      scale: scale.toFixed(3),
+      finalSize: { width: finalWidth.toFixed(1), height: finalHeight.toFixed(1) }
+    });
+
+    return svgContent;
   };
+
+  // Generate LARGE thumbnail SVG (detailed - with dimensions, margins, etc.)
+  const generateLargeThumbnailSVG = (thumbnailSize: { width: number; height: number }): string => {
+    if (!data || data.objects.length === 0) {
+      // Return empty thumbnail
+      return `<svg width="${thumbnailSize.width}" height="${thumbnailSize.height}" viewBox="0 0 ${thumbnailSize.width} ${thumbnailSize.height}" xmlns="http://www.w3.org/2000/svg">
+        <rect width="100%" height="100%" fill="#f5f5f5"/>
+        <text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" fill="#999" font-size="16">No Content</text>
+      </svg>`;
+    }
+
+    // Calculate bounds from object coordinates
+    const bounds = data.objects.reduce((acc, obj) => ({
+      minX: Math.min(acc.minX, obj.x),
+      minY: Math.min(acc.minY, obj.y),
+      maxX: Math.max(acc.maxX, obj.x + obj.width),
+      maxY: Math.max(acc.maxY, obj.y + obj.height)
+    }), { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+
+    // Add padding
+    const padding = 30; // More padding for large view
+    const contentWidth = bounds.maxX - bounds.minX;
+    const contentHeight = bounds.maxY - bounds.minY;
+    const totalWidth = contentWidth + (padding * 2);
+    const totalHeight = contentHeight + (padding * 2);
+
+    // Calculate scale to fit thumbnail size while maintaining aspect ratio
+    const scaleX = thumbnailSize.width / totalWidth;
+    const scaleY = thumbnailSize.height / totalHeight;
+    const scale = Math.min(scaleX, scaleY);
+
+    // Calculate final dimensions and centering offset
+    const finalWidth = totalWidth * scale;
+    const finalHeight = totalHeight * scale;
+    const offsetX = (thumbnailSize.width - finalWidth) / 2;
+    const offsetY = (thumbnailSize.height - finalHeight) / 2;
+
+    // Generate detailed SVG content
+    let svgContent = `<svg width="${thumbnailSize.width}" height="${thumbnailSize.height}" viewBox="0 0 ${thumbnailSize.width} ${thumbnailSize.height}" xmlns="http://www.w3.org/2000/svg">`;
+
+    // Define detailed filters and patterns
+    svgContent += `<defs>
+      <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="2" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.15"/>
+      </filter>
+    </defs>`;
+
+    // Clean white background
+    svgContent += `<rect width="100%" height="100%" fill="white"/>`;
+
+    // Create group with transform for scaling and positioning
+    svgContent += `<g transform="translate(${offsetX}, ${offsetY}) scale(${scale})">`;
+    svgContent += `<g transform="translate(${-bounds.minX + padding}, ${-bounds.minY + padding})">`;
+
+    // Render each object with full details
+    data.objects.forEach(obj => {
+      const x = obj.x;
+      const y = obj.y;
+      const width = obj.width;
+      const height = obj.height;
+
+      // Determine object style based on type
+      let fillColor = 'none';
+      let strokeColor = '#333';
+      let strokeWidth = '2'; // Thicker for large view
+      let strokeDasharray = 'none';
+
+      if (obj.type === 'mother') {
+        fillColor = '#f8f9fa';
+        strokeColor = '#2196F3';
+        strokeWidth = '3';
+      } else if (obj.type?.includes('son')) {
+        fillColor = '#fff3e0';
+        strokeColor = '#FF9800';
+        strokeWidth = '2';
+        strokeDasharray = '4,4';
+      } else {
+        fillColor = '#f5f5f5';
+        strokeColor = '#666';
+      }
+
+      // Main object rectangle with shadow
+      svgContent += `<rect x="${x}" y="${y}" width="${width}" height="${height}"
+        fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}"
+        stroke-dasharray="${strokeDasharray}" filter="url(#shadow)"/>`;
+
+      // Add detailed folder line for mother objects
+      if (obj.type === 'mother') {
+        const folderHeight = Math.min(height * 0.12, 12);
+        const folderWidth = Math.min(width * 0.3, 30);
+
+        // Detailed folder tab
+        svgContent += `<rect x="${x}" y="${y - folderHeight}" width="${folderWidth}" height="${folderHeight}"
+          fill="${fillColor}" stroke="${strokeColor}" stroke-width="2"/>`;
+      }
+
+      // Add margins for mother objects (detailed view only)
+      if (obj.type === 'mother' && motherConfig && motherConfig.margins) {
+        const margins = motherConfig.margins;
+        const mmToPx = 1;
+
+        const marginTop = margins.top * mmToPx;
+        const marginBottom = margins.down * mmToPx;
+        const marginLeft = margins.left * mmToPx;
+        const marginRight = margins.right * mmToPx;
+
+        // Draw detailed margin lines
+        if (marginTop > 0) {
+          svgContent += `<line x1="${x}" y1="${y + marginTop}" x2="${x + width}" y2="${y + marginTop}"
+            stroke="#4CAF50" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.8"/>`;
+        }
+        if (marginBottom > 0) {
+          svgContent += `<line x1="${x}" y1="${y + height - marginBottom}" x2="${x + width}" y2="${y + height - marginBottom}"
+            stroke="#4CAF50" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.8"/>`;
+        }
+        if (marginLeft > 0) {
+          svgContent += `<line x1="${x + marginLeft}" y1="${y}" x2="${x + marginLeft}" y2="${y + height}"
+            stroke="#4CAF50" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.8"/>`;
+        }
+        if (marginRight > 0) {
+          svgContent += `<line x1="${x + width - marginRight}" y1="${y}" x2="${x + width - marginRight}" y2="${y + height}"
+            stroke="#4CAF50" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.8"/>`;
+        }
+      }
+
+      // Add dimensions text for large view
+      const fontSize = Math.max(8, Math.min(14, 12 * scale));
+      svgContent += `<text x="${x + width/2}" y="${y + height + fontSize + 5}"
+        text-anchor="middle" font-size="${fontSize}" fill="#666" font-weight="bold">
+        ${width.toFixed(0)}×${height.toFixed(0)}mm
+      </text>`;
+    });
+
+    svgContent += `</g></g>`;
+
+    // Add border around entire large thumbnail
+    svgContent += `<rect x="2" y="2" width="${thumbnailSize.width - 4}" height="${thumbnailSize.height - 4}"
+      fill="none" stroke="#ddd" stroke-width="2"/>`;
+
+    svgContent += `</svg>`;
+
+    console.log('🎨 Generated LARGE thumbnail SVG:', {
+      originalBounds: bounds,
+      contentSize: { width: contentWidth, height: contentHeight },
+      thumbnailSize,
+      scale: scale.toFixed(3),
+      finalSize: { width: finalWidth.toFixed(1), height: finalHeight.toFixed(1) }
+    });
+
+    return svgContent;
+  };
+
+  // Removed unused convertSVGToPNG function
+
+  // Removed unused generatePerfectThumbnail function
+
+  // Removed unused captureCanvasAsSVG function
+
+  // Removed unused capture preview and mode functions
 
   // Helper function to check if mother objects exist
   const hasMotherObjects = (): boolean => {
@@ -543,8 +785,16 @@ function App() {
     setIsSaving(true);
 
     try {
-      // Capture canvas as SVG
-      const canvasImage = captureCanvasAsSVG();
+      // Fit to screen before capturing to ensure optimal view
+      console.log('📐 Auto-fitting canvas for optimal capture...');
+      handleFitToScreen();
+
+      // Wait a moment for the fit to complete
+      await new Promise(resolve => setTimeout(resolve, 150));
+
+      // Generate small thumbnail SVG (simple layout + folder lines)
+      const canvasImage = generateSmallThumbnailSVG({ width: 300, height: 200 });
+      console.log('📸 Small thumbnail SVG generated');
 
       // Calculate canvas dimensions from objects or use defaults
       let widthInMm = 200; // Default width
@@ -624,8 +874,16 @@ function App() {
     setIsSaving(true);
 
     try {
-      // Capture canvas as SVG
-      const canvasImage = captureCanvasAsSVG();
+      // Fit to screen before capturing to ensure optimal view
+      console.log('📐 Auto-fitting canvas for optimal capture...');
+      handleFitToScreen();
+
+      // Wait a moment for the fit to complete
+      await new Promise(resolve => setTimeout(resolve, 150));
+
+      // Generate small thumbnail SVG (simple layout + folder lines)
+      const canvasImage = generateSmallThumbnailSVG({ width: 300, height: 200 });
+      console.log('📸 Small thumbnail SVG generated');
 
       // Calculate canvas dimensions from objects or use original dimensions
       let widthInMm = originalMasterFile.width;
@@ -2160,6 +2418,24 @@ function App() {
                 </div>
                 <div style={{ display: 'flex', gap: '5px', marginTop: '5px' }}>
                   <button
+                    onClick={handleFitToScreen}
+                    style={{
+                      ...buttonStyle,
+                      background: '#4CAF50',
+                      color: 'white',
+                      fontSize: '10px',
+                      padding: '6px 8px',
+                      fontWeight: 'bold'
+                    }}
+                    title="Fit content to screen for optimal capture"
+                  >
+                    📐 Fit for Save
+                  </button>
+                </div>
+
+
+                <div style={{ display: 'flex', gap: '5px', marginTop: '5px' }}>
+                  <button
                     onClick={() => setShowDimensions(!showDimensions)}
                     style={{
                       ...buttonStyle,
@@ -2240,6 +2516,8 @@ function App() {
                   ✅ Auto-fitted to view - All objects are now visible!
                 </div>
               )}
+
+
 
               <svg
                 width="100%"

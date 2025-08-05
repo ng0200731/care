@@ -15,6 +15,203 @@ const MasterFilesManagement: React.FC = () => {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<string>('');
+  const [enlargedThumbnail, setEnlargedThumbnail] = useState<string | null>(null);
+
+  // Extract actual dimensions from design data
+  const getActualDimensions = (designData: any): string => {
+    if (!designData || !designData.objects || designData.objects.length === 0) {
+      return "No Data";
+    }
+
+    // Find the largest object (usually the mother object)
+    const objects = designData.objects;
+    let largestObject = objects[0];
+    let maxArea = largestObject.width * largestObject.height;
+
+    objects.forEach((obj: any) => {
+      const area = obj.width * obj.height;
+      if (area > maxArea) {
+        maxArea = area;
+        largestObject = obj;
+      }
+    });
+
+    return `${largestObject.width.toFixed(0)}×${largestObject.height.toFixed(0)}mm`;
+  };
+
+  // Generate large detailed thumbnail from design data
+  const generateLargeThumbnailFromData = (designData: any, thumbnailSize: { width: number; height: number }): string => {
+    if (!designData || !designData.objects || designData.objects.length === 0) {
+      return `<svg width="${thumbnailSize.width}" height="${thumbnailSize.height}" viewBox="0 0 ${thumbnailSize.width} ${thumbnailSize.height}" xmlns="http://www.w3.org/2000/svg">
+        <rect width="100%" height="100%" fill="#f5f5f5"/>
+        <text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" fill="#999" font-size="24">No Design Data</text>
+      </svg>`;
+    }
+
+    const objects = designData.objects;
+
+    // Calculate bounds from object coordinates
+    const bounds = objects.reduce((acc: any, obj: any) => ({
+      minX: Math.min(acc.minX, obj.x),
+      minY: Math.min(acc.minY, obj.y),
+      maxX: Math.max(acc.maxX, obj.x + obj.width),
+      maxY: Math.max(acc.maxY, obj.y + obj.height)
+    }), { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+
+    // Add generous padding for large view - more space for details
+    const padding = 80;
+    const contentWidth = bounds.maxX - bounds.minX;
+    const contentHeight = bounds.maxY - bounds.minY;
+    const totalWidth = contentWidth + (padding * 2);
+    const totalHeight = contentHeight + (padding * 2);
+
+    // FORCE object to use exactly 80% of 1500×1000px canvas
+    const targetArea = {
+      width: thumbnailSize.width * 0.8,   // 1200px target area
+      height: thumbnailSize.height * 0.8  // 800px target area
+    };
+
+    // Calculate scale to make object fill 80% area
+    const scaleX = targetArea.width / totalWidth;
+    const scaleY = targetArea.height / totalHeight;
+    const scale = Math.min(scaleX, scaleY); // Fit within 80% area, maintain proportions
+
+    // Calculate final dimensions and centering offset
+    const finalWidth = totalWidth * scale;
+    const finalHeight = totalHeight * scale;
+    const offsetX = (thumbnailSize.width - finalWidth) / 2;
+    const offsetY = (thumbnailSize.height - finalHeight) / 2;
+
+    // Generate large detailed SVG
+    let svgContent = `<svg width="${thumbnailSize.width}" height="${thumbnailSize.height}" viewBox="0 0 ${thumbnailSize.width} ${thumbnailSize.height}" xmlns="http://www.w3.org/2000/svg">`;
+
+    // Define detailed filters
+    svgContent += `<defs>
+      <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="3" dy="3" stdDeviation="3" flood-color="#000" flood-opacity="0.2"/>
+      </filter>
+    </defs>`;
+
+    // Clean white background
+    svgContent += `<rect width="100%" height="100%" fill="white"/>`;
+
+    // Create group with transform for scaling and positioning
+    svgContent += `<g transform="translate(${offsetX}, ${offsetY}) scale(${scale})">`;
+    svgContent += `<g transform="translate(${-bounds.minX + padding}, ${-bounds.minY + padding})">`;
+
+    // Render each object with full details
+    objects.forEach((obj: any) => {
+      const x = obj.x;
+      const y = obj.y;
+      const width = obj.width;
+      const height = obj.height;
+
+      // Determine object style based on type - THINNER lines for better detail
+      let fillColor = 'none';
+      let strokeColor = '#333';
+      let strokeWidth = '1.5'; // Thinner for better detail visibility
+      let strokeDasharray = 'none';
+
+      if (obj.type === 'mother') {
+        fillColor = '#f8f9fa';
+        strokeColor = '#2196F3';
+        strokeWidth = '1'; // Thin clean outline
+      } else if (obj.type?.includes('son')) {
+        fillColor = '#fff3e0';
+        strokeColor = '#FF9800';
+        strokeWidth = '1.5';
+        strokeDasharray = '4,4';
+      } else {
+        fillColor = '#f5f5f5';
+        strokeColor = '#666';
+      }
+
+      // Main object rectangle (outer border) with shadow
+      svgContent += `<rect x="${x}" y="${y}" width="${width}" height="${height}"
+        fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}"
+        stroke-dasharray="${strokeDasharray}" filter="url(#shadow)"/>`;
+
+      // Add sewing line (inner dashed line) for mother objects
+      if (obj.type === 'mother') {
+        const sewingMargin = 3; // 3mm inside from edge
+        svgContent += `<rect x="${x + sewingMargin}" y="${y + sewingMargin}"
+          width="${width - (sewingMargin * 2)}" height="${height - (sewingMargin * 2)}"
+          fill="none" stroke="#666" stroke-width="1" stroke-dasharray="2,2" opacity="0.7"/>`;
+      }
+
+      // NO fold line for clean design - removed unnecessary above sharp
+
+      // Add margin lines for mother objects (visible in large view)
+      if (obj.type === 'mother') {
+        // Professional margin lines - subtle and clean
+        const marginSize = Math.max(8, width * 0.06); // Smaller, proportional margins
+
+        // Subtle margin lines for professional appearance
+        svgContent += `<line x1="${x}" y1="${y + marginSize}" x2="${x + width}" y2="${y + marginSize}"
+          stroke="#4CAF50" stroke-width="0.8" stroke-dasharray="2,2" opacity="0.6"/>`;
+
+        // Bottom margin line
+        svgContent += `<line x1="${x}" y1="${y + height - marginSize}" x2="${x + width}" y2="${y + height - marginSize}"
+          stroke="#4CAF50" stroke-width="0.8" stroke-dasharray="2,2" opacity="0.6"/>`;
+
+        // Left margin line
+        svgContent += `<line x1="${x + marginSize}" y1="${y}" x2="${x + marginSize}" y2="${y + height}"
+          stroke="#4CAF50" stroke-width="0.8" stroke-dasharray="2,2" opacity="0.6"/>`;
+
+        // Right margin line
+        svgContent += `<line x1="${x + width - marginSize}" y1="${y}" x2="${x + width - marginSize}" y2="${y + height}"
+          stroke="#4CAF50" stroke-width="0.8" stroke-dasharray="2,2" opacity="0.6"/>`;
+
+        // Subtle corner markers for professional appearance
+        const cornerSize = 2; // Small, clean corners
+        svgContent += `<rect x="${x + marginSize - cornerSize/2}" y="${y + marginSize - cornerSize/2}"
+          width="${cornerSize}" height="${cornerSize}" fill="#4CAF50" opacity="0.6"/>`;
+        svgContent += `<rect x="${x + width - marginSize - cornerSize/2}" y="${y + marginSize - cornerSize/2}"
+          width="${cornerSize}" height="${cornerSize}" fill="#4CAF50" opacity="0.6"/>`;
+        svgContent += `<rect x="${x + marginSize - cornerSize/2}" y="${y + height - marginSize - cornerSize/2}"
+          width="${cornerSize}" height="${cornerSize}" fill="#4CAF50" opacity="0.6"/>`;
+        svgContent += `<rect x="${x + width - marginSize - cornerSize/2}" y="${y + height - marginSize - cornerSize/2}"
+          width="${cornerSize}" height="${cornerSize}" fill="#4CAF50" opacity="0.6"/>`;
+
+      }
+
+      // Add ONLY dimensions - NO object names, NO margin labels
+      const dimFontSize = Math.max(12, Math.min(16, 14 * scale));
+      svgContent += `<text x="${x + width/2}" y="${y + height + dimFontSize + 10}"
+        text-anchor="middle" font-size="${dimFontSize}" fill="#333" font-weight="bold">
+        ${width.toFixed(0)}×${height.toFixed(0)}mm
+      </text>`;
+    });
+
+    svgContent += `</g></g>`;
+
+    // Professional layout boundary - clean and minimal
+    const layoutMargin = 10; // Clean professional margin
+    svgContent += `<rect x="${offsetX - layoutMargin}" y="${offsetY - layoutMargin}"
+      width="${finalWidth + (layoutMargin * 2)}" height="${finalHeight + (layoutMargin * 2)}"
+      fill="none" stroke="#2196F3" stroke-width="1.5" stroke-dasharray="5,3" opacity="0.7"/>`;
+
+    // Clean layout corner markers
+    const cornerSize = 4;
+    const corners = [
+      [offsetX - layoutMargin, offsetY - layoutMargin], // Top-left
+      [offsetX + finalWidth + layoutMargin - cornerSize, offsetY - layoutMargin], // Top-right
+      [offsetX - layoutMargin, offsetY + finalHeight + layoutMargin - cornerSize], // Bottom-left
+      [offsetX + finalWidth + layoutMargin - cornerSize, offsetY + finalHeight + layoutMargin - cornerSize] // Bottom-right
+    ];
+    corners.forEach(([cx, cy]) => {
+      svgContent += `<rect x="${cx}" y="${cy}" width="${cornerSize}" height="${cornerSize}"
+        fill="#2196F3" opacity="0.7"/>`;
+    });
+
+    // Add canvas border (thin border around entire thumbnail)
+    svgContent += `<rect x="4" y="4" width="${thumbnailSize.width - 8}" height="${thumbnailSize.height - 8}"
+      fill="none" stroke="#2196F3" stroke-width="4"/>`;
+
+    svgContent += `</svg>`;
+
+    return svgContent;
+  };
   
   // Create form state
   const [createForm, setCreateForm] = useState<CreateMasterFileRequest>({
@@ -245,6 +442,11 @@ const MasterFilesManagement: React.FC = () => {
               cursor: 'pointer',
               transition: 'all 0.2s ease'
             }}
+            onClick={(e) => {
+              console.log('🎯 Card clicked, navigating to templates');
+              // Navigate to template management when card is clicked
+              handleSelectMasterFile(masterFile);
+            }}
             onMouseEnter={(e) => {
               e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
               e.currentTarget.style.transform = 'translateY(-2px)';
@@ -253,27 +455,150 @@ const MasterFilesManagement: React.FC = () => {
               e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
               e.currentTarget.style.transform = 'translateY(0)';
             }}
-            onClick={() => handleSelectMasterFile(masterFile)}
           >
             {/* Canvas Image Preview */}
             {(masterFile as any).canvasImage && (
               <div style={{ marginBottom: '15px', textAlign: 'center' }}>
                 <div
                   style={{
-                    border: '1px solid #e0e0e0',
-                    borderRadius: '4px',
-                    padding: '10px',
+                    border: '2px solid #e0e0e0',
+                    borderRadius: '8px',
+                    padding: '15px',
                     backgroundColor: '#fafafa',
-                    maxHeight: '150px',
+                    minHeight: '120px',
+                    maxHeight: '180px',
                     overflow: 'hidden',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center'
+                    justifyContent: 'center',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                    transition: 'all 0.2s ease',
+                    cursor: 'pointer',
+                    position: 'relative'
                   }}
-                  dangerouslySetInnerHTML={{ __html: (masterFile as any).canvasImage }}
-                />
-                <div style={{ fontSize: '11px', color: '#999', marginTop: '5px' }}>
-                  Canvas Preview
+                  onClick={(e) => {
+                    e.stopPropagation(); // Prevent parent card click
+                    console.log('🔍 Thumbnail clicked, generating large view');
+                    // Generate large detailed thumbnail (MUCH bigger - 5x size with all details)
+                    const largeThumbnail = generateLargeThumbnailFromData(
+                      (masterFile as any).designData,
+                      { width: 1500, height: 1000 }
+                    );
+                    setEnlargedThumbnail(largeThumbnail);
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.borderColor = '#4CAF50';
+                    e.currentTarget.style.boxShadow = '0 4px 8px rgba(76, 175, 80, 0.2)';
+                    e.currentTarget.style.transform = 'scale(1.02)';
+                    // Make zoom icon more prominent on hover
+                    const zoomIcon = e.currentTarget.querySelector('div[style*="position: absolute"]') as HTMLElement;
+                    if (zoomIcon) {
+                      zoomIcon.style.opacity = '1';
+                      zoomIcon.style.transform = 'scale(1.1)';
+                    }
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.borderColor = '#e0e0e0';
+                    e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+                    e.currentTarget.style.transform = 'scale(1)';
+                    // Reset zoom icon
+                    const zoomIcon = e.currentTarget.querySelector('div[style*="position: absolute"]') as HTMLElement;
+                    if (zoomIcon) {
+                      zoomIcon.style.opacity = '0.9';
+                      zoomIcon.style.transform = 'scale(1)';
+                    }
+                  }}
+                >
+                  {/* Zoom indicator */}
+                  <div style={{
+                    position: 'absolute',
+                    top: '8px',
+                    right: '8px',
+                    background: 'rgba(33, 150, 243, 0.9)',
+                    color: 'white',
+                    borderRadius: '50%',
+                    width: '24px',
+                    height: '24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    opacity: 0.9,
+                    transition: 'all 0.2s ease',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                  }}>
+                    🔍
+                  </div>
+                  {/* Handle both data URLs and raw SVG strings */}
+                  {(masterFile as any).canvasImage.startsWith('data:') ? (
+                    <img
+                      src={(masterFile as any).canvasImage}
+                      alt="Canvas preview"
+                      style={{
+                        maxWidth: '100%',
+                        maxHeight: '100%',
+                        objectFit: 'contain'
+                      }}
+                    />
+                  ) : (
+                    <div
+                      dangerouslySetInnerHTML={{ __html: (masterFile as any).canvasImage }}
+                      style={{
+                        maxWidth: '100%',
+                        maxHeight: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                    />
+                  )}
+                </div>
+                <div style={{
+                  fontSize: '11px',
+                  color: '#666',
+                  marginTop: '8px',
+                  fontWeight: '500',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '4px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    🎨 Clean Layout Preview
+                    {(masterFile as any).canvasImage.startsWith('data:image/png') && (
+                      <span style={{
+                        color: '#2196F3',
+                        fontSize: '10px',
+                        background: '#e3f2fd',
+                        padding: '2px 6px',
+                        borderRadius: '10px'
+                      }}>PNG</span>
+                    )}
+                    {(masterFile as any).canvasImage.startsWith('<svg') && (
+                      <span style={{
+                        color: '#4CAF50',
+                        fontSize: '10px',
+                        background: '#e8f5e8',
+                        padding: '2px 6px',
+                        borderRadius: '10px'
+                      }}>SVG</span>
+                    )}
+                  </div>
+
+                  {/* Show actual dimensions from design data */}
+                  <div style={{
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    color: '#333',
+                    background: '#f0f0f0',
+                    padding: '3px 8px',
+                    borderRadius: '12px',
+                    border: '1px solid #ddd'
+                  }}>
+                    📐 {getActualDimensions((masterFile as any).designData)}
+                  </div>
                 </div>
               </div>
             )}
@@ -294,7 +619,7 @@ const MasterFilesManagement: React.FC = () => {
                 📐 Dimensions
               </div>
               <div style={{ fontSize: '13px', color: '#666' }}>
-                {masterFile.width} × {masterFile.height} mm
+                {getActualDimensions((masterFile as any).designData)}
               </div>
             </div>
 
@@ -602,6 +927,122 @@ const MasterFilesManagement: React.FC = () => {
               >
                 Create Master File
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Enlarged Thumbnail Modal */}
+      {enlargedThumbnail && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            padding: '20px'
+          }}
+          onClick={() => setEnlargedThumbnail(null)}
+        >
+          <div
+            style={{
+              background: 'white',
+              borderRadius: '12px',
+              padding: '20px',
+              maxWidth: '90vw',
+              maxHeight: '90vh',
+              overflow: 'auto',
+              position: 'relative',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.3)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button
+              onClick={() => setEnlargedThumbnail(null)}
+              style={{
+                position: 'absolute',
+                top: '10px',
+                right: '10px',
+                background: '#f44336',
+                color: 'white',
+                border: 'none',
+                borderRadius: '50%',
+                width: '30px',
+                height: '30px',
+                cursor: 'pointer',
+                fontSize: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 1
+              }}
+            >
+              ✕
+            </button>
+
+            {/* Enlarged thumbnail */}
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '15px'
+            }}>
+              <h3 style={{ margin: 0, color: '#333' }}>🔍 Large Detailed Layout Preview (5x Size)</h3>
+
+              <div style={{
+                border: '3px solid #2196F3',
+                borderRadius: '12px',
+                padding: '40px',
+                backgroundColor: '#fafafa',
+                maxWidth: '1600px',
+                maxHeight: '1100px',
+                overflow: 'auto',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+              }}>
+                {enlargedThumbnail.startsWith('data:') ? (
+                  <img
+                    src={enlargedThumbnail}
+                    alt="Enlarged layout preview"
+                    style={{
+                      maxWidth: '100%',
+                      height: 'auto',
+                      display: 'block'
+                    }}
+                  />
+                ) : (
+                  <div
+                    dangerouslySetInnerHTML={{ __html: enlargedThumbnail }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  />
+                )}
+              </div>
+
+              <div style={{
+                fontSize: '14px',
+                color: '#666',
+                textAlign: 'center',
+                maxWidth: '600px',
+                lineHeight: '1.4'
+              }}>
+                <strong>Large Technical View (1500×1000px)</strong><br/>
+                Clean professional layout showing:<br/>
+                • <span style={{color: '#2196F3'}}>Outermost outline</span> (blue rectangles)<br/>
+                • <span style={{color: '#2196F3'}}>Folder lines</span> (simple rectangles)<br/>
+                • <span style={{color: '#4CAF50'}}>Margins</span> (green dashed lines)<br/>
+                • <span style={{color: '#333'}}>Dimensions</span> (width×height in mm)<br/>
+                <em>Click outside or the ✕ button to close.</em>
+              </div>
             </div>
           </div>
         </div>
