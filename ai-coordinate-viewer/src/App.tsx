@@ -653,19 +653,19 @@ function App() {
         // Draw detailed margin lines
         if (marginTop > 0) {
           svgContent += `<line x1="${x}" y1="${y + marginTop}" x2="${x + width}" y2="${y + marginTop}"
-            stroke="#4CAF50" stroke-width="0.5" stroke-dasharray="3,3" opacity="0.8"/>`;
+            stroke="#4CAF50" stroke-width="1.0" stroke-dasharray="3,3" opacity="0.8"/>`;
         }
         if (marginBottom > 0) {
           svgContent += `<line x1="${x}" y1="${y + height - marginBottom}" x2="${x + width}" y2="${y + height - marginBottom}"
-            stroke="#4CAF50" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.8"/>`;
+            stroke="#4CAF50" stroke-width="1.0" stroke-dasharray="3,3" opacity="0.8"/>`;
         }
         if (marginLeft > 0) {
           svgContent += `<line x1="${x + marginLeft}" y1="${y}" x2="${x + marginLeft}" y2="${y + height}"
-            stroke="#4CAF50" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.8"/>`;
+            stroke="#4CAF50" stroke-width="1.0" stroke-dasharray="3,3" opacity="0.8"/>`;
         }
         if (marginRight > 0) {
           svgContent += `<line x1="${x + width - marginRight}" y1="${y}" x2="${x + width - marginRight}" y2="${y + height}"
-            stroke="#4CAF50" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.8"/>`;
+            stroke="#4CAF50" stroke-width="1.0" stroke-dasharray="3,3" opacity="0.8"/>`;
         }
       }
 
@@ -1344,6 +1344,56 @@ function App() {
     });
   };
 
+  const handleAddSonObject = (motherObject: AIObject) => {
+    console.log('➕ Adding son object to mother:', motherObject.name);
+
+    // For now, we'll create a simple text son object
+    // In the future, this could open a dialog to choose son object type
+    const motherNum = motherObject.type?.match(/mother (\d+)/)?.[1];
+    if (!motherNum) {
+      console.error('Could not determine mother number');
+      return;
+    }
+
+    const currentData = data || webCreationData;
+    if (!currentData) return;
+
+    // Find existing sons for this mother to determine next son number
+    const existingSons = currentData.objects.filter(obj =>
+      obj.type?.includes('son') && obj.type?.includes(`son ${motherNum}-`)
+    );
+    const nextSonNumber = existingSons.length + 1;
+
+    // Create new son object positioned inside the mother
+    const newSon: AIObject = {
+      name: `son_${motherNum}_${nextSonNumber}`,
+      typename: 'TextFrame',
+      type: `son ${motherNum}-${nextSonNumber}`,
+      x: motherObject.x + 5, // Offset slightly from mother's position
+      y: motherObject.y + 5,
+      width: Math.max(20, motherObject.width - 10), // Smaller than mother
+      height: Math.max(10, motherObject.height - 10)
+    };
+
+    // Add to data
+    const updatedData = {
+      ...currentData,
+      objects: [...currentData.objects, newSon],
+      totalObjects: currentData.totalObjects + 1
+    };
+
+    if (data) {
+      setData(updatedData);
+    } else {
+      setWebCreationData(updatedData);
+    }
+
+    // Select the new son object
+    setSelectedObject(newSon);
+
+    console.log('✅ Created new son object:', newSon);
+  };
+
   const exportSonMetadata = () => {
     const metadataArray = Array.from(sonMetadata.entries()).map(([key, value]) => ({
       objectId: key, // Format: "name_x_y" to handle duplicate names
@@ -1452,6 +1502,28 @@ function App() {
                         ✏️ Edit
                       </button>
                     )}
+
+                    {/* Add Son Object Button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedObject(mother.object);
+                        // Open son object creation dialog for this mother
+                        handleAddSonObject(mother.object);
+                      }}
+                      style={{
+                        background: 'rgba(255,255,255,0.2)',
+                        border: '1px solid rgba(255,255,255,0.3)',
+                        color: 'inherit',
+                        fontSize: '10px',
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        cursor: 'pointer'
+                      }}
+                      title="Add son object to this mother"
+                    >
+                      ➕ Add Son
+                    </button>
 
                     {/* Fit View Button */}
                     <button
@@ -2076,7 +2148,7 @@ function App() {
                     height={height - topMarginPx - bottomMarginPx}
                     fill="none"
                     stroke="#4CAF50"
-                    strokeWidth="0.33"
+                    strokeWidth="1.0"
                     strokeDasharray="3,3"
                     opacity="0.6"
                   />
