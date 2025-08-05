@@ -1431,8 +1431,8 @@ function App() {
 
                   {/* Action Buttons */}
                   <div style={{ display: 'flex', gap: '4px' }}>
-                    {/* Edit Button - Only show in web creation mode */}
-                    {isWebCreationMode && (
+                    {/* Edit Button - Only show in web creation mode AND not in project context */}
+                    {isWebCreationMode && context !== 'projects' && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1474,8 +1474,8 @@ function App() {
                       👑 Fit View
                     </button>
 
-                    {/* Save Button - Only show in web creation mode when mother objects exist */}
-                    {isWebCreationMode && hasMotherObjects() && (
+                    {/* Save Button - Only show in web creation mode when mother objects exist AND not in project context */}
+                    {isWebCreationMode && hasMotherObjects() && context !== 'projects' && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
