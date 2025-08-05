@@ -96,6 +96,7 @@ function App() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingMasterFileId, setEditingMasterFileId] = useState<string | null>(null);
   const [originalMasterFile, setOriginalMasterFile] = useState<any>(null);
+  const [isLoadingMasterFile, setIsLoadingMasterFile] = useState(false);
 
   // Canvas view state
   const [zoom, setZoom] = useState(1); // 1 = 1:1 scale (1mm = 1px at 96 DPI)
@@ -646,7 +647,7 @@ function App() {
         // Draw detailed margin lines
         if (marginTop > 0) {
           svgContent += `<line x1="${x}" y1="${y + marginTop}" x2="${x + width}" y2="${y + marginTop}"
-            stroke="#4CAF50" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.8"/>`;
+            stroke="#4CAF50" stroke-width="0.5" stroke-dasharray="3,3" opacity="0.8"/>`;
         }
         if (marginBottom > 0) {
           svgContent += `<line x1="${x}" y1="${y + height - marginBottom}" x2="${x + width}" y2="${y + height - marginBottom}"
@@ -739,15 +740,22 @@ function App() {
     return `${basePattern}1`;
   };
 
-  // Save Master File functions - Direct save without dialog
+  // Save Master File functions - Prompt user for name
   const saveDirectly = async () => {
+    console.log('🔍 Save button clicked - checking conditions...');
+    console.log('isWebCreationMode:', isWebCreationMode);
+    console.log('data exists:', !!data);
+    console.log('objects count:', data?.objects?.length || 0);
+    console.log('selectedCustomer:', !!selectedCustomer);
+    console.log('isEditMode:', isEditMode);
+
     if (!isWebCreationMode || !data || data.objects.length === 0) {
-      console.error('Please create some objects before saving as master file.');
+      alert('Please create some objects before saving as master file.');
       return;
     }
 
     if (!selectedCustomer) {
-      console.error('No customer selected.');
+      alert('No customer selected. Please select a customer first.');
       return;
     }
 
@@ -757,11 +765,37 @@ function App() {
       console.log(`🔄 Updating master file: ${originalMasterFile.name} (revision ${originalMasterFile.revisionNumber} → ${originalMasterFile.revisionNumber + 1})`);
       await performOverwriteSave();
     } else {
-      // Generate default name automatically for new files
-      const defaultName = await generateDefaultMasterFileName();
+      console.log('💬 Prompting user for layout name...');
 
-      // Save directly without showing dialog
-      await performSave(defaultName);
+      // Use a more reliable prompt approach
+      let layoutName = '';
+
+      // Try multiple times if user enters empty name
+      while (true) {
+        layoutName = prompt('🏷️ Please enter a name for this layout:', '') || '';
+
+        console.log('User entered name:', layoutName);
+
+        if (layoutName === null || layoutName === '') {
+          // User cancelled or entered empty
+          const retry = window.confirm('Layout name is required to save. Would you like to try again?');
+          if (!retry) {
+            console.log('User cancelled save operation');
+            return;
+          }
+          continue; // Ask again
+        }
+
+        if (layoutName.trim()) {
+          break; // Valid name entered
+        }
+
+        alert('Please enter a valid layout name (not just spaces).');
+      }
+
+      console.log('Proceeding to save with name:', layoutName.trim());
+      // Save with user-provided name
+      await performSave(layoutName.trim());
     }
   };
 
@@ -958,6 +992,7 @@ function App() {
   const loadMasterFileForEditing = async (masterFileId: string) => {
     try {
       console.log('🔄 Loading master file for editing:', masterFileId);
+      setIsLoadingMasterFile(true);
 
       // Fetch master file from database
       const result = await masterFileService.getMasterFileById(masterFileId);
@@ -1020,6 +1055,8 @@ function App() {
 
     } catch (error) {
       console.error('❌ Error loading master file:', error);
+    } finally {
+      setIsLoadingMasterFile(false);
     }
   };
 
@@ -1908,7 +1945,7 @@ function App() {
                   x2={baseX + width}
                   y2={baseY + 45 + marginTopPx}
                   stroke="#ff9800"
-                  strokeWidth="1"
+                  strokeWidth="0.33"
                   strokeDasharray="2,2"
                   opacity="0.7"
                 />,
@@ -1920,7 +1957,7 @@ function App() {
                   x2={baseX + width}
                   y2={baseY + height - marginBottomPx}
                   stroke="#ff9800"
-                  strokeWidth="1"
+                  strokeWidth="0.33"
                   strokeDasharray="2,2"
                   opacity="0.7"
                 />,
@@ -1932,7 +1969,7 @@ function App() {
                   x2={baseX + marginLeftPx}
                   y2={baseY + height}
                   stroke="#ff9800"
-                  strokeWidth="1"
+                  strokeWidth="0.33"
                   strokeDasharray="2,2"
                   opacity="0.7"
                 />,
@@ -2033,7 +2070,7 @@ function App() {
                     height={height - topMarginPx - bottomMarginPx}
                     fill="none"
                     stroke="#4CAF50"
-                    strokeWidth="1"
+                    strokeWidth="0.33"
                     strokeDasharray="3,3"
                     opacity="0.6"
                   />
@@ -2277,7 +2314,7 @@ function App() {
                     height={height - ((motherMeta.margins.top + motherMeta.margins.bottom) * scale)}
                     fill="none"
                     stroke="#4CAF50"
-                    strokeWidth="2"
+                    strokeWidth="0.67"
                     strokeDasharray="5,5"
                     opacity="0.8"
                   />
@@ -2332,12 +2369,69 @@ function App() {
       height: '100vh',
       display: 'flex',
       flexDirection: 'column',
-      background: '#f5f5f5'
+      background: '#f5f5f5',
+      pointerEvents: isLoadingMasterFile ? 'none' : 'auto',
+      opacity: isLoadingMasterFile ? 0.6 : 1,
+      transition: 'opacity 0.3s ease'
     }}
       onDrop={handleDrop}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
     >
+      {/* Master File Loading Overlay */}
+      {isLoadingMasterFile && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          backgroundColor: 'rgba(255, 255, 255, 0.98)',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 10002,
+          pointerEvents: 'all'
+        }}>
+          {/* Loading Spinner */}
+          <div style={{
+            width: '80px',
+            height: '80px',
+            border: '7px solid #f3f3f3',
+            borderTop: '7px solid #2196F3',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            marginBottom: '35px'
+          }}></div>
+
+          {/* Loading Text */}
+          <div style={{
+            fontSize: '28px',
+            fontWeight: 'bold',
+            color: '#333',
+            marginBottom: '18px'
+          }}>
+            Loading Canvas...
+          </div>
+
+          {/* Subtitle */}
+          <div style={{
+            fontSize: '20px',
+            color: '#666'
+          }}>
+            Preparing your care label design for editing
+          </div>
+
+          {/* CSS Animation */}
+          <style>{`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}</style>
+        </div>
+      )}
       {/* Add CSS animation for pulse effect */}
       <style>
         {`
@@ -2940,7 +3034,7 @@ function App() {
                 📏 Dimensions (mm)
               </h3>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '15px', alignItems: 'end' }}>
                 <div>
                   <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>
                     Width (mm):
@@ -2967,6 +3061,46 @@ function App() {
                     onFocus={(e) => e.target.style.borderColor = '#4CAF50'}
                     onBlur={(e) => e.target.style.borderColor = '#ddd'}
                   />
+                </div>
+
+                {/* Exchange Icon */}
+                <div style={{ display: 'flex', justifyContent: 'center', paddingBottom: '8px' }}>
+                  <button
+                    onClick={() => {
+                      const currentWidth = motherConfig.width;
+                      const currentHeight = motherConfig.height;
+                      setMotherConfig(prev => ({
+                        ...prev,
+                        width: currentHeight,
+                        height: currentWidth
+                      }));
+                    }}
+                    style={{
+                      background: '#f0f0f0',
+                      border: '2px solid #ddd',
+                      borderRadius: '6px',
+                      padding: '8px',
+                      cursor: 'pointer',
+                      fontSize: '16px',
+                      transition: 'all 0.3s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '40px',
+                      height: '40px'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = '#e0e0e0';
+                      e.currentTarget.style.borderColor = '#4CAF50';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = '#f0f0f0';
+                      e.currentTarget.style.borderColor = '#ddd';
+                    }}
+                    title="Exchange width and height values"
+                  >
+                    🔄
+                  </button>
                 </div>
 
                 <div>

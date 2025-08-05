@@ -12,6 +12,7 @@ const MasterFilesManagement: React.FC = () => {
   const [masterFiles, setMasterFiles] = useState<MasterFileWithSummary[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [navigating, setNavigating] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<string>('');
@@ -147,8 +148,8 @@ const MasterFilesManagement: React.FC = () => {
         // Get margin data from object
         const margins = obj.margins || { top: 2, bottom: 2, left: 3, right: 3 };
 
-        // Add margin detail labels (2mm, 3mm...)
-        const labelFontSize = Math.max(8, Math.min(12, 10 * scale));
+        // Add margin detail labels (2mm, 3mm...) - reduced to 1/3 size
+        const labelFontSize = Math.max(3, Math.min(4, 3.3 * scale));
 
         // Top margin label
         if (margins.top > 0) {
@@ -187,35 +188,35 @@ const MasterFilesManagement: React.FC = () => {
           if (obj.sewingPosition === 'top') {
             const sewingY = y + sewingOffset;
             svgContent += `<line x1="${x}" y1="${sewingY}" x2="${x + width}" y2="${sewingY}"
-              stroke="#d32f2f" stroke-width="2" stroke-dasharray="4,4" opacity="0.9"/>`;
+              stroke="#d32f2f" stroke-width="0.5" stroke-dasharray="4,4" opacity="0.9"/>`;
             svgContent += `<text x="${x + width + 5}" y="${sewingY}"
               fill="#d32f2f" font-size="${labelFontSize}" font-weight="bold" text-anchor="start">
               ${sewingOffset}mm</text>`;
           } else if (obj.sewingPosition === 'bottom') {
             const sewingY = y + height - sewingOffset;
             svgContent += `<line x1="${x}" y1="${sewingY}" x2="${x + width}" y2="${sewingY}"
-              stroke="#d32f2f" stroke-width="2" stroke-dasharray="4,4" opacity="0.9"/>`;
+              stroke="#d32f2f" stroke-width="0.5" stroke-dasharray="4,4" opacity="0.9"/>`;
             svgContent += `<text x="${x + width + 5}" y="${sewingY}"
               fill="#d32f2f" font-size="${labelFontSize}" font-weight="bold" text-anchor="start">
               ${sewingOffset}mm</text>`;
           } else if (obj.sewingPosition === 'left') {
             const sewingX = x + sewingOffset;
             svgContent += `<line x1="${sewingX}" y1="${y}" x2="${sewingX}" y2="${y + height}"
-              stroke="#d32f2f" stroke-width="2" stroke-dasharray="4,4" opacity="0.9"/>`;
+              stroke="#d32f2f" stroke-width="0.5" stroke-dasharray="4,4" opacity="0.9"/>`;
             svgContent += `<text x="${sewingX}" y="${y - 5}"
               fill="#d32f2f" font-size="${labelFontSize}" font-weight="bold" text-anchor="middle">
               ${sewingOffset}mm</text>`;
           } else if (obj.sewingPosition === 'right') {
             const sewingX = x + width - sewingOffset;
             svgContent += `<line x1="${sewingX}" y1="${y}" x2="${sewingX}" y2="${y + height}"
-              stroke="#d32f2f" stroke-width="2" stroke-dasharray="4,4" opacity="0.9"/>`;
+              stroke="#d32f2f" stroke-width="0.5" stroke-dasharray="4,4" opacity="0.9"/>`;
             svgContent += `<text x="${sewingX}" y="${y - 5}"
               fill="#d32f2f" font-size="${labelFontSize}" font-weight="bold" text-anchor="middle">
               ${sewingOffset}mm</text>`;
           } else if (obj.sewingPosition === 'mid-fold') {
             const midY = y + height / 2;
             svgContent += `<line x1="${x}" y1="${midY}" x2="${x + width}" y2="${midY}"
-              stroke="#d32f2f" stroke-width="2" stroke-dasharray="4,4" opacity="0.9"/>`;
+              stroke="#d32f2f" stroke-width="0.5" stroke-dasharray="4,4" opacity="0.9"/>`;
             svgContent += `<text x="${x + width + 5}" y="${midY}"
               fill="#d32f2f" font-size="${labelFontSize}" font-weight="bold" text-anchor="start">
               Mid-Fold</text>`;
@@ -223,8 +224,8 @@ const MasterFilesManagement: React.FC = () => {
         }
       }
 
-      // Add ONLY dimensions - NO object names, NO margin labels
-      const dimFontSize = Math.max(12, Math.min(16, 14 * scale));
+      // Add ONLY dimensions - NO object names, NO margin labels - reduced to 1/3 size
+      const dimFontSize = Math.max(4, Math.min(5.3, 4.7 * scale));
       svgContent += `<text x="${x + width/2}" y="${y + height + dimFontSize + 10}"
         text-anchor="middle" font-size="${dimFontSize}" fill="#333" font-weight="bold">
         ${width.toFixed(0)}×${height.toFixed(0)}mm
@@ -347,6 +348,8 @@ const MasterFilesManagement: React.FC = () => {
   };
 
   const handleEditMasterFile = (masterFile: MasterFileWithSummary) => {
+    // Show loading overlay and prevent clicks
+    setNavigating(true);
     // Navigate to create_zero with master file ID for editing
     navigate(`/create_zero?masterFileId=${masterFile.id}`);
   };
@@ -359,14 +362,123 @@ const MasterFilesManagement: React.FC = () => {
 
   if (loading) {
     return (
-      <div style={{ padding: '20px', textAlign: 'center' }}>
-        <div>Loading master files...</div>
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 9999
+      }}>
+        {/* Loading Spinner */}
+        <div style={{
+          width: '60px',
+          height: '60px',
+          border: '5px solid #f3f3f3',
+          borderTop: '5px solid #2196F3',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite',
+          marginBottom: '30px'
+        }}></div>
+
+        {/* Loading Text */}
+        <div style={{
+          fontSize: '24px',
+          fontWeight: 'bold',
+          color: '#333',
+          marginBottom: '15px'
+        }}>
+          Loading Master Files...
+        </div>
+
+        {/* Subtitle */}
+        <div style={{
+          fontSize: '16px',
+          color: '#666'
+        }}>
+          Please wait while we fetch your care label layouts
+        </div>
+
+        {/* CSS Animation */}
+        <style>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
+    <div style={{
+      padding: '20px',
+      maxWidth: '1200px',
+      margin: '0 auto',
+      pointerEvents: navigating ? 'none' : 'auto',
+      opacity: navigating ? 0.7 : 1,
+      transition: 'opacity 0.3s ease'
+    }}>
+      {/* Navigation Loading Overlay */}
+      {navigating && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          backgroundColor: 'rgba(255, 255, 255, 0.97)',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 10001,
+          pointerEvents: 'all'
+        }}>
+          {/* Loading Spinner */}
+          <div style={{
+            width: '70px',
+            height: '70px',
+            border: '6px solid #f3f3f3',
+            borderTop: '6px solid #28a745',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            marginBottom: '30px'
+          }}></div>
+
+          {/* Loading Text */}
+          <div style={{
+            fontSize: '26px',
+            fontWeight: 'bold',
+            color: '#333',
+            marginBottom: '15px'
+          }}>
+            Opening Editor...
+          </div>
+
+          {/* Subtitle */}
+          <div style={{
+            fontSize: '18px',
+            color: '#666'
+          }}>
+            Loading your care label design for editing
+          </div>
+
+          {/* CSS Animation */}
+          <style>{`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}</style>
+        </div>
+      )}
+
       {/* Back to Master Files Button */}
       <div style={{ marginBottom: '20px' }}>
         <button
@@ -398,7 +510,7 @@ const MasterFilesManagement: React.FC = () => {
 
       {/* Header */}
       <div style={{ marginBottom: '30px' }}>
-        <h1 style={{ margin: '0 0 10px 0', fontSize: '28px', fontWeight: 'bold' }}>
+        <h1 style={{ margin: '0 0 10px 0', fontSize: '36px', fontWeight: 'bold', opacity: '0.9' }}>
           📁 Master Files Management
         </h1>
         <p style={{ margin: 0, color: '#666', fontSize: '16px' }}>
