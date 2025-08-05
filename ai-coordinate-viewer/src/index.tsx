@@ -7,8 +7,8 @@ import Dashboard from './pages/Dashboard';
 import MasterFiles from './pages/MasterFiles';
 import Suppliers from './pages/Suppliers';
 import Orders from './pages/Orders';
-import CoordinateViewer from './components/masterfiles/CoordinateViewer';
-import CreateMasterFile from './components/masterfiles/CreateMasterFile';
+import CanvasOnly from './components/masterfiles/CanvasOnly';
+
 import CreateCustomer from './components/customers/CreateCustomer';
 import EditCustomer from './components/customers/EditCustomer';
 import Customers from './pages/Customers';
@@ -42,11 +42,6 @@ root.render(
             <MasterFilesManagement />
           </Layout>
         } />
-        <Route path="/master-files/create" element={
-          <Layout>
-            <CreateMasterFile />
-          </Layout>
-        } />
         <Route path="/customers" element={
           <Layout>
             <Customers />
@@ -67,11 +62,6 @@ root.render(
             <SelectCustomer />
           </Layout>
         } />
-        <Route path="/master-files/create-method" element={
-          <Layout>
-            <CreateMethod />
-          </Layout>
-        } />
 
         <Route path="/suppliers" element={
           <Layout>
@@ -84,10 +74,17 @@ root.render(
           </Layout>
         } />
 
-        {/* Coordinate viewer - with layout to keep left menu */}
+        {/* Coordinate viewer - now shows Create Method page */}
         <Route path="/coordinate-viewer" element={
           <Layout>
-            <CoordinateViewer />
+            <CreateMethod />
+          </Layout>
+        } />
+
+        {/* Create Zero - canvas-only mode for web creation */}
+        <Route path="/create_zero" element={
+          <Layout>
+            <CanvasOnly />
           </Layout>
         } />
       </Routes>

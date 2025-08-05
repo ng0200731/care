@@ -107,9 +107,21 @@ function App() {
   const [showDimensions, setShowDimensions] = useState(true);
   const [autoFitNotification, setAutoFitNotification] = useState(false);
 
-  // Web creation mode state
-  const [isWebCreationMode, setIsWebCreationMode] = useState(false);
-  const [webCreationData, setWebCreationData] = useState<AIData | null>(null);
+  // Web creation mode state - Check for canvas-only flag immediately
+  const [isWebCreationMode, setIsWebCreationMode] = useState(() => {
+    return sessionStorage.getItem('forceWebCreationMode') === 'true';
+  });
+  const [webCreationData, setWebCreationData] = useState<AIData | null>(() => {
+    // Initialize empty data if in canvas-only mode
+    if (sessionStorage.getItem('forceWebCreationMode') === 'true') {
+      return {
+        document: 'Web Creation Project',
+        totalObjects: 0,
+        objects: []
+      };
+    }
+    return null;
+  });
 
   // Son Object Manager state
   const [sonObjects, setSonObjects] = useState<SonObject[]>([]);
@@ -168,6 +180,25 @@ function App() {
       loadMasterFileForEditing(masterFileId);
     }
   }, [location.search]);
+
+  // Check for canvas-only mode flag and force web creation mode
+  useEffect(() => {
+    const forceWebMode = sessionStorage.getItem('forceWebCreationMode');
+    if (forceWebMode === 'true') {
+      console.log('🎨 Canvas-only mode detected - forcing web creation mode');
+      setIsWebCreationMode(true);
+
+      // Initialize empty web creation data if none exists
+      if (!webCreationData) {
+        const emptyData: AIData = {
+          document: 'Web Creation Project',
+          totalObjects: 0,
+          objects: []
+        };
+        setWebCreationData(emptyData);
+      }
+    }
+  }, [webCreationData]);
 
   // Removed space allocation dialog - now handled directly in son regions
 
@@ -2059,7 +2090,7 @@ function App() {
         <>
           {/* Navigation Buttons */}
           <NavigationButtons
-            previousPagePath="/master-files/create-method"
+            previousPagePath="/coordinate-viewer"
             previousPageLabel="Create Method"
             showMasterFilesButton={true}
             showPreviousButton={true}
