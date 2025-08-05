@@ -1396,6 +1396,8 @@ function App() {
     console.log('✅ Created new son object:', newSon);
   };
 
+
+
   const exportSonMetadata = () => {
     const metadataArray = Array.from(sonMetadata.entries()).map(([key, value]) => ({
       objectId: key, // Format: "name_x_y" to handle duplicate names
@@ -1435,13 +1437,39 @@ function App() {
 
           return (
             <div key={index} style={{marginBottom: '15px'}}>
-              {/* Mother Header - Enhanced with Fit View button (v1.3.0) */}
-              <div style={{
-                background: selectedObject === mother.object ? '#1976d2' : '#e3f2fd',
-                color: selectedObject === mother.object ? 'white' : '#1976d2',
-                borderRadius: '8px',
-                overflow: 'hidden'
-              }}>
+              {/* Mother Header with Add Son Button Side by Side */}
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', marginBottom: '8px' }}>
+                {/* Add Son Button - Outside and Side by Side */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleAddSonObject(mother.object);
+                  }}
+                  style={{
+                    background: '#4CAF50',
+                    border: '1px solid #45a049',
+                    color: 'white',
+                    fontSize: '12px',
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    whiteSpace: 'nowrap',
+                    minWidth: '90px'
+                  }}
+                  title="Add son object to this mother"
+                >
+                  ➕ Add Son
+                </button>
+
+                {/* Mother Info Container */}
+                <div style={{
+                  flex: 1,
+                  background: selectedObject === mother.object ? '#1976d2' : '#e3f2fd',
+                  color: selectedObject === mother.object ? 'white' : '#1976d2',
+                  borderRadius: '8px',
+                  overflow: 'hidden'
+                }}>
                 {/* Mother Info Row */}
                 <div
                   onClick={() => {
@@ -1573,7 +1601,8 @@ function App() {
                     )}
                   </div>
                 </div>
-              </div>
+                </div> {/* Close Mother Info Container */}
+              </div> {/* Close Flex Container */}
 
               {/* Sons (collapsible) - Enhanced with Pan To and Allocate Space buttons (v1.3.0) */}
               {isExpanded && mother.children.map((son, sonIndex) => (
