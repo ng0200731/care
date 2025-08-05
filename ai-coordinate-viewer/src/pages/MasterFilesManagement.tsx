@@ -65,16 +65,17 @@ const MasterFilesManagement: React.FC = () => {
     const totalWidth = contentWidth + (padding * 2);
     const totalHeight = contentHeight + (padding * 2);
 
-    // FORCE object to use exactly 80% of 1500×1000px canvas
+    // FORCE object to use exactly 80% of 1500×1000px canvas, then enlarge 1.5x
     const targetArea = {
       width: thumbnailSize.width * 0.8,   // 1200px target area
       height: thumbnailSize.height * 0.8  // 800px target area
     };
 
-    // Calculate scale to make object fill 80% area
+    // Calculate scale to make object fill 80% area, then multiply by 1.5
     const scaleX = targetArea.width / totalWidth;
     const scaleY = targetArea.height / totalHeight;
-    const scale = Math.min(scaleX, scaleY); // Fit within 80% area, maintain proportions
+    const baseScale = Math.min(scaleX, scaleY); // Fit within 80% area, maintain proportions
+    const scale = baseScale * 1.5; // Enlarge 1.5 times bigger
 
     // Calculate final dimensions and centering offset
     const finalWidth = totalWidth * scale;
@@ -141,38 +142,85 @@ const MasterFilesManagement: React.FC = () => {
 
       // NO fold line for clean design - removed unnecessary above sharp
 
-      // Add margin lines for mother objects (visible in large view)
+      // Add margin details, sewing position, and mid-fold for mother objects
       if (obj.type === 'mother') {
-        // Professional margin lines - subtle and clean
-        const marginSize = Math.max(8, width * 0.06); // Smaller, proportional margins
+        // Get margin data from object
+        const margins = obj.margins || { top: 2, bottom: 2, left: 3, right: 3 };
 
-        // Subtle margin lines for professional appearance
-        svgContent += `<line x1="${x}" y1="${y + marginSize}" x2="${x + width}" y2="${y + marginSize}"
-          stroke="#4CAF50" stroke-width="0.8" stroke-dasharray="2,2" opacity="0.6"/>`;
+        // Add margin detail labels (2mm, 3mm...)
+        const labelFontSize = Math.max(8, Math.min(12, 10 * scale));
 
-        // Bottom margin line
-        svgContent += `<line x1="${x}" y1="${y + height - marginSize}" x2="${x + width}" y2="${y + height - marginSize}"
-          stroke="#4CAF50" stroke-width="0.8" stroke-dasharray="2,2" opacity="0.6"/>`;
+        // Top margin label
+        if (margins.top > 0) {
+          svgContent += `<text x="${x + width/2}" y="${y - 5}"
+            fill="#666" font-size="${labelFontSize}" text-anchor="middle" font-weight="bold">
+            ${margins.top}mm</text>`;
+        }
 
-        // Left margin line
-        svgContent += `<line x1="${x + marginSize}" y1="${y}" x2="${x + marginSize}" y2="${y + height}"
-          stroke="#4CAF50" stroke-width="0.8" stroke-dasharray="2,2" opacity="0.6"/>`;
+        // Bottom margin label
+        if (margins.bottom > 0) {
+          svgContent += `<text x="${x + width/2}" y="${y + height + 15}"
+            fill="#666" font-size="${labelFontSize}" text-anchor="middle" font-weight="bold">
+            ${margins.bottom}mm</text>`;
+        }
 
-        // Right margin line
-        svgContent += `<line x1="${x + width - marginSize}" y1="${y}" x2="${x + width - marginSize}" y2="${y + height}"
-          stroke="#4CAF50" stroke-width="0.8" stroke-dasharray="2,2" opacity="0.6"/>`;
+        // Left margin label
+        if (margins.left > 0) {
+          svgContent += `<text x="${x - 15}" y="${y + height/2}"
+            fill="#666" font-size="${labelFontSize}" text-anchor="middle" font-weight="bold"
+            transform="rotate(-90, ${x - 15}, ${y + height/2})">
+            ${margins.left}mm</text>`;
+        }
 
-        // Subtle corner markers for professional appearance
-        const cornerSize = 2; // Small, clean corners
-        svgContent += `<rect x="${x + marginSize - cornerSize/2}" y="${y + marginSize - cornerSize/2}"
-          width="${cornerSize}" height="${cornerSize}" fill="#4CAF50" opacity="0.6"/>`;
-        svgContent += `<rect x="${x + width - marginSize - cornerSize/2}" y="${y + marginSize - cornerSize/2}"
-          width="${cornerSize}" height="${cornerSize}" fill="#4CAF50" opacity="0.6"/>`;
-        svgContent += `<rect x="${x + marginSize - cornerSize/2}" y="${y + height - marginSize - cornerSize/2}"
-          width="${cornerSize}" height="${cornerSize}" fill="#4CAF50" opacity="0.6"/>`;
-        svgContent += `<rect x="${x + width - marginSize - cornerSize/2}" y="${y + height - marginSize - cornerSize/2}"
-          width="${cornerSize}" height="${cornerSize}" fill="#4CAF50" opacity="0.6"/>`;
+        // Right margin label
+        if (margins.right > 0) {
+          svgContent += `<text x="${x + width + 15}" y="${y + height/2}"
+            fill="#666" font-size="${labelFontSize}" text-anchor="middle" font-weight="bold"
+            transform="rotate(90, ${x + width + 15}, ${y + height/2})">
+            ${margins.right}mm</text>`;
+        }
 
+        // Add sewing position if exists
+        if (obj.sewingPosition && obj.sewingPosition !== 'none') {
+          const sewingOffset = obj.sewingOffset || 0;
+
+          if (obj.sewingPosition === 'top') {
+            const sewingY = y + sewingOffset;
+            svgContent += `<line x1="${x}" y1="${sewingY}" x2="${x + width}" y2="${sewingY}"
+              stroke="#d32f2f" stroke-width="2" stroke-dasharray="4,4" opacity="0.9"/>`;
+            svgContent += `<text x="${x + width + 5}" y="${sewingY}"
+              fill="#d32f2f" font-size="${labelFontSize}" font-weight="bold" text-anchor="start">
+              ${sewingOffset}mm</text>`;
+          } else if (obj.sewingPosition === 'bottom') {
+            const sewingY = y + height - sewingOffset;
+            svgContent += `<line x1="${x}" y1="${sewingY}" x2="${x + width}" y2="${sewingY}"
+              stroke="#d32f2f" stroke-width="2" stroke-dasharray="4,4" opacity="0.9"/>`;
+            svgContent += `<text x="${x + width + 5}" y="${sewingY}"
+              fill="#d32f2f" font-size="${labelFontSize}" font-weight="bold" text-anchor="start">
+              ${sewingOffset}mm</text>`;
+          } else if (obj.sewingPosition === 'left') {
+            const sewingX = x + sewingOffset;
+            svgContent += `<line x1="${sewingX}" y1="${y}" x2="${sewingX}" y2="${y + height}"
+              stroke="#d32f2f" stroke-width="2" stroke-dasharray="4,4" opacity="0.9"/>`;
+            svgContent += `<text x="${sewingX}" y="${y - 5}"
+              fill="#d32f2f" font-size="${labelFontSize}" font-weight="bold" text-anchor="middle">
+              ${sewingOffset}mm</text>`;
+          } else if (obj.sewingPosition === 'right') {
+            const sewingX = x + width - sewingOffset;
+            svgContent += `<line x1="${sewingX}" y1="${y}" x2="${sewingX}" y2="${y + height}"
+              stroke="#d32f2f" stroke-width="2" stroke-dasharray="4,4" opacity="0.9"/>`;
+            svgContent += `<text x="${sewingX}" y="${y - 5}"
+              fill="#d32f2f" font-size="${labelFontSize}" font-weight="bold" text-anchor="middle">
+              ${sewingOffset}mm</text>`;
+          } else if (obj.sewingPosition === 'mid-fold') {
+            const midY = y + height / 2;
+            svgContent += `<line x1="${x}" y1="${midY}" x2="${x + width}" y2="${midY}"
+              stroke="#d32f2f" stroke-width="2" stroke-dasharray="4,4" opacity="0.9"/>`;
+            svgContent += `<text x="${x + width + 5}" y="${midY}"
+              fill="#d32f2f" font-size="${labelFontSize}" font-weight="bold" text-anchor="start">
+              Mid-Fold</text>`;
+          }
+        }
       }
 
       // Add ONLY dimensions - NO object names, NO margin labels
