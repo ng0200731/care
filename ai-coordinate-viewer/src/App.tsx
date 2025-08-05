@@ -1347,22 +1347,35 @@ function App() {
   };
 
   const handleAddSonObject = (motherObject: AIObject) => {
-    console.log('➕ Adding son object to mother:', motherObject.name);
+    console.log('🔥 ADD SON BUTTON CLICKED! Mother:', motherObject.name);
+    alert(`🔥 Adding son to ${motherObject.name}`); // Temporary visual feedback
 
     const motherNum = motherObject.type?.match(/mother (\d+)/)?.[1];
+    console.log('🔍 Mother number extracted:', motherNum);
+
     if (!motherNum) {
-      console.error('Could not determine mother number');
+      console.error('❌ Could not determine mother number from type:', motherObject.type);
+      alert('❌ Error: Could not determine mother number');
       return;
     }
 
     const currentData = data || webCreationData;
-    if (!currentData) return;
+    console.log('📊 Current data:', currentData);
+
+    if (!currentData) {
+      console.error('❌ No current data available');
+      alert('❌ Error: No data available');
+      return;
+    }
 
     // Find existing sons for this mother to determine next son number
     const existingSons = currentData.objects.filter(obj =>
       obj.type?.includes('son') && obj.type?.includes(`son ${motherNum}-`)
     );
     const nextSonNumber = existingSons.length + 1;
+
+    console.log('👶 Existing sons for mother', motherNum, ':', existingSons.length);
+    console.log('🔢 Next son number will be:', nextSonNumber);
 
     // Create new son object (basic structure)
     const newSon: AIObject = {
@@ -1493,6 +1506,17 @@ function App() {
 
     console.log('✅ Created new son object with all attributes:', newSon);
     console.log('✅ Son metadata:', sonMetadataObj);
+
+    // Visual feedback
+    alert(`✅ SUCCESS! Created ${newSon.name} inside ${motherObject.name}`);
+
+    // Force re-render by updating expanded mothers to show the new son
+    setExpandedMothers(prev => {
+      const motherIndex = currentData.objects.findIndex(obj => obj.name === motherObject.name);
+      const newSet = new Set(prev);
+      newSet.add(motherIndex);
+      return newSet;
+    });
   };
 
 
@@ -1540,6 +1564,8 @@ function App() {
               <div style={{ marginBottom: '8px' }}>
                 <button
                   onClick={(e) => {
+                    console.log('🔥 BUTTON CLICKED!', e);
+                    alert('🔥 BUTTON CLICKED!');
                     e.stopPropagation();
                     handleAddSonObject(mother.object);
                   }}
