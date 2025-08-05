@@ -33,7 +33,7 @@ const NavigationButtons: React.FC<NavigationButtonsProps> = ({
       display: 'flex',
       gap: '15px',
       marginBottom: '20px',
-      padding: '0 20px'
+      padding: '0 0px'
     }}>
       {showMasterFilesButton && (
         <button

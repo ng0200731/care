@@ -55,7 +55,7 @@ const CreateMethod: React.FC = () => {
     <div style={{
       maxWidth: '800px',
       margin: '0 auto',
-      padding: '20px'
+      padding: '10px'
     }}>
       {/* Navigation Buttons */}
       <NavigationButtons
@@ -67,8 +67,8 @@ const CreateMethod: React.FC = () => {
 
       {/* Header */}
       <div style={{
-        marginBottom: '40px',
-        padding: '0 20px'
+        marginBottom: '20px',
+        padding: '0 0px'
       }}>
         <h1 style={{
           fontSize: '28px',
@@ -92,7 +92,7 @@ const CreateMethod: React.FC = () => {
         background: '#f7fafc',
         border: '1px solid #e2e8f0',
         padding: '20px',
-        marginBottom: '50px',
+        marginBottom: '30px',
         textAlign: 'center'
       }}>
         <h3 style={{
@@ -123,8 +123,8 @@ const CreateMethod: React.FC = () => {
       <div style={{
         display: 'grid',
         gridTemplateColumns: '1fr 1fr',
-        gap: '40px',
-        marginBottom: '40px'
+        gap: '30px',
+        marginBottom: '20px'
       }}>
         {/* Create from Zero Button */}
         <button

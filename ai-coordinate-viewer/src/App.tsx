@@ -2059,8 +2059,8 @@ function App() {
         <>
           {/* Navigation Buttons */}
           <NavigationButtons
-            previousPagePath="/master-files/select-customer"
-            previousPageLabel="Select Customer"
+            previousPagePath="/master-files/create-method"
+            previousPageLabel="Create Method"
             showMasterFilesButton={true}
             showPreviousButton={true}
           />
@@ -2088,15 +2088,13 @@ function App() {
         display: 'flex',
         height: '100vh'
       }}>
-        {/* Canvas Area - 70% */}
+        {/* Canvas Area - Dynamic width based on web creation mode */}
         <div style={{
-          width: '70%',
+          width: isWebCreationMode ? '70%' : '100%',
           background: 'white',
-          padding: '20px',
-          display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          borderRight: '1px solid #ddd'
+          borderRight: isWebCreationMode ? '1px solid #ddd' : 'none'
         }}>
           {data || isWebCreationMode ? (
             <div style={{ position: 'relative', width: '100%', height: '100%' }}>
@@ -2394,13 +2392,14 @@ function App() {
           )}
         </div>
 
-        {/* Hierarchy Panel - 30% */}
-        <div style={{
-          width: '30%',
-          background: 'white',
-          padding: '20px',
-          overflowY: 'auto'
-        }}>
+        {/* Hierarchy Panel - 30% - Only show in web creation mode */}
+        {isWebCreationMode && (
+          <div style={{
+            width: '30%',
+            background: 'white',
+            padding: '20px',
+            overflowY: 'auto'
+          }}>
           <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', borderBottom: '1px solid #eee', paddingBottom: '10px'}}>
             <h3 style={{margin: 0}}>
               📋 {(data || webCreationData) ? (() => {
@@ -2586,7 +2585,8 @@ function App() {
               onUpdateMotherMetadata={handleUpdateMotherMetadata}
             />
           </div>
-        </div>
+          </div>
+        )}
 
       </div>
 
