@@ -195,8 +195,10 @@ function App() {
   // Check for canvas-only mode flag and force web creation mode
   useEffect(() => {
     const forceWebMode = sessionStorage.getItem('forceWebCreationMode');
-    if (forceWebMode === 'true') {
-      console.log('🎨 Canvas-only mode detected - forcing web creation mode');
+
+    // Enable web creation mode if coming from projects or if explicitly forced
+    if (forceWebMode === 'true' || context === 'projects') {
+      console.log('🎨 Canvas mode detected - enabling web creation mode');
       setIsWebCreationMode(true);
 
       // Check if there's a master file ID to load for editing
@@ -1503,7 +1505,7 @@ function App() {
                       </button>
                     )}
 
-                    {/* Add Son Object Button */}
+                    {/* Add Son Object Button - Always visible */}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -1512,13 +1514,14 @@ function App() {
                         handleAddSonObject(mother.object);
                       }}
                       style={{
-                        background: 'rgba(255,255,255,0.2)',
-                        border: '1px solid rgba(255,255,255,0.3)',
-                        color: 'inherit',
+                        background: '#4CAF50',
+                        border: '1px solid #45a049',
+                        color: 'white',
                         fontSize: '10px',
                         padding: '4px 8px',
                         borderRadius: '4px',
-                        cursor: 'pointer'
+                        cursor: 'pointer',
+                        fontWeight: 'bold'
                       }}
                       title="Add son object to this mother"
                     >
@@ -2890,8 +2893,8 @@ function App() {
           )}
         </div>
 
-        {/* Hierarchy Panel - 30% - Only show in web creation mode */}
-        {isWebCreationMode && (
+        {/* Hierarchy Panel - 30% - Show in web creation mode or project context */}
+        {(isWebCreationMode || context === 'projects') && (
           <div style={{
             width: '30%',
             background: 'white',
