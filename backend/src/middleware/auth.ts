@@ -25,7 +25,7 @@ interface JWTPayload {
 }
 
 // Authentication middleware
-export const authenticateToken = async (req: Request, res: Response, next: NextFunction) => {
+export const authenticateToken = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
   try {
     const authHeader = req.headers.authorization;
     const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
@@ -57,7 +57,7 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
       id: user.id,
       email: user.email,
       username: user.username,
-      role: user.role
+      role: user.role as 'ADMIN' | 'USER'
     };
 
     next();
@@ -74,7 +74,7 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
 };
 
 // Admin-only middleware
-export const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
+export const requireAdmin = (req: Request, res: Response, next: NextFunction): any => {
   if (!req.user) {
     return res.status(401).json({ error: 'Authentication required' });
   }

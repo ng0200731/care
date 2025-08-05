@@ -13,6 +13,7 @@ import {
 import { mockDatabase } from '../database/mockDatabase';
 
 class MasterFileService {
+  private baseUrl = 'http://localhost:3001/api'; // Backend API URL
 
   // =====================================================
   // CREATE MASTER FILE
@@ -20,6 +21,41 @@ class MasterFileService {
 
   async createMasterFile(request: CreateMasterFileRequest): Promise<ApiResponse<MasterFile>> {
     try {
+      // Try backend API first
+      try {
+        const response = await fetch(`${this.baseUrl}/master-files`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: request.name,
+            description: request.description,
+            data: JSON.stringify({
+              designData: request.designData,
+              width: request.width,
+              height: request.height,
+              customerId: request.customerId
+            }),
+            width: request.width,
+            height: request.height,
+            canvasImage: request.canvasImage
+          }),
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          return {
+            success: true,
+            data: result.masterFile,
+            message: result.message
+          };
+        }
+      } catch (apiError) {
+        console.warn('Backend API not available, using mock database:', apiError);
+      }
+
+      // Fallback to mock database
       const masterFile = await mockDatabase.createMasterFile({
         name: request.name,
         width: request.width,
@@ -50,6 +86,42 @@ class MasterFileService {
 
   async getAllMasterFiles(filters?: MasterFileFilters): Promise<ApiResponse<MasterFileWithSummary[]>> {
     try {
+      // Try backend API first
+      try {
+        const response = await fetch(`${this.baseUrl}/master-files`);
+        if (response.ok) {
+          const result = await response.json();
+          // Transform backend data to match frontend interface
+          const masterFiles = result.masterFiles.map((mf: any) => ({
+            id: mf.id,
+            name: mf.name,
+            description: mf.description,
+            width: mf.width || 200,
+            height: mf.height || 150,
+            customerId: 'default', // Backend doesn't have customerId yet
+            canvasImage: mf.canvasImage,
+            designData: mf.data ? JSON.parse(mf.data) : null,
+            revisionNumber: 1,
+            revisionHistory: [],
+            createdAt: new Date(mf.createdAt),
+            updatedAt: new Date(mf.updatedAt),
+            isActive: true,
+            customerName: 'Default Customer',
+            contactPerson: 'N/A',
+            templateCount: 0,
+            lastTemplateUpdate: undefined
+          }));
+
+          return {
+            success: true,
+            data: masterFiles
+          };
+        }
+      } catch (apiError) {
+        console.warn('Backend API not available, using mock database:', apiError);
+      }
+
+      // Fallback to mock database
       let masterFiles = await mockDatabase.getAllMasterFiles();
 
       // Apply filters
@@ -96,6 +168,40 @@ class MasterFileService {
 
   async getMasterFileById(id: string): Promise<ApiResponse<MasterFile>> {
     try {
+      // Try backend API first
+      try {
+        const response = await fetch(`${this.baseUrl}/master-files/${id}`);
+        if (response.ok) {
+          const result = await response.json();
+          const mf = result.masterFile;
+
+          // Transform backend data to match frontend interface
+          const masterFile: MasterFile = {
+            id: mf.id,
+            name: mf.name,
+            description: mf.description,
+            width: mf.width || 200,
+            height: mf.height || 150,
+            customerId: 'default',
+            canvasImage: mf.canvasImage,
+            designData: mf.data ? JSON.parse(mf.data) : null,
+            revisionNumber: 1,
+            revisionHistory: [],
+            createdAt: new Date(mf.createdAt),
+            updatedAt: new Date(mf.updatedAt),
+            isActive: true
+          };
+
+          return {
+            success: true,
+            data: masterFile
+          };
+        }
+      } catch (apiError) {
+        console.warn('Backend API not available, using mock database:', apiError);
+      }
+
+      // Fallback to mock database
       const masterFile = await mockDatabase.getMasterFileById(id);
 
       if (!masterFile) {
@@ -124,6 +230,39 @@ class MasterFileService {
 
   async updateMasterFile(request: UpdateMasterFileRequest): Promise<ApiResponse<InheritanceWarning | null>> {
     try {
+      // Try backend API first
+      try {
+        const response = await fetch(`${this.baseUrl}/master-files/${request.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: request.name,
+            description: request.description,
+            data: JSON.stringify({
+              designData: request.designData,
+              width: request.width,
+              height: request.height
+            }),
+            width: request.width,
+            height: request.height,
+            canvasImage: request.canvasImage
+          }),
+        });
+
+        if (response.ok) {
+          return {
+            success: true,
+            data: null,
+            message: 'Master file updated successfully'
+          };
+        }
+      } catch (apiError) {
+        console.warn('Backend API not available, using mock database:', apiError);
+      }
+
+      // Fallback to mock database
       const updates: any = {};
 
       if (request.name) updates.name = request.name;

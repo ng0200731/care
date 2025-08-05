@@ -83,12 +83,12 @@ const CreateMasterFile: React.FC = () => {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Navigate to coordinate viewer with new file data
-      navigate('/coordinate-viewer', { 
-        state: { 
-          newFile: true, 
-          fileData: formData 
-        } 
+      // Navigate to create_zero with new file data
+      navigate('/create_zero', {
+        state: {
+          newFile: true,
+          fileData: formData
+        }
       });
     } catch (error) {
       console.error('Error creating master file:', error);

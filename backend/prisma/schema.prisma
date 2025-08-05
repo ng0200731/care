@@ -34,6 +34,9 @@ model MasterFile {
   name        String
   description String?
   data        String   // Stores the complete coordinate viewer JSON data as string
+  width       Float?   // Canvas width in mm
+  height      Float?   // Canvas height in mm
+  canvasImage String?  // SVG image of the canvas design
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

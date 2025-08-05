@@ -86,13 +86,12 @@ const MasterFilesManagement: React.FC = () => {
         const result = await masterFileService.deleteMasterFile(id);
         if (result.success) {
           loadData(); // Reload the list
-          alert('Master file deleted successfully!');
+          console.log('Master file deleted successfully:', name);
         } else {
-          alert(`Error: ${result.error}`);
+          console.error(`Error: ${result.error}`);
         }
       } catch (error) {
         console.error('Error deleting master file:', error);
-        alert('Failed to delete master file');
       }
     }
   };
@@ -103,8 +102,8 @@ const MasterFilesManagement: React.FC = () => {
   };
 
   const handleEditMasterFile = (masterFile: MasterFileWithSummary) => {
-    // Navigate to coordinate viewer with master file ID for editing
-    navigate(`/coordinate-viewer?masterFileId=${masterFile.id}`);
+    // Navigate to create_zero with master file ID for editing
+    navigate(`/create_zero?masterFileId=${masterFile.id}`);
   };
 
   const filteredMasterFiles = masterFiles.filter(mf => 
@@ -224,22 +223,7 @@ const MasterFilesManagement: React.FC = () => {
           </button>
         </div>
 
-        {/* Create Button */}
-        <button
-          onClick={() => setShowCreateForm(true)}
-          style={{
-            padding: '10px 20px',
-            backgroundColor: '#28a745',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '14px',
-            fontWeight: 'bold'
-          }}
-        >
-          ➕ Create New Master File
-        </button>
+
       </div>
 
       {/* Master Files Grid */}
@@ -271,6 +255,29 @@ const MasterFilesManagement: React.FC = () => {
             }}
             onClick={() => handleSelectMasterFile(masterFile)}
           >
+            {/* Canvas Image Preview */}
+            {(masterFile as any).canvasImage && (
+              <div style={{ marginBottom: '15px', textAlign: 'center' }}>
+                <div
+                  style={{
+                    border: '1px solid #e0e0e0',
+                    borderRadius: '4px',
+                    padding: '10px',
+                    backgroundColor: '#fafafa',
+                    maxHeight: '150px',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                  dangerouslySetInnerHTML={{ __html: (masterFile as any).canvasImage }}
+                />
+                <div style={{ fontSize: '11px', color: '#999', marginTop: '5px' }}>
+                  Canvas Preview
+                </div>
+              </div>
+            )}
+
             {/* Master File Header */}
             <div style={{ marginBottom: '15px' }}>
               <h3 style={{ margin: '0 0 5px 0', fontSize: '18px', fontWeight: 'bold' }}>

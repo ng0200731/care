@@ -127,6 +127,9 @@ function App() {
   const [sonObjects, setSonObjects] = useState<SonObject[]>([]);
   const [showSonObjectManager, setShowSonObjectManager] = useState(false);
 
+  // Saving state
+  const [isSaving, setIsSaving] = useState(false);
+
 
 
   // Mother creation dialog state
@@ -188,14 +191,23 @@ function App() {
       console.log('🎨 Canvas-only mode detected - forcing web creation mode');
       setIsWebCreationMode(true);
 
-      // Initialize empty web creation data if none exists
-      if (!webCreationData) {
-        const emptyData: AIData = {
-          document: 'Web Creation Project',
-          totalObjects: 0,
-          objects: []
-        };
-        setWebCreationData(emptyData);
+      // Check if there's a master file ID to load for editing
+      const editMasterFileId = sessionStorage.getItem('editMasterFileId');
+      if (editMasterFileId) {
+        console.log('🔍 Canvas-only mode: Master file ID detected for editing:', editMasterFileId);
+        loadMasterFileForEditing(editMasterFileId);
+        // Remove the ID from sessionStorage after loading
+        sessionStorage.removeItem('editMasterFileId');
+      } else {
+        // Initialize empty web creation data if none exists and no master file to load
+        if (!webCreationData) {
+          const emptyData: AIData = {
+            document: 'Web Creation Project',
+            totalObjects: 0,
+            objects: []
+          };
+          setWebCreationData(emptyData);
+        }
       }
     }
   }, [webCreationData]);
@@ -488,31 +500,19 @@ function App() {
   // Save Master File functions - Direct save without dialog
   const saveDirectly = async () => {
     if (!isWebCreationMode || !data || data.objects.length === 0) {
-      alert('Please create some objects before saving as master file.');
+      console.error('Please create some objects before saving as master file.');
       return;
     }
 
     if (!selectedCustomer) {
-      alert('No customer selected.');
+      console.error('No customer selected.');
       return;
     }
 
     // Check if we're in edit mode
     if (isEditMode && editingMasterFileId && originalMasterFile) {
-      // Show overwrite confirmation
-      const confirmOverwrite = window.confirm(
-        `⚠️ This will overwrite the existing master file:\n\n` +
-        `"${originalMasterFile.name}"\n\n` +
-        `Current revision: ${originalMasterFile.revisionNumber}\n` +
-        `New revision will be: ${originalMasterFile.revisionNumber + 1}\n\n` +
-        `Do you want to continue?`
-      );
-
-      if (!confirmOverwrite) {
-        return; // User cancelled
-      }
-
-      // Perform overwrite save
+      // Perform overwrite save directly without confirmation
+      console.log(`🔄 Updating master file: ${originalMasterFile.name} (revision ${originalMasterFile.revisionNumber} → ${originalMasterFile.revisionNumber + 1})`);
       await performOverwriteSave();
     } else {
       // Generate default name automatically for new files
@@ -525,19 +525,22 @@ function App() {
 
   const performSave = async (fileName: string) => {
     if (!fileName.trim()) {
-      alert('Please enter a master file name.');
+      console.error('Please enter a master file name.');
       return;
     }
 
     if (!selectedCustomer) {
-      alert('No customer selected.');
+      console.error('No customer selected.');
       return;
     }
 
     if (!data || data.objects.length === 0) {
-      alert('No data to save.');
+      console.error('No data to save.');
       return;
     }
+
+    // Show saving state
+    setIsSaving(true);
 
     try {
       // Capture canvas as SVG
@@ -590,31 +593,35 @@ function App() {
       });
 
       if (result.success) {
-        alert(`✅ Master File Saved Successfully!\n\nName: ${fileName}\nCustomer: ${selectedCustomer.customerName}\nDimensions: ${widthInMm} × ${heightInMm} mm\nObjects: ${data.objects.length}\nRevision: 1\n\nThe master file has been saved and is now available in Master File Management.\n\n🔄 Redirecting to Master Files...`);
-
-        // Navigate back to master files management after 2 seconds
+        // Keep saving state visible for at least 1 second, then show success
         setTimeout(() => {
-          window.location.href = '/master-files';
-        }, 2000);
+          setIsSaving(false);
+          console.log(`✅ Master File Saved Successfully! Name: ${fileName}, Customer: ${selectedCustomer.customerName}, Objects: ${data.objects.length}`);
+
+          // Navigate to master files management immediately
+          window.location.href = '/master-files-management';
+        }, 1000); // Show saving overlay for at least 1 second
       } else {
-        alert(`❌ Error saving master file: ${result.error}`);
+        // Hide saving state on error
+        setIsSaving(false);
+        console.error(`❌ Error saving master file: ${result.error}`);
       }
     } catch (error) {
+      // Hide saving state on error
+      setIsSaving(false);
       console.error('Error saving master file:', error);
-      if (error instanceof Error && error.message.includes('already exists')) {
-        alert(`❌ ${error.message}`);
-      } else {
-        alert('❌ Failed to save master file. Please try again.');
-      }
     }
   };
 
   // Overwrite Save Function for Edit Mode
   const performOverwriteSave = async () => {
     if (!editingMasterFileId || !originalMasterFile || !data) {
-      alert('❌ Error: Missing edit mode data.');
+      console.error('❌ Error: Missing edit mode data.');
       return;
     }
+
+    // Show saving state
+    setIsSaving(true);
 
     try {
       // Capture canvas as SVG
@@ -668,19 +675,24 @@ function App() {
       });
 
       if (result.success) {
-        const newRevision = originalMasterFile.revisionNumber + 1;
-        alert(`✅ Master File Updated Successfully!\n\nName: ${originalMasterFile.name}\nCustomer: ${selectedCustomer?.customerName}\nDimensions: ${widthInMm} × ${heightInMm} mm\nObjects: ${data.objects.length}\nRevision: ${newRevision}\n\nChanges have been saved.\n\n🔄 Returning to Master Files Management...`);
-
-        // Navigate back to Master Files Management
+        // Keep saving state visible for at least 1 second, then show success
         setTimeout(() => {
+          setIsSaving(false);
+          const newRevision = originalMasterFile.revisionNumber + 1;
+          console.log(`✅ Master File Updated Successfully! Name: ${originalMasterFile.name}, Revision: ${newRevision}, Objects: ${data.objects.length}`);
+
+          // Navigate back to Master Files Management immediately
           window.location.href = '/master-files-management';
-        }, 2000);
+        }, 1000); // Show saving overlay for at least 1 second
       } else {
-        alert(`❌ Error updating master file: ${result.error}`);
+        // Hide saving state on error
+        setIsSaving(false);
+        console.error(`❌ Error updating master file: ${result.error}`);
       }
     } catch (error) {
+      // Hide saving state on error
+      setIsSaving(false);
       console.error('Error updating master file:', error);
-      alert('❌ Failed to update master file. Please try again.');
     }
   };
 
@@ -693,7 +705,7 @@ function App() {
       const result = await masterFileService.getMasterFileById(masterFileId);
 
       if (!result.success || !result.data) {
-        alert(`❌ Error loading master file: ${result.error || 'Master file not found'}`);
+        console.error(`❌ Error loading master file: ${result.error || 'Master file not found'}`);
         return;
       }
 
@@ -702,7 +714,7 @@ function App() {
 
       // Check if master file has design data
       if (!masterFile.designData || !masterFile.designData.objects) {
-        alert('❌ This master file has no design data to edit.');
+        console.error('❌ This master file has no design data to edit.');
         return;
       }
 
@@ -745,12 +757,11 @@ function App() {
       setSonMetadata(new Map());
       setExpandedMothers(new Set());
 
-      // Show success message
-      alert(`✅ Master File Loaded Successfully!\n\nName: ${masterFile.name}\nObjects: ${masterFile.designData.objects.length}\nDimensions: ${masterFile.width} × ${masterFile.height} mm\n\nYou can now edit the design and save changes.`);
+      // Log success message instead of showing popup
+      console.log(`✅ Master File Loaded Successfully! Name: ${masterFile.name}, Objects: ${masterFile.designData.objects.length}, Dimensions: ${masterFile.width} × ${masterFile.height} mm`);
 
     } catch (error) {
       console.error('❌ Error loading master file:', error);
-      alert('❌ Failed to load master file. Please try again.');
     }
   };
 
@@ -821,12 +832,12 @@ function App() {
 
     // Validate dimensions
     if (motherConfig.width <= 0 || motherConfig.height <= 0) {
-      alert('❌ Invalid dimensions!\n\nPlease enter valid width and height values greater than 0.');
+      console.error('❌ Invalid dimensions! Please enter valid width and height values greater than 0.');
       return;
     }
 
     if (motherConfig.width > 1000 || motherConfig.height > 1000) {
-      alert('❌ Dimensions too large!\n\nPlease enter dimensions smaller than 1000mm for both width and height.');
+      console.error('❌ Dimensions too large! Please enter dimensions smaller than 1000mm for both width and height.');
       return;
     }
 
@@ -860,9 +871,6 @@ function App() {
       if (editedObject) setSelectedObject(editedObject);
 
       console.log('✅ Mother object updated:', editingMotherId);
-
-      // Show success feedback for update
-      alert(`✅ Mother Container Updated!\n\n"${editingMotherId}" has been updated successfully.\n\n📐 Size: ${motherConfig.width} × ${motherConfig.height} mm\n📏 Margins: ${motherConfig.margins.top}mm (top), ${motherConfig.margins.left}mm (left), ${motherConfig.margins.down}mm (bottom), ${motherConfig.margins.right}mm (right)`);
     } else {
       // Create new mother at default position
       const xPosition = 50;
@@ -894,9 +902,6 @@ function App() {
       setSelectedObject(newMother);
 
       console.log('✅ Mother object created:', newMother);
-
-      // Show success feedback for creation
-      alert(`🎉 Mother Container Created!\n\n"${newMother.name}" has been created successfully and is ready for son objects.\n\n📐 Size: ${motherConfig.width} × ${motherConfig.height} mm\n📍 Position: ${xPosition}, ${yPosition} mm\n📏 Margins: ${motherConfig.margins.top}mm (top), ${motherConfig.margins.left}mm (left), ${motherConfig.margins.down}mm (bottom), ${motherConfig.margins.right}mm (right)\n\n💡 Next: Click "🎯 Manage Son Objects" to add content!`);
     }
 
     setShowMotherDialog(false); // Close dialog
@@ -1353,7 +1358,7 @@ function App() {
             }
           }, 200); // Increased timeout to ensure DOM is ready
         } catch (error) {
-          alert('Invalid JSON file');
+          console.error('Invalid JSON file:', error);
         }
       };
       reader.readAsText(file);
@@ -2090,8 +2095,8 @@ function App() {
         <>
           {/* Navigation Buttons */}
           <NavigationButtons
-            previousPagePath="/coordinate-viewer"
-            previousPageLabel="Create Method"
+            previousPagePath={isEditMode ? "/master-files-management" : "/coordinate-viewer"}
+            previousPageLabel={isEditMode ? "Master Files Management" : "Create Method"}
             showMasterFilesButton={true}
             showPreviousButton={true}
           />
@@ -3142,6 +3147,69 @@ function App() {
 
 
       {/* Space Allocation Dialog - REMOVED (now handled directly in son regions) */}
+
+      {/* Saving Overlay */}
+      {isSaving && (
+        <>
+          <style>
+            {`
+              @keyframes savingPulse {
+                0% { transform: scale(1); opacity: 1; }
+                50% { transform: scale(1.1); opacity: 0.8; }
+                100% { transform: scale(1); opacity: 1; }
+              }
+            `}
+          </style>
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            background: 'rgba(0, 0, 0, 0.8)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 99999,
+            backdropFilter: 'blur(2px)'
+          }}>
+            <div style={{
+              background: 'white',
+              padding: '50px 70px',
+              borderRadius: '16px',
+              textAlign: 'center',
+              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)',
+              border: '2px solid #e2e8f0',
+              minWidth: '300px'
+            }}>
+              <div style={{
+                fontSize: '64px',
+                marginBottom: '25px',
+                animation: 'savingPulse 1.5s infinite',
+                filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.2))'
+              }}>
+                💾
+              </div>
+              <div style={{
+                fontSize: '28px',
+                fontWeight: 'bold',
+                color: '#2d3748',
+                marginBottom: '15px',
+                letterSpacing: '0.5px'
+              }}>
+                Saving...
+              </div>
+              <div style={{
+                fontSize: '18px',
+                color: '#666',
+                lineHeight: '1.4'
+              }}>
+                Please wait while we save your master file
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Version Footer */}
       <div style={{

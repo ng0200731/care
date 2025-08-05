@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import App from '../../App';
 
 const CanvasOnly: React.FC = () => {
+  const location = useLocation();
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
@@ -11,14 +13,25 @@ const CanvasOnly: React.FC = () => {
     // Set a flag in sessionStorage to indicate we're in canvas-only mode
     sessionStorage.setItem('forceWebCreationMode', 'true');
 
+    // Check if there's a master file ID in the URL parameters
+    const urlParams = new URLSearchParams(location.search);
+    const masterFileId = urlParams.get('masterFileId');
+
+    if (masterFileId) {
+      // Store the master file ID so App.tsx can pick it up
+      sessionStorage.setItem('editMasterFileId', masterFileId);
+      console.log('🎨 CanvasOnly: Master file ID detected for editing:', masterFileId);
+    }
+
     // Set ready state to trigger App re-render
     setIsReady(true);
 
     // Clean up when component unmounts
     return () => {
       sessionStorage.removeItem('forceWebCreationMode');
+      sessionStorage.removeItem('editMasterFileId');
     };
-  }, []);
+  }, [location.search]);
 
   // Don't render App until we've set the flag
   if (!isReady) {

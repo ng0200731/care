@@ -17,7 +17,13 @@ const NavigationButtons: React.FC<NavigationButtonsProps> = ({
   const navigate = useNavigate();
 
   const handleBackToMasterFiles = () => {
-    navigate('/master-files');
+    // If we're coming from master-files-management (edit mode), go back there
+    // Otherwise go to the main master-files page
+    if (previousPagePath === '/master-files-management') {
+      navigate('/master-files-management');
+    } else {
+      navigate('/master-files');
+    }
   };
 
   const handleBackToPrevious = () => {

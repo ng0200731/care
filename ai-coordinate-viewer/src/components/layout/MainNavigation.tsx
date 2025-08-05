@@ -35,6 +35,14 @@ const MainNavigation: React.FC = () => {
     if (path === '/') {
       return location.pathname === '/';
     }
+
+    // Special handling for Master Files - include coordinate-viewer and create_zero as part of master files workflow
+    if (path === '/master-files') {
+      return location.pathname.startsWith('/master-files') ||
+             location.pathname === '/coordinate-viewer' ||
+             location.pathname === '/create_zero';
+    }
+
     return location.pathname.startsWith(path);
   };
 
