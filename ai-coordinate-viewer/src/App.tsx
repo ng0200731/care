@@ -169,6 +169,30 @@ function App() {
     sewingOffset: 5
   });
 
+  // Son creation dialog state
+  const [showSonDialog, setShowSonDialog] = useState(false);
+  const [selectedMotherForSon, setSelectedMotherForSon] = useState<AIObject | null>(null);
+  const [sonConfig, setSonConfig] = useState({
+    type: 'text' as 'text' | 'image' | 'barcode' | 'translation' | 'washing' | 'size' | 'composition' | 'special',
+    content: '',
+    fontFamily: 'Arial',
+    fontSize: 12,
+    textAlign: 'left' as 'left' | 'center' | 'right',
+    fontWeight: 'normal' as 'normal' | 'bold',
+    margins: {
+      top: 2,
+      bottom: 2,
+      left: 2,
+      right: 2
+    },
+    position: {
+      x: 0,
+      y: 0
+    },
+    width: 50,
+    height: 20
+  });
+
   // Visual toggle states
   const [showMarginRectangles, setShowMarginRectangles] = useState(true);
   const [showSewingLines, setShowSewingLines] = useState(true);
@@ -1360,61 +1384,36 @@ function App() {
 
   const handleAddSonObject = (motherObject: AIObject) => {
     console.log('🔥 ADD SON BUTTON CLICKED! Mother:', motherObject.name);
-    alert(`🔥 Adding son to ${motherObject.name}`); // Temporary visual feedback
 
-    const motherNum = motherObject.type?.match(/mother (\d+)/)?.[1];
-    console.log('🔍 Mother number extracted:', motherNum);
+    // Set the selected mother and open the son creation dialog
+    setSelectedMotherForSon(motherObject);
 
-    if (!motherNum) {
-      console.error('❌ Could not determine mother number from type:', motherObject.type);
-      alert('❌ Error: Could not determine mother number');
-      return;
-    }
-
-    const currentData = data || webCreationData;
-    console.log('📊 Current data:', currentData);
-
-    if (!currentData) {
-      console.error('❌ No current data available');
-      alert('❌ Error: No data available');
-      return;
-    }
-
-    // Find existing sons for this mother to determine next son number
-    const existingSons = currentData.objects.filter(obj =>
-      obj.type?.includes('son') && obj.type?.includes(`son ${motherNum}-`)
-    );
-    const nextSonNumber = existingSons.length + 1;
-
-    console.log('👶 Existing sons for mother', motherNum, ':', existingSons.length);
-    console.log('🔢 Next son number will be:', nextSonNumber);
-
-    // Create new son object (basic structure)
-    const newSon: AIObject = {
-      name: `son_${motherNum}_${nextSonNumber}`,
-      typename: 'TextFrame',
-      type: `son ${motherNum}-${nextSonNumber}`,
-      x: motherObject.x + 5, // Offset slightly from mother's position
-      y: motherObject.y + 5,
+    // Reset son config with default values positioned inside the mother
+    setSonConfig({
+      type: 'text',
+      content: '',
+      fontFamily: 'Arial',
+      fontSize: 12,
+      textAlign: 'left',
+      fontWeight: 'normal',
+      margins: {
+        top: 2,
+        bottom: 2,
+        left: 2,
+        right: 2
+      },
+      position: {
+        x: motherObject.x + 5, // Offset from mother's position
+        y: motherObject.y + 5
+      },
       width: Math.max(20, motherObject.width - 10), // Smaller than mother
       height: Math.max(10, motherObject.height - 10)
-    };
+    });
 
-    // Create comprehensive son metadata with all attributes
-    const sonMetadataObj: SonMetadata = {
-      id: `${newSon.name}_${newSon.x}_${newSon.y}`,
-      sonType: 'text', // Default to text, can be: text, image, barcode, translation, washing-symbol, size-breakdown, composition, special-wording
-      content: 'New Text Content',
-      details: {
-        // Text Formatting
-        fontFamily: 'Arial',
-        fontSize: 12,
-        textAlign: 'left' as const,
-        fontWeight: 'normal' as const,
+    setShowSonDialog(true);
+  };
 
-        // Text Overflow Handling
-        textOverflow: 'resize' as const, // 'resize' or 'linebreak'
-        lineBreakType: 'word' as const, // 'word' or 'character'
+
         characterConnector: '',
 
         // Additional Properties for Different Son Types
@@ -1519,9 +1518,6 @@ function App() {
     console.log('✅ Created new son object with all attributes:', newSon);
     console.log('✅ Son metadata:', sonMetadataObj);
 
-    // Visual feedback
-    alert(`✅ SUCCESS! Created ${newSon.name} inside ${motherObject.name}`);
-
     // Force re-render by updating expanded mothers to show the new son
     setExpandedMothers(prev => {
       const motherIndex = currentData.objects.findIndex(obj => obj.name === motherObject.name);
@@ -1531,7 +1527,88 @@ function App() {
     });
   };
 
+  // Function to create son object from dialog
+  const createSonFromDialog = () => {
+    if (!selectedMotherForSon) return;
 
+    const motherNum = selectedMotherForSon.type?.match(/mother (\d+)/)?.[1];
+    if (!motherNum) return;
+
+    const currentData = data || webCreationData;
+    if (!currentData) return;
+
+    // Find existing sons for this mother to determine next son number
+    const existingSons = currentData.objects.filter(obj =>
+      obj.type?.includes('son') && obj.type?.includes(`son ${motherNum}-`)
+    );
+    const nextSonNumber = existingSons.length + 1;
+
+    // Create new son object
+    const newSon: AIObject = {
+      name: `son_${motherNum}_${nextSonNumber}`,
+      typename: 'TextFrame',
+      type: `son ${motherNum}-${nextSonNumber}`,
+      x: sonConfig.position.x,
+      y: sonConfig.position.y,
+      width: sonConfig.width,
+      height: sonConfig.height
+    };
+
+    // Create son metadata
+    const sonMetadataObj: SonMetadata = {
+      id: `${newSon.name}_${newSon.x}_${newSon.y}`,
+      sonType: sonConfig.type,
+      content: sonConfig.content,
+      details: {
+        fontFamily: sonConfig.fontFamily,
+        fontSize: sonConfig.fontSize,
+        textAlign: sonConfig.textAlign,
+        fontWeight: sonConfig.fontWeight
+      },
+      fontFamily: sonConfig.fontFamily,
+      fontSize: sonConfig.fontSize,
+      textAlign: sonConfig.textAlign,
+      fontWeight: sonConfig.fontWeight,
+      margins: sonConfig.margins
+    };
+
+    // Add the new son to the current data
+    const updatedObjects = [...currentData.objects, newSon];
+    const updatedData = {
+      ...currentData,
+      objects: updatedObjects,
+      totalObjects: updatedObjects.length
+    };
+
+    // Update the appropriate data state
+    if (data) {
+      setData(updatedData);
+    } else {
+      setWebCreationData(updatedData);
+    }
+
+    // Add son metadata
+    setSonMetadata(prev => {
+      const newMap = new Map(prev);
+      newMap.set(`${newSon.name}_${newSon.x}_${newSon.y}`, sonMetadataObj);
+      return newMap;
+    });
+
+    // Select the new son object
+    setSelectedObject(newSon);
+
+    // Force re-render by updating expanded mothers
+    setExpandedMothers(prev => {
+      const motherIndex = currentData.objects.findIndex(obj => obj.name === selectedMotherForSon.name);
+      const newSet = new Set(prev);
+      newSet.add(motherIndex);
+      return newSet;
+    });
+
+    // Close dialog
+    setShowSonDialog(false);
+    setSelectedMotherForSon(null);
+  };
 
   const exportSonMetadata = () => {
     const metadataArray = Array.from(sonMetadata.entries()).map(([key, value]) => ({
@@ -1577,8 +1654,6 @@ function App() {
                 <div style={{ marginBottom: '8px' }}>
                   <button
                     onClick={(e) => {
-                      console.log('🔥 BUTTON CLICKED!', e);
-                      alert('🔥 BUTTON CLICKED!');
                       e.stopPropagation();
                       handleAddSonObject(mother.object);
                     }}
@@ -3893,6 +3968,225 @@ function App() {
             </div>
           </div>
         </>
+      )}
+
+      {/* Son Creation Dialog */}
+      {showSonDialog && selectedMotherForSon && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000
+        }}>
+          <div style={{
+            background: 'white',
+            padding: '40px',
+            borderRadius: '12px',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+            minWidth: '500px',
+            maxWidth: '600px'
+          }}>
+            <h2 style={{
+              margin: '0 0 20px 0',
+              color: '#2e7d32',
+              textAlign: 'center',
+              fontSize: '24px'
+            }}>
+              👶 Create Son Object
+            </h2>
+            <p style={{
+              margin: '0 0 30px 0',
+              color: '#666',
+              textAlign: 'center',
+              fontSize: '14px'
+            }}>
+              Adding son to: <strong>{selectedMotherForSon.name}</strong>
+            </p>
+
+            {/* Son Type */}
+            <div style={{ marginBottom: '20px' }}>
+              <h3 style={{ margin: '0 0 15px 0', color: '#333', fontSize: '16px' }}>
+                🎯 Son Type
+              </h3>
+              <select
+                value={sonConfig.type}
+                onChange={(e) => setSonConfig(prev => ({ ...prev, type: e.target.value as any }))}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: '2px solid #ddd',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  outline: 'none'
+                }}
+              >
+                <option value="text">📝 Text</option>
+                <option value="image">🖼️ Image</option>
+                <option value="barcode">📊 Barcode</option>
+                <option value="translation">🌐 Translation</option>
+                <option value="washing">🧺 Washing Symbol</option>
+                <option value="size">📏 Size Breakdown</option>
+                <option value="composition">📊 % Composition</option>
+                <option value="special">⭐ Special Wording</option>
+              </select>
+            </div>
+
+            {/* Content */}
+            <div style={{ marginBottom: '20px' }}>
+              <h3 style={{ margin: '0 0 15px 0', color: '#333', fontSize: '16px' }}>
+                📝 Content
+              </h3>
+              <textarea
+                value={sonConfig.content}
+                onChange={(e) => setSonConfig(prev => ({ ...prev, content: e.target.value }))}
+                placeholder="Enter content..."
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: '2px solid #ddd',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  outline: 'none',
+                  minHeight: '80px',
+                  resize: 'vertical'
+                }}
+              />
+            </div>
+
+            {/* Position and Size */}
+            <div style={{ marginBottom: '20px' }}>
+              <h3 style={{ margin: '0 0 15px 0', color: '#333', fontSize: '16px' }}>
+                📐 Position & Size (mm)
+              </h3>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>
+                    X Position:
+                  </label>
+                  <input
+                    type="number"
+                    value={sonConfig.position.x}
+                    onChange={(e) => setSonConfig(prev => ({
+                      ...prev,
+                      position: { ...prev.position, x: parseFloat(e.target.value) || 0 }
+                    }))}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: '2px solid #ddd',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>
+                    Y Position:
+                  </label>
+                  <input
+                    type="number"
+                    value={sonConfig.position.y}
+                    onChange={(e) => setSonConfig(prev => ({
+                      ...prev,
+                      position: { ...prev.position, y: parseFloat(e.target.value) || 0 }
+                    }))}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: '2px solid #ddd',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>
+                    Width:
+                  </label>
+                  <input
+                    type="number"
+                    value={sonConfig.width}
+                    onChange={(e) => setSonConfig(prev => ({ ...prev, width: parseFloat(e.target.value) || 0 }))}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: '2px solid #ddd',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>
+                    Height:
+                  </label>
+                  <input
+                    type="number"
+                    value={sonConfig.height}
+                    onChange={(e) => setSonConfig(prev => ({ ...prev, height: parseFloat(e.target.value) || 0 }))}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: '2px solid #ddd',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Buttons */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '15px', marginTop: '30px' }}>
+              <button
+                onClick={() => {
+                  setShowSonDialog(false);
+                  setSelectedMotherForSon(null);
+                }}
+                style={{
+                  background: '#f5f5f5',
+                  border: '2px solid #ddd',
+                  color: '#666',
+                  padding: '12px 24px',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer'
+                }}
+              >
+                ❌ Cancel
+              </button>
+              <button
+                onClick={createSonFromDialog}
+                style={{
+                  background: 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)',
+                  border: 'none',
+                  color: 'white',
+                  padding: '12px 24px',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  boxShadow: '0 3px 10px rgba(76, 175, 80, 0.3)'
+                }}
+              >
+                ✅ Create Son
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Version Footer */}
