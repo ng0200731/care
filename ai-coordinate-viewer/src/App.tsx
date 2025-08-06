@@ -143,9 +143,7 @@ function App() {
     return null;
   });
 
-  // Son Object Manager state
-  const [sonObjects, setSonObjects] = useState<SonObject[]>([]);
-  const [showSonObjectManager, setShowSonObjectManager] = useState(false);
+
 
   // Saving state
   const [isSaving, setIsSaving] = useState(false);
@@ -169,9 +167,7 @@ function App() {
     sewingOffset: 5
   });
 
-  // Son creation state using SonObjectManager
-  const [showSonManager, setShowSonManager] = useState(false);
-  const [selectedMotherForSon, setSelectedMotherForSon] = useState<AIObject | null>(null);
+
 
   // Visual toggle states
   const [showMarginRectangles, setShowMarginRectangles] = useState(true);
@@ -1365,90 +1361,102 @@ function App() {
   const handleAddSonObject = (motherObject: AIObject) => {
     console.log('🔥 ADD SON BUTTON CLICKED! Mother:', motherObject.name);
 
-    // Set the selected mother and open the comprehensive son manager
-    setSelectedMotherForSon(motherObject);
-    setShowSonManager(true);
-  };
-
-  // Function to handle son objects from SonObjectManager
-  const handleSonObjectsChange = (newSonObjects: SonObject[]) => {
-    if (!selectedMotherForSon) return;
-
-    const motherNum = selectedMotherForSon.type?.match(/mother (\d+)/)?.[1];
+    const motherNum = motherObject.type?.match(/mother (\d+)/)?.[1];
     if (!motherNum) return;
 
     const currentData = data || webCreationData;
     if (!currentData) return;
 
-    // Process each new son object
-    newSonObjects.forEach((sonObj, index) => {
-      // Find existing sons for this mother to determine next son number
-      const existingSons = currentData.objects.filter(obj =>
-        obj.type?.includes('son') && obj.type?.includes(`son ${motherNum}-`)
-      );
-      const nextSonNumber = existingSons.length + index + 1;
+    // Find existing sons for this mother to determine next son number
+    const existingSons = currentData.objects.filter(obj =>
+      obj.type?.includes('son') && obj.type?.includes(`son ${motherNum}-`)
+    );
+    const nextSonNumber = existingSons.length + 1;
 
-      // Create new son AIObject
-      const newSon: AIObject = {
-        name: `son_${motherNum}_${nextSonNumber}`,
-        typename: 'TextFrame',
-        type: `son ${motherNum}-${nextSonNumber}`,
-        x: sonObj.position.x,
-        y: sonObj.position.y,
-        width: 50, // Default width
-        height: 20  // Default height
-      };
+    // Create new son object directly
+    const newSon: AIObject = {
+      name: `son_${motherNum}_${nextSonNumber}`,
+      typename: 'TextFrame',
+      type: `son ${motherNum}-${nextSonNumber}`,
+      x: motherObject.x + 5, // Offset from mother's position
+      y: motherObject.y + 5,
+      width: Math.max(20, motherObject.width - 10), // Smaller than mother
+      height: Math.max(10, motherObject.height - 10)
+    };
 
-      // Create son metadata from SonObject
-      const sonMetadataObj: SonMetadata = {
-        id: `${newSon.name}_${newSon.x}_${newSon.y}`,
-        sonType: sonObj.type as any, // Type conversion for compatibility
-        content: sonObj.content,
-        details: sonObj.formatting || {},
-        fontFamily: sonObj.formatting?.fontFamily || 'Arial',
-        fontSize: sonObj.formatting?.fontSize || 12,
-        textAlign: sonObj.formatting?.textAlign || 'left',
-        fontWeight: sonObj.formatting?.fontWeight || 'normal',
-        margins: sonObj.margins || { top: 2, bottom: 2, left: 2, right: 2 }
-      };
-
-      // Add the new son to the current data
-      const updatedObjects = [...currentData.objects, newSon];
-      const updatedData = {
-        ...currentData,
-        objects: updatedObjects,
-        totalObjects: updatedObjects.length
-      };
-
-      // Update the appropriate data state
-      if (data) {
-        setData(updatedData);
-      } else {
-        setWebCreationData(updatedData);
+    // Create comprehensive son metadata with all text formatting attributes
+    const sonMetadataObj: SonMetadata = {
+      id: `${newSon.name}_${newSon.x}_${newSon.y}`,
+      sonType: 'text',
+      content: 'New Text Content',
+      details: {
+        fontFamily: 'Arial',
+        fontSize: 12,
+        textAlign: 'left' as const,
+        fontWeight: 'normal' as const,
+        textOverflow: 'resize' as const,
+        lineBreakType: 'word' as const,
+        characterConnector: ''
+      },
+      fontFamily: 'Arial',
+      fontSize: 12,
+      textAlign: 'left' as const,
+      fontWeight: 'normal' as const,
+      textOverflow: 'resize' as const,
+      lineBreakType: 'word' as const,
+      characterConnector: '',
+      margins: {
+        top: 2,
+        bottom: 2,
+        left: 2,
+        right: 2
+      },
+      spaceAllocation: {
+        region: 'content',
+        rowHeight: 10,
+        columns: 1,
+        selectedColumn: 1,
+        allocated: false
       }
+    };
 
-      // Add son metadata
-      setSonMetadata(prev => {
-        const newMap = new Map(prev);
-        newMap.set(`${newSon.name}_${newSon.x}_${newSon.y}`, sonMetadataObj);
-        return newMap;
-      });
+    // Add the new son to the current data
+    const updatedObjects = [...currentData.objects, newSon];
+    const updatedData = {
+      ...currentData,
+      objects: updatedObjects,
+      totalObjects: updatedObjects.length
+    };
 
-      // Select the new son object
-      setSelectedObject(newSon);
+    // Update the appropriate data state
+    if (data) {
+      setData(updatedData);
+    } else {
+      setWebCreationData(updatedData);
+    }
 
-      // Force re-render by updating expanded mothers
-      setExpandedMothers(prev => {
-        const motherIndex = currentData.objects.findIndex(obj => obj.name === selectedMotherForSon.name);
-        const newSet = new Set(prev);
-        newSet.add(motherIndex);
-        return newSet;
-      });
+    // Add son metadata
+    setSonMetadata(prev => {
+      const newMap = new Map(prev);
+      newMap.set(`${newSon.name}_${newSon.x}_${newSon.y}`, sonMetadataObj);
+      return newMap;
     });
 
-    // Update local son objects state
-    setSonObjects(newSonObjects);
+    // Select the new son object to show its properties
+    setSelectedObject(newSon);
+
+    // Force re-render by updating expanded mothers
+    setExpandedMothers(prev => {
+      const motherIndex = currentData.objects.findIndex(obj => obj.name === motherObject.name);
+      const newSet = new Set(prev);
+      newSet.add(motherIndex);
+      return newSet;
+    });
+
+    console.log('✅ Created new son object directly:', newSon);
   };
+
+
 
   const exportSonMetadata = () => {
     const metadataArray = Array.from(sonMetadata.entries()).map(([key, value]) => ({
@@ -3735,13 +3743,7 @@ function App() {
         </div>
       )}
 
-      {/* Son Object Manager */}
-      {showSonObjectManager && (
-        <SonObjectManager
-          sonObjects={sonObjects}
-          onSonObjectsChange={setSonObjects}
-        />
-      )}
+
 
 
 
@@ -3810,82 +3812,8 @@ function App() {
         </>
       )}
 
-      {/* Son Object Manager */}
-      {showSonManager && selectedMotherForSon && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0,0,0,0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 10000
-        }}>
-          <div style={{
-            background: 'white',
-            padding: '20px',
-            borderRadius: '12px',
-            boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
-            minWidth: '800px',
-            maxWidth: '90vw',
-            maxHeight: '90vh',
-            overflow: 'auto'
-          }}>
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '20px',
-              borderBottom: '2px solid #e2e8f0',
-              paddingBottom: '15px'
-            }}>
-              <div>
-                <h2 style={{
-                  margin: '0',
-                  color: '#2e7d32',
-                  fontSize: '24px'
-                }}>
-                  👶 Create Son Object
-                </h2>
-                <p style={{
-                  margin: '5px 0 0 0',
-                  color: '#666',
-                  fontSize: '14px'
-                }}>
-                  Adding son to: <strong>{selectedMotherForSon.name}</strong>
-                </p>
-              </div>
-              <button
-                onClick={() => {
-                  setShowSonManager(false);
-                  setSelectedMotherForSon(null);
-                }}
-                style={{
-                  background: '#f5f5f5',
-                  border: '2px solid #ddd',
-                  color: '#666',
-                  padding: '8px 12px',
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  fontWeight: 'bold',
-                  cursor: 'pointer'
-                }}
-              >
-                ❌ Close
-              </button>
-            </div>
 
-            <SonObjectManager
-              sonObjects={sonObjects}
-              onSonObjectsChange={handleSonObjectsChange}
-            />
 
-          </div>
-        </div>
-      )}
 
       {/* Version Footer */}
       <div style={{
