@@ -148,6 +148,9 @@ function App() {
   // Saving state
   const [isSaving, setIsSaving] = useState(false);
 
+  // Notification state
+  const [notification, setNotification] = useState<string | null>(null);
+
 
 
   // Mother creation dialog state
@@ -1454,6 +1457,10 @@ function App() {
     });
 
     console.log('✅ Created new son object directly:', newSon);
+
+    // Show success notification
+    setNotification(`✅ Created ${newSon.name} in ${motherObject.name}`);
+    setTimeout(() => setNotification(null), 3000); // Hide after 3 seconds
   };
 
 
@@ -1483,9 +1490,10 @@ function App() {
   };
 
   const renderHierarchicalList = () => {
-    if (!data) return null;
+    const currentData = data || webCreationData;
+    if (!currentData) return null;
 
-    const { mothers, orphans } = buildHierarchy(data.objects);
+    const { mothers, orphans } = buildHierarchy(currentData.objects);
 
     return (
       <div>
@@ -3759,6 +3767,10 @@ function App() {
                 50% { transform: scale(1.1); opacity: 0.8; }
                 100% { transform: scale(1); opacity: 1; }
               }
+              @keyframes slideInRight {
+                0% { transform: translateX(100%); opacity: 0; }
+                100% { transform: translateX(0); opacity: 1; }
+              }
             `}
           </style>
           <div style={{
@@ -3814,6 +3826,26 @@ function App() {
 
 
 
+
+      {/* Success Notification */}
+      {notification && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          right: '20px',
+          background: 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)',
+          color: 'white',
+          padding: '12px 20px',
+          borderRadius: '8px',
+          fontSize: '14px',
+          fontWeight: 'bold',
+          boxShadow: '0 4px 12px rgba(76, 175, 80, 0.3)',
+          zIndex: 10000,
+          animation: 'slideInRight 0.3s ease-out'
+        }}>
+          {notification}
+        </div>
+      )}
 
       {/* Version Footer */}
       <div style={{
