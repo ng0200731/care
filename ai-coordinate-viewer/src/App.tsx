@@ -3311,7 +3311,7 @@ function App() {
                 </div>
 
                 {/* Exchange Icon */}
-                <div style={{ display: 'flex', justifyContent: 'center', paddingBottom: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'end', height: '100%' }}>
                   <button
                     onClick={() => {
                       const currentWidth = motherConfig.width;
