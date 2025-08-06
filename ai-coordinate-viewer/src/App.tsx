@@ -173,7 +173,7 @@ function App() {
   const [showSonDialog, setShowSonDialog] = useState(false);
   const [selectedMotherForSon, setSelectedMotherForSon] = useState<AIObject | null>(null);
   const [sonConfig, setSonConfig] = useState({
-    type: 'text' as 'text' | 'image' | 'barcode' | 'translation' | 'washing' | 'size' | 'composition' | 'special',
+    type: 'text' as 'text' | 'image' | 'barcode' | 'translation' | 'washing-symbol' | 'size-breakdown' | 'composition' | 'special-wording',
     content: '',
     fontFamily: 'Arial',
     fontSize: 12,
@@ -3916,10 +3916,10 @@ function App() {
                 <option value="image">🖼️ Image</option>
                 <option value="barcode">📊 Barcode</option>
                 <option value="translation">🌐 Translation</option>
-                <option value="washing">🧺 Washing Symbol</option>
-                <option value="size">📏 Size Breakdown</option>
+                <option value="washing-symbol">🧺 Washing Symbol</option>
+                <option value="size-breakdown">📏 Size Breakdown</option>
                 <option value="composition">📊 % Composition</option>
-                <option value="special">⭐ Special Wording</option>
+                <option value="special-wording">⭐ Special Wording</option>
               </select>
             </div>
 
