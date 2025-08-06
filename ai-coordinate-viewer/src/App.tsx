@@ -192,11 +192,164 @@ function App() {
   // Region management state
   const [showRegionDialog, setShowRegionDialog] = useState(false);
   const [editingRegion, setEditingRegion] = useState<Region | null>(null);
+  const [showAddRegionDialog, setShowAddRegionDialog] = useState(false);
+  const [selectedMotherForRegion, setSelectedMotherForRegion] = useState<AIObject | null>(null);
 
   // Dialog drag state
   const [dialogPosition, setDialogPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+  // Add region form state
+  const [useWholeMother, setUseWholeMother] = useState(false);
+  const [newRegionData, setNewRegionData] = useState({
+    name: '',
+    x: 5,
+    y: 5,
+    width: 50,
+    height: 30
+  });
+
+  // Region overlap detection and space calculation
+  const checkRegionOverlap = (newRegion: { x: number, y: number, width: number, height: number }, existingRegions: Region[]) => {
+    return existingRegions.some(existing => {
+      return !(newRegion.x + newRegion.width <= existing.x || // New is left of existing
+               newRegion.x >= existing.x + existing.width ||   // New is right of existing
+               newRegion.y + newRegion.height <= existing.y || // New is above existing
+               newRegion.y >= existing.y + existing.height);   // New is below existing
+    });
+  };
+
+  const getOverlappingRegions = (newRegion: { x: number, y: number, width: number, height: number }, existingRegions: Region[]) => {
+    return existingRegions.filter(existing => {
+      return !(newRegion.x + newRegion.width <= existing.x || // New is left of existing
+               newRegion.x >= existing.x + existing.width ||   // New is right of existing
+               newRegion.y + newRegion.height <= existing.y || // New is above existing
+               newRegion.y >= existing.y + existing.height);   // New is below existing
+    });
+  };
+
+  const suggestNextPosition = (motherWidth: number, motherHeight: number, existingRegions: Region[], desiredWidth: number, desiredHeight: number) => {
+    // Try positions from top-left, moving right then down
+    const step = 5; // 5mm steps
+    for (let y = 5; y <= motherHeight - desiredHeight - 5; y += step) {
+      for (let x = 5; x <= motherWidth - desiredWidth - 5; x += step) {
+        const testRegion = { x, y, width: desiredWidth, height: desiredHeight };
+        if (!checkRegionOverlap(testRegion, existingRegions)) {
+          return { x, y };
+        }
+      }
+    }
+    return null; // No available space
+  };
+
+  const calculateRemainingSpace = (motherWidth: number, motherHeight: number, existingRegions: Region[]) => {
+    const totalMotherArea = motherWidth * motherHeight;
+    const usedArea = existingRegions.reduce((sum, region) => sum + (region.width * region.height), 0);
+    return {
+      totalArea: totalMotherArea,
+      usedArea: usedArea,
+      remainingArea: totalMotherArea - usedArea,
+      usagePercentage: Math.round((usedArea / totalMotherArea) * 100)
+    };
+  };
+
+  const findLargestAvailableRectangle = (motherWidth: number, motherHeight: number, existingRegions: Region[], margins: any) => {
+    // Create a grid to mark occupied spaces
+    const step = 1; // 1mm precision
+    const gridWidth = Math.floor(motherWidth);
+    const gridHeight = Math.floor(motherHeight);
+    const occupied = Array(gridHeight).fill(null).map(() => Array(gridWidth).fill(false));
+
+    // Mark existing regions as occupied
+    existingRegions.forEach(region => {
+      for (let y = Math.floor(region.y); y < Math.min(gridHeight, Math.floor(region.y + region.height)); y++) {
+        for (let x = Math.floor(region.x); x < Math.min(gridWidth, Math.floor(region.x + region.width)); x++) {
+          if (y >= 0 && x >= 0) occupied[y][x] = true;
+        }
+      }
+    });
+
+    // Mark margin areas as occupied
+    const marginTop = margins.top || 5;
+    const marginLeft = margins.left || 5;
+    const marginRight = margins.right || 5;
+    const marginBottom = margins.down || margins.bottom || 5;
+
+    // Mark top margin
+    for (let y = 0; y < Math.min(gridHeight, marginTop); y++) {
+      for (let x = 0; x < gridWidth; x++) {
+        occupied[y][x] = true;
+      }
+    }
+
+    // Mark bottom margin
+    for (let y = Math.max(0, gridHeight - marginBottom); y < gridHeight; y++) {
+      for (let x = 0; x < gridWidth; x++) {
+        occupied[y][x] = true;
+      }
+    }
+
+    // Mark left margin
+    for (let y = 0; y < gridHeight; y++) {
+      for (let x = 0; x < Math.min(gridWidth, marginLeft); x++) {
+        occupied[y][x] = true;
+      }
+    }
+
+    // Mark right margin
+    for (let y = 0; y < gridHeight; y++) {
+      for (let x = Math.max(0, gridWidth - marginRight); x < gridWidth; x++) {
+        occupied[y][x] = true;
+      }
+    }
+
+    // Find the largest available rectangle using a simple approach
+    let bestRect = { x: marginLeft, y: marginTop, width: 0, height: 0, area: 0 };
+
+    // Try different starting positions
+    for (let startY = marginTop; startY < gridHeight - marginBottom; startY++) {
+      for (let startX = marginLeft; startX < gridWidth - marginRight; startX++) {
+        if (occupied[startY][startX]) continue;
+
+        // Find maximum width from this position
+        let maxWidth = 0;
+        for (let x = startX; x < gridWidth - marginRight; x++) {
+          if (occupied[startY][x]) break;
+          maxWidth = x - startX + 1;
+        }
+
+        if (maxWidth === 0) continue;
+
+        // Find maximum height for this width
+        let maxHeight = 0;
+        for (let y = startY; y < gridHeight - marginBottom; y++) {
+          let canExtend = true;
+          for (let x = startX; x < startX + maxWidth; x++) {
+            if (occupied[y][x]) {
+              canExtend = false;
+              break;
+            }
+          }
+          if (!canExtend) break;
+          maxHeight = y - startY + 1;
+        }
+
+        const area = maxWidth * maxHeight;
+        if (area > bestRect.area && maxWidth >= 10 && maxHeight >= 10) { // Minimum 10mm
+          bestRect = {
+            x: startX,
+            y: startY,
+            width: maxWidth,
+            height: maxHeight,
+            area: area
+          };
+        }
+      }
+    }
+
+    return bestRect.area > 0 ? bestRect : null;
+  };
 
   // Visual toggle states
   const [showMarginRectangles, setShowMarginRectangles] = useState(true);
@@ -1730,14 +1883,14 @@ function App() {
                 </div>
               </div>
 
-              {/* Regions (only in master file mode) */}
-              {isExpanded && isMasterFileMode && (() => {
+              {/* Regions (always visible in master file mode) */}
+              {isMasterFileMode && (() => {
                 const motherRegions = (mother.object as any).regions || [];
                 return motherRegions.map((region: Region, regionIndex: number) => (
                   <div
                     key={region.id}
                     style={{
-                      margin: '4px 0 4px 20px',
+                      margin: '4px 0 4px 20px', // Always indented under mother
                       background: '#e3f2fd',
                       color: '#1976d2',
                       borderRadius: '6px',
@@ -1838,53 +1991,54 @@ function App() {
                 ));
               })()}
 
-              {/* Add Region Button - Always visible in master file mode */}
-              {isMasterFileMode && (
+              {/* Add Region Button - Only show if remaining space is available */}
+              {isMasterFileMode && (() => {
+                const motherRegions = (mother.object as any).regions || [];
+                const motherMargins = (mother.object as any).margins || { top: 5, left: 5, right: 5, down: 5 };
+
+                // Check if there's any significant remaining space (at least 100mm²)
+                const spaceInfo = calculateRemainingSpace(mother.object.width, mother.object.height, motherRegions);
+                const hasSignificantSpace = spaceInfo.remainingArea >= 100; // At least 10×10mm
+
+                // Also check if we can find a rectangle of at least 10×10mm
+                const largestRect = findLargestAvailableRectangle(
+                  mother.object.width,
+                  mother.object.height,
+                  motherRegions,
+                  motherMargins
+                );
+
+                return hasSignificantSpace && largestRect && largestRect.width >= 10 && largestRect.height >= 10;
+              })() && (
                 <div style={{ margin: '8px 0 8px 0' }}>
                   <button
                     onClick={() => {
-                      setSelectedObject(mother.object);
-                      // Create a new region for this mother
+                      setSelectedMotherForRegion(mother.object);
                       const motherRegions = (mother.object as any).regions || [];
-                      const newRegion: Region = {
-                        id: `region_${Date.now()}`,
+
+                      // Smart default sizing and positioning
+                      const defaultWidth = Math.max(10, Math.min(30, mother.object.width - 10));
+                      const defaultHeight = Math.max(10, Math.min(20, mother.object.height - 10));
+
+                      // Try to suggest a good starting position
+                      const suggestedPos = suggestNextPosition(
+                        mother.object.width,
+                        mother.object.height,
+                        motherRegions,
+                        defaultWidth,
+                        defaultHeight
+                      );
+
+                      setNewRegionData({
                         name: `Region ${motherRegions.length + 1}`,
-                        x: 5,
-                        y: 5,
-                        width: Math.max(50, mother.object.width - 10),
-                        height: Math.max(30, mother.object.height - 10),
-                        margins: { top: 2, bottom: 2, left: 2, right: 2 },
-                        borderColor: '#2196f3',
-                        backgroundColor: 'rgba(33, 150, 243, 0.1)',
-                        allowOverflow: false
-                      };
-
-                      // Update the mother object with the new region
-                      const currentData = data || webCreationData;
-                      if (currentData) {
-                        const updatedObjects = currentData.objects.map(obj => {
-                          if (obj.name === mother.object.name) {
-                            return {
-                              ...obj,
-                              regions: [...motherRegions, newRegion]
-                            };
-                          }
-                          return obj;
-                        });
-
-                        const updatedData = {
-                          ...currentData,
-                          objects: updatedObjects
-                        };
-
-                        setData(updatedData);
-                        setWebCreationData(updatedData);
-
-                        // Open region edit dialog
-                        setEditingRegion(newRegion);
-                        setDialogPosition({ x: 0, y: 0 }); // Reset dialog position
-                        setShowRegionDialog(true);
-                      }
+                        x: suggestedPos?.x || 5,
+                        y: suggestedPos?.y || 5,
+                        width: defaultWidth,
+                        height: defaultHeight
+                      });
+                      setUseWholeMother(false);
+                      setDialogPosition({ x: 0, y: 0 });
+                      setShowAddRegionDialog(true);
                     }}
                     style={{
                       background: 'linear-gradient(135deg, #2196f3 0%, #1976d2 100%)',
@@ -3304,8 +3458,48 @@ function App() {
             width: '30%',
             background: 'white',
             padding: '20px',
-            overflowY: 'auto'
+            overflowY: 'auto',
+            position: 'relative'
           }}>
+            {/* Disabled Overlay when dialogs are open */}
+            {(showRegionDialog || showAddRegionDialog) && (
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'rgba(255, 255, 255, 0.8)',
+                zIndex: 1000,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexDirection: 'column',
+                gap: '10px'
+              }}>
+                <div style={{
+                  fontSize: '24px',
+                  opacity: 0.6
+                }}>
+                  🔒
+                </div>
+                <div style={{
+                  fontSize: '14px',
+                  color: '#666',
+                  textAlign: 'center',
+                  fontWeight: 'bold'
+                }}>
+                  Hierarchy Locked
+                </div>
+                <div style={{
+                  fontSize: '12px',
+                  color: '#999',
+                  textAlign: 'center'
+                }}>
+                  Close region dialog to continue
+                </div>
+              </div>
+            )}
           <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', borderBottom: '1px solid #eee', paddingBottom: '10px'}}>
             <h3 style={{margin: 0}}>
               {isMasterFileMode ? '📋 Master File Template' : isProjectMode ? '🏗️ Project Mode' : '📋 Layer Objects'} {(data || webCreationData) ? (() => {
@@ -4021,8 +4215,9 @@ function App() {
           left: 0,
           right: 0,
           bottom: 0,
-          background: 'rgba(0,0,0,0.5)',
-          zIndex: 10001
+          background: 'rgba(0,0,0,0.3)', // More transparent to allow canvas interaction
+          zIndex: 10001,
+          pointerEvents: 'none' // Allow clicks to pass through to canvas
         }}
         onMouseMove={(e) => {
           if (isDragging) {
@@ -4046,7 +4241,8 @@ function App() {
             left: `calc(50% + ${dialogPosition.x}px)`,
             top: `calc(50% + ${dialogPosition.y}px)`,
             transform: 'translate(-50%, -50%)',
-            cursor: isDragging ? 'grabbing' : 'default'
+            cursor: isDragging ? 'grabbing' : 'default',
+            pointerEvents: 'auto' // Re-enable pointer events for the dialog itself
           }}>
             {/* Draggable Header */}
             <div
@@ -4273,6 +4469,483 @@ function App() {
               </button>
             </div>
             </div> {/* Close Dialog Content */}
+          </div>
+        </div>
+      )}
+
+      {/* Add Region Dialog */}
+      {showAddRegionDialog && selectedMotherForRegion && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.3)', // More transparent to allow canvas interaction
+          zIndex: 10001,
+          pointerEvents: 'none' // Allow clicks to pass through to canvas
+        }}
+        onMouseMove={(e) => {
+          if (isDragging) {
+            e.preventDefault();
+            const newX = e.clientX - dragStart.x;
+            const newY = e.clientY - dragStart.y;
+            setDialogPosition({ x: newX, y: newY });
+          }
+        }}
+        onMouseUp={() => {
+          setIsDragging(false);
+        }}
+        >
+          <div style={{
+            background: 'white',
+            borderRadius: '12px',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+            minWidth: '400px',
+            maxWidth: '500px',
+            position: 'absolute',
+            left: `calc(50% + ${dialogPosition.x}px)`,
+            top: `calc(50% + ${dialogPosition.y}px)`,
+            transform: 'translate(-50%, -50%)',
+            cursor: isDragging ? 'grabbing' : 'default',
+            pointerEvents: 'auto' // Re-enable pointer events for the dialog itself
+          }}>
+            {/* Draggable Header */}
+            <div
+              style={{
+                background: 'linear-gradient(135deg, #4caf50 0%, #388e3c 100%)',
+                color: 'white',
+                padding: '15px 30px',
+                borderRadius: '12px 12px 0 0',
+                cursor: 'grab',
+                userSelect: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}
+              onMouseDown={(e) => {
+                setIsDragging(true);
+                setDragStart({
+                  x: e.clientX - dialogPosition.x,
+                  y: e.clientY - dialogPosition.y
+                });
+              }}
+            >
+              <h2 style={{
+                margin: 0,
+                fontSize: '18px',
+                fontWeight: 'bold'
+              }}>
+                ➕ Add Region to {selectedMotherForRegion.name}
+              </h2>
+              <div style={{
+                fontSize: '12px',
+                opacity: 0.8,
+                fontStyle: 'italic'
+              }}>
+                Drag to move
+              </div>
+            </div>
+
+            {/* Dialog Content */}
+            <div style={{ padding: '30px' }}>
+              {/* Use Whole Mother Checkbox */}
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  color: '#333'
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={useWholeMother}
+                    onChange={(e) => {
+                      setUseWholeMother(e.target.checked);
+                      if (e.target.checked) {
+                        // Find the largest available rectangle in remaining space
+                        const motherMargins = (selectedMotherForRegion as any).margins || { top: 5, left: 5, right: 5, down: 5 };
+                        const existingRegions = (selectedMotherForRegion as any).regions || [];
+                        const largestRect = findLargestAvailableRectangle(
+                          selectedMotherForRegion.width,
+                          selectedMotherForRegion.height,
+                          existingRegions,
+                          motherMargins
+                        );
+
+                        if (largestRect) {
+                          setNewRegionData({
+                            ...newRegionData,
+                            x: largestRect.x,
+                            y: largestRect.y,
+                            width: largestRect.width,
+                            height: largestRect.height
+                          });
+                        } else {
+                          // Fallback to small region if no space available
+                          setNewRegionData({
+                            ...newRegionData,
+                            x: motherMargins.left,
+                            y: motherMargins.top,
+                            width: 10,
+                            height: 10
+                          });
+                        }
+                      }
+                    }}
+                    style={{ transform: 'scale(1.2)' }}
+                  />
+                  <span>🧩 Use remaining available space</span>
+                </label>
+                <div style={{ fontSize: '12px', color: '#666', marginTop: '5px', marginLeft: '30px' }}>
+                  Automatically fills the largest available area (avoiding existing regions and margins)
+                </div>
+              </div>
+
+              {/* Region Name */}
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>
+                  Region Name:
+                </label>
+                <input
+                  type="text"
+                  value={newRegionData.name}
+                  onChange={(e) => setNewRegionData({ ...newRegionData, name: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '2px solid #ddd',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    outline: 'none'
+                  }}
+                  onFocus={(e) => e.target.style.borderColor = '#4caf50'}
+                  onBlur={(e) => e.target.style.borderColor = '#ddd'}
+                />
+              </div>
+
+              {/* Position and Size - Only show if not using whole mother */}
+              {!useWholeMother && (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>
+                        X Position (mm):
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max={selectedMotherForRegion.width - 10}
+                        value={newRegionData.x}
+                        onChange={(e) => setNewRegionData({ ...newRegionData, x: parseInt(e.target.value) || 0 })}
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px',
+                          border: '2px solid #ddd',
+                          borderRadius: '6px',
+                          fontSize: '14px',
+                          outline: 'none'
+                        }}
+                        onFocus={(e) => e.target.style.borderColor = '#4caf50'}
+                        onBlur={(e) => e.target.style.borderColor = '#ddd'}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>
+                        Y Position (mm):
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max={selectedMotherForRegion.height - 10}
+                        value={newRegionData.y}
+                        onChange={(e) => setNewRegionData({ ...newRegionData, y: parseInt(e.target.value) || 0 })}
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px',
+                          border: '2px solid #ddd',
+                          borderRadius: '6px',
+                          fontSize: '14px',
+                          outline: 'none'
+                        }}
+                        onFocus={(e) => e.target.style.borderColor = '#4caf50'}
+                        onBlur={(e) => e.target.style.borderColor = '#ddd'}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>
+                        Width (mm):
+                      </label>
+                      <input
+                        type="number"
+                        min="10"
+                        max={selectedMotherForRegion.width - newRegionData.x}
+                        value={newRegionData.width}
+                        onChange={(e) => setNewRegionData({ ...newRegionData, width: parseInt(e.target.value) || 10 })}
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px',
+                          border: '2px solid #ddd',
+                          borderRadius: '6px',
+                          fontSize: '14px',
+                          outline: 'none'
+                        }}
+                        onFocus={(e) => e.target.style.borderColor = '#4caf50'}
+                        onBlur={(e) => e.target.style.borderColor = '#ddd'}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>
+                        Height (mm):
+                      </label>
+                      <input
+                        type="number"
+                        min="10"
+                        max={selectedMotherForRegion.height - newRegionData.y}
+                        value={newRegionData.height}
+                        onChange={(e) => setNewRegionData({ ...newRegionData, height: parseInt(e.target.value) || 10 })}
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px',
+                          border: '2px solid #ddd',
+                          borderRadius: '6px',
+                          fontSize: '14px',
+                          outline: 'none'
+                        }}
+                        onFocus={(e) => e.target.style.borderColor = '#4caf50'}
+                        onBlur={(e) => e.target.style.borderColor = '#ddd'}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Validation and Suggestions */}
+                  {(() => {
+                    const motherRegions = (selectedMotherForRegion as any).regions || [];
+                    const exceedsBoundaries = newRegionData.x + newRegionData.width > selectedMotherForRegion.width ||
+                                            newRegionData.y + newRegionData.height > selectedMotherForRegion.height;
+                    const hasOverlap = checkRegionOverlap(newRegionData, motherRegions);
+                    const overlappingRegions = getOverlappingRegions(newRegionData, motherRegions);
+                    const suggestedPosition = suggestNextPosition(
+                      selectedMotherForRegion.width,
+                      selectedMotherForRegion.height,
+                      motherRegions,
+                      newRegionData.width,
+                      newRegionData.height
+                    );
+                    const spaceInfo = calculateRemainingSpace(selectedMotherForRegion.width, selectedMotherForRegion.height, motherRegions);
+
+                    return (
+                      <>
+                        {/* Remaining Space Info */}
+                        <div style={{
+                          background: '#e8f5e9',
+                          border: '1px solid #4caf50',
+                          borderRadius: '6px',
+                          padding: '10px',
+                          marginBottom: '15px',
+                          fontSize: '12px'
+                        }}>
+                          📊 <strong>Space Usage:</strong> {spaceInfo.usagePercentage}% used<br/>
+                          📏 <strong>Remaining:</strong> {spaceInfo.remainingArea}mm² of {spaceInfo.totalArea}mm²
+                        </div>
+
+                        {/* Boundary Validation */}
+                        {exceedsBoundaries && (
+                          <div style={{
+                            background: '#ffebee',
+                            border: '1px solid #f44336',
+                            borderRadius: '6px',
+                            padding: '10px',
+                            marginBottom: '15px',
+                            color: '#c62828',
+                            fontSize: '13px'
+                          }}>
+                            🚫 <strong>Exceeds Mother Boundaries!</strong><br/>
+                            Mother size: {selectedMotherForRegion.width}×{selectedMotherForRegion.height}mm<br/>
+                            Region needs: ({newRegionData.x}+{newRegionData.width})×({newRegionData.y}+{newRegionData.height}) = {newRegionData.x + newRegionData.width}×{newRegionData.y + newRegionData.height}mm
+                          </div>
+                        )}
+
+                        {/* Overlap Validation */}
+                        {!exceedsBoundaries && hasOverlap && (
+                          <div style={{
+                            background: '#fff3e0',
+                            border: '1px solid #ff9800',
+                            borderRadius: '6px',
+                            padding: '10px',
+                            marginBottom: '15px',
+                            color: '#e65100',
+                            fontSize: '13px'
+                          }}>
+                            ⚠️ <strong>Overlaps with existing region(s)!</strong><br/>
+                            Conflicts with: {overlappingRegions.map(r => r.name).join(', ')}<br/>
+                            {suggestedPosition && (
+                              <>
+                                💡 <strong>Suggested position:</strong> ({suggestedPosition.x}, {suggestedPosition.y})<br/>
+                                <button
+                                  onClick={() => setNewRegionData({
+                                    ...newRegionData,
+                                    x: suggestedPosition.x,
+                                    y: suggestedPosition.y
+                                  })}
+                                  style={{
+                                    background: '#4caf50',
+                                    color: 'white',
+                                    border: 'none',
+                                    padding: '4px 8px',
+                                    borderRadius: '3px',
+                                    fontSize: '11px',
+                                    cursor: 'pointer',
+                                    marginTop: '5px'
+                                  }}
+                                >
+                                  ✨ Use Suggested Position
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Success State */}
+                        {!exceedsBoundaries && !hasOverlap && (
+                          <div style={{
+                            background: '#e8f5e9',
+                            border: '1px solid #4caf50',
+                            borderRadius: '6px',
+                            padding: '10px',
+                            marginBottom: '15px',
+                            color: '#2e7d32',
+                            fontSize: '13px'
+                          }}>
+                            ✅ <strong>Valid Position!</strong><br/>
+                            Region fits perfectly at ({newRegionData.x}, {newRegionData.y})
+                          </div>
+                        )}
+
+                        {/* No Space Available */}
+                        {!exceedsBoundaries && hasOverlap && !suggestedPosition && (
+                          <div style={{
+                            background: '#ffebee',
+                            border: '1px solid #f44336',
+                            borderRadius: '6px',
+                            padding: '10px',
+                            marginBottom: '15px',
+                            color: '#c62828',
+                            fontSize: '13px'
+                          }}>
+                            🚫 <strong>No Available Space!</strong><br/>
+                            Cannot fit {newRegionData.width}×{newRegionData.height}mm region anywhere.<br/>
+                            Try smaller dimensions or remove existing regions.
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </>
+              )}
+
+              {/* Buttons */}
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button
+                  onClick={() => {
+                    setShowAddRegionDialog(false);
+                    setSelectedMotherForRegion(null);
+                    setUseWholeMother(false);
+                  }}
+                  style={{
+                    padding: '10px 20px',
+                    border: '2px solid #ddd',
+                    borderRadius: '6px',
+                    background: 'white',
+                    color: '#666',
+                    fontSize: '14px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer'
+                  }}
+                >
+                  ❌ Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    // Create the region
+                    const motherRegions = (selectedMotherForRegion as any).regions || [];
+                    const newRegion: Region = {
+                      id: `region_${Date.now()}`,
+                      name: newRegionData.name,
+                      x: newRegionData.x,
+                      y: newRegionData.y,
+                      width: newRegionData.width,
+                      height: newRegionData.height,
+                      margins: { top: 2, bottom: 2, left: 2, right: 2 },
+                      borderColor: '#4caf50',
+                      backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                      allowOverflow: false
+                    };
+
+                    // Update the mother object with the new region
+                    const currentData = data || webCreationData;
+                    if (currentData) {
+                      const updatedObjects = currentData.objects.map(obj => {
+                        if (obj.name === selectedMotherForRegion!.name) {
+                          return {
+                            ...obj,
+                            regions: [...motherRegions, newRegion]
+                          };
+                        }
+                        return obj;
+                      });
+
+                      const updatedData = {
+                        ...currentData,
+                        objects: updatedObjects
+                      };
+
+                      setData(updatedData);
+                      setWebCreationData(updatedData);
+                    }
+
+                    // Close dialog
+                    setShowAddRegionDialog(false);
+                    setSelectedMotherForRegion(null);
+                    setUseWholeMother(false);
+                  }}
+                  disabled={(() => {
+                    const motherRegions = (selectedMotherForRegion as any).regions || [];
+                    const exceedsBoundaries = newRegionData.x + newRegionData.width > selectedMotherForRegion.width ||
+                                            newRegionData.y + newRegionData.height > selectedMotherForRegion.height;
+                    const hasOverlap = checkRegionOverlap(newRegionData, motherRegions);
+                    return !newRegionData.name.trim() || exceedsBoundaries || hasOverlap;
+                  })()}
+                  style={(() => {
+                    const motherRegions = (selectedMotherForRegion as any).regions || [];
+                    const exceedsBoundaries = newRegionData.x + newRegionData.width > selectedMotherForRegion.width ||
+                                            newRegionData.y + newRegionData.height > selectedMotherForRegion.height;
+                    const hasOverlap = checkRegionOverlap(newRegionData, motherRegions);
+                    const isDisabled = !newRegionData.name.trim() || exceedsBoundaries || hasOverlap;
+
+                    return {
+                      padding: '10px 20px',
+                      border: 'none',
+                      borderRadius: '6px',
+                      background: isDisabled ? '#ccc' : 'linear-gradient(135deg, #4caf50 0%, #388e3c 100%)',
+                      color: 'white',
+                      fontSize: '14px',
+                      fontWeight: 'bold',
+                      cursor: isDisabled ? 'not-allowed' : 'pointer',
+                      opacity: isDisabled ? 0.6 : 1
+                    };
+                  })()}
+                >
+                  ✅ Create Region
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
