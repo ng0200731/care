@@ -3278,11 +3278,11 @@ function App() {
         }}>
           <div style={{
             background: 'white',
-            padding: '30px',
+            padding: '40px',
             borderRadius: '12px',
             boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
-            minWidth: '400px',
-            maxWidth: '500px'
+            minWidth: '500px',
+            maxWidth: '600px'
           }}>
             <h2 style={{
               margin: '0 0 20px 0',
@@ -3298,7 +3298,7 @@ function App() {
                 📏 Dimensions (mm)
               </h3>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '15px', alignItems: 'end' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '20px', alignItems: 'end' }}>
                 <div>
                   <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>
                     Width (mm):
@@ -3422,7 +3422,8 @@ function App() {
                 </label>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+              {/* Top and Down margins */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '25px', marginBottom: '20px' }}>
                 <div>
                   <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>
                     ⬆️ Top:
@@ -3486,7 +3487,10 @@ function App() {
                     onBlur={(e) => !applyToAllSides && (e.target.style.borderColor = '#ddd')}
                   />
                 </div>
+              </div>
 
+              {/* Left and Right margins */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '25px' }}>
                 <div>
                   <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>
                     ⬅️ Left:
