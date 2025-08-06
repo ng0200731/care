@@ -1572,34 +1572,36 @@ function App() {
 
           return (
             <div key={index} style={{marginBottom: '15px'}}>
-              {/* Add Son Button - Positioned Above Mother */}
-              <div style={{ marginBottom: '8px' }}>
-                <button
-                  onClick={(e) => {
-                    console.log('🔥 BUTTON CLICKED!', e);
-                    alert('🔥 BUTTON CLICKED!');
-                    e.stopPropagation();
-                    handleAddSonObject(mother.object);
-                  }}
-                  style={{
-                    background: '#4CAF50',
-                    border: '2px solid #45a049',
-                    color: 'white',
-                    fontSize: '14px',
-                    padding: '10px 16px',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    fontWeight: 'bold',
-                    whiteSpace: 'nowrap',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                    zIndex: 10,
-                    position: 'relative'
-                  }}
-                  title="Add son object to this mother"
-                >
-                  ➕ Add Son
-                </button>
-              </div>
+              {/* Add Son Button - Only show in project mode, not master file mode */}
+              {isProjectMode && (
+                <div style={{ marginBottom: '8px' }}>
+                  <button
+                    onClick={(e) => {
+                      console.log('🔥 BUTTON CLICKED!', e);
+                      alert('🔥 BUTTON CLICKED!');
+                      e.stopPropagation();
+                      handleAddSonObject(mother.object);
+                    }}
+                    style={{
+                      background: '#4CAF50',
+                      border: '2px solid #45a049',
+                      color: 'white',
+                      fontSize: '14px',
+                      padding: '10px 16px',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontWeight: 'bold',
+                      whiteSpace: 'nowrap',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                      zIndex: 10,
+                      position: 'relative'
+                    }}
+                    title="Add son object to this mother"
+                  >
+                    ➕ Add Son
+                  </button>
+                </div>
+              )}
 
               {/* Mother Header */}
               <div style={{
@@ -1671,28 +1673,30 @@ function App() {
                       </button>
                     )}
 
-                    {/* Add Son Object Button - Always visible */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedObject(mother.object);
-                        // Open son object creation dialog for this mother
-                        handleAddSonObject(mother.object);
-                      }}
-                      style={{
-                        background: '#4CAF50',
-                        border: '1px solid #45a049',
-                        color: 'white',
-                        fontSize: '10px',
-                        padding: '4px 8px',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontWeight: 'bold'
-                      }}
-                      title="Add son object to this mother"
-                    >
-                      ➕ Add Son
-                    </button>
+                    {/* Add Son Object Button - Only show in project mode */}
+                    {isProjectMode && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedObject(mother.object);
+                          // Open son object creation dialog for this mother
+                          handleAddSonObject(mother.object);
+                        }}
+                        style={{
+                          background: '#4CAF50',
+                          border: '1px solid #45a049',
+                          color: 'white',
+                          fontSize: '10px',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontWeight: 'bold'
+                        }}
+                        title="Add son object to this mother"
+                      >
+                        ➕ Add Son
+                      </button>
+                    )}
 
                     {/* Fit View Button */}
                     <button
