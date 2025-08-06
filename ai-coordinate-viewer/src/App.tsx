@@ -18,6 +18,25 @@ interface Customer {
   createdAt?: string;
 }
 
+interface Region {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  margins: {
+    top: number;
+    bottom: number;
+    left: number;
+    right: number;
+  };
+  borderColor: string;
+  backgroundColor: string;
+  allowOverflow: boolean;
+  flowToNext?: string; // ID of next region for overflow
+}
+
 interface AIObject {
   name: string;
   typename: string;
@@ -170,7 +189,14 @@ function App() {
     sewingOffset: 5
   });
 
+  // Region management state
+  const [showRegionDialog, setShowRegionDialog] = useState(false);
+  const [editingRegion, setEditingRegion] = useState<Region | null>(null);
 
+  // Dialog drag state
+  const [dialogPosition, setDialogPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
   // Visual toggle states
   const [showMarginRectangles, setShowMarginRectangles] = useState(true);
@@ -1118,6 +1144,7 @@ function App() {
       sewingPosition: 'top',
       sewingOffset: 5
     });
+
     setShowMotherDialog(true);
   };
 
@@ -1131,6 +1158,7 @@ function App() {
     const storedSewingPosition = (mother as any).sewingPosition || 'top';
     const storedSewingOffset = (mother as any).sewingOffset || 5;
 
+
     setMotherConfig({
       width: mother.width,
       height: mother.height,
@@ -1138,6 +1166,7 @@ function App() {
       sewingPosition: storedSewingPosition,
       sewingOffset: storedSewingOffset
     });
+
     setShowMotherDialog(true);
   };
 
@@ -1206,7 +1235,8 @@ function App() {
         // Store additional properties as metadata
         margins: motherConfig.margins,
         sewingPosition: motherConfig.sewingPosition,
-        sewingOffset: motherConfig.sewingOffset
+        sewingOffset: motherConfig.sewingOffset,
+        regions: [] // Initialize with empty regions array
       } as any;
 
       const updatedData: AIData = {
@@ -1223,6 +1253,9 @@ function App() {
     }
 
     setShowMotherDialog(false); // Close dialog
+
+    setIsEditingMother(false);
+    setEditingMotherId(null);
   };
 
   // Sewing position functions
@@ -1696,6 +1729,189 @@ function App() {
                   </div>
                 </div>
               </div>
+
+              {/* Regions (only in master file mode) */}
+              {isExpanded && isMasterFileMode && (() => {
+                const motherRegions = (mother.object as any).regions || [];
+                return motherRegions.map((region: Region, regionIndex: number) => (
+                  <div
+                    key={region.id}
+                    style={{
+                      margin: '4px 0 4px 20px',
+                      background: '#e3f2fd',
+                      color: '#1976d2',
+                      borderRadius: '6px',
+                      borderLeft: '3px solid #2196f3',
+                      overflow: 'hidden'
+                    }}
+                  >
+                    <div
+                      style={{
+                        padding: '8px 12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        cursor: 'pointer'
+                      }}
+                      onClick={() => {
+                        setSelectedObject(mother.object);
+                        setEditingRegion(region);
+                        setDialogPosition({ x: 0, y: 0 }); // Reset dialog position
+                        setShowRegionDialog(true);
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '14px' }}>🏗️</span>
+                        <div>
+                          <div style={{ fontWeight: 'bold', fontSize: '12px' }}>
+                            {region.name}
+                          </div>
+                          <div style={{ fontSize: '10px', opacity: 0.8 }}>
+                            {region.width}×{region.height}mm at ({region.x},{region.y})
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingRegion(region);
+                            setDialogPosition({ x: 0, y: 0 }); // Reset dialog position
+                            setShowRegionDialog(true);
+                          }}
+                          style={{
+                            background: '#4caf50',
+                            border: 'none',
+                            color: 'white',
+                            fontSize: '10px',
+                            padding: '2px 6px',
+                            borderRadius: '3px',
+                            cursor: 'pointer'
+                          }}
+                          title="Edit region"
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Delete region
+                            const currentData = data || webCreationData;
+                            if (currentData) {
+                              const updatedObjects = currentData.objects.map(obj => {
+                                if (obj.name === mother.object.name) {
+                                  const updatedRegions = motherRegions.filter((r: Region) => r.id !== region.id);
+                                  return {
+                                    ...obj,
+                                    regions: updatedRegions
+                                  };
+                                }
+                                return obj;
+                              });
+
+                              const updatedData = {
+                                ...currentData,
+                                objects: updatedObjects
+                              };
+
+                              setData(updatedData);
+                              setWebCreationData(updatedData);
+                            }
+                          }}
+                          style={{
+                            background: '#f44336',
+                            border: 'none',
+                            color: 'white',
+                            fontSize: '10px',
+                            padding: '2px 6px',
+                            borderRadius: '3px',
+                            cursor: 'pointer'
+                          }}
+                          title="Delete region"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ));
+              })()}
+
+              {/* Add Region Button - Always visible in master file mode */}
+              {isMasterFileMode && (
+                <div style={{ margin: '8px 0 8px 0' }}>
+                  <button
+                    onClick={() => {
+                      setSelectedObject(mother.object);
+                      // Create a new region for this mother
+                      const motherRegions = (mother.object as any).regions || [];
+                      const newRegion: Region = {
+                        id: `region_${Date.now()}`,
+                        name: `Region ${motherRegions.length + 1}`,
+                        x: 5,
+                        y: 5,
+                        width: Math.max(50, mother.object.width - 10),
+                        height: Math.max(30, mother.object.height - 10),
+                        margins: { top: 2, bottom: 2, left: 2, right: 2 },
+                        borderColor: '#2196f3',
+                        backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                        allowOverflow: false
+                      };
+
+                      // Update the mother object with the new region
+                      const currentData = data || webCreationData;
+                      if (currentData) {
+                        const updatedObjects = currentData.objects.map(obj => {
+                          if (obj.name === mother.object.name) {
+                            return {
+                              ...obj,
+                              regions: [...motherRegions, newRegion]
+                            };
+                          }
+                          return obj;
+                        });
+
+                        const updatedData = {
+                          ...currentData,
+                          objects: updatedObjects
+                        };
+
+                        setData(updatedData);
+                        setWebCreationData(updatedData);
+
+                        // Open region edit dialog
+                        setEditingRegion(newRegion);
+                        setDialogPosition({ x: 0, y: 0 }); // Reset dialog position
+                        setShowRegionDialog(true);
+                      }
+                    }}
+                    style={{
+                      background: 'linear-gradient(135deg, #2196f3 0%, #1976d2 100%)',
+                      border: 'none',
+                      color: 'white',
+                      fontSize: '11px',
+                      padding: '6px 12px',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontWeight: 'bold',
+                      boxShadow: '0 2px 4px rgba(33, 150, 243, 0.3)',
+                      transition: 'all 0.3s ease'
+                    }}
+                    onMouseOver={(e) => {
+                      e.currentTarget.style.transform = 'translateY(-1px)';
+                      e.currentTarget.style.boxShadow = '0 3px 8px rgba(33, 150, 243, 0.4)';
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = '0 2px 4px rgba(33, 150, 243, 0.3)';
+                    }}
+                    title={`Add region to ${mother.object.name}`}
+                  >
+                    ➕ Add Region to {mother.object.name}
+                  </button>
+                </div>
+              )}
 
               {/* Sons (collapsible) - Enhanced with Pan To and Allocate Space buttons (v1.3.0) */}
               {isExpanded && mother.children.map((son, sonIndex) => (
@@ -2341,7 +2557,58 @@ function App() {
               );
             })()}
 
+            {/* Region Visualization */}
+            {(() => {
+              const objectRegions = (obj as any).regions || [];
+              if (objectRegions.length === 0) return null;
 
+              const mmToPx = 3.78;
+              const scale = zoom * mmToPx;
+
+              return objectRegions.map((region: Region) => (
+                <g key={region.id}>
+                  {/* Region Rectangle */}
+                  <rect
+                    x={baseX + (region.x * scale)}
+                    y={baseY + (region.y * scale)}
+                    width={region.width * scale}
+                    height={region.height * scale}
+                    fill={region.backgroundColor}
+                    stroke={region.borderColor}
+                    strokeWidth="2"
+                    strokeDasharray="5,5"
+                    opacity="0.7"
+                  />
+
+                  {/* Region Label */}
+                  <text
+                    x={baseX + (region.x * scale) + (region.width * scale) / 2}
+                    y={baseY + (region.y * scale) + 15}
+                    fill={region.borderColor}
+                    fontSize="10"
+                    fontWeight="bold"
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    opacity="0.9"
+                  >
+                    {region.name}
+                  </text>
+
+                  {/* Region Dimensions */}
+                  <text
+                    x={baseX + (region.x * scale) + (region.width * scale) / 2}
+                    y={baseY + (region.y * scale) + (region.height * scale) - 5}
+                    fill={region.borderColor}
+                    fontSize="8"
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    opacity="0.7"
+                  >
+                    {region.width}×{region.height}mm
+                  </text>
+                </g>
+              ));
+            })()}
 
             {/* Sewing Lines with Dimensions */}
             {showSewingLines && (() => {
@@ -3687,7 +3954,12 @@ function App() {
 
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
               <button
-                onClick={() => setShowMotherDialog(false)}
+                onClick={() => {
+                  setShowMotherDialog(false);
+
+                  setIsEditingMother(false);
+                  setEditingMotherId(null);
+                }}
                 style={{
                   padding: '10px 20px',
                   border: '2px solid #ddd',
@@ -3737,6 +4009,270 @@ function App() {
                 {isEditingMother ? '✅ Update' : '✅ Create'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Region Edit Dialog */}
+      {showRegionDialog && editingRegion && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          zIndex: 10001
+        }}
+        onMouseMove={(e) => {
+          if (isDragging) {
+            e.preventDefault(); // Prevent text selection during drag
+            const newX = e.clientX - dragStart.x;
+            const newY = e.clientY - dragStart.y;
+            setDialogPosition({ x: newX, y: newY });
+          }
+        }}
+        onMouseUp={() => {
+          setIsDragging(false);
+        }}
+        >
+          <div style={{
+            background: 'white',
+            borderRadius: '12px',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+            minWidth: '400px',
+            maxWidth: '500px',
+            position: 'absolute',
+            left: `calc(50% + ${dialogPosition.x}px)`,
+            top: `calc(50% + ${dialogPosition.y}px)`,
+            transform: 'translate(-50%, -50%)',
+            cursor: isDragging ? 'grabbing' : 'default'
+          }}>
+            {/* Draggable Header */}
+            <div
+              style={{
+                background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)',
+                color: 'white',
+                padding: '15px 30px',
+                borderRadius: '12px 12px 0 0',
+                cursor: 'grab',
+                userSelect: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}
+              onMouseDown={(e) => {
+                setIsDragging(true);
+                setDragStart({
+                  x: e.clientX - dialogPosition.x,
+                  y: e.clientY - dialogPosition.y
+                });
+              }}
+            >
+              <h2 style={{
+                margin: 0,
+                fontSize: '18px',
+                fontWeight: 'bold'
+              }}>
+                ✏️ Edit Region
+              </h2>
+              <div style={{
+                fontSize: '12px',
+                opacity: 0.8,
+                fontStyle: 'italic'
+              }}>
+                Drag to move
+              </div>
+            </div>
+
+            {/* Dialog Content */}
+            <div style={{ padding: '30px' }}>
+
+            {/* Region Name */}
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>
+                Region Name:
+              </label>
+              <input
+                type="text"
+                value={editingRegion.name}
+                onChange={(e) => setEditingRegion(prev => prev ? { ...prev, name: e.target.value } : null)}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: '2px solid #ddd',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  outline: 'none'
+                }}
+                onFocus={(e) => e.target.style.borderColor = '#2196f3'}
+                onBlur={(e) => e.target.style.borderColor = '#ddd'}
+              />
+            </div>
+
+            {/* Position and Size */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>
+                  X Position (mm):
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max={motherConfig.width - 10}
+                  value={editingRegion.x}
+                  onChange={(e) => setEditingRegion(prev => prev ? { ...prev, x: parseInt(e.target.value) || 0 } : null)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '2px solid #ddd',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    outline: 'none'
+                  }}
+                  onFocus={(e) => e.target.style.borderColor = '#2196f3'}
+                  onBlur={(e) => e.target.style.borderColor = '#ddd'}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>
+                  Y Position (mm):
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max={motherConfig.height - 10}
+                  value={editingRegion.y}
+                  onChange={(e) => setEditingRegion(prev => prev ? { ...prev, y: parseInt(e.target.value) || 0 } : null)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '2px solid #ddd',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    outline: 'none'
+                  }}
+                  onFocus={(e) => e.target.style.borderColor = '#2196f3'}
+                  onBlur={(e) => e.target.style.borderColor = '#ddd'}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>
+                  Width (mm):
+                </label>
+                <input
+                  type="number"
+                  min="10"
+                  max={motherConfig.width - editingRegion.x}
+                  value={editingRegion.width}
+                  onChange={(e) => setEditingRegion(prev => prev ? { ...prev, width: parseInt(e.target.value) || 10 } : null)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '2px solid #ddd',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    outline: 'none'
+                  }}
+                  onFocus={(e) => e.target.style.borderColor = '#2196f3'}
+                  onBlur={(e) => e.target.style.borderColor = '#ddd'}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>
+                  Height (mm):
+                </label>
+                <input
+                  type="number"
+                  min="10"
+                  max={motherConfig.height - editingRegion.y}
+                  value={editingRegion.height}
+                  onChange={(e) => setEditingRegion(prev => prev ? { ...prev, height: parseInt(e.target.value) || 10 } : null)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '2px solid #ddd',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    outline: 'none'
+                  }}
+                  onFocus={(e) => e.target.style.borderColor = '#2196f3'}
+                  onBlur={(e) => e.target.style.borderColor = '#ddd'}
+                />
+              </div>
+            </div>
+
+            {/* Buttons */}
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => {
+                  setShowRegionDialog(false);
+                  setEditingRegion(null);
+                }}
+                style={{
+                  padding: '10px 20px',
+                  border: '2px solid #ddd',
+                  borderRadius: '6px',
+                  background: 'white',
+                  color: '#666',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer'
+                }}
+              >
+                ❌ Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (editingRegion && selectedObject) {
+                    // Update the region in the actual mother object
+                    const currentData = data || webCreationData;
+                    if (currentData) {
+                      const updatedObjects = currentData.objects.map(obj => {
+                        if (obj.name === selectedObject.name && obj.type === 'mother') {
+                          const currentRegions = (obj as any).regions || [];
+                          const updatedRegions = currentRegions.map((r: Region) =>
+                            r.id === editingRegion.id ? editingRegion : r
+                          );
+                          return {
+                            ...obj,
+                            regions: updatedRegions
+                          };
+                        }
+                        return obj;
+                      });
+
+                      const updatedData = {
+                        ...currentData,
+                        objects: updatedObjects
+                      };
+
+                      setData(updatedData);
+                      setWebCreationData(updatedData);
+                    }
+
+                    setShowRegionDialog(false);
+                    setEditingRegion(null);
+                  }
+                }}
+                style={{
+                  padding: '10px 20px',
+                  border: 'none',
+                  borderRadius: '6px',
+                  background: 'linear-gradient(135deg, #2196f3 0%, #1976d2 100%)',
+                  color: 'white',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer'
+                }}
+              >
+                ✅ Save
+              </button>
+            </div>
+            </div> {/* Close Dialog Content */}
           </div>
         </div>
       )}
