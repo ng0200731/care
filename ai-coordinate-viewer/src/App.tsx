@@ -1295,8 +1295,9 @@ function App() {
     const motherObjects = objects.filter(obj => obj.type?.includes('mother'));
     
     motherObjects.forEach(mother => {
-      const motherNum = mother.type?.match(/mother (\d+)/)?.[1];
-      let sons = objects.filter(obj => 
+      // Extract mother number from name (e.g., "Mother_1" -> "1")
+      const motherNum = mother.name?.match(/Mother_(\d+)/)?.[1];
+      let sons = objects.filter(obj =>
         obj.type?.includes('son') && obj.type?.includes(`son ${motherNum}-`)
       );
       
@@ -1363,12 +1364,22 @@ function App() {
 
   const handleAddSonObject = (motherObject: AIObject) => {
     console.log('🔥 ADD SON BUTTON CLICKED! Mother:', motherObject.name);
+    console.log('🔍 Mother type:', motherObject.type);
 
-    const motherNum = motherObject.type?.match(/mother (\d+)/)?.[1];
-    if (!motherNum) return;
+    // Extract mother number from name (e.g., "Mother_1" -> "1")
+    const motherNum = motherObject.name?.match(/Mother_(\d+)/)?.[1];
+    console.log('🔢 Extracted mother number from name:', motherNum);
+    if (!motherNum) {
+      console.error('❌ Could not extract mother number from name:', motherObject.name);
+      return;
+    }
 
     const currentData = data || webCreationData;
-    if (!currentData) return;
+    console.log('📊 Current data:', currentData);
+    if (!currentData) {
+      console.error('❌ No current data available');
+      return;
+    }
 
     // Find existing sons for this mother to determine next son number
     const existingSons = currentData.objects.filter(obj =>
@@ -1432,33 +1443,43 @@ function App() {
     };
 
     // Update the appropriate data state
+    console.log('💾 Updating data state...');
     if (data) {
+      console.log('📝 Updating data state');
       setData(updatedData);
     } else {
+      console.log('🌐 Updating webCreationData state');
       setWebCreationData(updatedData);
     }
 
     // Add son metadata
+    console.log('📋 Adding son metadata...');
     setSonMetadata(prev => {
       const newMap = new Map(prev);
       newMap.set(`${newSon.name}_${newSon.x}_${newSon.y}`, sonMetadataObj);
+      console.log('📋 Son metadata added:', sonMetadataObj);
       return newMap;
     });
 
     // Select the new son object to show its properties
+    console.log('🎯 Selecting new son object...');
     setSelectedObject(newSon);
 
     // Force re-render by updating expanded mothers
+    console.log('📂 Expanding mother in hierarchy...');
     setExpandedMothers(prev => {
       const motherIndex = currentData.objects.findIndex(obj => obj.name === motherObject.name);
+      console.log('👩 Mother index:', motherIndex);
       const newSet = new Set(prev);
       newSet.add(motherIndex);
+      console.log('📂 Expanded mothers:', Array.from(newSet));
       return newSet;
     });
 
     console.log('✅ Created new son object directly:', newSon);
 
     // Show success notification
+    console.log('🔔 Showing notification...');
     setNotification(`✅ Created ${newSon.name} in ${motherObject.name}`);
     setTimeout(() => setNotification(null), 3000); // Hide after 3 seconds
   };
@@ -2232,13 +2253,14 @@ function App() {
           <>
             {/* Margin Rectangle */}
             {showMarginRectangles && (() => {
-              // Use the same scale as the object rendering
+              // Use the actual object's margins, not the global config
+              const objectMargins = (obj as any).margins || motherConfig.margins;
               const mmToPx = 3.78;
               const scale = zoom * mmToPx;
-              const topMarginPx = motherConfig.margins.top * scale;
-              const bottomMarginPx = motherConfig.margins.down * scale;
-              const leftMarginPx = motherConfig.margins.left * scale;
-              const rightMarginPx = motherConfig.margins.right * scale;
+              const topMarginPx = objectMargins.top * scale;
+              const bottomMarginPx = (objectMargins.down || objectMargins.bottom) * scale;
+              const leftMarginPx = objectMargins.left * scale;
+              const rightMarginPx = objectMargins.right * scale;
 
               const marginFontSize = Math.max(8, Math.min(12, 10 * zoom));
 
@@ -2269,7 +2291,7 @@ function App() {
                     dominantBaseline="middle"
                     opacity="0.8"
                   >
-                    {motherConfig.margins.top}mm
+                    {objectMargins.top}mm
                   </text>
 
                   {/* Bottom margin label */}
@@ -2283,7 +2305,7 @@ function App() {
                     dominantBaseline="middle"
                     opacity="0.8"
                   >
-                    {motherConfig.margins.down}mm
+                    {objectMargins.down || objectMargins.bottom}mm
                   </text>
 
                   {/* Left margin label */}
@@ -2298,7 +2320,7 @@ function App() {
                     opacity="0.8"
                     transform={`rotate(-90, ${baseX + leftMarginPx / 2}, ${baseY + height / 2})`}
                   >
-                    {motherConfig.margins.left}mm
+                    {objectMargins.left}mm
                   </text>
 
                   {/* Right margin label */}
@@ -2313,7 +2335,7 @@ function App() {
                     opacity="0.8"
                     transform={`rotate(90, ${baseX + width - rightMarginPx / 2}, ${baseY + height / 2})`}
                   >
-                    {motherConfig.margins.right}mm
+                    {objectMargins.right}mm
                   </text>
                 </>
               );
@@ -2322,15 +2344,20 @@ function App() {
 
 
             {/* Sewing Lines with Dimensions */}
-            {showSewingLines && motherConfig.sewingPosition && (
-              (() => {
-                // Use the same scale as the object rendering
-                const mmToPx = 3.78;
-                const scale = zoom * mmToPx;
-                const offset = motherConfig.sewingOffset * scale;
-                const sewingFontSize = Math.max(8, Math.min(12, 10 * zoom));
+            {showSewingLines && (() => {
+              // Use the actual object's sewing position, not the global config
+              const objectSewingPosition = (obj as any).sewingPosition || motherConfig.sewingPosition;
+              const objectSewingOffset = (obj as any).sewingOffset || motherConfig.sewingOffset;
 
-                switch (motherConfig.sewingPosition) {
+              if (!objectSewingPosition) return null;
+
+              // Use the same scale as the object rendering
+              const mmToPx = 3.78;
+              const scale = zoom * mmToPx;
+              const offset = objectSewingOffset * scale;
+              const sewingFontSize = Math.max(8, Math.min(12, 10 * zoom));
+
+              switch (objectSewingPosition) {
                   case 'top':
                     return (
                       <>
@@ -2354,7 +2381,7 @@ function App() {
                           dominantBaseline="middle"
                           opacity="0.9"
                         >
-                          {motherConfig.sewingOffset}mm
+                          {objectSewingOffset}mm
                         </text>
                       </>
                     );
@@ -2381,7 +2408,7 @@ function App() {
                           dominantBaseline="bottom"
                           opacity="0.9"
                         >
-                          {motherConfig.sewingOffset}mm
+                          {objectSewingOffset}mm
                         </text>
                       </>
                     );
@@ -2408,7 +2435,7 @@ function App() {
                           dominantBaseline="bottom"
                           opacity="0.9"
                         >
-                          {motherConfig.sewingOffset}mm
+                          {objectSewingOffset}mm
                         </text>
                       </>
                     );
@@ -2435,7 +2462,7 @@ function App() {
                           dominantBaseline="middle"
                           opacity="0.9"
                         >
-                          {motherConfig.sewingOffset}mm
+                          {objectSewingOffset}mm
                         </text>
                       </>
                     );
@@ -2470,7 +2497,7 @@ function App() {
                     return null;
                 }
               })()
-            )}
+            }
           </>
         )}
 
@@ -2656,9 +2683,19 @@ function App() {
           }}>
             <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600' }}>
               🏷️ Care Label Designer - {selectedCustomer.customerName}
+              {originalMasterFile && (
+                <span style={{ color: '#81c784', marginLeft: '10px' }}>
+                  • Editing: {originalMasterFile.name}
+                </span>
+              )}
             </h3>
             <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#a0aec0' }}>
               Contact: {selectedCustomer.person} • {selectedCustomer.email}
+              {originalMasterFile && (
+                <span style={{ marginLeft: '10px', color: '#90caf9' }}>
+                  • Master File ID: {originalMasterFile.id}
+                </span>
+              )}
             </p>
           </div>
         </>
@@ -3013,6 +3050,33 @@ function App() {
                 return '';
               })() : ''}
             </h3>
+
+            {/* DEBUG: Test Add Son Button */}
+            {isProjectMode && (data || webCreationData) && (
+              <button
+                onClick={() => {
+                  console.log('🧪 TEST BUTTON CLICKED');
+                  const currentData = data || webCreationData;
+                  const mothers = currentData?.objects.filter(obj => obj.type?.includes('mother'));
+                  if (mothers && mothers.length > 0) {
+                    handleAddSonObject(mothers[0]);
+                  } else {
+                    console.log('❌ No mothers found for test');
+                  }
+                }}
+                style={{
+                  background: '#FF5722',
+                  color: 'white',
+                  border: 'none',
+                  padding: '5px 10px',
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  marginLeft: '10px'
+                }}
+              >
+                🧪 TEST Add Son
+              </button>
+            )}
             {data && sonMetadata.size > 0 && (
               <button
                 onClick={exportSonMetadata}
@@ -3049,10 +3113,35 @@ function App() {
                   {isMasterFileMode ? '📋' : '🏗️'}
                 </div>
                 <h4 style={{margin: '0 0 10px 0', color: '#2e7d32'}}>
-                  {isMasterFileMode ? 'Master File Template Creation' : isProjectMode ? 'Project Creation Mode' : 'Web Creation Mode'}
+                  {originalMasterFile ? 'Editing Master File' :
+                   isMasterFileMode ? 'Master File Template Creation' :
+                   isProjectMode ? 'Project Creation Mode' : 'Web Creation Mode'}
                 </h4>
+                {originalMasterFile && (
+                  <div style={{
+                    background: '#e3f2fd',
+                    border: '1px solid #2196f3',
+                    borderRadius: '6px',
+                    padding: '12px',
+                    margin: '0 0 15px 0',
+                    textAlign: 'left'
+                  }}>
+                    <div style={{fontSize: '14px', fontWeight: 'bold', color: '#1976d2', marginBottom: '4px'}}>
+                      📄 {originalMasterFile.name}
+                    </div>
+                    <div style={{fontSize: '12px', color: '#666'}}>
+                      ID: {originalMasterFile.id}
+                    </div>
+                    {originalMasterFile.description && (
+                      <div style={{fontSize: '12px', color: '#666', marginTop: '4px'}}>
+                        {originalMasterFile.description}
+                      </div>
+                    )}
+                  </div>
+                )}
                 <p style={{color: '#666', fontSize: '14px', margin: '0 0 20px 0'}}>
-                  {isMasterFileMode
+                  {originalMasterFile ? 'Modify the existing design and save changes' :
+                   isMasterFileMode
                     ? 'Create a mother template that can be reused in multiple projects'
                     : 'Start by creating your first mother object'
                   }
