@@ -85,11 +85,23 @@ interface AIData {
 function App() {
   const location = useLocation();
 
-  // Get URL parameters to determine context
+  // Get URL parameters to determine context and mode
   const urlParams = new URLSearchParams(location.search);
   const context = urlParams.get('context');
   const projectSlug = urlParams.get('projectSlug');
   const projectName = urlParams.get('projectName');
+  const masterFileId = urlParams.get('masterFileId');
+
+  // Mode Detection
+  const isMasterFileMode = !context || context !== 'projects';
+  const isProjectMode = context === 'projects';
+
+  console.log('🎯 Mode Detection:', {
+    isMasterFileMode,
+    isProjectMode,
+    context,
+    masterFileId
+  });
   const [data, setData] = useState<AIData | null>(null);
   const [selectedObject, setSelectedObject] = useState<AIObject | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -138,7 +150,30 @@ function App() {
   // Saving state
   const [isSaving, setIsSaving] = useState(false);
 
+  // Master File Template State
+  const [masterFileTemplate, setMasterFileTemplate] = useState<{
+    id: string;
+    name: string;
+    motherTemplate: {
+      width: number;
+      height: number;
+      margins: { top: number; bottom: number; left: number; right: number };
+      properties: any;
+    };
+  } | null>(null);
 
+  // Project Mothers State (for project mode)
+  const [projectMothers, setProjectMothers] = useState<Array<{
+    id: string;
+    name: string;
+    fromTemplate: boolean;
+    width: number;
+    height: number;
+    margins: { top: number; bottom: number; left: number; right: number };
+    x: number;
+    y: number;
+    sons: any[];
+  }>>([]);
 
   // Mother creation dialog state
   const [showMotherDialog, setShowMotherDialog] = useState(false);
@@ -196,9 +231,13 @@ function App() {
   useEffect(() => {
     const forceWebMode = sessionStorage.getItem('forceWebCreationMode');
 
-    // Enable web creation mode if coming from projects or if explicitly forced
-    if (forceWebMode === 'true' || context === 'projects') {
-      console.log('🎨 Canvas mode detected - enabling web creation mode');
+    // Enable web creation mode for both master file creation and project mode
+    if (forceWebMode === 'true' || isMasterFileMode || isProjectMode) {
+      console.log('🎨 Canvas mode detected - enabling web creation mode', {
+        forceWebMode,
+        isMasterFileMode,
+        isProjectMode
+      });
       setIsWebCreationMode(true);
 
       // Check if there's a master file ID to load for editing
@@ -1344,6 +1383,73 @@ function App() {
       newMap.set(objectName, metadata);
       return newMap;
     });
+  };
+
+  // Master File Template Functions
+  const createMasterFileTemplate = () => {
+    console.log('📋 Creating master file template');
+
+    if (!data || data.objects.length === 0) {
+      alert('❌ Please create a mother object first');
+      return;
+    }
+
+    // Find the mother object (should be only one in master file mode)
+    const motherObjects = data.objects.filter(obj => obj.type?.includes('mother'));
+    if (motherObjects.length === 0) {
+      alert('❌ No mother object found');
+      return;
+    }
+
+    if (motherObjects.length > 1) {
+      alert('❌ Master file should have only one mother template');
+      return;
+    }
+
+    const motherObj = motherObjects[0];
+    const motherMeta = motherMetadata.get(`${motherObj.name}_${motherObj.x}_${motherObj.y}`);
+
+    const template = {
+      id: `template-${Date.now()}`,
+      name: `Master Template - ${motherObj.name}`,
+      motherTemplate: {
+        width: motherObj.width,
+        height: motherObj.height,
+        margins: motherMeta?.margins || { top: 5, bottom: 5, left: 5, right: 5 },
+        properties: motherMeta || {}
+      }
+    };
+
+    setMasterFileTemplate(template);
+    console.log('✅ Master file template created:', template);
+    alert(`✅ Master file template created: ${template.name}`);
+  };
+
+  // Project Mode Functions
+  const addMotherFromTemplate = () => {
+    console.log('👩 Adding mother from template');
+
+    if (!masterFileTemplate) {
+      alert('❌ No master file template loaded');
+      return;
+    }
+
+    const nextMotherNumber = projectMothers.length + 1;
+    const newMother = {
+      id: `mother-${Date.now()}`,
+      name: `Mother ${nextMotherNumber}`,
+      fromTemplate: true,
+      width: masterFileTemplate.motherTemplate.width,
+      height: masterFileTemplate.motherTemplate.height,
+      margins: masterFileTemplate.motherTemplate.margins,
+      x: 50 + (nextMotherNumber - 1) * 250, // Offset each mother
+      y: 50,
+      sons: []
+    };
+
+    setProjectMothers(prev => [...prev, newMother]);
+    console.log('✅ Mother added from template:', newMother);
+    alert(`✅ Added ${newMother.name} from template`);
   };
 
   const handleAddSonObject = (motherObject: AIObject) => {
@@ -3047,8 +3153,8 @@ function App() {
           )}
         </div>
 
-        {/* Hierarchy Panel - 30% - Show in web creation mode or project context */}
-        {(isWebCreationMode || context === 'projects') && (
+        {/* Hierarchy Panel - 30% - Show in both master file and project modes */}
+        {(isWebCreationMode || isMasterFileMode || isProjectMode) && (
           <div style={{
             width: '30%',
             background: 'white',
@@ -3087,31 +3193,61 @@ function App() {
             )}
           </div>
 
-          {data && data.objects.length > 0 ? (
-            <div>
-              {renderHierarchicalList()}
-            </div>
-          ) : isWebCreationMode ? (
-            <div style={{textAlign: 'center', marginTop: '30px'}}>
-              <div style={{
-                background: 'linear-gradient(135deg, #e8f5e8 0%, #f0f8f0 100%)',
-                padding: '20px',
-                borderRadius: '10px',
-                border: '2px dashed #4CAF50',
-                marginBottom: '20px'
-              }}>
-                <div style={{fontSize: '2rem', marginBottom: '10px'}}>🏗️</div>
-                <h4 style={{margin: '0 0 10px 0', color: '#2e7d32'}}>Web Creation Mode</h4>
-                <p style={{color: '#666', fontSize: '14px', margin: '0 0 20px 0'}}>
-                  Start by creating your first mother object
-                </p>
-
-                <button
-                  onClick={openMotherDialog}
-                  style={{
-                    background: 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)',
-                    color: 'white',
-                    border: 'none',
+          {/* Mode-Specific Content */}
+          {isMasterFileMode ? (
+            /* MASTER FILE MODE - Template Creation */
+            data && data.objects.length > 0 ? (
+              <div>
+                <div style={{
+                  background: 'linear-gradient(135deg, #e3f2fd 0%, #f0f8ff 100%)',
+                  padding: '15px',
+                  borderRadius: '8px',
+                  border: '2px solid #2196F3',
+                  marginBottom: '15px'
+                }}>
+                  <div style={{fontSize: '1.5rem', marginBottom: '8px'}}>📋</div>
+                  <h4 style={{margin: '0 0 8px 0', color: '#1976d2'}}>Master File Template</h4>
+                  <p style={{color: '#666', fontSize: '13px', margin: '0 0 10px 0'}}>
+                    Define your mother object template for reuse in projects
+                  </p>
+                  <button
+                    onClick={createMasterFileTemplate}
+                    style={{
+                      background: '#2196F3',
+                      color: 'white',
+                      border: 'none',
+                      padding: '8px 16px',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    💾 Save as Master Template
+                  </button>
+                </div>
+                {renderHierarchicalList()}
+              </div>
+            ) : (
+              <div style={{textAlign: 'center', marginTop: '30px'}}>
+                <div style={{
+                  background: 'linear-gradient(135deg, #e3f2fd 0%, #f0f8ff 100%)',
+                  padding: '20px',
+                  borderRadius: '10px',
+                  border: '2px dashed #2196F3',
+                  marginBottom: '20px'
+                }}>
+                  <div style={{fontSize: '2rem', marginBottom: '10px'}}>📋</div>
+                  <h4 style={{margin: '0 0 10px 0', color: '#1976d2'}}>Master File Creation</h4>
+                  <p style={{color: '#666', fontSize: '14px', margin: '0 0 20px 0'}}>
+                    Create a mother object template that can be reused in multiple projects
+                  </p>
+                  <button
+                    onClick={openMotherDialog}
+                    style={{
+                      background: 'linear-gradient(135deg, #2196F3 0%, #1976d2 100%)',
+                      color: 'white',
+                      border: 'none',
                     padding: '12px 24px',
                     borderRadius: '6px',
                     fontSize: '14px',
@@ -3129,13 +3265,105 @@ function App() {
                     e.currentTarget.style.boxShadow = '0 3px 10px rgba(76, 175, 80, 0.3)';
                   }}
                 >
-                  👩 Create Mother
+                  👩 Create Mother Template
                 </button>
-
-
+              </div>
+            )
+          ) : isProjectMode ? (
+            /* PROJECT MODE - Using Master File Template */
+            <div>
+              <div style={{
+                background: 'linear-gradient(135deg, #e8f5e8 0%, #f0f8f0 100%)',
+                padding: '15px',
+                borderRadius: '8px',
+                border: '2px solid #4CAF50',
+                marginBottom: '15px'
+              }}>
+                <div style={{fontSize: '1.5rem', marginBottom: '8px'}}>🏗️</div>
+                <h4 style={{margin: '0 0 8px 0', color: '#2e7d32'}}>Project Mode</h4>
+                <p style={{color: '#666', fontSize: '13px', margin: '0 0 10px 0'}}>
+                  Add mothers from template and create son objects
+                </p>
+                <button
+                  onClick={addMotherFromTemplate}
+                  style={{
+                    background: '#4CAF50',
+                    color: 'white',
+                    border: 'none',
+                    padding: '8px 16px',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: 'bold',
+                    marginRight: '10px'
+                  }}
+                >
+                  ➕ Add Mother from Template
+                </button>
               </div>
 
-              {/* Debug Panel - Remove this after testing */}
+              {/* Show Project Mothers */}
+              {projectMothers.length > 0 && (
+                <div>
+                  <h4>📋 Project Mothers:</h4>
+                  {projectMothers.map((mother, index) => (
+                    <div key={mother.id} style={{marginBottom: '15px'}}>
+                      <div style={{ marginBottom: '8px' }}>
+                        <button
+                          onClick={(e) => {
+                            console.log('🔥 BUTTON CLICKED!', e);
+                            alert('🔥 BUTTON CLICKED!');
+                            e.stopPropagation();
+                            // handleAddSonObject for project mother
+                          }}
+                          style={{
+                            background: '#4CAF50',
+                            border: '2px solid #45a049',
+                            color: 'white',
+                            fontSize: '14px',
+                            padding: '10px 16px',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontWeight: 'bold',
+                            whiteSpace: 'nowrap',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                            zIndex: 10,
+                            position: 'relative'
+                          }}
+                          title="Add son object to this mother"
+                        >
+                          ➕ Add Son
+                        </button>
+                      </div>
+
+                      <div style={{
+                        background: '#e3f2fd',
+                        color: '#1976d2',
+                        borderRadius: '8px',
+                        padding: '12px',
+                        overflow: 'hidden'
+                      }}>
+                        <div style={{fontWeight: 'bold'}}>
+                          {mother.name} ({mother.sons.length} sons)
+                        </div>
+                        <div style={{fontSize: '0.8em', opacity: 0.8}}>
+                          From Template: {mother.width}×{mother.height}mm
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            /* FALLBACK - No specific mode */
+            <div style={{color: '#999', textAlign: 'center', marginTop: '50px'}}>
+              <p>No objects to display</p>
+              <p>Upload a JSON file to see layer objects</p>
+            </div>
+          )}
+
+          {/* Debug Panel - Remove this after testing */}
               <div style={{
                 marginTop: '10px',
                 padding: '10px',
@@ -3216,19 +3444,7 @@ function App() {
                 </div>
               )}
 
-              <div style={{fontSize: '12px', color: '#999', textAlign: 'left'}}>
-                <p><strong>Next Steps:</strong></p>
-                <p>1. Create a mother object (container)</p>
-                <p>2. Add son objects (text, images, etc.)</p>
-                <p>3. Configure properties and layout</p>
-              </div>
-            </div>
-          ) : (
-            <div style={{color: '#999', textAlign: 'center', marginTop: '50px'}}>
-              <p>No objects to display</p>
-              <p>Upload a JSON file to see layer objects</p>
-            </div>
-          )}
+
 
           {/* Son Details Panel - Integrated into Hierarchy Panel */}
           <div style={{marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '20px'}}>
