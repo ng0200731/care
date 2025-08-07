@@ -381,7 +381,7 @@ function App() {
 
     if (midFoldLine.type === 'horizontal') {
       // Calculate Y position of mid-fold line
-      let midFoldY;
+      let midFoldY: number;
       if (midFoldLine.position.useDefault) {
         midFoldY = motherHeight / 2;
       } else {
@@ -446,7 +446,7 @@ function App() {
 
     } else if (midFoldLine.type === 'vertical') {
       // Calculate X position of mid-fold line
-      let midFoldX;
+      let midFoldX: number;
       if (midFoldLine.position.useDefault) {
         midFoldX = motherWidth / 2;
       } else {
