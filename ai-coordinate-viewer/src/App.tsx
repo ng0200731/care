@@ -361,14 +361,15 @@ function App() {
     return bestRect.area > 0 ? bestRect : null;
   };
 
-  // Helper function to find available spaces in a specific area
+  // Helper function to find available spaces in a specific area with full-width priority
   const findAvailableSpacesInArea = (areaX: number, areaY: number, areaWidth: number, areaHeight: number, existingRegions: Region[]) => {
-    // For simplicity, find the largest available rectangle in the area
-    // This could be enhanced to find multiple spaces, but for now we'll find the largest one
+    console.log('🔍 Finding spaces in area:', { areaX, areaY, areaWidth, areaHeight, existingRegions: existingRegions.length });
+
     const availableSpaces = [];
 
     if (existingRegions.length === 0) {
       // No existing regions, entire area is available
+      console.log('✅ No existing regions - entire area available');
       availableSpaces.push({
         x: areaX,
         y: areaY,
@@ -376,29 +377,118 @@ function App() {
         height: areaHeight
       });
     } else {
-      // Find largest available rectangle considering existing regions
-      const largestRect = findLargestAvailableRectangle(
-        areaWidth + areaX, // Temporary adjustment for calculation
-        areaHeight + areaY, // Temporary adjustment for calculation
-        existingRegions.map(r => ({
-          ...r,
-          x: r.x - areaX, // Adjust coordinates to area-relative
-          y: r.y - areaY
-        })),
-        { top: 0, left: 0, right: 0, down: 0 } // No additional margins
-      );
+      // Filter regions that actually overlap with this area
+      const overlappingRegions = existingRegions.filter(region => {
+        const regionRight = region.x + region.width;
+        const regionBottom = region.y + region.height;
+        const areaRight = areaX + areaWidth;
+        const areaBottom = areaY + areaHeight;
 
-      if (largestRect && largestRect.area > 0) {
+        return !(region.x >= areaRight || regionRight <= areaX ||
+                region.y >= areaBottom || regionBottom <= areaY);
+      });
+
+      console.log('🔍 Overlapping regions:', overlappingRegions.length, overlappingRegions);
+
+      if (overlappingRegions.length === 0) {
+        // No overlapping regions, entire area is available
+        console.log('✅ No overlapping regions - entire area available');
         availableSpaces.push({
-          x: largestRect.x + areaX, // Adjust back to mother coordinates
-          y: largestRect.y + areaY,
-          width: largestRect.width,
-          height: largestRect.height
+          x: areaX,
+          y: areaY,
+          width: areaWidth,
+          height: areaHeight
         });
+      } else {
+        // Try to find full-width spaces first (for bottom/top areas)
+        const fullWidthSpaces = findFullWidthSpaces(areaX, areaY, areaWidth, areaHeight, overlappingRegions);
+
+        if (fullWidthSpaces.length > 0) {
+          console.log('✅ Found full-width spaces:', fullWidthSpaces);
+          availableSpaces.push(...fullWidthSpaces);
+        } else {
+          // Fallback to largest available rectangle
+          const largestRect = findLargestAvailableRectangle(
+            areaWidth,
+            areaHeight,
+            overlappingRegions.map(r => ({
+              ...r,
+              x: r.x - areaX, // Convert to area-relative coordinates
+              y: r.y - areaY
+            })),
+            { top: 0, left: 0, right: 0, down: 0 } // No additional margins within area
+          );
+
+          console.log('🔍 Largest rect found:', largestRect);
+
+          if (largestRect && largestRect.area > 0) {
+            availableSpaces.push({
+              x: largestRect.x + areaX, // Convert back to mother coordinates
+              y: largestRect.y + areaY,
+              width: largestRect.width,
+              height: largestRect.height
+            });
+          }
+        }
       }
     }
 
+    console.log('📊 Available spaces found:', availableSpaces);
     return availableSpaces;
+  };
+
+  // Helper function to find full-width spaces in an area
+  const findFullWidthSpaces = (areaX: number, areaY: number, areaWidth: number, areaHeight: number, overlappingRegions: Region[]) => {
+    const fullWidthSpaces = [];
+
+    // Sort regions by Y position to find gaps
+    const sortedRegions = overlappingRegions
+      .map(r => ({
+        ...r,
+        x: Math.max(r.x, areaX), // Clip to area bounds
+        y: Math.max(r.y, areaY),
+        width: Math.min(r.x + r.width, areaX + areaWidth) - Math.max(r.x, areaX),
+        height: Math.min(r.y + r.height, areaY + areaHeight) - Math.max(r.y, areaY)
+      }))
+      .filter(r => r.width > 0 && r.height > 0)
+      .sort((a, b) => a.y - b.y);
+
+    console.log('🔍 Sorted regions for full-width search:', sortedRegions);
+
+    let currentY = areaY;
+
+    for (const region of sortedRegions) {
+      // Check if there's a gap before this region
+      if (region.y > currentY) {
+        const gapHeight = region.y - currentY;
+        if (gapHeight >= 10) { // Minimum 10mm height
+          fullWidthSpaces.push({
+            x: areaX,
+            y: currentY,
+            width: areaWidth,
+            height: gapHeight
+          });
+          console.log('✅ Found full-width gap before region:', { x: areaX, y: currentY, width: areaWidth, height: gapHeight });
+        }
+      }
+      currentY = Math.max(currentY, region.y + region.height);
+    }
+
+    // Check if there's space after the last region
+    if (currentY < areaY + areaHeight) {
+      const remainingHeight = (areaY + areaHeight) - currentY;
+      if (remainingHeight >= 10) { // Minimum 10mm height
+        fullWidthSpaces.push({
+          x: areaX,
+          y: currentY,
+          width: areaWidth,
+          height: remainingHeight
+        });
+        console.log('✅ Found full-width space after last region:', { x: areaX, y: currentY, width: areaWidth, height: remainingHeight });
+      }
+    }
+
+    return fullWidthSpaces;
   };
 
   // Helper function to generate unique region names
@@ -415,6 +505,47 @@ function App() {
     }
 
     return proposedName;
+  };
+
+  // Helper function to calculate used height in an area
+  const calculateUsedHeight = (regions: Region[], areaY: number, areaHeight: number) => {
+    if (regions.length === 0) return 0;
+
+    // Find the total height covered by regions
+    let usedHeight = 0;
+    const sortedRegions = regions.sort((a, b) => a.y - b.y);
+
+    for (const region of sortedRegions) {
+      // Only count regions within the area bounds
+      if (region.y >= areaY && region.y + region.height <= areaY + areaHeight) {
+        usedHeight += region.height;
+      }
+    }
+
+    return usedHeight;
+  };
+
+  // Helper function to calculate used width in an area
+  const calculateUsedWidth = (regions: Region[], areaX: number, areaWidth: number) => {
+    if (regions.length === 0) return 0;
+
+    // Find the total width covered by regions
+    let usedWidth = 0;
+    const sortedRegions = regions.sort((a, b) => a.x - b.x);
+
+    for (const region of sortedRegions) {
+      // Only count regions within the area bounds
+      if (region.x >= areaX && region.x + region.width <= areaX + areaWidth) {
+        usedWidth += region.width;
+      }
+    }
+
+    return usedWidth;
+  };
+
+  // Helper function to check if an area is full (less than 10mm remaining)
+  const isAreaFull = (totalSize: number, usedSize: number, minRemaining: number = 10) => {
+    return (totalSize - usedSize) < minRemaining;
   };
 
   // Enhanced function for mid-fold line aware region creation with existing region support
@@ -493,9 +624,14 @@ function App() {
         bottomRegions
       );
 
-      console.log('📊 Available spaces:', { topAvailableSpaces, bottomAvailableSpaces });
+      console.log('📊 Available spaces:', {
+        topAvailableSpaces: topAvailableSpaces.length,
+        bottomAvailableSpaces: bottomAvailableSpaces.length,
+        topSpaces: topAvailableSpaces,
+        bottomSpaces: bottomAvailableSpaces
+      });
 
-      // Create regions for top area
+      // Create regions for top area (only if space available and meets minimum)
       topAvailableSpaces.forEach((space: any, index: number) => {
         if (space.height >= 10) { // 10mm minimum height
           const regionName = generateUniqueRegionName(existingRegions, newRegions, 'Top');
@@ -510,7 +646,7 @@ function App() {
         }
       });
 
-      // Create regions for bottom area
+      // Create regions for bottom area (only if space available and meets minimum)
       bottomAvailableSpaces.forEach((space: any, index: number) => {
         if (space.height >= 10) { // 10mm minimum height
           const regionName = generateUniqueRegionName(existingRegions, newRegions, 'Bottom');
@@ -594,9 +730,14 @@ function App() {
         rightRegions
       );
 
-      console.log('📊 Available spaces:', { leftAvailableSpaces, rightAvailableSpaces });
+      console.log('📊 Available spaces:', {
+        leftAvailableSpaces: leftAvailableSpaces.length,
+        rightAvailableSpaces: rightAvailableSpaces.length,
+        leftSpaces: leftAvailableSpaces,
+        rightSpaces: rightAvailableSpaces
+      });
 
-      // Create regions for left area
+      // Create regions for left area (only if space available and meets minimum)
       leftAvailableSpaces.forEach((space: any, index: number) => {
         if (space.width >= 10) { // 10mm minimum width
           const regionName = generateUniqueRegionName(existingRegions, newRegions, 'Left');
@@ -611,7 +752,7 @@ function App() {
         }
       });
 
-      // Create regions for right area
+      // Create regions for right area (only if space available and meets minimum)
       rightAvailableSpaces.forEach((space: any, index: number) => {
         if (space.width >= 10) { // 10mm minimum width
           const regionName = generateUniqueRegionName(existingRegions, newRegions, 'Right');
@@ -5471,8 +5612,8 @@ function App() {
                         console.log('📊 Space analysis result:', spaceAnalysis);
 
                         if (spaceAnalysis.type === 'error') {
-                          // Error case - show error message
-                          alert(`❌ Error: ${spaceAnalysis.message}`);
+                          // Error case - silent operation, just uncheck
+                          setUseWholeMother(false);
                           return;
                         } else if (spaceAnalysis.type === 'single' && spaceAnalysis.regions[0]) {
                           // No mid-fold line, use single region
@@ -5485,41 +5626,24 @@ function App() {
                             height: largestRect.height
                           });
                         } else if ((spaceAnalysis.type === 'horizontal_split' || spaceAnalysis.type === 'vertical_split') && spaceAnalysis.regions.length > 0) {
-                          // Mid-fold line detected - show confirmation dialog for multiple regions
-                          const regionNames = spaceAnalysis.regions
-                            .map(r => (r as any).name || 'Region')
-                            .join(' and ');
+                          // Mid-fold line detected - silently create regions in non-full areas
+                          // Store analysis for later use
+                          (window as any).pendingMidFoldAnalysis = spaceAnalysis;
 
-                          if (window.confirm(
-                            `🔄 Mid-fold line detected!\n\n` +
-                            `The available space will be automatically split into ${spaceAnalysis.regions.length} regions:\n` +
-                            `${regionNames}\n\n` +
-                            `This ensures regions don't cross the mid-fold line.\n\n` +
-                            `Continue with automatic split?`
-                          )) {
-                            // User confirmed - store analysis for later use
-                            (window as any).pendingMidFoldAnalysis = spaceAnalysis;
-
-                            // Set first region data for display
-                            const firstRegion = spaceAnalysis.regions[0];
-                            if (firstRegion) {
-                              setNewRegionData({
-                                ...newRegionData,
-                                x: firstRegion.x,
-                                y: firstRegion.y,
-                                width: firstRegion.width,
-                                height: firstRegion.height,
-                                name: (firstRegion as any).name || 'Region_1'
-                              });
-                            }
-                          } else {
-                            // User cancelled - uncheck the checkbox
-                            setUseWholeMother(false);
+                          // Set first region data for display
+                          const firstRegion = spaceAnalysis.regions[0];
+                          if (firstRegion) {
+                            setNewRegionData({
+                              ...newRegionData,
+                              x: firstRegion.x,
+                              y: firstRegion.y,
+                              width: firstRegion.width,
+                              height: firstRegion.height,
+                              name: (firstRegion as any).name || 'Region_1'
+                            });
                           }
                         } else {
-                          // No available space or mid-fold with no viable regions
-                          const message = spaceAnalysis.message || 'No sufficient space available for regions.';
-                          alert(`❌ ${message}\n\nTry adjusting margins, removing existing regions, or changing mid-fold settings.`);
+                          // No available space or mid-fold with no viable regions - silent operation
                           setUseWholeMother(false);
                         }
                       }
