@@ -361,9 +361,66 @@ function App() {
     return bestRect.area > 0 ? bestRect : null;
   };
 
-  // Enhanced function for mid-fold line aware region creation
+  // Helper function to find available spaces in a specific area
+  const findAvailableSpacesInArea = (areaX: number, areaY: number, areaWidth: number, areaHeight: number, existingRegions: Region[]) => {
+    // For simplicity, find the largest available rectangle in the area
+    // This could be enhanced to find multiple spaces, but for now we'll find the largest one
+    const availableSpaces = [];
+
+    if (existingRegions.length === 0) {
+      // No existing regions, entire area is available
+      availableSpaces.push({
+        x: areaX,
+        y: areaY,
+        width: areaWidth,
+        height: areaHeight
+      });
+    } else {
+      // Find largest available rectangle considering existing regions
+      const largestRect = findLargestAvailableRectangle(
+        areaWidth + areaX, // Temporary adjustment for calculation
+        areaHeight + areaY, // Temporary adjustment for calculation
+        existingRegions.map(r => ({
+          ...r,
+          x: r.x - areaX, // Adjust coordinates to area-relative
+          y: r.y - areaY
+        })),
+        { top: 0, left: 0, right: 0, down: 0 } // No additional margins
+      );
+
+      if (largestRect && largestRect.area > 0) {
+        availableSpaces.push({
+          x: largestRect.x + areaX, // Adjust back to mother coordinates
+          y: largestRect.y + areaY,
+          width: largestRect.width,
+          height: largestRect.height
+        });
+      }
+    }
+
+    return availableSpaces;
+  };
+
+  // Helper function to generate unique region names
+  const generateUniqueRegionName = (existingRegions: Region[], newRegions: any[], baseName: string) => {
+    const allRegions = [...existingRegions, ...newRegions];
+    const existingNames = allRegions.map(r => r.name);
+
+    let counter = 1;
+    let proposedName = `Region_${baseName}`;
+
+    while (existingNames.includes(proposedName)) {
+      counter++;
+      proposedName = `Region_${baseName}_${counter}`;
+    }
+
+    return proposedName;
+  };
+
+  // Enhanced function for mid-fold line aware region creation with existing region support
   const findAvailableSpaceWithMidFold = (motherWidth: number, motherHeight: number, existingRegions: Region[], margins: any, midFoldLine: any) => {
     console.log('🔍 Analyzing space with mid-fold line:', midFoldLine);
+    console.log('📦 Existing regions:', existingRegions);
 
     if (!midFoldLine || !midFoldLine.enabled) {
       // No mid-fold line, use original logic
@@ -392,68 +449,92 @@ function App() {
         }
       }
 
-      // Calculate available areas: top and bottom
+      // Calculate boundaries
       const topBoundary = midFoldY - padding; // Where top region can extend to
       const bottomBoundary = midFoldY + padding; // Where bottom region starts from
 
-      const topAreaHeight = topBoundary - marginTop; // Available height for top region
-      const bottomAreaHeight = motherHeight - bottomBoundary - marginBottom; // Available height for bottom region
+      // Analyze existing regions
+      const topRegions = existingRegions.filter(r => r.y + r.height <= topBoundary);
+      const bottomRegions = existingRegions.filter(r => r.y >= bottomBoundary);
+      const invalidRegions = existingRegions.filter(r =>
+        !(r.y + r.height <= topBoundary) && !(r.y >= bottomBoundary)
+      );
 
-      console.log('📏 Horizontal split calculation:', {
-        motherHeight,
-        midFoldY,
-        padding,
-        topBoundary,
-        bottomBoundary,
-        topAreaHeight,
-        bottomAreaHeight,
-        marginTop,
-        marginBottom,
-        calculation: {
-          topBoundary: `${midFoldY} - ${padding} = ${topBoundary}`,
-          bottomBoundary: `${midFoldY} + ${padding} = ${bottomBoundary}`,
-          topAreaHeight: `${topBoundary} - ${marginTop} = ${topAreaHeight}`,
-          bottomAreaHeight: `${motherHeight} - ${bottomBoundary} - ${marginBottom} = ${bottomAreaHeight}`
+      console.log('📏 Horizontal split analysis:', {
+        motherHeight, midFoldY, padding, topBoundary, bottomBoundary,
+        topRegions: topRegions.length, bottomRegions: bottomRegions.length,
+        invalidRegions: invalidRegions.length
+      });
+
+      if (invalidRegions.length > 0) {
+        console.log('❌ Invalid regions crossing mid-fold line:', invalidRegions);
+        return {
+          type: 'error',
+          message: 'Some regions cross the mid-fold line. Please remove or adjust them first.',
+          regions: []
+        };
+      }
+
+      const newRegions: any[] = [];
+
+      // Find available space in top area
+      const topAvailableSpaces = findAvailableSpacesInArea(
+        marginLeft, marginTop,
+        motherWidth - marginLeft - marginRight,
+        topBoundary - marginTop,
+        topRegions
+      );
+
+      // Find available space in bottom area
+      const bottomAvailableSpaces = findAvailableSpacesInArea(
+        marginLeft, bottomBoundary,
+        motherWidth - marginLeft - marginRight,
+        motherHeight - bottomBoundary - marginBottom,
+        bottomRegions
+      );
+
+      console.log('📊 Available spaces:', { topAvailableSpaces, bottomAvailableSpaces });
+
+      // Create regions for top area
+      topAvailableSpaces.forEach((space: any, index: number) => {
+        if (space.height >= 10) { // 10mm minimum height
+          const regionName = generateUniqueRegionName(existingRegions, newRegions, 'Top');
+          newRegions.push({
+            x: space.x,
+            y: space.y,
+            width: space.width,
+            height: space.height,
+            name: regionName,
+            id: `region_${Date.now()}_${index}`
+          });
         }
       });
 
-      const regions = [];
+      // Create regions for bottom area
+      bottomAvailableSpaces.forEach((space: any, index: number) => {
+        if (space.height >= 10) { // 10mm minimum height
+          const regionName = generateUniqueRegionName(existingRegions, newRegions, 'Bottom');
+          newRegions.push({
+            x: space.x,
+            y: space.y,
+            width: space.width,
+            height: space.height,
+            name: regionName,
+            id: `region_${Date.now()}_${index + 100}`
+          });
+        }
+      });
 
-      // Top region - simplified calculation
-      if (topAreaHeight >= 10) { // Minimum 10mm height
-        const topRegion = {
-          x: marginLeft,
-          y: marginTop,
-          width: motherWidth - marginLeft - marginRight,
-          height: topAreaHeight,
-          name: 'Region_Top',
-          id: `region_top_${Date.now()}`
-        };
-
-        console.log('✅ Created top region:', topRegion);
-        regions.push(topRegion);
-      }
-
-      // Bottom region - simplified calculation
-      if (bottomAreaHeight >= 10) { // Minimum 10mm height
-        const bottomRegion = {
-          x: marginLeft,
-          y: bottomBoundary,
-          width: motherWidth - marginLeft - marginRight,
-          height: bottomAreaHeight,
-          name: 'Region_Bottom',
-          id: `region_bottom_${Date.now()}`
-        };
-
-        console.log('✅ Created bottom region:', bottomRegion);
-        regions.push(bottomRegion);
-      }
+      console.log('✅ Created new regions:', newRegions);
 
       return {
         type: 'horizontal_split',
         midFoldY,
         padding,
-        regions
+        regions: newRegions,
+        message: newRegions.length > 0 ?
+          `Created ${newRegions.length} region(s): ${newRegions.map(r => r.name).join(', ')}` :
+          'No viable spaces found (all areas < 10mm minimum height)'
       };
 
     } else if (midFoldLine.type === 'vertical') {
@@ -469,61 +550,92 @@ function App() {
         }
       }
 
-      // Calculate available areas: left and right
+      // Calculate boundaries
       const leftBoundary = midFoldX - padding; // Where left region can extend to
       const rightBoundary = midFoldX + padding; // Where right region starts from
 
-      const leftAreaWidth = leftBoundary - marginLeft; // Available width for left region
-      const rightAreaWidth = motherWidth - rightBoundary - marginRight; // Available width for right region
+      // Analyze existing regions
+      const leftRegions = existingRegions.filter(r => r.x + r.width <= leftBoundary);
+      const rightRegions = existingRegions.filter(r => r.x >= rightBoundary);
+      const invalidRegions = existingRegions.filter(r =>
+        !(r.x + r.width <= leftBoundary) && !(r.x >= rightBoundary)
+      );
 
-      console.log('📏 Vertical split calculation:', {
-        midFoldX,
-        padding,
-        leftBoundary,
-        rightBoundary,
-        leftAreaWidth,
-        rightAreaWidth,
-        marginLeft,
-        marginRight
+      console.log('📏 Vertical split analysis:', {
+        motherWidth, midFoldX, padding, leftBoundary, rightBoundary,
+        leftRegions: leftRegions.length, rightRegions: rightRegions.length,
+        invalidRegions: invalidRegions.length
       });
 
-      const regions = [];
-
-      // Left region - simplified calculation
-      if (leftAreaWidth >= 10) { // Minimum 10mm width
-        const leftRegion = {
-          x: marginLeft,
-          y: marginTop,
-          width: leftAreaWidth,
-          height: motherHeight - marginTop - marginBottom,
-          name: 'Region_Left',
-          id: `region_left_${Date.now()}`
+      if (invalidRegions.length > 0) {
+        console.log('❌ Invalid regions crossing mid-fold line:', invalidRegions);
+        return {
+          type: 'error',
+          message: 'Some regions cross the mid-fold line. Please remove or adjust them first.',
+          regions: []
         };
-
-        console.log('✅ Created left region:', leftRegion);
-        regions.push(leftRegion);
       }
 
-      // Right region - simplified calculation
-      if (rightAreaWidth >= 10) { // Minimum 10mm width
-        const rightRegion = {
-          x: rightBoundary,
-          y: marginTop,
-          width: rightAreaWidth,
-          height: motherHeight - marginTop - marginBottom,
-          name: 'Region_Right',
-          id: `region_right_${Date.now()}`
-        };
+      const newRegions: any[] = [];
 
-        console.log('✅ Created right region:', rightRegion);
-        regions.push(rightRegion);
-      }
+      // Find available space in left area
+      const leftAvailableSpaces = findAvailableSpacesInArea(
+        marginLeft, marginTop,
+        leftBoundary - marginLeft,
+        motherHeight - marginTop - marginBottom,
+        leftRegions
+      );
+
+      // Find available space in right area
+      const rightAvailableSpaces = findAvailableSpacesInArea(
+        rightBoundary, marginTop,
+        motherWidth - rightBoundary - marginRight,
+        motherHeight - marginTop - marginBottom,
+        rightRegions
+      );
+
+      console.log('📊 Available spaces:', { leftAvailableSpaces, rightAvailableSpaces });
+
+      // Create regions for left area
+      leftAvailableSpaces.forEach((space: any, index: number) => {
+        if (space.width >= 10) { // 10mm minimum width
+          const regionName = generateUniqueRegionName(existingRegions, newRegions, 'Left');
+          newRegions.push({
+            x: space.x,
+            y: space.y,
+            width: space.width,
+            height: space.height,
+            name: regionName,
+            id: `region_${Date.now()}_${index}`
+          });
+        }
+      });
+
+      // Create regions for right area
+      rightAvailableSpaces.forEach((space: any, index: number) => {
+        if (space.width >= 10) { // 10mm minimum width
+          const regionName = generateUniqueRegionName(existingRegions, newRegions, 'Right');
+          newRegions.push({
+            x: space.x,
+            y: space.y,
+            width: space.width,
+            height: space.height,
+            name: regionName,
+            id: `region_${Date.now()}_${index + 100}`
+          });
+        }
+      });
+
+      console.log('✅ Created new regions:', newRegions);
 
       return {
         type: 'vertical_split',
         midFoldX,
         padding,
-        regions
+        regions: newRegions,
+        message: newRegions.length > 0 ?
+          `Created ${newRegions.length} region(s): ${newRegions.map(r => r.name).join(', ')}` :
+          'No viable spaces found (all areas < 10mm minimum width)'
       };
     }
 
@@ -5358,7 +5470,11 @@ function App() {
 
                         console.log('📊 Space analysis result:', spaceAnalysis);
 
-                        if (spaceAnalysis.type === 'single' && spaceAnalysis.regions[0]) {
+                        if (spaceAnalysis.type === 'error') {
+                          // Error case - show error message
+                          alert(`❌ Error: ${spaceAnalysis.message}`);
+                          return;
+                        } else if (spaceAnalysis.type === 'single' && spaceAnalysis.regions[0]) {
                           // No mid-fold line, use single region
                           const largestRect = spaceAnalysis.regions[0];
                           setNewRegionData({
@@ -5401,8 +5517,9 @@ function App() {
                             setUseWholeMother(false);
                           }
                         } else {
-                          // No available space
-                          alert('❌ No sufficient space available for regions.\n\nTry adjusting margins or removing existing regions.');
+                          // No available space or mid-fold with no viable regions
+                          const message = spaceAnalysis.message || 'No sufficient space available for regions.';
+                          alert(`❌ ${message}\n\nTry adjusting margins, removing existing regions, or changing mid-fold settings.`);
                           setUseWholeMother(false);
                         }
                       }
