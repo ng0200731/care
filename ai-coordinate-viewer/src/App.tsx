@@ -351,9 +351,9 @@ function App() {
     return bestRect.area > 0 ? bestRect : null;
   };
 
-  // Visual toggle states
-  const [showMarginRectangles, setShowMarginRectangles] = useState(true);
-  const [showSewingLines, setShowSewingLines] = useState(true);
+  // Derived states - show sewing lines and mid-fold lines based on object properties
+  const showMarginRectangles = false; // Always hide margins in this toggle system
+  const showSewingLines = true; // Always show sewing lines based on object properties
 
   // Sewing offset dialog state
   const [showSewingOffsetDialog, setShowSewingOffsetDialog] = useState(false);
@@ -2772,6 +2772,9 @@ function App() {
 
               if (!objectSewingPosition) return null;
 
+              // Always show sewing lines based on object's sewing position
+              // No filtering needed - each object shows its own sewing type
+
               // Use the same scale as the object rendering
               const mmToPx = 3.78;
               const scale = zoom * mmToPx;
@@ -3195,43 +3198,7 @@ function App() {
                   </button>
                 </div>
 
-                {/* Visual Indicators Toggle - Only show in web creation mode */}
-                {isWebCreationMode && (
-                  <div style={{ marginTop: '10px', borderTop: '1px solid #eee', paddingTop: '10px' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 'bold', marginBottom: '8px', color: '#666' }}>
-                      Visual Indicators:
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                      <button
-                        onClick={() => setShowMarginRectangles(!showMarginRectangles)}
-                        style={{
-                          ...buttonStyle,
-                          background: showMarginRectangles ? '#f1f8e9' : 'white',
-                          color: showMarginRectangles ? '#4CAF50' : '#666',
-                          fontSize: '9px',
-                          padding: '3px 5px',
-                          width: '100%'
-                        }}
-                      >
-                        📦 Margins
-                      </button>
 
-                      <button
-                        onClick={() => setShowSewingLines(!showSewingLines)}
-                        style={{
-                          ...buttonStyle,
-                          background: showSewingLines ? '#f1f8e9' : 'white',
-                          color: showSewingLines ? '#4CAF50' : '#666',
-                          fontSize: '9px',
-                          padding: '3px 5px',
-                          width: '100%'
-                        }}
-                      >
-                        🧵 Sewing
-                      </button>
-                    </div>
-                  </div>
-                )}
                 <div style={{ fontSize: '10px', color: '#666', marginTop: '5px' }}>
                   Pan: Click & drag<br/>
                   Zoom: Mouse wheel
@@ -3755,28 +3722,74 @@ function App() {
           left: 0,
           right: 0,
           bottom: 0,
-          background: 'rgba(0,0,0,0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 10000
-        }}>
+          background: 'rgba(0,0,0,0.3)', // More transparent to allow canvas interaction
+          zIndex: 10000,
+          pointerEvents: 'none' // Allow clicks to pass through to canvas
+        }}
+        onMouseMove={(e) => {
+          if (isDragging) {
+            e.preventDefault(); // Prevent text selection during drag
+            const newX = e.clientX - dragStart.x;
+            const newY = e.clientY - dragStart.y;
+            setDialogPosition({ x: newX, y: newY });
+          }
+        }}
+        onMouseUp={() => {
+          setIsDragging(false);
+        }}
+        >
           <div style={{
             background: 'white',
-            padding: '40px',
             borderRadius: '12px',
             boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
             minWidth: '500px',
-            maxWidth: '600px'
+            maxWidth: '600px',
+            position: 'absolute',
+            left: `calc(50% + ${dialogPosition.x}px)`,
+            top: `calc(50% + ${dialogPosition.y}px)`,
+            transform: 'translate(-50%, -50%)',
+            cursor: isDragging ? 'grabbing' : 'default',
+            pointerEvents: 'auto' // Re-enable pointer events for the dialog itself
           }}>
-            <h2 style={{
-              margin: '0 0 20px 0',
-              color: '#2e7d32',
-              textAlign: 'center',
-              fontSize: '24px'
-            }}>
-              {isEditingMother ? '✏️ Edit Mother Object' : isMasterFileMode ? '📋 Create Mother Template' : '👩 Create Mother Object'}
-            </h2>
+            {/* Draggable Header */}
+            <div
+              style={{
+                background: 'linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%)',
+                color: 'white',
+                padding: '15px 30px',
+                borderRadius: '12px 12px 0 0',
+                cursor: 'grab',
+                userSelect: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}
+              onMouseDown={(e) => {
+                setIsDragging(true);
+                setDragStart({
+                  x: e.clientX - dialogPosition.x,
+                  y: e.clientY - dialogPosition.y
+                });
+              }}
+            >
+              <h2 style={{
+                margin: 0,
+                fontSize: '18px',
+                fontWeight: 'bold'
+              }}>
+                {isEditingMother ? '✏️ Edit Mother Object' : isMasterFileMode ? '📋 Create Mother Template' : '👩 Create Mother Object'}
+              </h2>
+              <div style={{
+                fontSize: '12px',
+                opacity: 0.8,
+                fontStyle: 'italic'
+              }}>
+                Drag to move
+              </div>
+            </div>
+
+            {/* Dialog Content */}
+            <div style={{ padding: '30px' }}>
 
             <div style={{ marginBottom: '20px' }}>
               <h3 style={{ margin: '0 0 15px 0', color: '#333', fontSize: '16px' }}>
@@ -4040,110 +4053,133 @@ function App() {
               </div>
             </div>
 
-            {/* Sewing Position Controls */}
+            {/* Sewing Type Selection */}
             <div style={{ marginBottom: '25px' }}>
               <h3 style={{ margin: '0 0 15px 0', color: '#333', fontSize: '16px' }}>
-                🧵 Sewing Position (Click to set offset)
+                🧵 Sewing Type
               </h3>
 
-              {/* Group 1: Edge Positions */}
-              <div style={{ marginBottom: '15px' }}>
-                <h4 style={{ margin: '0 0 10px 0', color: '#666', fontSize: '14px' }}>
-                  📍 Edge Positions:
-                </h4>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                  {[
-                    { value: 'top', label: '🔝 Top' },
-                    { value: 'left', label: '⬅️ Left' },
-                    { value: 'right', label: '➡️ Right' },
-                    { value: 'bottom', label: '⬇️ Bottom' }
-                  ].map((option) => (
-                    <button
-                      key={option.value}
-                      onClick={() => handleSewingPositionClick(option.value as 'top' | 'left' | 'right' | 'bottom' | 'mid-fold')}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '6px',
-                        padding: '12px 16px',
-                        border: `2px solid ${motherConfig.sewingPosition === option.value ? '#d32f2f' : '#ddd'}`,
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        background: motherConfig.sewingPosition === option.value ? '#ffebee' : 'white',
-                        transition: 'all 0.3s',
-                        fontSize: '14px',
-                        fontWeight: 'bold',
-                        color: '#333'
-                      }}
-                      onMouseOver={(e) => {
-                        if (motherConfig.sewingPosition !== option.value) {
-                          e.currentTarget.style.borderColor = '#d32f2f';
-                          e.currentTarget.style.background = '#f9f9f9';
-                        }
-                      }}
-                      onMouseOut={(e) => {
-                        if (motherConfig.sewingPosition !== option.value) {
-                          e.currentTarget.style.borderColor = '#ddd';
-                          e.currentTarget.style.background = 'white';
-                        }
-                      }}
-                    >
-                      {option.label}
-                      {motherConfig.sewingPosition === option.value && (
-                        <span style={{ fontSize: '12px', color: '#666' }}>
-                          ({motherConfig.sewingOffset}mm)
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Group 2: Mid-Fold Position */}
-              <div>
-                <h4 style={{ margin: '0 0 10px 0', color: '#666', fontSize: '14px' }}>
-                  📐 Mid-Fold Position:
-                </h4>
+              {/* Toggle Switch */}
+              <div style={{
+                display: 'flex',
+                background: '#f5f5f5',
+                borderRadius: '20px',
+                padding: '4px',
+                marginBottom: '20px'
+              }}>
+                {/* Sewing Position Button */}
                 <button
-                  onClick={() => handleSewingPositionClick('mid-fold')}
+                  onClick={() => {
+                    // Reset to default sewing position when switching to sewing mode
+                    setMotherConfig(prev => ({
+                      ...prev,
+                      sewingPosition: 'top',
+                      sewingOffset: 5
+                    }));
+                  }}
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                    padding: '12px 16px',
-                    border: `2px solid ${motherConfig.sewingPosition === 'mid-fold' ? '#d32f2f' : '#ddd'}`,
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    background: motherConfig.sewingPosition === 'mid-fold' ? '#ffebee' : 'white',
-                    transition: 'all 0.3s',
-                    fontSize: '14px',
+                    flex: 1,
+                    padding: '10px 15px',
+                    border: 'none',
+                    borderRadius: '16px',
+                    fontSize: '12px',
                     fontWeight: 'bold',
-                    color: '#333',
-                    width: '100%'
-                  }}
-                  onMouseOver={(e) => {
-                    if (motherConfig.sewingPosition !== 'mid-fold') {
-                      e.currentTarget.style.borderColor = '#d32f2f';
-                      e.currentTarget.style.background = '#f9f9f9';
-                    }
-                  }}
-                  onMouseOut={(e) => {
-                    if (motherConfig.sewingPosition !== 'mid-fold') {
-                      e.currentTarget.style.borderColor = '#ddd';
-                      e.currentTarget.style.background = 'white';
-                    }
+                    cursor: 'pointer',
+                    transition: 'all 0.3s',
+                    background: motherConfig.sewingPosition !== 'mid-fold' ? '#4CAF50' : 'transparent',
+                    color: motherConfig.sewingPosition !== 'mid-fold' ? 'white' : '#666'
                   }}
                 >
-                  🎯 Mid-Fold (Horizontal)
-                  {motherConfig.sewingPosition === 'mid-fold' && (
-                    <span style={{ fontSize: '12px', color: '#666' }}>
-                      (Center)
-                    </span>
-                  )}
+                  🧵 Sewing Position
+                </button>
+
+                {/* Mid Fold Line Button */}
+                <button
+                  onClick={() => {
+                    setMotherConfig(prev => ({
+                      ...prev,
+                      sewingPosition: 'mid-fold',
+                      sewingOffset: 0
+                    }));
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '10px 15px',
+                    border: 'none',
+                    borderRadius: '16px',
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s',
+                    background: motherConfig.sewingPosition === 'mid-fold' ? '#FF5722' : 'transparent',
+                    color: motherConfig.sewingPosition === 'mid-fold' ? 'white' : '#666'
+                  }}
+                >
+                  📏 Mid Fold Line
                 </button>
               </div>
+
+              {/* Conditional Content Based on Selection */}
+              {motherConfig.sewingPosition === 'mid-fold' ? (
+                /* Mid-Fold Position Display */
+                <div style={{
+                  padding: '20px',
+                  background: '#fff3e0',
+                  border: '2px solid #FF5722',
+                  borderRadius: '8px',
+                  textAlign: 'center'
+                }}>
+                  <div style={{ fontSize: '32px', marginBottom: '10px' }}>📏</div>
+                  <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#FF5722', marginBottom: '5px' }}>
+                    Mid-Fold Line Selected
+                  </div>
+                  <div style={{ fontSize: '13px', color: '#666' }}>
+                    A horizontal dashed line will appear across the center of the mother object
+                  </div>
+                </div>
+              ) : (
+                /* Sewing Position Selection */
+                <div>
+                  <h4 style={{ margin: '0 0 15px 0', color: '#666', fontSize: '14px' }}>
+                    📍 Select Edge Position (Click to set offset):
+                  </h4>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    {[
+                      { value: 'top', label: '🔝 Top' },
+                      { value: 'left', label: '⬅️ Left' },
+                      { value: 'right', label: '➡️ Right' },
+                      { value: 'bottom', label: '⬇️ Bottom' }
+                    ].map((option) => (
+                      <button
+                        key={option.value}
+                        onClick={() => handleSewingPositionClick(option.value as 'top' | 'left' | 'right' | 'bottom' | 'mid-fold')}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          padding: '12px 16px',
+                          border: `2px solid ${motherConfig.sewingPosition === option.value ? '#4caf50' : '#ddd'}`,
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          background: motherConfig.sewingPosition === option.value ? '#e8f5e9' : 'white',
+                          transition: 'all 0.3s',
+                          fontSize: '13px',
+                          fontWeight: 'bold',
+                          color: motherConfig.sewingPosition === option.value ? '#2e7d32' : '#666'
+                        }}
+                      >
+                        {option.label}
+                        {motherConfig.sewingPosition === option.value && (
+                          <span style={{ fontSize: '12px', color: '#666' }}>
+                            ({motherConfig.sewingOffset}mm)
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
@@ -4202,6 +4238,7 @@ function App() {
               >
                 {isEditingMother ? '✅ Update' : '✅ Create'}
               </button>
+            </div>
             </div>
           </div>
         </div>
