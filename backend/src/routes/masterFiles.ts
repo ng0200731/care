@@ -45,10 +45,10 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Master file not found' });
     }
 
-    res.json({ masterFile });
+    return res.json({ masterFile });
   } catch (error) {
     console.error('Get master file error:', error);
-    res.status(500).json({ error: 'Failed to get master file' });
+    return res.status(500).json({ error: 'Failed to get master file' });
   }
 });
 
@@ -69,16 +69,16 @@ router.post('/', async (req, res) => {
       }
     });
 
-    res.status(201).json({ 
+    return res.status(201).json({
       message: 'Master file created successfully',
-      masterFile 
+      masterFile
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors[0].message });
     }
     console.error('Create master file error:', error);
-    res.status(500).json({ error: 'Failed to create master file' });
+    return res.status(500).json({ error: 'Failed to create master file' });
   }
 });
 
@@ -102,16 +102,16 @@ router.put('/:id', async (req, res) => {
       data: { name, description, data, width, height, canvasImage }
     });
 
-    res.json({ 
+    return res.json({
       message: 'Master file updated successfully',
-      masterFile 
+      masterFile
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors[0].message });
     }
     console.error('Update master file error:', error);
-    res.status(500).json({ error: 'Failed to update master file' });
+    return res.status(500).json({ error: 'Failed to update master file' });
   }
 });
 
@@ -137,10 +137,10 @@ router.delete('/:id', async (req, res) => {
       where: { id }
     });
 
-    res.json({ message: 'Master file deleted successfully' });
+    return res.json({ message: 'Master file deleted successfully' });
   } catch (error) {
     console.error('Delete master file error:', error);
-    res.status(500).json({ error: 'Failed to delete master file' });
+    return res.status(500).json({ error: 'Failed to delete master file' });
   }
 });
 

@@ -186,7 +186,17 @@ function App() {
       right: 5
     },
     sewingPosition: 'top' as 'top' | 'left' | 'right' | 'bottom' | 'mid-fold',
-    sewingOffset: 5
+    sewingOffset: 5,
+    midFoldLine: {
+      enabled: false,
+      type: 'horizontal' as 'horizontal' | 'vertical',
+      direction: 'top' as 'top' | 'bottom' | 'left' | 'right',
+      position: {
+        useDefault: true,
+        customDistance: 0
+      },
+      padding: 3
+    }
   });
 
   // Region management state
@@ -352,7 +362,7 @@ function App() {
   };
 
   // Derived states - show sewing lines and mid-fold lines based on object properties
-  const showMarginRectangles = false; // Always hide margins in this toggle system
+  const showMarginRectangles = true; // Show margin dotted lines
   const showSewingLines = true; // Always show sewing lines based on object properties
 
   // Sewing offset dialog state
@@ -865,6 +875,57 @@ function App() {
         }
       }
 
+      // Enhanced Mid-Fold Line Rendering for Canvas
+      if (obj.type === 'mother' && (obj as any).midFoldLine && (obj as any).midFoldLine.enabled) {
+        const midFold = (obj as any).midFoldLine;
+        const padding = midFold.padding || 3;
+
+        console.log('🎨 Rendering mid-fold line:', midFold);
+
+        if (midFold.type === 'horizontal') {
+          // Calculate Y position based on direction and position
+          let lineY;
+          if (midFold.position.useDefault) {
+            lineY = y + height / 2; // Center position
+          } else {
+            if (midFold.direction === 'top') {
+              lineY = y + midFold.position.customDistance;
+            } else { // bottom
+              lineY = y + height - midFold.position.customDistance;
+            }
+          }
+
+          // Draw horizontal line with padding
+          const lineStartX = x + padding;
+          const lineEndX = x + width - padding;
+          svgContent += `<line x1="${lineStartX}" y1="${lineY}" x2="${lineEndX}" y2="${lineY}"
+            stroke="#d32f2f" stroke-width="2" stroke-dasharray="4,4" opacity="0.9"/>`;
+
+          console.log('✅ Drew horizontal mid-fold line at Y:', lineY);
+
+        } else if (midFold.type === 'vertical') {
+          // Calculate X position based on direction and position
+          let lineX;
+          if (midFold.position.useDefault) {
+            lineX = x + width / 2; // Center position
+          } else {
+            if (midFold.direction === 'left') {
+              lineX = x + midFold.position.customDistance;
+            } else { // right
+              lineX = x + width - midFold.position.customDistance;
+            }
+          }
+
+          // Draw vertical line with padding
+          const lineStartY = y + padding;
+          const lineEndY = y + height - padding;
+          svgContent += `<line x1="${lineX}" y1="${lineStartY}" x2="${lineX}" y2="${lineEndY}"
+            stroke="#d32f2f" stroke-width="2" stroke-dasharray="4,4" opacity="0.9"/>`;
+
+          console.log('✅ Drew vertical mid-fold line at X:', lineX);
+        }
+      }
+
       // Add dimensions text for large view
       const fontSize = Math.max(8, Math.min(14, 12 * scale));
       svgContent += `<text x="${x + width/2}" y="${y + height + fontSize + 5}"
@@ -1295,7 +1356,17 @@ function App() {
       height: 0,
       margins: { top: 5, left: 5, down: 5, right: 5 },
       sewingPosition: 'top',
-      sewingOffset: 5
+      sewingOffset: 5,
+      midFoldLine: {
+        enabled: false,
+        type: 'horizontal',
+        direction: 'top',
+        position: {
+          useDefault: true,
+          customDistance: 0
+        },
+        padding: 3
+      }
     });
 
     setShowMotherDialog(true);
@@ -1310,14 +1381,24 @@ function App() {
     const storedMargins = (mother as any).margins || { top: 5, left: 5, down: 5, right: 5 };
     const storedSewingPosition = (mother as any).sewingPosition || 'top';
     const storedSewingOffset = (mother as any).sewingOffset || 5;
-
+    const storedMidFoldLine = (mother as any).midFoldLine || {
+      enabled: false,
+      type: 'horizontal',
+      direction: 'top',
+      position: {
+        useDefault: true,
+        customDistance: 0
+      },
+      padding: 3
+    };
 
     setMotherConfig({
       width: mother.width,
       height: mother.height,
       margins: storedMargins,
       sewingPosition: storedSewingPosition,
-      sewingOffset: storedSewingOffset
+      sewingOffset: storedSewingOffset,
+      midFoldLine: storedMidFoldLine
     });
 
     setShowMotherDialog(true);
@@ -1343,17 +1424,23 @@ function App() {
 
     if (isEditingMother && editingMotherId) {
       // Update existing mother
+      console.log('🎯 Mid-fold line config being saved:', motherConfig.midFoldLine);
+
       const updatedObjects = currentData.objects.map(obj => {
         if (obj.name === editingMotherId && obj.type === 'mother') {
-          return {
+          const updatedObj = {
             ...obj,
             width: motherConfig.width,
             height: motherConfig.height,
-            // Store additional properties (margins, sewing position) as metadata
+            // Store additional properties (margins, sewing position, mid fold line) as metadata
             margins: motherConfig.margins,
             sewingPosition: motherConfig.sewingPosition,
-            sewingOffset: motherConfig.sewingOffset
+            sewingOffset: motherConfig.sewingOffset,
+            midFoldLine: motherConfig.midFoldLine
           } as any;
+
+          console.log('✅ Updated mother object with mid-fold:', updatedObj);
+          return updatedObj;
         }
         return obj;
       });
@@ -1389,6 +1476,7 @@ function App() {
         margins: motherConfig.margins,
         sewingPosition: motherConfig.sewingPosition,
         sewingOffset: motherConfig.sewingOffset,
+        midFoldLine: motherConfig.midFoldLine,
         regions: [] // Initialize with empty regions array
       } as any;
 
@@ -1415,12 +1503,15 @@ function App() {
   const handleSewingPositionClick = (position: 'top' | 'left' | 'right' | 'bottom' | 'mid-fold') => {
     setSelectedSewingPosition(position);
 
-    // Mid-fold doesn't need offset dialog - set directly
+    // Mid-fold is now handled separately - don't set sewingPosition to mid-fold
     if (position === 'mid-fold') {
+      // Enable mid-fold line instead of setting sewing position
       setMotherConfig(prev => ({
         ...prev,
-        sewingPosition: 'mid-fold',
-        sewingOffset: 0 // No offset needed for mid-fold
+        midFoldLine: {
+          ...prev.midFoldLine,
+          enabled: true
+        }
       }));
     } else {
       setShowSewingOffsetDialog(true);
@@ -2766,11 +2857,20 @@ function App() {
 
             {/* Sewing Lines with Dimensions */}
             {showSewingLines && (() => {
+              // Check if mid-fold line is enabled - if so, don't show sewing lines
+              const objectMidFoldLine = (obj as any).midFoldLine;
+              if (objectMidFoldLine && objectMidFoldLine.enabled) {
+                console.log('🚫 Skipping sewing lines - mid-fold line is enabled');
+                return null;
+              }
+
               // Use the actual object's sewing position, not the global config
               const objectSewingPosition = (obj as any).sewingPosition || motherConfig.sewingPosition;
               const objectSewingOffset = (obj as any).sewingOffset || motherConfig.sewingOffset;
 
               if (!objectSewingPosition) return null;
+
+              console.log('🧵 Rendering sewing lines for position:', objectSewingPosition);
 
               // Always show sewing lines based on object's sewing position
               // No filtering needed - each object shows its own sewing type
@@ -2890,38 +2990,119 @@ function App() {
                         </text>
                       </>
                     );
-                  case 'mid-fold':
-                    return (
-                      <>
-                        <line
-                          x1={baseX}
-                          y1={baseY + height / 2}
-                          x2={baseX + width}
-                          y2={baseY + height / 2}
-                          stroke="#d32f2f"
-                          strokeWidth="3"
-                          strokeDasharray="4,4"
-                          opacity="0.9"
-                        />
-                        <text
-                          x={baseX + width + 5}
-                          y={baseY + height / 2}
-                          fill="#d32f2f"
-                          fontSize={sewingFontSize}
-                          fontWeight="bold"
-                          textAnchor="start"
-                          dominantBaseline="middle"
-                          opacity="0.9"
-                        >
-                          Mid-Fold
-                        </text>
-                      </>
-                    );
+                  // 'mid-fold' case removed - now handled by enhanced mid-fold line system below
                   default:
                     return null;
                 }
               })()
             }
+
+            {/* Mid-Fold Line Rendering (New Enhanced System) */}
+            {obj.type?.includes('mother') && (() => {
+              const objectMidFoldLine = (obj as any).midFoldLine;
+              if (!objectMidFoldLine || !objectMidFoldLine.enabled) {
+                return null;
+              }
+
+              console.log('🎨 Rendering mid-fold line on canvas:', objectMidFoldLine);
+
+              const midFold = objectMidFoldLine;
+              const padding = midFold.padding || 3;
+              const mmToPx = 3.78;
+              const scale = zoom * mmToPx;
+              const paddingPx = padding * scale;
+
+              if (midFold.type === 'horizontal') {
+                // Calculate Y position based on direction and position
+                let lineY;
+                if (midFold.position.useDefault) {
+                  lineY = baseY + height / 2; // Center position
+                } else {
+                  if (midFold.direction === 'top') {
+                    lineY = baseY + (midFold.position.customDistance * scale);
+                  } else { // bottom
+                    lineY = baseY + height - (midFold.position.customDistance * scale);
+                  }
+                }
+
+                // Draw horizontal line with padding
+                const lineStartX = baseX + paddingPx;
+                const lineEndX = baseX + width - paddingPx;
+
+                return (
+                  <>
+                    <line
+                      x1={lineStartX}
+                      y1={lineY}
+                      x2={lineEndX}
+                      y2={lineY}
+                      stroke="#d32f2f"
+                      strokeWidth="3"
+                      strokeDasharray="4,4"
+                      opacity="0.9"
+                    />
+                    <text
+                      x={lineEndX + 5}
+                      y={lineY}
+                      fill="#d32f2f"
+                      fontSize={Math.max(8, Math.min(12, 10 * zoom))}
+                      fontWeight="bold"
+                      textAnchor="start"
+                      dominantBaseline="middle"
+                      opacity="0.9"
+                    >
+                      Mid-Fold H
+                    </text>
+                  </>
+                );
+
+              } else if (midFold.type === 'vertical') {
+                // Calculate X position based on direction and position
+                let lineX;
+                if (midFold.position.useDefault) {
+                  lineX = baseX + width / 2; // Center position
+                } else {
+                  if (midFold.direction === 'left') {
+                    lineX = baseX + (midFold.position.customDistance * scale);
+                  } else { // right
+                    lineX = baseX + width - (midFold.position.customDistance * scale);
+                  }
+                }
+
+                // Draw vertical line with padding
+                const lineStartY = baseY + paddingPx;
+                const lineEndY = baseY + height - paddingPx;
+
+                return (
+                  <>
+                    <line
+                      x1={lineX}
+                      y1={lineStartY}
+                      x2={lineX}
+                      y2={lineEndY}
+                      stroke="#d32f2f"
+                      strokeWidth="3"
+                      strokeDasharray="4,4"
+                      opacity="0.9"
+                    />
+                    <text
+                      x={lineX}
+                      y={baseY - 5}
+                      fill="#d32f2f"
+                      fontSize={Math.max(8, Math.min(12, 10 * zoom))}
+                      fontWeight="bold"
+                      textAnchor="middle"
+                      dominantBaseline="bottom"
+                      opacity="0.9"
+                    >
+                      Mid-Fold V
+                    </text>
+                  </>
+                );
+              }
+
+              return null;
+            })()}
           </>
         )}
 
@@ -4074,7 +4255,11 @@ function App() {
                     setMotherConfig(prev => ({
                       ...prev,
                       sewingPosition: 'top',
-                      sewingOffset: 5
+                      sewingOffset: 5,
+                      midFoldLine: {
+                        ...prev.midFoldLine,
+                        enabled: false
+                      }
                     }));
                   }}
                   style={{
@@ -4086,8 +4271,8 @@ function App() {
                     fontWeight: 'bold',
                     cursor: 'pointer',
                     transition: 'all 0.3s',
-                    background: motherConfig.sewingPosition !== 'mid-fold' ? '#4CAF50' : 'transparent',
-                    color: motherConfig.sewingPosition !== 'mid-fold' ? 'white' : '#666'
+                    background: !motherConfig.midFoldLine.enabled ? '#4CAF50' : 'transparent',
+                    color: !motherConfig.midFoldLine.enabled ? 'white' : '#666'
                   }}
                 >
                   🧵 Sewing Position
@@ -4098,8 +4283,10 @@ function App() {
                   onClick={() => {
                     setMotherConfig(prev => ({
                       ...prev,
-                      sewingPosition: 'mid-fold',
-                      sewingOffset: 0
+                      midFoldLine: {
+                        ...prev.midFoldLine,
+                        enabled: true
+                      }
                     }));
                   }}
                   style={{
@@ -4111,8 +4298,8 @@ function App() {
                     fontWeight: 'bold',
                     cursor: 'pointer',
                     transition: 'all 0.3s',
-                    background: motherConfig.sewingPosition === 'mid-fold' ? '#FF5722' : 'transparent',
-                    color: motherConfig.sewingPosition === 'mid-fold' ? 'white' : '#666'
+                    background: motherConfig.midFoldLine.enabled ? '#FF5722' : 'transparent',
+                    color: motherConfig.midFoldLine.enabled ? 'white' : '#666'
                   }}
                 >
                   📏 Mid Fold Line
@@ -4120,21 +4307,266 @@ function App() {
               </div>
 
               {/* Conditional Content Based on Selection */}
-              {motherConfig.sewingPosition === 'mid-fold' ? (
-                /* Mid-Fold Position Display */
+              {motherConfig.midFoldLine.enabled ? (
+                /* Enhanced Mid-Fold Line Configuration */
                 <div style={{
                   padding: '20px',
                   background: '#fff3e0',
                   border: '2px solid #FF5722',
-                  borderRadius: '8px',
-                  textAlign: 'center'
+                  borderRadius: '8px'
                 }}>
-                  <div style={{ fontSize: '32px', marginBottom: '10px' }}>📏</div>
-                  <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#FF5722', marginBottom: '5px' }}>
-                    Mid-Fold Line Selected
+                  <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#FF5722', marginBottom: '15px', textAlign: 'center' }}>
+                    📏 Mid-Fold Line Configuration
                   </div>
-                  <div style={{ fontSize: '13px', color: '#666' }}>
-                    A horizontal dashed line will appear across the center of the mother object
+
+                  {/* Step 1: Fold Type Selection */}
+                  <div style={{ marginBottom: '15px' }}>
+                    <label style={{ fontSize: '13px', fontWeight: 'bold', color: '#666', marginBottom: '8px', display: 'block' }}>
+                      1. Fold Type:
+                    </label>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button
+                        onClick={() => setMotherConfig(prev => ({
+                          ...prev,
+                          midFoldLine: {
+                            ...prev.midFoldLine,
+                            type: 'horizontal',
+                            direction: 'top'
+                          }
+                        }))}
+                        style={{
+                          flex: 1,
+                          padding: '8px 12px',
+                          border: `2px solid ${motherConfig.midFoldLine.type === 'horizontal' ? '#FF5722' : '#ddd'}`,
+                          borderRadius: '6px',
+                          background: motherConfig.midFoldLine.type === 'horizontal' ? '#fff3e0' : 'white',
+                          fontSize: '12px',
+                          fontWeight: 'bold',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        ↕️ Horizontal
+                      </button>
+                      <button
+                        onClick={() => setMotherConfig(prev => ({
+                          ...prev,
+                          midFoldLine: {
+                            ...prev.midFoldLine,
+                            type: 'vertical',
+                            direction: 'left'
+                          }
+                        }))}
+                        style={{
+                          flex: 1,
+                          padding: '8px 12px',
+                          border: `2px solid ${motherConfig.midFoldLine.type === 'vertical' ? '#FF5722' : '#ddd'}`,
+                          borderRadius: '6px',
+                          background: motherConfig.midFoldLine.type === 'vertical' ? '#fff3e0' : 'white',
+                          fontSize: '12px',
+                          fontWeight: 'bold',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        ↔️ Vertical
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Step 2: Position Method (Default: Checked) */}
+                  <div style={{ marginBottom: '15px' }}>
+                    <label style={{ fontSize: '13px', fontWeight: 'bold', color: '#666', marginBottom: '8px', display: 'block' }}>
+                      2. Position:
+                    </label>
+                    <div style={{ marginBottom: '10px' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
+                        <input
+                          type="checkbox"
+                          checked={motherConfig.midFoldLine.position.useDefault}
+                          onChange={(e) => setMotherConfig(prev => ({
+                            ...prev,
+                            midFoldLine: {
+                              ...prev.midFoldLine,
+                              position: {
+                                ...prev.midFoldLine.position,
+                                useDefault: e.target.checked
+                              }
+                            }
+                          }))}
+                        />
+                        ✅ Use center (50/50 split)
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Step 3: Direction & Distance (Only when 50/50 is unchecked) */}
+                  {!motherConfig.midFoldLine.position.useDefault && (
+                    <div style={{ marginBottom: '15px' }}>
+                      <label style={{ fontSize: '13px', fontWeight: 'bold', color: '#666', marginBottom: '8px', display: 'block' }}>
+                        3. Distance from:
+                      </label>
+
+                      {motherConfig.midFoldLine.type === 'horizontal' ? (
+                        /* Horizontal: Distance from Top or Bottom */
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <button
+                            onClick={() => setMotherConfig(prev => ({
+                              ...prev,
+                              midFoldLine: {
+                                ...prev.midFoldLine,
+                                direction: 'top'
+                              }
+                            }))}
+                            style={{
+                              padding: '6px 12px',
+                              border: `2px solid ${motherConfig.midFoldLine.direction === 'top' ? '#FF5722' : '#ddd'}`,
+                              borderRadius: '4px',
+                              background: motherConfig.midFoldLine.direction === 'top' ? '#fff3e0' : 'white',
+                              fontSize: '11px',
+                              fontWeight: 'bold',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Top
+                          </button>
+                          <button
+                            onClick={() => setMotherConfig(prev => ({
+                              ...prev,
+                              midFoldLine: {
+                                ...prev.midFoldLine,
+                                direction: 'bottom'
+                              }
+                            }))}
+                            style={{
+                              padding: '6px 12px',
+                              border: `2px solid ${motherConfig.midFoldLine.direction === 'bottom' ? '#FF5722' : '#ddd'}`,
+                              borderRadius: '4px',
+                              background: motherConfig.midFoldLine.direction === 'bottom' ? '#fff3e0' : 'white',
+                              fontSize: '11px',
+                              fontWeight: 'bold',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Bottom
+                          </button>
+                          <input
+                            type="number"
+                            value={motherConfig.midFoldLine.position.customDistance}
+                            onChange={(e) => setMotherConfig(prev => ({
+                              ...prev,
+                              midFoldLine: {
+                                ...prev.midFoldLine,
+                                position: {
+                                  ...prev.midFoldLine.position,
+                                  customDistance: parseFloat(e.target.value) || 0
+                                }
+                              }
+                            }))}
+                            style={{
+                              flex: 1,
+                              padding: '6px 8px',
+                              border: '1px solid #ddd',
+                              borderRadius: '4px',
+                              fontSize: '12px'
+                            }}
+                          />
+                          <span style={{ fontSize: '12px', color: '#666' }}>mm</span>
+                        </div>
+                      ) : (
+                        /* Vertical: Distance from Left or Right */
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <button
+                            onClick={() => setMotherConfig(prev => ({
+                              ...prev,
+                              midFoldLine: {
+                                ...prev.midFoldLine,
+                                direction: 'left'
+                              }
+                            }))}
+                            style={{
+                              padding: '6px 12px',
+                              border: `2px solid ${motherConfig.midFoldLine.direction === 'left' ? '#FF5722' : '#ddd'}`,
+                              borderRadius: '4px',
+                              background: motherConfig.midFoldLine.direction === 'left' ? '#fff3e0' : 'white',
+                              fontSize: '11px',
+                              fontWeight: 'bold',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Left
+                          </button>
+                          <button
+                            onClick={() => setMotherConfig(prev => ({
+                              ...prev,
+                              midFoldLine: {
+                                ...prev.midFoldLine,
+                                direction: 'right'
+                              }
+                            }))}
+                            style={{
+                              padding: '6px 12px',
+                              border: `2px solid ${motherConfig.midFoldLine.direction === 'right' ? '#FF5722' : '#ddd'}`,
+                              borderRadius: '4px',
+                              background: motherConfig.midFoldLine.direction === 'right' ? '#fff3e0' : 'white',
+                              fontSize: '11px',
+                              fontWeight: 'bold',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Right
+                          </button>
+                          <input
+                            type="number"
+                            value={motherConfig.midFoldLine.position.customDistance}
+                            onChange={(e) => setMotherConfig(prev => ({
+                              ...prev,
+                              midFoldLine: {
+                                ...prev.midFoldLine,
+                                position: {
+                                  ...prev.midFoldLine.position,
+                                  customDistance: parseFloat(e.target.value) || 0
+                                }
+                              }
+                            }))}
+                            style={{
+                              flex: 1,
+                              padding: '6px 8px',
+                              border: '1px solid #ddd',
+                              borderRadius: '4px',
+                              fontSize: '12px'
+                            }}
+                          />
+                          <span style={{ fontSize: '12px', color: '#666' }}>mm</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Step 4: Padding Configuration (Always Visible) */}
+                  <div style={{ marginBottom: '10px' }}>
+                    <label style={{ fontSize: '13px', fontWeight: 'bold', color: '#666', marginBottom: '8px', display: 'block' }}>
+                      4. Padding from edges:
+                    </label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <input
+                        type="number"
+                        value={motherConfig.midFoldLine.padding}
+                        onChange={(e) => setMotherConfig(prev => ({
+                          ...prev,
+                          midFoldLine: {
+                            ...prev.midFoldLine,
+                            padding: parseFloat(e.target.value) || 3
+                          }
+                        }))}
+                        style={{
+                          flex: 1,
+                          padding: '6px 8px',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px',
+                          fontSize: '12px'
+                        }}
+                      />
+                      <span style={{ fontSize: '12px', color: '#666' }}>mm (default: 3mm)</span>
+                    </div>
                   </div>
                 </div>
               ) : (

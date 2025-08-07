@@ -181,8 +181,8 @@ const MasterFilesManagement: React.FC = () => {
             ${margins.right}mm</text>`;
         }
 
-        // Add sewing position if exists
-        if (obj.sewingPosition && obj.sewingPosition !== 'none') {
+        // Add sewing position if exists (but not if mid-fold line is enabled)
+        if (obj.sewingPosition && obj.sewingPosition !== 'none' && !(obj.midFoldLine && obj.midFoldLine.enabled)) {
           const sewingOffset = obj.sewingOffset || 0;
 
           if (obj.sewingPosition === 'top') {
@@ -213,13 +213,61 @@ const MasterFilesManagement: React.FC = () => {
             svgContent += `<text x="${sewingX}" y="${y - 5}"
               fill="#d32f2f" font-size="${labelFontSize}" font-weight="bold" text-anchor="middle">
               ${sewingOffset}mm</text>`;
-          } else if (obj.sewingPosition === 'mid-fold') {
-            const midY = y + height / 2;
-            svgContent += `<line x1="${x}" y1="${midY}" x2="${x + width}" y2="${midY}"
-              stroke="#d32f2f" stroke-width="0.5" stroke-dasharray="4,4" opacity="0.9"/>`;
-            svgContent += `<text x="${x + width + 5}" y="${midY}"
-              fill="#d32f2f" font-size="${labelFontSize}" font-weight="bold" text-anchor="start">
-              Mid-Fold</text>`;
+          }
+
+          // Enhanced Mid-Fold Line Rendering
+          if (obj.midFoldLine && obj.midFoldLine.enabled) {
+            const midFold = obj.midFoldLine;
+            const padding = midFold.padding || 3;
+
+            if (midFold.type === 'horizontal') {
+              // Calculate Y position based on direction and position
+              let lineY;
+              if (midFold.position.useDefault) {
+                lineY = y + height / 2; // Center position
+              } else {
+                if (midFold.direction === 'top') {
+                  lineY = y + midFold.position.customDistance;
+                } else { // bottom
+                  lineY = y + height - midFold.position.customDistance;
+                }
+              }
+
+              // Draw horizontal line with padding
+              const lineStartX = x + padding;
+              const lineEndX = x + width - padding;
+              svgContent += `<line x1="${lineStartX}" y1="${lineY}" x2="${lineEndX}" y2="${lineY}"
+                stroke="#d32f2f" stroke-width="0.5" stroke-dasharray="4,4" opacity="0.9"/>`;
+
+              // Add label
+              svgContent += `<text x="${x + width + 5}" y="${lineY}"
+                fill="#d32f2f" font-size="${labelFontSize}" font-weight="bold" text-anchor="start">
+                Mid-Fold (${midFold.direction})</text>`;
+
+            } else if (midFold.type === 'vertical') {
+              // Calculate X position based on direction and position
+              let lineX;
+              if (midFold.position.useDefault) {
+                lineX = x + width / 2; // Center position
+              } else {
+                if (midFold.direction === 'left') {
+                  lineX = x + midFold.position.customDistance;
+                } else { // right
+                  lineX = x + width - midFold.position.customDistance;
+                }
+              }
+
+              // Draw vertical line with padding
+              const lineStartY = y + padding;
+              const lineEndY = y + height - padding;
+              svgContent += `<line x1="${lineX}" y1="${lineStartY}" x2="${lineX}" y2="${lineEndY}"
+                stroke="#d32f2f" stroke-width="0.5" stroke-dasharray="4,4" opacity="0.9"/>`;
+
+              // Add label
+              svgContent += `<text x="${lineX + 5}" y="${y - 5}"
+                fill="#d32f2f" font-size="${labelFontSize}" font-weight="bold" text-anchor="start">
+                Mid-Fold (${midFold.direction})</text>`;
+            }
           }
         }
       }
