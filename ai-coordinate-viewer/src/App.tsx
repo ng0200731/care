@@ -3286,14 +3286,28 @@ function App() {
             padding: '12px 20px',
             borderBottom: '1px solid #4a5568'
           }}>
-            <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600' }}>
-              🏷️ Care Label Designer - {selectedCustomer.customerName}
-              {originalMasterFile && (
-                <span style={{ color: '#81c784', marginLeft: '10px' }}>
-                  • Editing: {originalMasterFile.name}
-                </span>
-              )}
-            </h3>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600' }}>
+                🏷️ Care Label Designer - {selectedCustomer.customerName}
+                {originalMasterFile && (
+                  <span style={{ color: '#81c784', marginLeft: '10px' }}>
+                    • Editing: {originalMasterFile.name}
+                  </span>
+                )}
+              </h3>
+              <span style={{
+                fontSize: '12px',
+                color: '#a0aec0',
+                background: 'rgba(255,255,255,0.1)',
+                padding: '3px 6px',
+                borderRadius: '3px',
+                border: '1px solid rgba(255,255,255,0.2)',
+                fontFamily: 'monospace',
+                fontWeight: '500'
+              }}>
+                v{packageJson.version}
+              </span>
+            </div>
             <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#a0aec0' }}>
               Contact: {selectedCustomer.person} • {selectedCustomer.email}
               {originalMasterFile && (
@@ -3337,8 +3351,23 @@ function App() {
                 gap: '5px',
                 minWidth: '160px'
               }}>
-                <div style={{ fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>
-                  Zoom: {(zoom * 100).toFixed(0)}%
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  fontSize: '12px',
+                  fontWeight: 'bold',
+                  marginBottom: '5px'
+                }}>
+                  <span>Zoom: {(zoom * 100).toFixed(0)}%</span>
+                  <span style={{
+                    fontSize: '10px',
+                    color: '#666',
+                    fontFamily: 'monospace',
+                    fontWeight: 'normal'
+                  }}>
+                    v{packageJson.version}
+                  </span>
                 </div>
                 <div style={{ display: 'flex', gap: '5px' }}>
                   <button onClick={handleZoomIn} style={buttonStyle}>+</button>
@@ -3459,18 +3488,32 @@ function App() {
               <div style={{
                 marginBottom: '40px'
               }}>
-                <h2 style={{
-                  fontSize: '28px',
-                  fontWeight: 'bold',
-                  color: '#2d3748',
-                  margin: '0 0 12px 0'
-                }}>
-                  🏷️ Care Label Layout System
-                </h2>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '15px' }}>
+                  <h2 style={{
+                    fontSize: '28px',
+                    fontWeight: 'bold',
+                    color: '#2d3748',
+                    margin: 0
+                  }}>
+                    🏷️ Care Label Layout System
+                  </h2>
+                  <span style={{
+                    fontSize: '14px',
+                    color: '#a0aec0',
+                    background: '#f7fafc',
+                    padding: '4px 8px',
+                    borderRadius: '4px',
+                    border: '1px solid #e2e8f0',
+                    fontFamily: 'monospace',
+                    fontWeight: '500'
+                  }}>
+                    v{packageJson.version}
+                  </span>
+                </div>
                 <p style={{
                   fontSize: '16px',
                   color: '#718096',
-                  margin: 0
+                  margin: '12px 0 0 0'
                 }}>
                   Choose how to start designing your care labels
                 </p>
