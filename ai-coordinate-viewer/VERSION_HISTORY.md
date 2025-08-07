@@ -1,6 +1,45 @@
 # Care Label Layout System - Version History
 
-## Version 1.6.0 (Current) - Mid-Fold Line Enhancement
+## Version 1.7.0 (Current) - Mid-Fold Region Creation
+**Release Date:** 2025-01-08
+**Commit:** TBD
+
+### 🎯 Major Features
+- **Mid-Fold Aware Region Creation**: Revolutionary region placement system
+  - Regions automatically respect mid-fold line constraints
+  - Cannot cross over mid-fold lines (horizontal or vertical)
+  - Automatic space splitting for "Use remaining available space"
+  - Intelligent padding consideration (default 3mm from mid-fold line)
+
+### 🔧 Technical Enhancements
+- **Enhanced Space Analysis**: New `findAvailableSpaceWithMidFold()` function
+  - Detects horizontal and vertical mid-fold lines
+  - Calculates available space on each side of mid-fold
+  - Respects configurable padding distances
+  - Handles custom positioning and 50/50 center splits
+
+### 🎨 User Experience Improvements
+- **Automatic Region Splitting**:
+  - Creates "Region_Top" and "Region_Bottom" for horizontal mid-folds
+  - Creates "Region_Left" and "Region_Right" for vertical mid-folds
+  - Confirmation dialog before creating multiple regions
+  - Clear success messages with region names
+
+### 🚫 Smart Constraints
+- **Mid-Fold Line Respect**: Regions automatically positioned to avoid crossing mid-fold
+- **Padding Awareness**: All calculations include mid-fold line padding
+- **Boundary Validation**: Ensures regions fit within available space
+- **Conflict Prevention**: No overlap with existing regions or margins
+
+### 📱 Enhanced UI
+- **Visual Feedback**: Updated description text explains mid-fold awareness
+- **Confirmation Dialogs**: User approval required for automatic splits
+- **Debug Logging**: Comprehensive console output for troubleshooting
+- **Error Handling**: Clear messages when insufficient space available
+
+---
+
+## Version 1.6.0 - Mid-Fold Line Enhancement
 **Release Date:** 2025-01-08
 **Commit:** 71f93d4
 

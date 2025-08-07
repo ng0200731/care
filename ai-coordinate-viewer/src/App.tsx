@@ -361,6 +361,158 @@ function App() {
     return bestRect.area > 0 ? bestRect : null;
   };
 
+  // Enhanced function for mid-fold line aware region creation
+  const findAvailableSpaceWithMidFold = (motherWidth: number, motherHeight: number, existingRegions: Region[], margins: any, midFoldLine: any) => {
+    console.log('🔍 Analyzing space with mid-fold line:', midFoldLine);
+
+    if (!midFoldLine || !midFoldLine.enabled) {
+      // No mid-fold line, use original logic
+      return {
+        type: 'single',
+        regions: [findLargestAvailableRectangle(motherWidth, motherHeight, existingRegions, margins)]
+      };
+    }
+
+    const padding = midFoldLine.padding || 3;
+    const marginTop = margins.top || 5;
+    const marginLeft = margins.left || 5;
+    const marginRight = margins.right || 5;
+    const marginBottom = margins.down || margins.bottom || 5;
+
+    if (midFoldLine.type === 'horizontal') {
+      // Calculate Y position of mid-fold line
+      let midFoldY;
+      if (midFoldLine.position.useDefault) {
+        midFoldY = motherHeight / 2;
+      } else {
+        if (midFoldLine.direction === 'top') {
+          midFoldY = midFoldLine.position.customDistance;
+        } else { // bottom
+          midFoldY = motherHeight - midFoldLine.position.customDistance;
+        }
+      }
+
+      // Create two separate areas: top and bottom
+      const topAreaHeight = midFoldY - padding - marginTop;
+      const bottomAreaHeight = motherHeight - midFoldY - padding - marginBottom;
+
+      console.log('📏 Horizontal split:', { midFoldY, topAreaHeight, bottomAreaHeight, padding });
+
+      const regions = [];
+
+      // Top region
+      if (topAreaHeight >= 10) { // Minimum 10mm height
+        const topRect = findLargestAvailableRectangle(
+          motherWidth,
+          topAreaHeight + marginTop, // Temporary height for calculation
+          existingRegions.filter(r => r.y + r.height <= midFoldY - padding), // Only regions above mid-fold
+          { ...margins, down: padding } // Use padding as bottom margin
+        );
+        if (topRect && topRect.area > 0) {
+          regions.push({
+            ...topRect,
+            name: 'Region_Top',
+            id: `region_top_${Date.now()}`
+          });
+        }
+      }
+
+      // Bottom region
+      if (bottomAreaHeight >= 10) { // Minimum 10mm height
+        const bottomRect = findLargestAvailableRectangle(
+          motherWidth,
+          bottomAreaHeight + marginBottom, // Temporary height for calculation
+          existingRegions
+            .filter(r => r.y >= midFoldY + padding) // Only regions below mid-fold
+            .map(r => ({ ...r, y: r.y - (midFoldY + padding) })), // Adjust Y coordinates
+          { ...margins, top: 0 } // No top margin for bottom area
+        );
+        if (bottomRect && bottomRect.area > 0) {
+          regions.push({
+            ...bottomRect,
+            y: bottomRect.y + midFoldY + padding, // Adjust Y back to mother coordinates
+            name: 'Region_Bottom',
+            id: `region_bottom_${Date.now()}`
+          });
+        }
+      }
+
+      return {
+        type: 'horizontal_split',
+        midFoldY,
+        padding,
+        regions
+      };
+
+    } else if (midFoldLine.type === 'vertical') {
+      // Calculate X position of mid-fold line
+      let midFoldX;
+      if (midFoldLine.position.useDefault) {
+        midFoldX = motherWidth / 2;
+      } else {
+        if (midFoldLine.direction === 'left') {
+          midFoldX = midFoldLine.position.customDistance;
+        } else { // right
+          midFoldX = motherWidth - midFoldLine.position.customDistance;
+        }
+      }
+
+      // Create two separate areas: left and right
+      const leftAreaWidth = midFoldX - padding - marginLeft;
+      const rightAreaWidth = motherWidth - midFoldX - padding - marginRight;
+
+      console.log('📏 Vertical split:', { midFoldX, leftAreaWidth, rightAreaWidth, padding });
+
+      const regions = [];
+
+      // Left region
+      if (leftAreaWidth >= 10) { // Minimum 10mm width
+        const leftRect = findLargestAvailableRectangle(
+          leftAreaWidth + marginLeft, // Temporary width for calculation
+          motherHeight,
+          existingRegions.filter(r => r.x + r.width <= midFoldX - padding), // Only regions left of mid-fold
+          { ...margins, right: padding } // Use padding as right margin
+        );
+        if (leftRect && leftRect.area > 0) {
+          regions.push({
+            ...leftRect,
+            name: 'Region_Left',
+            id: `region_left_${Date.now()}`
+          });
+        }
+      }
+
+      // Right region
+      if (rightAreaWidth >= 10) { // Minimum 10mm width
+        const rightRect = findLargestAvailableRectangle(
+          rightAreaWidth + marginRight, // Temporary width for calculation
+          motherHeight,
+          existingRegions
+            .filter(r => r.x >= midFoldX + padding) // Only regions right of mid-fold
+            .map(r => ({ ...r, x: r.x - (midFoldX + padding) })), // Adjust X coordinates
+          { ...margins, left: 0 } // No left margin for right area
+        );
+        if (rightRect && rightRect.area > 0) {
+          regions.push({
+            ...rightRect,
+            x: rightRect.x + midFoldX + padding, // Adjust X back to mother coordinates
+            name: 'Region_Right',
+            id: `region_right_${Date.now()}`
+          });
+        }
+      }
+
+      return {
+        type: 'vertical_split',
+        midFoldX,
+        padding,
+        regions
+      };
+    }
+
+    return { type: 'none', regions: [] };
+  };
+
   // Derived states - show sewing lines and mid-fold lines based on object properties
   const showMarginRectangles = true; // Show margin dotted lines
   const showSewingLines = true; // Always show sewing lines based on object properties
@@ -5078,17 +5230,26 @@ function App() {
                     onChange={(e) => {
                       setUseWholeMother(e.target.checked);
                       if (e.target.checked) {
-                        // Find the largest available rectangle in remaining space
+                        // Enhanced logic with mid-fold line support
                         const motherMargins = (selectedMotherForRegion as any).margins || { top: 5, left: 5, right: 5, down: 5 };
                         const existingRegions = (selectedMotherForRegion as any).regions || [];
-                        const largestRect = findLargestAvailableRectangle(
+                        const midFoldLine = (selectedMotherForRegion as any).midFoldLine;
+
+                        console.log('🔍 Checking for mid-fold line:', midFoldLine);
+
+                        const spaceAnalysis = findAvailableSpaceWithMidFold(
                           selectedMotherForRegion.width,
                           selectedMotherForRegion.height,
                           existingRegions,
-                          motherMargins
+                          motherMargins,
+                          midFoldLine
                         );
 
-                        if (largestRect) {
+                        console.log('📊 Space analysis result:', spaceAnalysis);
+
+                        if (spaceAnalysis.type === 'single' && spaceAnalysis.regions[0]) {
+                          // No mid-fold line, use single region
+                          const largestRect = spaceAnalysis.regions[0];
                           setNewRegionData({
                             ...newRegionData,
                             x: largestRect.x,
@@ -5096,15 +5257,42 @@ function App() {
                             width: largestRect.width,
                             height: largestRect.height
                           });
+                        } else if ((spaceAnalysis.type === 'horizontal_split' || spaceAnalysis.type === 'vertical_split') && spaceAnalysis.regions.length > 0) {
+                          // Mid-fold line detected - show confirmation dialog for multiple regions
+                          const regionNames = spaceAnalysis.regions
+                            .map(r => (r as any).name || 'Region')
+                            .join(' and ');
+
+                          if (window.confirm(
+                            `🔄 Mid-fold line detected!\n\n` +
+                            `The available space will be automatically split into ${spaceAnalysis.regions.length} regions:\n` +
+                            `${regionNames}\n\n` +
+                            `This ensures regions don't cross the mid-fold line.\n\n` +
+                            `Continue with automatic split?`
+                          )) {
+                            // User confirmed - store analysis for later use
+                            (window as any).pendingMidFoldAnalysis = spaceAnalysis;
+
+                            // Set first region data for display
+                            const firstRegion = spaceAnalysis.regions[0];
+                            if (firstRegion) {
+                              setNewRegionData({
+                                ...newRegionData,
+                                x: firstRegion.x,
+                                y: firstRegion.y,
+                                width: firstRegion.width,
+                                height: firstRegion.height,
+                                name: (firstRegion as any).name || 'Region_1'
+                              });
+                            }
+                          } else {
+                            // User cancelled - uncheck the checkbox
+                            setUseWholeMother(false);
+                          }
                         } else {
-                          // Fallback to small region if no space available
-                          setNewRegionData({
-                            ...newRegionData,
-                            x: motherMargins.left,
-                            y: motherMargins.top,
-                            width: 10,
-                            height: 10
-                          });
+                          // No available space
+                          alert('❌ No sufficient space available for regions.\n\nTry adjusting margins or removing existing regions.');
+                          setUseWholeMother(false);
                         }
                       }
                     }}
@@ -5114,6 +5302,10 @@ function App() {
                 </label>
                 <div style={{ fontSize: '12px', color: '#666', marginTop: '5px', marginLeft: '30px' }}>
                   Automatically fills the largest available area (avoiding existing regions and margins)
+                  <br/>
+                  <span style={{ color: '#d32f2f', fontWeight: 'bold' }}>
+                    🔄 Mid-fold aware: Will create separate regions if mid-fold line is present
+                  </span>
                 </div>
               </div>
 
@@ -5385,47 +5577,112 @@ function App() {
                 </button>
                 <button
                   onClick={() => {
-                    // Create the region
+                    console.log('🎯 Creating region(s)...');
+
+                    // Check if we have pending mid-fold analysis
+                    const pendingAnalysis = (window as any).pendingMidFoldAnalysis;
                     const motherRegions = (selectedMotherForRegion as any).regions || [];
-                    const newRegion: Region = {
-                      id: `region_${Date.now()}`,
-                      name: newRegionData.name,
-                      x: newRegionData.x,
-                      y: newRegionData.y,
-                      width: newRegionData.width,
-                      height: newRegionData.height,
-                      margins: { top: 2, bottom: 2, left: 2, right: 2 },
-                      borderColor: '#4caf50',
-                      backgroundColor: 'rgba(76, 175, 80, 0.1)',
-                      allowOverflow: false
-                    };
 
-                    // Update the mother object with the new region
-                    const currentData = data || webCreationData;
-                    if (currentData) {
-                      const updatedObjects = currentData.objects.map(obj => {
-                        if (obj.name === selectedMotherForRegion!.name) {
-                          return {
-                            ...obj,
-                            regions: [...motherRegions, newRegion]
-                          };
-                        }
-                        return obj;
-                      });
+                    if (pendingAnalysis && (pendingAnalysis.type === 'horizontal_split' || pendingAnalysis.type === 'vertical_split')) {
+                      console.log('🔄 Creating multiple regions from mid-fold analysis:', pendingAnalysis);
 
-                      const updatedData = {
-                        ...currentData,
-                        objects: updatedObjects
+                      // Create multiple regions from the analysis
+                      const newRegions: Region[] = pendingAnalysis.regions.map((regionData: any, index: number) => ({
+                        id: regionData.id || `region_${Date.now()}_${index}`,
+                        name: regionData.name || `Region_${index + 1}`,
+                        x: regionData.x,
+                        y: regionData.y,
+                        width: regionData.width,
+                        height: regionData.height,
+                        margins: { top: 2, bottom: 2, left: 2, right: 2 },
+                        borderColor: '#4caf50',
+                        backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                        allowOverflow: false
+                      }));
+
+                      console.log('✅ Created regions:', newRegions);
+
+                      // Update the mother object with all new regions
+                      const currentData = data || webCreationData;
+                      if (currentData) {
+                        const updatedObjects = currentData.objects.map(obj => {
+                          if (obj.name === selectedMotherForRegion!.name) {
+                            return {
+                              ...obj,
+                              regions: [...motherRegions, ...newRegions]
+                            };
+                          }
+                          return obj;
+                        });
+
+                        const updatedData = {
+                          ...currentData,
+                          objects: updatedObjects
+                        };
+
+                        setData(updatedData);
+                        setWebCreationData(updatedData);
+                      }
+
+                      // Clear pending analysis
+                      delete (window as any).pendingMidFoldAnalysis;
+
+                      // Show success message
+                      alert(`✅ Successfully created ${newRegions.length} regions:\n${newRegions.map(r => r.name).join(', ')}\n\nRegions are positioned to respect the mid-fold line.`);
+
+                    } else {
+                      // Single region creation (original logic)
+                      console.log('📦 Creating single region');
+
+                      const newRegion: Region = {
+                        id: `region_${Date.now()}`,
+                        name: newRegionData.name,
+                        x: newRegionData.x,
+                        y: newRegionData.y,
+                        width: newRegionData.width,
+                        height: newRegionData.height,
+                        margins: { top: 2, bottom: 2, left: 2, right: 2 },
+                        borderColor: '#4caf50',
+                        backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                        allowOverflow: false
                       };
 
-                      setData(updatedData);
-                      setWebCreationData(updatedData);
+                      // Update the mother object with the new region
+                      const currentData = data || webCreationData;
+                      if (currentData) {
+                        const updatedObjects = currentData.objects.map(obj => {
+                          if (obj.name === selectedMotherForRegion!.name) {
+                            return {
+                              ...obj,
+                              regions: [...motherRegions, newRegion]
+                            };
+                          }
+                          return obj;
+                        });
+
+                        const updatedData = {
+                          ...currentData,
+                          objects: updatedObjects
+                        };
+
+                        setData(updatedData);
+                        setWebCreationData(updatedData);
+                      }
                     }
 
                     // Close dialog
                     setShowAddRegionDialog(false);
                     setSelectedMotherForRegion(null);
                     setUseWholeMother(false);
+
+                    // Reset region data
+                    setNewRegionData({
+                      name: '',
+                      x: 5,
+                      y: 5,
+                      width: 20,
+                      height: 20
+                    });
                   }}
                   disabled={(() => {
                     const motherRegions = (selectedMotherForRegion as any).regions || [];
