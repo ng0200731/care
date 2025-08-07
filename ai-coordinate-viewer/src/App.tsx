@@ -392,49 +392,61 @@ function App() {
         }
       }
 
-      // Create two separate areas: top and bottom
-      const topAreaHeight = midFoldY - padding - marginTop;
-      const bottomAreaHeight = motherHeight - midFoldY - padding - marginBottom;
+      // Calculate available areas: top and bottom
+      const topBoundary = midFoldY - padding; // Where top region can extend to
+      const bottomBoundary = midFoldY + padding; // Where bottom region starts from
 
-      console.log('📏 Horizontal split:', { midFoldY, topAreaHeight, bottomAreaHeight, padding });
+      const topAreaHeight = topBoundary - marginTop; // Available height for top region
+      const bottomAreaHeight = motherHeight - bottomBoundary - marginBottom; // Available height for bottom region
+
+      console.log('📏 Horizontal split calculation:', {
+        motherHeight,
+        midFoldY,
+        padding,
+        topBoundary,
+        bottomBoundary,
+        topAreaHeight,
+        bottomAreaHeight,
+        marginTop,
+        marginBottom,
+        calculation: {
+          topBoundary: `${midFoldY} - ${padding} = ${topBoundary}`,
+          bottomBoundary: `${midFoldY} + ${padding} = ${bottomBoundary}`,
+          topAreaHeight: `${topBoundary} - ${marginTop} = ${topAreaHeight}`,
+          bottomAreaHeight: `${motherHeight} - ${bottomBoundary} - ${marginBottom} = ${bottomAreaHeight}`
+        }
+      });
 
       const regions = [];
 
-      // Top region
+      // Top region - simplified calculation
       if (topAreaHeight >= 10) { // Minimum 10mm height
-        const topRect = findLargestAvailableRectangle(
-          motherWidth,
-          topAreaHeight + marginTop, // Temporary height for calculation
-          existingRegions.filter(r => r.y + r.height <= midFoldY - padding), // Only regions above mid-fold
-          { ...margins, down: padding } // Use padding as bottom margin
-        );
-        if (topRect && topRect.area > 0) {
-          regions.push({
-            ...topRect,
-            name: 'Region_Top',
-            id: `region_top_${Date.now()}`
-          });
-        }
+        const topRegion = {
+          x: marginLeft,
+          y: marginTop,
+          width: motherWidth - marginLeft - marginRight,
+          height: topAreaHeight,
+          name: 'Region_Top',
+          id: `region_top_${Date.now()}`
+        };
+
+        console.log('✅ Created top region:', topRegion);
+        regions.push(topRegion);
       }
 
-      // Bottom region
+      // Bottom region - simplified calculation
       if (bottomAreaHeight >= 10) { // Minimum 10mm height
-        const bottomRect = findLargestAvailableRectangle(
-          motherWidth,
-          bottomAreaHeight + marginBottom, // Temporary height for calculation
-          existingRegions
-            .filter(r => r.y >= midFoldY + padding) // Only regions below mid-fold
-            .map(r => ({ ...r, y: r.y - (midFoldY + padding) })), // Adjust Y coordinates
-          { ...margins, top: 0 } // No top margin for bottom area
-        );
-        if (bottomRect && bottomRect.area > 0) {
-          regions.push({
-            ...bottomRect,
-            y: bottomRect.y + midFoldY + padding, // Adjust Y back to mother coordinates
-            name: 'Region_Bottom',
-            id: `region_bottom_${Date.now()}`
-          });
-        }
+        const bottomRegion = {
+          x: marginLeft,
+          y: bottomBoundary,
+          width: motherWidth - marginLeft - marginRight,
+          height: bottomAreaHeight,
+          name: 'Region_Bottom',
+          id: `region_bottom_${Date.now()}`
+        };
+
+        console.log('✅ Created bottom region:', bottomRegion);
+        regions.push(bottomRegion);
       }
 
       return {
@@ -457,49 +469,54 @@ function App() {
         }
       }
 
-      // Create two separate areas: left and right
-      const leftAreaWidth = midFoldX - padding - marginLeft;
-      const rightAreaWidth = motherWidth - midFoldX - padding - marginRight;
+      // Calculate available areas: left and right
+      const leftBoundary = midFoldX - padding; // Where left region can extend to
+      const rightBoundary = midFoldX + padding; // Where right region starts from
 
-      console.log('📏 Vertical split:', { midFoldX, leftAreaWidth, rightAreaWidth, padding });
+      const leftAreaWidth = leftBoundary - marginLeft; // Available width for left region
+      const rightAreaWidth = motherWidth - rightBoundary - marginRight; // Available width for right region
+
+      console.log('📏 Vertical split calculation:', {
+        midFoldX,
+        padding,
+        leftBoundary,
+        rightBoundary,
+        leftAreaWidth,
+        rightAreaWidth,
+        marginLeft,
+        marginRight
+      });
 
       const regions = [];
 
-      // Left region
+      // Left region - simplified calculation
       if (leftAreaWidth >= 10) { // Minimum 10mm width
-        const leftRect = findLargestAvailableRectangle(
-          leftAreaWidth + marginLeft, // Temporary width for calculation
-          motherHeight,
-          existingRegions.filter(r => r.x + r.width <= midFoldX - padding), // Only regions left of mid-fold
-          { ...margins, right: padding } // Use padding as right margin
-        );
-        if (leftRect && leftRect.area > 0) {
-          regions.push({
-            ...leftRect,
-            name: 'Region_Left',
-            id: `region_left_${Date.now()}`
-          });
-        }
+        const leftRegion = {
+          x: marginLeft,
+          y: marginTop,
+          width: leftAreaWidth,
+          height: motherHeight - marginTop - marginBottom,
+          name: 'Region_Left',
+          id: `region_left_${Date.now()}`
+        };
+
+        console.log('✅ Created left region:', leftRegion);
+        regions.push(leftRegion);
       }
 
-      // Right region
+      // Right region - simplified calculation
       if (rightAreaWidth >= 10) { // Minimum 10mm width
-        const rightRect = findLargestAvailableRectangle(
-          rightAreaWidth + marginRight, // Temporary width for calculation
-          motherHeight,
-          existingRegions
-            .filter(r => r.x >= midFoldX + padding) // Only regions right of mid-fold
-            .map(r => ({ ...r, x: r.x - (midFoldX + padding) })), // Adjust X coordinates
-          { ...margins, left: 0 } // No left margin for right area
-        );
-        if (rightRect && rightRect.area > 0) {
-          regions.push({
-            ...rightRect,
-            x: rightRect.x + midFoldX + padding, // Adjust X back to mother coordinates
-            name: 'Region_Right',
-            id: `region_right_${Date.now()}`
-          });
-        }
+        const rightRegion = {
+          x: rightBoundary,
+          y: marginTop,
+          width: rightAreaWidth,
+          height: motherHeight - marginTop - marginBottom,
+          name: 'Region_Right',
+          id: `region_right_${Date.now()}`
+        };
+
+        console.log('✅ Created right region:', rightRegion);
+        regions.push(rightRegion);
       }
 
       return {

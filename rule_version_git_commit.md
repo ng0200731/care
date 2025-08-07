@@ -93,12 +93,19 @@ v1.7.3 - Update
 3. **💻 Make Changes**: Implement the code modifications
 4. **🧪 Test Thoroughly**: Follow all testing requirements above
 5. **✅ Verify Version Display**: Confirm UI shows new version
-6. **📦 Git Workflow**:
+6. **⏸️ WAIT for User Instruction**: Do NOT commit automatically
+7. **📦 Git Workflow** (ONLY when user says "git add commit push"):
    ```bash
    git add .
    git commit -m "v#.#.# - [Detailed description of changes and reasoning]"
    git push
    ```
+
+### **🚫 IMPORTANT: Manual Commit Only**
+- **NEVER** automatically execute git commands
+- **ALWAYS** wait for explicit user instruction
+- **ONLY** commit when user specifically requests it
+- User will say "git add commit push" or similar when ready
 
 ---
 
