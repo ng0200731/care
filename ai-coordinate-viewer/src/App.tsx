@@ -513,6 +513,85 @@ function App() {
     return { type: 'none', regions: [] };
   };
 
+  // Function to automatically update existing regions when mid-fold line properties change
+  const updateRegionsForMidFoldChange = (motherObject: any, newMidFoldLine: any, oldMidFoldLine: any) => {
+    console.log('🔄 Updating regions for mid-fold change:', { newMidFoldLine, oldMidFoldLine });
+
+    const existingRegions = motherObject.regions || [];
+    if (existingRegions.length === 0) {
+      console.log('📝 No existing regions to update');
+      return existingRegions;
+    }
+
+    // Check if this is a mid-fold aware region set (has Region_Top/Bottom or Region_Left/Right)
+    const hasMidFoldRegions = existingRegions.some((r: Region) =>
+      r.name.includes('Region_Top') || r.name.includes('Region_Bottom') ||
+      r.name.includes('Region_Left') || r.name.includes('Region_Right')
+    );
+
+    if (!hasMidFoldRegions) {
+      console.log('📝 Regions are not mid-fold aware, no automatic update needed');
+      return existingRegions;
+    }
+
+    // Check if mid-fold line is still enabled
+    if (!newMidFoldLine || !newMidFoldLine.enabled) {
+      console.log('⚠️ Mid-fold line disabled, keeping regions as-is');
+      return existingRegions;
+    }
+
+    // Check if padding, position, or type changed
+    const paddingChanged = (oldMidFoldLine?.padding || 3) !== (newMidFoldLine.padding || 3);
+    const positionChanged = JSON.stringify(oldMidFoldLine?.position) !== JSON.stringify(newMidFoldLine.position);
+    const typeChanged = oldMidFoldLine?.type !== newMidFoldLine.type;
+    const directionChanged = oldMidFoldLine?.direction !== newMidFoldLine.direction;
+
+    if (!paddingChanged && !positionChanged && !typeChanged && !directionChanged) {
+      console.log('📝 No relevant mid-fold changes, keeping regions as-is');
+      return existingRegions;
+    }
+
+    console.log('🎯 Mid-fold properties changed, recalculating regions:', {
+      paddingChanged, positionChanged, typeChanged, directionChanged
+    });
+
+    // Recalculate regions using the new mid-fold line settings
+    const motherMargins = motherObject.margins || { top: 5, left: 5, right: 5, down: 5 };
+    const spaceAnalysis = findAvailableSpaceWithMidFold(
+      motherObject.width,
+      motherObject.height,
+      [], // Don't consider existing regions for recalculation
+      motherMargins,
+      newMidFoldLine
+    );
+
+    if (spaceAnalysis.type === 'horizontal_split' || spaceAnalysis.type === 'vertical_split') {
+      console.log('✅ Recalculated regions:', spaceAnalysis.regions);
+
+      // Create updated regions with same IDs but new positions
+      const updatedRegions = spaceAnalysis.regions.map((newRegion: any, index: number) => {
+        const existingRegion = existingRegions[index];
+        return {
+          id: existingRegion?.id || `region_${Date.now()}_${index}`,
+          name: newRegion.name,
+          x: newRegion.x,
+          y: newRegion.y,
+          width: newRegion.width,
+          height: newRegion.height,
+          margins: existingRegion?.margins || { top: 2, bottom: 2, left: 2, right: 2 },
+          borderColor: existingRegion?.borderColor || '#4caf50',
+          backgroundColor: existingRegion?.backgroundColor || 'rgba(76, 175, 80, 0.1)',
+          allowOverflow: existingRegion?.allowOverflow || false
+        };
+      });
+
+      return updatedRegions;
+    }
+
+    console.log('⚠️ Could not recalculate regions, keeping existing ones');
+    return existingRegions;
+  };
+
   // Derived states - show sewing lines and mid-fold lines based on object properties
   const showMarginRectangles = true; // Show margin dotted lines
   const showSewingLines = true; // Always show sewing lines based on object properties
@@ -1047,13 +1126,13 @@ function App() {
             }
           }
 
-          // Draw horizontal line with padding
-          const lineStartX = x + padding;
-          const lineEndX = x + width - padding;
+          // Draw horizontal line (full width - padding is for regions, not line display)
+          const lineStartX = x;
+          const lineEndX = x + width;
           svgContent += `<line x1="${lineStartX}" y1="${lineY}" x2="${lineEndX}" y2="${lineY}"
             stroke="#d32f2f" stroke-width="2" stroke-dasharray="4,4" opacity="0.9"/>`;
 
-          console.log('✅ Drew horizontal mid-fold line at Y:', lineY);
+          console.log('✅ Drew horizontal mid-fold line at Y:', lineY, 'with padding:', padding);
 
         } else if (midFold.type === 'vertical') {
           // Calculate X position based on direction and position
@@ -1068,13 +1147,13 @@ function App() {
             }
           }
 
-          // Draw vertical line with padding
-          const lineStartY = y + padding;
-          const lineEndY = y + height - padding;
+          // Draw vertical line (full height - padding is for regions, not line display)
+          const lineStartY = y;
+          const lineEndY = y + height;
           svgContent += `<line x1="${lineX}" y1="${lineStartY}" x2="${lineX}" y2="${lineEndY}"
             stroke="#d32f2f" stroke-width="2" stroke-dasharray="4,4" opacity="0.9"/>`;
 
-          console.log('✅ Drew vertical mid-fold line at X:', lineX);
+          console.log('✅ Drew vertical mid-fold line at X:', lineX, 'with padding:', padding);
         }
       }
 
@@ -1580,6 +1659,9 @@ function App() {
 
       const updatedObjects = currentData.objects.map(obj => {
         if (obj.name === editingMotherId && obj.type === 'mother') {
+          // Get the old mid-fold line configuration for comparison
+          const oldMidFoldLine = (obj as any).midFoldLine;
+
           const updatedObj = {
             ...obj,
             width: motherConfig.width,
@@ -1590,6 +1672,18 @@ function App() {
             sewingOffset: motherConfig.sewingOffset,
             midFoldLine: motherConfig.midFoldLine
           } as any;
+
+          // Automatically update regions if mid-fold line properties changed
+          const updatedRegions = updateRegionsForMidFoldChange(
+            updatedObj,
+            motherConfig.midFoldLine,
+            oldMidFoldLine
+          );
+
+          if (updatedRegions !== updatedObj.regions) {
+            updatedObj.regions = updatedRegions;
+            console.log('🔄 Automatically updated regions due to mid-fold changes:', updatedRegions);
+          }
 
           console.log('✅ Updated mother object with mid-fold:', updatedObj);
           return updatedObj;
@@ -3162,7 +3256,7 @@ function App() {
               const padding = midFold.padding || 3;
               const mmToPx = 3.78;
               const scale = zoom * mmToPx;
-              const paddingPx = padding * scale;
+              // Note: padding is used for region calculations, not line display
 
               if (midFold.type === 'horizontal') {
                 // Calculate Y position based on direction and position
@@ -3177,9 +3271,9 @@ function App() {
                   }
                 }
 
-                // Draw horizontal line with padding
-                const lineStartX = baseX + paddingPx;
-                const lineEndX = baseX + width - paddingPx;
+                // Draw horizontal line (full width - padding is for regions, not line display)
+                const lineStartX = baseX;
+                const lineEndX = baseX + width;
 
                 return (
                   <>
@@ -3221,9 +3315,9 @@ function App() {
                   }
                 }
 
-                // Draw vertical line with padding
-                const lineStartY = baseY + paddingPx;
-                const lineEndY = baseY + height - paddingPx;
+                // Draw vertical line (full height - padding is for regions, not line display)
+                const lineStartY = baseY;
+                const lineEndY = baseY + height;
 
                 return (
                   <>

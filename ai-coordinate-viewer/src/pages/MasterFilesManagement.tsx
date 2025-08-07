@@ -233,9 +233,9 @@ const MasterFilesManagement: React.FC = () => {
                 }
               }
 
-              // Draw horizontal line with padding
-              const lineStartX = x + padding;
-              const lineEndX = x + width - padding;
+              // Draw horizontal line (full width - padding is for regions, not line display)
+              const lineStartX = x;
+              const lineEndX = x + width;
               svgContent += `<line x1="${lineStartX}" y1="${lineY}" x2="${lineEndX}" y2="${lineY}"
                 stroke="#d32f2f" stroke-width="0.5" stroke-dasharray="4,4" opacity="0.9"/>`;
 
@@ -257,9 +257,9 @@ const MasterFilesManagement: React.FC = () => {
                 }
               }
 
-              // Draw vertical line with padding
-              const lineStartY = y + padding;
-              const lineEndY = y + height - padding;
+              // Draw vertical line (full height - padding is for regions, not line display)
+              const lineStartY = y;
+              const lineEndY = y + height;
               svgContent += `<line x1="${lineX}" y1="${lineStartY}" x2="${lineX}" y2="${lineEndY}"
                 stroke="#d32f2f" stroke-width="0.5" stroke-dasharray="4,4" opacity="0.9"/>`;
 
