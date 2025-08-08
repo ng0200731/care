@@ -288,28 +288,7 @@ const MasterFilesManagement: React.FC = () => {
           }
         }
 
-        // Render Regions
-        if (obj.regions && obj.regions.length > 0) {
-          obj.regions.forEach((region: any) => {
-            // Region rectangle (no border, just fill)
-            svgContent += `<rect x="${x + region.x}" y="${y + region.y}"
-              width="${region.width}" height="${region.height}"
-              fill="${region.backgroundColor || '#e3f2fd'}"
-              stroke="none" opacity="0.7"/>`;
 
-            // Region label
-            svgContent += `<text x="${x + region.x + region.width/2}" y="${y + region.y + 8}"
-              fill="${region.borderColor || '#2196f3'}" font-size="${labelFontSize}"
-              font-weight="bold" text-anchor="middle">
-              ${region.name}</text>`;
-
-            // Region dimensions
-            svgContent += `<text x="${x + region.x + region.width/2}" y="${y + region.y + region.height - 3}"
-              fill="${region.borderColor || '#2196f3'}" font-size="${labelFontSize * 0.8}"
-              text-anchor="middle" opacity="0.8">
-              ${region.width}×${region.height}mm</text>`;
-          });
-        }
       }
 
       // Mid-Fold line (independent of sewingPosition) + fallback for legacy 'mid-fold' sewingPosition

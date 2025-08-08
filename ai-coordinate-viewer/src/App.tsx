@@ -2339,34 +2339,7 @@ function App() {
 
           return (
             <div key={index} style={{marginBottom: '15px'}}>
-              {/* Add Son Button - Only show in project mode, not master file mode */}
-              {isProjectMode && (
-                <div style={{ marginBottom: '8px' }}>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleAddSonObject(mother.object);
-                    }}
-                    style={{
-                      background: '#4CAF50',
-                      border: '2px solid #45a049',
-                      color: 'white',
-                      fontSize: '14px',
-                      padding: '10px 16px',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      fontWeight: 'bold',
-                      whiteSpace: 'nowrap',
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                      zIndex: 10,
-                      position: 'relative'
-                    }}
-                    title="Add son object to this mother"
-                  >
-                    ➕ Add Son
-                  </button>
-                </div>
-              )}
+
 
               {/* Mother Header */}
               <div style={{
@@ -2438,30 +2411,7 @@ function App() {
                       </button>
                     )}
 
-                    {/* Add Son Object Button - Only show in project mode */}
-                    {isProjectMode && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedObject(mother.object);
-                          // Open son object creation dialog for this mother
-                          handleAddSonObject(mother.object);
-                        }}
-                        style={{
-                          background: '#4CAF50',
-                          border: '1px solid #45a049',
-                          color: 'white',
-                          fontSize: '10px',
-                          padding: '4px 8px',
-                          borderRadius: '4px',
-                          cursor: 'pointer',
-                          fontWeight: 'bold'
-                        }}
-                        title="Add son object to this mother"
-                      >
-                        ➕ Add Son
-                      </button>
-                    )}
+
 
                     {/* Fit View Button */}
                     <button
@@ -4274,32 +4224,7 @@ function App() {
               })() : ''}
             </h3>
 
-            {/* DEBUG: Test Add Son Button */}
-            {isProjectMode && (data || webCreationData) && (
-              <button
-                onClick={() => {
-                  console.log('🧪 TEST BUTTON CLICKED');
-                  const currentData = data || webCreationData;
-                  const mothers = currentData?.objects.filter(obj => obj.type?.includes('mother'));
-                  if (mothers && mothers.length > 0) {
-                    handleAddSonObject(mothers[0]);
-                  } else {
-                    console.log('❌ No mothers found for test');
-                  }
-                }}
-                style={{
-                  background: '#FF5722',
-                  color: 'white',
-                  border: 'none',
-                  padding: '5px 10px',
-                  borderRadius: '4px',
-                  fontSize: '12px',
-                  marginLeft: '10px'
-                }}
-              >
-                🧪 TEST Add Son
-              </button>
-            )}
+
             {data && sonMetadata.size > 0 && (
               <button
                 onClick={exportSonMetadata}
