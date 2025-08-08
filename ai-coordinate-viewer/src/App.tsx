@@ -4,6 +4,11 @@ import SonDetailsPanel from './SonDetailsPanel';
 import NavigationButtons from './components/NavigationButtons';
 import SonObjectManager, { SonObject } from './components/content-editors/SonObjectManager';
 import { masterFileService } from './services/masterFileService';
+import ContentMenu, { ContentType } from './components/ContentMenu';
+import TranslationParagraphDialog, { TranslationParagraphData } from './components/dialogs/TranslationParagraphDialog';
+import PureEnglishParagraphDialog, { PureEnglishParagraphData } from './components/dialogs/PureEnglishParagraphDialog';
+// import RegionOccupationDialog, { RegionOccupationData } from './components/dialogs/RegionOccupationDialog';
+// import PreviewControlPanel, { PreviewSettings } from './components/PreviewControlPanel';
 
 // Import version from package.json
 const packageJson = require('../package.json');
@@ -186,6 +191,62 @@ function App() {
 
   // Notification state
   const [notification, setNotification] = useState<string | null>(null);
+
+  // Drag and drop state - Show content menu only in project mode
+  const [showContentMenu, setShowContentMenu] = useState(isProjectMode);
+  const [dragOverRegion, setDragOverRegion] = useState<string | null>(null);
+  const [translationDialog, setTranslationDialog] = useState<{
+    isOpen: boolean;
+    regionId: string;
+  }>({
+    isOpen: false,
+    regionId: ''
+  });
+  const [pureEnglishDialog, setPureEnglishDialog] = useState<{
+    isOpen: boolean;
+    regionId: string;
+  }>({
+    isOpen: false,
+    regionId: ''
+  });
+  const [regionContents, setRegionContents] = useState<Map<string, any[]>>(new Map());
+
+  // Region occupation dialog state - COMMENTED OUT FOR NOW
+  // const [regionOccupationDialog, setRegionOccupationDialog] = useState<{
+  //   isOpen: boolean;
+  //   contentType: string;
+  //   contentIcon: string;
+  //   regionId: string;
+  //   regionHeight: number;
+  // }>({
+  //   isOpen: false,
+  //   contentType: '',
+  //   contentIcon: '',
+  //   regionId: '',
+  //   regionHeight: 0
+  // });
+
+  // Preview system state
+  // const [previewSettings, setPreviewSettings] = useState<PreviewSettings>({
+  //   globalPreviewMode: false,
+  //   perRegionPreview: new Map(),
+  //   editModeInPreview: true,
+  //   dragDropInPreview: false
+  // });
+  const [showPreviewPanel, setShowPreviewPanel] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<string[]>([]);
+
+  // Debug helper function
+  const addDebugMessage = (message: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    setDebugInfo(prev => [...prev.slice(-4), `${timestamp}: ${message}`]); // Keep last 5 messages
+  };
+
+  // Pending content data (after region occupation is confirmed)
+  // const [pendingContentData, setPendingContentData] = useState<{
+  //   contentType: ContentType;
+  //   occupationData: RegionOccupationData;
+  // } | null>(null);
 
 
 
@@ -2175,6 +2236,157 @@ function App() {
     });
   };
 
+  // Content Drag and Drop Handlers
+  const handleContentDragOver = (e: React.DragEvent, regionId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    setDragOverRegion(regionId);
+  };
+
+  const handleContentDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOverRegion(null);
+  };
+
+  const handleContentDrop = (e: React.DragEvent, regionId: string) => {
+    e.preventDefault();
+    setDragOverRegion(null);
+
+    try {
+      const contentTypeData = JSON.parse(e.dataTransfer.getData('application/json')) as ContentType;
+      console.log('🎯 Dropped content type:', contentTypeData.name, 'on region:', regionId);
+
+      // Find the region to get its height
+      const currentData = data || webCreationData;
+      let regionHeight = 50; // Default fallback
+
+      if (currentData) {
+        // Find the region in the current data
+        for (const obj of currentData.objects) {
+          if (obj.type?.includes('mother')) {
+            const regions = (obj as any).regions || [];
+            const targetRegion = regions.find((r: any) => r.id === regionId);
+            if (targetRegion) {
+              regionHeight = targetRegion.height;
+              break;
+            }
+          }
+        }
+      }
+
+      // Show region occupation dialog first - COMMENTED OUT FOR NOW
+      // setRegionOccupationDialog({
+      //   isOpen: true,
+      //   contentType: contentTypeData.name,
+      //   contentIcon: contentTypeData.icon,
+      //   regionId: regionId,
+      //   regionHeight: regionHeight
+      // });
+
+      // Store the content type for later use
+      // setPendingContentData({
+      //   contentType: contentTypeData,
+      //   occupationData: {
+      //     occupyFullRegion: true,
+      //     heightValue: 10,
+      //     heightUnit: 'mm',
+      //     position: 'top'
+      //   }
+      // });
+
+      // For now, directly open the content dialogs
+      addDebugMessage(`🎯 Dropped ${contentTypeData.name} on ${regionId}`);
+      switch (contentTypeData.id) {
+        case 'translation-paragraph':
+          addDebugMessage(`🌐 Opening Translation dialog for region: ${regionId}`);
+          setTranslationDialog({
+            isOpen: true,
+            regionId: regionId
+          });
+          break;
+        case 'pure-english-paragraph':
+          addDebugMessage('📄 Opening Pure English dialog');
+          setPureEnglishDialog({
+            isOpen: true,
+            regionId: regionId
+          });
+          break;
+        default:
+          addDebugMessage(`❌ ${contentTypeData.id} not implemented`);
+      }
+
+    } catch (error) {
+      console.error('❌ Error parsing dropped data:', error);
+    }
+  };
+
+  const handleTranslationSave = (data: TranslationParagraphData) => {
+    addDebugMessage(`💾 Saving Translation to ${data.regionId}`);
+
+    // Add content to region
+    const currentContents = regionContents.get(data.regionId) || [];
+    const newContents = [...currentContents, data];
+    const updatedContents = new Map(regionContents);
+    updatedContents.set(data.regionId, newContents);
+    setRegionContents(updatedContents);
+
+    addDebugMessage(`📋 Content saved! Total items: ${newContents.length}`);
+    addDebugMessage(`🎨 Should render ${newContents.length} placeholders`);
+
+    // Close dialog
+    setTranslationDialog({ isOpen: false, regionId: '' });
+
+    // Show notification
+    setNotification(`Translation paragraph added to region ${data.regionId}`);
+    setTimeout(() => setNotification(null), 3000);
+  };
+
+  const handleTranslationCancel = () => {
+    setTranslationDialog({ isOpen: false, regionId: '' });
+  };
+
+  const handlePureEnglishSave = (data: PureEnglishParagraphData) => {
+    addDebugMessage(`💾 Saving Pure English to ${data.regionId}`);
+
+    // Add content to region
+    const currentContents = regionContents.get(data.regionId) || [];
+    const newContents = [...currentContents, data];
+    const updatedContents = new Map(regionContents);
+    updatedContents.set(data.regionId, newContents);
+    setRegionContents(updatedContents);
+
+    addDebugMessage(`📋 Content saved! Total items: ${newContents.length}`);
+    addDebugMessage(`🎨 Should render ${newContents.length} placeholders`);
+
+    // Close dialog
+    setPureEnglishDialog({ isOpen: false, regionId: '' });
+
+    // Show notification
+    setNotification(`Pure English paragraph added to region ${data.regionId}`);
+    setTimeout(() => setNotification(null), 3000);
+  };
+
+  const handlePureEnglishCancel = () => {
+    setPureEnglishDialog({ isOpen: false, regionId: '' });
+  };
+
+  // Region occupation handlers - COMMENTED OUT FOR NOW
+  // const handleRegionOccupationConfirm = (occupationData: RegionOccupationData) => {
+  //   console.log('📐 Region occupation confirmed:', occupationData);
+  //   // ... handler code
+  // };
+
+  // const handleRegionOccupationCancel = () => {
+  //   setRegionOccupationDialog({
+  //     isOpen: false,
+  //     contentType: '',
+  //     contentIcon: '',
+  //     regionId: '',
+  //     regionHeight: 0
+  //   });
+  //   setPendingContentData(null);
+  // };
+
   const handleAddSonObject = (motherObject: AIObject) => {
     console.log('🔥 ADD SON BUTTON CLICKED! Mother:', motherObject.name);
     console.log('🔍 Mother type:', motherObject.type);
@@ -3335,11 +3547,15 @@ function App() {
                     y={baseY + (region.y * scale)}
                     width={region.width * scale}
                     height={region.height * scale}
-                    fill={region.backgroundColor}
-                    stroke={strokeColor}
-                    strokeWidth={strokeWidth}
+                    fill={dragOverRegion === region.id ? '#e3f2fd' : region.backgroundColor}
+                    stroke={dragOverRegion === region.id ? '#2196f3' : strokeColor}
+                    strokeWidth={dragOverRegion === region.id ? 4 : strokeWidth}
                     strokeDasharray="5,5"
-                    opacity="0.7"
+                    opacity={dragOverRegion === region.id ? 0.9 : 0.7}
+                    style={{ cursor: isProjectMode ? 'copy' : 'default' }}
+                    onDragOver={isProjectMode ? (e) => handleContentDragOver(e, region.id) : undefined}
+                    onDragLeave={isProjectMode ? handleContentDragLeave : undefined}
+                    onDrop={isProjectMode ? (e) => handleContentDrop(e, region.id) : undefined}
                   />
 
                   {/* Region Label */}
@@ -3368,6 +3584,98 @@ function App() {
                   >
                     {region.width}×{region.height}mm
                   </text>
+
+                  {/* Content Placeholders - Only show in project mode */}
+                  {isProjectMode && (() => {
+                    const regionContentsArray = regionContents.get(region.id) || [];
+                    if (regionContentsArray.length === 0) {
+                      return null;
+                    }
+
+                    // Don't add debug message here - it causes infinite re-renders
+                    // The message will be added when content is saved instead
+
+                    const blockHeight = 20; // Height of each placeholder block
+                    const blockSpacing = 2; // Spacing between blocks
+                    const startY = baseY + (region.y * scale) + 25; // Start below region label
+                    const blockWidth = (region.width * scale) - 10; // Leave some margin
+
+                    return regionContentsArray.map((content: any, index: number) => {
+                      const blockY = startY + (index * (blockHeight + blockSpacing));
+
+                      // Get content type display info
+                      let displayText = '';
+                      let bgColor = '#f0f0f0';
+                      let textColor = '#333';
+
+                      switch (content.type) {
+                        case 'translation-paragraph':
+                          displayText = '{Translation Paragraph}';
+                          bgColor = '#e3f2fd';
+                          textColor = '#1976d2';
+                          break;
+                        case 'pure-english-paragraph':
+                          displayText = '{Pure English Paragraph}';
+                          bgColor = '#f3e5f5';
+                          textColor = '#7b1fa2';
+                          break;
+                        case 'line-text':
+                          displayText = '{Line Text}';
+                          bgColor = '#e8f5e8';
+                          textColor = '#2e7d32';
+                          break;
+                        case 'washing-symbol':
+                          displayText = '{Washing Symbol}';
+                          bgColor = '#fff3e0';
+                          textColor = '#f57c00';
+                          break;
+                        case 'image':
+                          displayText = '{Image}';
+                          bgColor = '#fce4ec';
+                          textColor = '#c2185b';
+                          break;
+                        case 'coo':
+                          displayText = '{COO}';
+                          bgColor = '#e0f2f1';
+                          textColor = '#00695c';
+                          break;
+                        default:
+                          displayText = `{${content.type}}`;
+                      }
+
+                      return (
+                        <g key={`${region.id}-content-${index}`}>
+                          {/* Placeholder Block Background */}
+                          <rect
+                            x={baseX + (region.x * scale) + 5}
+                            y={blockY}
+                            width={blockWidth}
+                            height={blockHeight}
+                            fill={bgColor}
+                            stroke={textColor}
+                            strokeWidth="1"
+                            strokeDasharray="3,3"
+                            opacity="0.8"
+                            rx="3"
+                          />
+
+                          {/* Placeholder Text */}
+                          <text
+                            x={baseX + (region.x * scale) + (region.width * scale) / 2}
+                            y={blockY + blockHeight / 2}
+                            fill={textColor}
+                            fontSize="10"
+                            fontWeight="bold"
+                            textAnchor="middle"
+                            dominantBaseline="middle"
+                            opacity="0.9"
+                          >
+                            {displayText}
+                          </text>
+                        </g>
+                      );
+                    });
+                  })()}
                 </g>
               );
               });
@@ -3696,15 +4004,19 @@ function App() {
 
   // Space Allocation Dialog Component - REMOVED (now handled directly in son regions)
 
+  // Check if any content dialog is open
+  const isAnyDialogOpen = translationDialog.isOpen || pureEnglishDialog.isOpen; // || regionOccupationDialog.isOpen;
+
   return (
     <div style={{
       height: '100vh',
       display: 'flex',
       flexDirection: 'column',
       background: '#f5f5f5',
+      marginRight: showContentMenu ? '300px' : '0',
       pointerEvents: isLoadingMasterFile ? 'none' : 'auto',
       opacity: isLoadingMasterFile ? 0.6 : 1,
-      transition: 'opacity 0.3s ease'
+      transition: 'margin-right 0.3s ease, opacity 0.3s ease'
     }}
       onDrop={handleDrop}
       onDragOver={handleDragOver}
@@ -3924,6 +4236,65 @@ function App() {
                   >
                     📏 Dimensions
                   </button>
+
+                  {/* Preview Panel Button - Only show in project mode */}
+                  {isProjectMode && (
+                    <button
+                      onClick={() => setShowPreviewPanel(!showPreviewPanel)}
+                      style={{
+                        ...buttonStyle,
+                        background: showPreviewPanel ? '#e3f2fd' : 'white',
+                        color: showPreviewPanel ? '#1976d2' : '#666',
+                        fontSize: '10px',
+                        padding: '4px 6px'
+                      }}
+                    >
+                      👁️ Preview
+                    </button>
+                  )}
+
+                  {/* Test Placeholder Button - Only show in project mode */}
+                  {isProjectMode && (
+                    <button
+                      onClick={() => {
+                        // Add test content to first available region
+                        const currentData = data || webCreationData;
+                        if (currentData) {
+                          for (const obj of currentData.objects) {
+                            if (obj.type?.includes('mother')) {
+                              const regions = (obj as any).regions || [];
+                              if (regions.length > 0) {
+                                const testRegionId = regions[0].id;
+                                const testContent = {
+                                  id: `test-${Date.now()}`,
+                                  type: 'translation-paragraph',
+                                  regionId: testRegionId,
+                                  primaryContent: 'Test content'
+                                };
+                                const currentContents = regionContents.get(testRegionId) || [];
+                                const newContents = [...currentContents, testContent];
+                                const updatedContents = new Map(regionContents);
+                                updatedContents.set(testRegionId, newContents);
+                                setRegionContents(updatedContents);
+                                setNotification(`Test content added to ${testRegionId}`);
+                                setTimeout(() => setNotification(null), 3000);
+                                break;
+                              }
+                            }
+                          }
+                        }
+                      }}
+                      style={{
+                        ...buttonStyle,
+                        background: '#fff3e0',
+                        color: '#f57c00',
+                        fontSize: '10px',
+                        padding: '4px 6px'
+                      }}
+                    >
+                      🧪 Test
+                    </button>
+                  )}
                 </div>
 
 
@@ -4171,7 +4542,7 @@ function App() {
             position: 'relative'
           }}>
             {/* Disabled Overlay when dialogs are open - but not in master file mode */}
-            {(showRegionDialog || showAddRegionDialog) && !isMasterFileMode && (
+            {(showRegionDialog || showAddRegionDialog || isAnyDialogOpen) && !isMasterFileMode && (
               <div style={{
                 position: 'absolute',
                 top: 0,
@@ -4198,7 +4569,7 @@ function App() {
                   textAlign: 'center',
                   fontWeight: 'bold'
                 }}>
-                  Hierarchy Locked
+                  {isAnyDialogOpen ? 'Menu Locked' : 'Hierarchy Locked'}
                   <span style={{ marginLeft: 8, fontSize: '11px', color: apiStatus === 'online' ? '#2f855a' : '#c53030', fontFamily: 'monospace' }}>
                     API: {apiStatus}
                   </span>
@@ -4208,7 +4579,7 @@ function App() {
                   color: '#999',
                   textAlign: 'center'
                 }}>
-                  Close region dialog to continue
+                  {isAnyDialogOpen ? 'Close content dialog to continue' : 'Close region dialog to continue'}
                 </div>
               </div>
             )}
@@ -6298,18 +6669,118 @@ function App() {
         </div>
       )}
 
+      {/* Content Menu - Only show in project mode */}
+      <ContentMenu isVisible={showContentMenu} />
+
+      {/* Region Occupation Dialog */}
+      {/* <RegionOccupationDialog
+        isOpen={regionOccupationDialog.isOpen}
+        contentType={regionOccupationDialog.contentType}
+        contentIcon={regionOccupationDialog.contentIcon}
+        regionId={regionOccupationDialog.regionId}
+        regionHeight={regionOccupationDialog.regionHeight}
+        onConfirm={handleRegionOccupationConfirm}
+        onCancel={handleRegionOccupationCancel}
+      /> */}
+
+      {/* Translation Paragraph Dialog */}
+      <TranslationParagraphDialog
+        isOpen={translationDialog.isOpen}
+        regionId={translationDialog.regionId}
+        onSave={handleTranslationSave}
+        onCancel={handleTranslationCancel}
+      />
+
+      {/* Pure English Paragraph Dialog */}
+      <PureEnglishParagraphDialog
+        isOpen={pureEnglishDialog.isOpen}
+        regionId={pureEnglishDialog.regionId}
+        onSave={handlePureEnglishSave}
+        onCancel={handlePureEnglishCancel}
+      />
+
+      {/* Preview Control Panel - Only show in project mode */}
+      {/* <PreviewControlPanel
+        isOpen={showPreviewPanel && isProjectMode}
+        settings={previewSettings}
+        onSettingsChange={setPreviewSettings}
+        onClose={() => setShowPreviewPanel(false)}
+        regionIds={(() => {
+          const currentData = data || webCreationData;
+          if (!currentData) return [];
+          const regionIds: string[] = [];
+          for (const obj of currentData.objects) {
+            if (obj.type?.includes('mother')) {
+              const regions = (obj as any).regions || [];
+              regionIds.push(...regions.map((r: any) => r.id));
+            }
+          }
+          return regionIds;
+        })()}
+      /> */}
+
+      {/* Debug Panel - Only show in project mode */}
+      {isProjectMode && debugInfo.length > 0 && (
+        <div style={{
+          position: 'fixed',
+          bottom: '50px',
+          right: showContentMenu ? '320px' : '10px',
+          background: 'rgba(0,0,0,0.9)',
+          color: '#00ff00',
+          padding: '10px',
+          borderRadius: '6px',
+          fontSize: '11px',
+          fontFamily: 'monospace',
+          zIndex: 1000,
+          transition: 'right 0.3s ease',
+          maxWidth: '400px',
+          border: '1px solid #333'
+        }}>
+          <div style={{
+            color: '#ffff00',
+            fontWeight: 'bold',
+            marginBottom: '5px',
+            borderBottom: '1px solid #333',
+            paddingBottom: '3px'
+          }}>
+            🔍 Debug Log:
+          </div>
+          {debugInfo.map((msg, index) => (
+            <div key={index} style={{ marginBottom: '2px' }}>
+              {msg}
+            </div>
+          ))}
+          <button
+            onClick={() => setDebugInfo([])}
+            style={{
+              background: '#333',
+              color: 'white',
+              border: '1px solid #555',
+              padding: '2px 6px',
+              borderRadius: '3px',
+              fontSize: '10px',
+              marginTop: '5px',
+              cursor: 'pointer'
+            }}
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
       {/* Version Footer */}
       <div style={{
         position: 'fixed',
         bottom: '10px',
-        right: '10px',
+        right: showContentMenu ? '320px' : '10px',
         background: 'rgba(0,0,0,0.7)',
         color: 'white',
         padding: '4px 8px',
         borderRadius: '4px',
         fontSize: '11px',
         fontFamily: 'monospace',
-        zIndex: 1000
+        zIndex: 1000,
+        transition: 'right 0.3s ease'
       }}>
         v{packageJson.version} | Port: {window.location.port || '80'} | {new Date().toLocaleString()}
       </div>
