@@ -214,61 +214,84 @@ const MasterFilesManagement: React.FC = () => {
               fill="#d32f2f" font-size="${labelFontSize}" font-weight="bold" text-anchor="middle">
               ${sewingOffset}mm</text>`;
           }
+        }
 
-          // Enhanced Mid-Fold Line Rendering
-          if (obj.midFoldLine && obj.midFoldLine.enabled) {
-            const midFold = obj.midFoldLine;
-            const padding = midFold.padding || 3;
+        // Enhanced Mid-Fold Line Rendering (moved outside sewing condition)
+        if (obj.midFoldLine && obj.midFoldLine.enabled) {
+          const midFold = obj.midFoldLine;
+          const padding = midFold.padding || 3;
 
-            if (midFold.type === 'horizontal') {
-              // Calculate Y position based on direction and position
-              let lineY;
-              if (midFold.position.useDefault) {
-                lineY = y + height / 2; // Center position
-              } else {
-                if (midFold.direction === 'top') {
-                  lineY = y + midFold.position.customDistance;
-                } else { // bottom
-                  lineY = y + height - midFold.position.customDistance;
-                }
+          if (midFold.type === 'horizontal') {
+            // Calculate Y position based on direction and position
+            let lineY;
+            if (midFold.position.useDefault) {
+              lineY = y + height / 2; // Center position
+            } else {
+              if (midFold.direction === 'top') {
+                lineY = y + midFold.position.customDistance;
+              } else { // bottom
+                lineY = y + height - midFold.position.customDistance;
               }
-
-              // Draw horizontal line (full width - padding is for regions, not line display)
-              const lineStartX = x;
-              const lineEndX = x + width;
-              svgContent += `<line x1="${lineStartX}" y1="${lineY}" x2="${lineEndX}" y2="${lineY}"
-                stroke="#d32f2f" stroke-width="0.5" stroke-dasharray="4,4" opacity="0.9"/>`;
-
-              // Add label
-              svgContent += `<text x="${x + width + 5}" y="${lineY}"
-                fill="#d32f2f" font-size="${labelFontSize}" font-weight="bold" text-anchor="start">
-                Mid-Fold (${midFold.direction})</text>`;
-
-            } else if (midFold.type === 'vertical') {
-              // Calculate X position based on direction and position
-              let lineX;
-              if (midFold.position.useDefault) {
-                lineX = x + width / 2; // Center position
-              } else {
-                if (midFold.direction === 'left') {
-                  lineX = x + midFold.position.customDistance;
-                } else { // right
-                  lineX = x + width - midFold.position.customDistance;
-                }
-              }
-
-              // Draw vertical line (full height - padding is for regions, not line display)
-              const lineStartY = y;
-              const lineEndY = y + height;
-              svgContent += `<line x1="${lineX}" y1="${lineStartY}" x2="${lineX}" y2="${lineEndY}"
-                stroke="#d32f2f" stroke-width="0.5" stroke-dasharray="4,4" opacity="0.9"/>`;
-
-              // Add label
-              svgContent += `<text x="${lineX + 5}" y="${y - 5}"
-                fill="#d32f2f" font-size="${labelFontSize}" font-weight="bold" text-anchor="start">
-                Mid-Fold (${midFold.direction})</text>`;
             }
+
+            // Draw horizontal line (full width - padding is for regions, not line display)
+            const lineStartX = x;
+            const lineEndX = x + width;
+            svgContent += `<line x1="${lineStartX}" y1="${lineY}" x2="${lineEndX}" y2="${lineY}"
+              stroke="#d32f2f" stroke-width="0.5" stroke-dasharray="4,4" opacity="0.9"/>`;
+
+            // Add label
+            svgContent += `<text x="${x + width + 5}" y="${lineY}"
+              fill="#d32f2f" font-size="${labelFontSize}" font-weight="bold" text-anchor="start">
+              Mid-Fold (${midFold.direction})</text>`;
+
+          } else if (midFold.type === 'vertical') {
+            // Calculate X position based on direction and position
+            let lineX;
+            if (midFold.position.useDefault) {
+              lineX = x + width / 2; // Center position
+            } else {
+              if (midFold.direction === 'left') {
+                lineX = x + midFold.position.customDistance;
+              } else { // right
+                lineX = x + width - midFold.position.customDistance;
+              }
+            }
+
+            // Draw vertical line (full height - padding is for regions, not line display)
+            const lineStartY = y;
+            const lineEndY = y + height;
+            svgContent += `<line x1="${lineX}" y1="${lineStartY}" x2="${lineX}" y2="${lineEndY}"
+              stroke="#d32f2f" stroke-width="0.5" stroke-dasharray="4,4" opacity="0.9"/>`;
+
+            // Add label
+            svgContent += `<text x="${lineX + 5}" y="${y - 5}"
+              fill="#d32f2f" font-size="${labelFontSize}" font-weight="bold" text-anchor="start">
+              Mid-Fold (${midFold.direction})</text>`;
           }
+        }
+
+        // Render Regions
+        if (obj.regions && obj.regions.length > 0) {
+          obj.regions.forEach((region: any) => {
+            // Region rectangle (no border, just fill)
+            svgContent += `<rect x="${x + region.x}" y="${y + region.y}"
+              width="${region.width}" height="${region.height}"
+              fill="${region.backgroundColor || '#e3f2fd'}"
+              stroke="none" opacity="0.7"/>`;
+
+            // Region label
+            svgContent += `<text x="${x + region.x + region.width/2}" y="${y + region.y + 8}"
+              fill="${region.borderColor || '#2196f3'}" font-size="${labelFontSize}"
+              font-weight="bold" text-anchor="middle">
+              ${region.name}</text>`;
+
+            // Region dimensions
+            svgContent += `<text x="${x + region.x + region.width/2}" y="${y + region.y + region.height - 3}"
+              fill="${region.borderColor || '#2196f3'}" font-size="${labelFontSize * 0.8}"
+              text-anchor="middle" opacity="0.8">
+              ${region.width}×${region.height}mm</text>`;
+          });
         }
       }
 
