@@ -18,6 +18,23 @@ const MasterFilesManagement: React.FC = () => {
   const [selectedCustomer, setSelectedCustomer] = useState<string>('');
   const [enlargedThumbnail, setEnlargedThumbnail] = useState<string | null>(null);
 
+  // Backend API status for import feature
+  const [apiStatus, setApiStatus] = useState<'online' | 'offline' | 'checking'>('checking');
+  useEffect(() => {
+    let cancelled = false;
+    const ping = async () => {
+      try {
+        const res = await fetch('http://localhost:3001/api/health');
+        if (!cancelled) setApiStatus(res.ok ? 'online' : 'offline');
+      } catch {
+        if (!cancelled) setApiStatus('offline');
+      }
+    };
+    ping();
+    const t = setInterval(ping, 10000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, []);
+
   // Extract actual dimensions from design data
   const getActualDimensions = (designData: any): string => {
     if (!designData || !designData.objects || designData.objects.length === 0) {
@@ -272,6 +289,51 @@ const MasterFilesManagement: React.FC = () => {
         }
       }
 
+      // Mid-Fold line (independent of sewingPosition) + fallback for legacy 'mid-fold' sewingPosition
+      const mf = (obj as any).midFoldLine;
+      if (mf && mf.enabled) {
+        const midFoldLabelSize = Math.max(3, Math.min(4, 3.3 * scale));
+        if (mf.type === 'horizontal') {
+          let lineY = mf.position?.useDefault ? (y + height / 2) : (mf.direction === 'top' ? y + (mf.position?.customDistance || 0) : y + height - (mf.position?.customDistance || 0));
+          svgContent += `<line x1="${x}" y1="${lineY}" x2="${x + width}" y2="${lineY}"
+            stroke="#d32f2f" stroke-width="0.5" stroke-dasharray="4,4" opacity="0.9"/>`;
+          svgContent += `<text x="${x + width + 5}" y="${lineY}"
+            fill="#d32f2f" font-size="${midFoldLabelSize}" font-weight="bold" text-anchor="start">Mid-Fold (${mf.direction})</text>`;
+        } else if (mf.type === 'vertical') {
+          let lineX = mf.position?.useDefault ? (x + width / 2) : (mf.direction === 'left' ? x + (mf.position?.customDistance || 0) : x + width - (mf.position?.customDistance || 0));
+          svgContent += `<line x1="${lineX}" y1="${y}" x2="${lineX}" y2="${y + height}"
+            stroke="#d32f2f" stroke-width="0.5" stroke-dasharray="4,4" opacity="0.9"/>`;
+          svgContent += `<text x="${lineX + 5}" y="${y - 5}"
+            fill="#d32f2f" font-size="${midFoldLabelSize}" font-weight="bold" text-anchor="start">Mid-Fold (${mf.direction})</text>`;
+        }
+      } else if ((obj as any).sewingPosition === 'mid-fold') {
+        // Legacy support: treat as centered horizontal mid-fold
+        const midFoldLabelSize = Math.max(3, Math.min(4, 3.3 * scale));
+        const lineY = y + height / 2;
+        svgContent += `<line x1="${x}" y1="${lineY}" x2="${x + width}" y2="${lineY}"
+          stroke="#d32f2f" stroke-width="0.5" stroke-dasharray="4,4" opacity="0.9"/>`;
+        svgContent += `<text x="${x + width + 5}" y="${lineY}"
+          fill="#d32f2f" font-size="${midFoldLabelSize}" font-weight="bold" text-anchor="start">Mid-Fold</text>`;
+      }
+
+      // Render regions (top/bottom etc.) inside mother objects
+      const regions = Array.isArray((obj as any).regions) ? (obj as any).regions : [];
+      regions.forEach((r: any) => {
+        const rx = x + (r.x || 0);
+        const ry = y + (r.y || 0);
+        const rw = r.width || 0;
+        const rh = r.height || 0;
+        const bg = r.backgroundColor || 'rgba(76, 175, 80, 0.08)';
+        const border = r.borderColor || '#4CAF50';
+        svgContent += `<rect x="${rx}" y="${ry}" width="${rw}" height="${rh}"
+          fill="${bg}" stroke="${border}" stroke-width="0.5" stroke-dasharray="1,2" opacity="0.9"/>`;
+        // Optional region name label
+        if (r.name) {
+          const rLabelSize = Math.max(3, Math.min(4, 3.2 * scale));
+          svgContent += `<text x="${rx + rw / 2}" y="${ry + 12}" fill="#4CAF50" font-size="${rLabelSize}" font-weight="bold" text-anchor="middle">${r.name}</text>`;
+        }
+      });
+
       // Add ONLY dimensions - NO object names, NO margin labels - reduced to 1/3 size
       const dimFontSize = Math.max(4, Math.min(5.3, 4.7 * scale));
       svgContent += `<text x="${x + width/2}" y="${y + height + dimFontSize + 10}"
@@ -309,7 +371,7 @@ const MasterFilesManagement: React.FC = () => {
 
     return svgContent;
   };
-  
+
   // Create form state
   const [createForm, setCreateForm] = useState<CreateMasterFileRequest>({
     name: '',
@@ -402,8 +464,8 @@ const MasterFilesManagement: React.FC = () => {
     navigate(`/create_zero?masterFileId=${masterFile.id}`);
   };
 
-  const filteredMasterFiles = masterFiles.filter(mf => 
-    (!searchTerm || mf.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+  const filteredMasterFiles = masterFiles.filter(mf =>
+    (!searchTerm || mf.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
      (mf.description && mf.description.toLowerCase().includes(searchTerm.toLowerCase()))) &&
     (!selectedCustomer || mf.customerId === selectedCustomer)
   );
@@ -567,9 +629,9 @@ const MasterFilesManagement: React.FC = () => {
       </div>
 
       {/* Actions Bar */}
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: '20px',
         gap: '15px',
@@ -590,7 +652,7 @@ const MasterFilesManagement: React.FC = () => {
               minWidth: '200px'
             }}
           />
-          
+
           {/* Customer Filter */}
           <select
             value={selectedCustomer}
@@ -610,7 +672,72 @@ const MasterFilesManagement: React.FC = () => {
               </option>
             ))}
           </select>
-          
+
+          {/* Import from Browser Storage (to SQL) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button
+              onClick={async () => {
+                if (apiStatus !== 'online') {
+                  alert('Backend API is offline. Start the server on port 3001 to import.');
+                  return;
+                }
+                try {
+                  const raw = localStorage.getItem('care_label_db_master_files');
+                  if (!raw) {
+                    alert('No browser-stored master files found to import.');
+                    return;
+                  }
+                  const list = JSON.parse(raw);
+                  let imported = 0, skipped = 0, failed = 0;
+                  for (const mf of list) {
+                    try {
+                      // Check if exists by name via existing list (best-effort)
+                      const exists = masterFiles.some(x => x.name.toLowerCase() === mf.name.toLowerCase());
+                      if (exists) { skipped++; continue; }
+                      const body = {
+                        name: mf.name,
+                        description: mf.description || '',
+                        width: mf.width || 200,
+                        height: mf.height || 150,
+                        customerId: mf.customerId || 'default',
+                        canvasImage: mf.canvasImage || null,
+                        designData: mf.designData || (mf.data ? (typeof mf.data === 'string' ? JSON.parse(mf.data).designData : mf.data.designData) : null)
+                      } as any;
+                      const resp = await fetch('http://localhost:3001/api/master-files', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+                      });
+                      if (resp.ok) imported++; else failed++;
+                    } catch {
+                      failed++;
+                    }
+                  }
+                  alert(`Import complete. Imported: ${imported}, Skipped: ${skipped}, Failed: ${failed}`);
+                  await loadData();
+                } catch (e) {
+                  console.error(e);
+                  alert('Import failed. See console for details.');
+                }
+              }}
+              disabled={apiStatus !== 'online'}
+              title={apiStatus !== 'online' ? 'Backend offline' : 'Import master files from browser storage into SQL'}
+              style={{
+                padding: '8px 12px',
+                backgroundColor: apiStatus === 'online' ? '#2f855a' : '#a0aec0',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: apiStatus === 'online' ? 'pointer' : 'not-allowed',
+                fontSize: '14px'
+              }}
+            >
+              ⬆️ Import from Browser Storage
+            </button>
+            <span style={{ fontFamily: 'monospace', fontSize: '12px', color: apiStatus === 'online' ? '#2f855a' : '#c53030' }}>
+              API: {apiStatus}
+            </span>
+          </div>
+
+
           {/* Search Button */}
           <button
             onClick={loadData}
@@ -632,9 +759,9 @@ const MasterFilesManagement: React.FC = () => {
       </div>
 
       {/* Master Files Grid */}
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', 
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
         gap: '20px',
         marginBottom: '20px'
       }}>
@@ -647,17 +774,15 @@ const MasterFilesManagement: React.FC = () => {
               padding: '20px',
               backgroundColor: 'white',
               boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-              cursor: 'pointer',
+              cursor: 'default',
               transition: 'all 0.2s ease'
             }}
-            onClick={(e) => {
-              console.log('🎯 Card clicked, navigating to templates');
-              // Navigate to template management when card is clicked
-              handleSelectMasterFile(masterFile);
-            }}
+            // Clicking the card no longer navigates
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
-              e.currentTarget.style.transform = 'translateY(-2px)';
+              // Disable hover float-up effect per request
+              e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+              e.currentTarget.style.transform = 'none';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
@@ -751,7 +876,8 @@ const MasterFilesManagement: React.FC = () => {
                     />
                   ) : (
                     <div
-                      dangerouslySetInnerHTML={{ __html: (masterFile as any).canvasImage }}
+                      // Render small preview from design data to keep styling consistent (regions + mid-fold)
+                      dangerouslySetInnerHTML={{ __html: generateLargeThumbnailFromData((masterFile as any).designData, { width: 300, height: 200 }) }}
                       style={{
                         maxWidth: '100%',
                         maxHeight: '100%',
@@ -817,7 +943,7 @@ const MasterFilesManagement: React.FC = () => {
                 📄 {masterFile.name}
               </h3>
               <div style={{ fontSize: '12px', color: '#666' }}>
-                Customer: {masterFile.customerName}
+                Customer: {customers.find(c => c.id === masterFile.customerId)?.customerName || 'Default Customer'}
               </div>
             </div>
 
@@ -947,9 +1073,9 @@ const MasterFilesManagement: React.FC = () => {
 
       {/* Empty State */}
       {filteredMasterFiles.length === 0 && (
-        <div style={{ 
-          textAlign: 'center', 
-          padding: '40px', 
+        <div style={{
+          textAlign: 'center',
+          padding: '40px',
           color: '#666',
           backgroundColor: '#f8f9fa',
           borderRadius: '8px'
@@ -1000,7 +1126,7 @@ const MasterFilesManagement: React.FC = () => {
             overflow: 'auto'
           }}>
             <h2 style={{ margin: '0 0 20px 0' }}>Create New Master File</h2>
-            
+
             <div style={{ marginBottom: '15px' }}>
               <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
                 Master File Name *

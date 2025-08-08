@@ -129,6 +129,23 @@ function App() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [motherMetadata, setMotherMetadata] = useState<Map<string, MotherMetadata>>(new Map());
 
+  // Backend availability indicator
+  const [apiStatus, setApiStatus] = useState<'online' | 'offline' | 'checking'>('checking');
+  useEffect(() => {
+    let cancelled = false;
+    const ping = async () => {
+      try {
+        const res = await fetch('http://localhost:3001/api/health');
+        if (!cancelled) setApiStatus(res.ok ? 'online' : 'offline');
+      } catch {
+        if (!cancelled) setApiStatus('offline');
+      }
+    };
+    ping();
+    const t = setInterval(ping, 10000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, []);
+
   // Edit mode state
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingMasterFileId, setEditingMasterFileId] = useState<string | null>(null);
@@ -204,6 +221,9 @@ function App() {
   const [editingRegion, setEditingRegion] = useState<Region | null>(null);
   const [showAddRegionDialog, setShowAddRegionDialog] = useState(false);
   const [selectedMotherForRegion, setSelectedMotherForRegion] = useState<AIObject | null>(null);
+
+  // Region highlighting states
+  const [highlightedRegion, setHighlightedRegion] = useState<string | null>(null);
 
   // Dialog drag state
   const [dialogPosition, setDialogPosition] = useState({ x: 0, y: 0 });
@@ -2516,8 +2536,21 @@ function App() {
                       onClick={() => {
                         setSelectedObject(mother.object);
                         setEditingRegion(region);
+                        setHighlightedRegion(region.id); // Set highlighting for editing
                         setDialogPosition({ x: 0, y: 0 }); // Reset dialog position
                         setShowRegionDialog(true);
+                      }}
+                      onMouseEnter={() => {
+                        // Only highlight on hover if not currently editing
+                        if (!editingRegion || editingRegion.id !== region.id) {
+                          setHighlightedRegion(region.id);
+                        }
+                      }}
+                      onMouseLeave={() => {
+                        // Only clear highlight if not currently editing this region
+                        if (!editingRegion || editingRegion.id !== region.id) {
+                          setHighlightedRegion(null);
+                        }
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -2537,6 +2570,7 @@ function App() {
                           onClick={(e) => {
                             e.stopPropagation();
                             setEditingRegion(region);
+                            setHighlightedRegion(region.id); // Set highlighting for editing
                             setDialogPosition({ x: 0, y: 0 }); // Reset dialog position
                             setShowRegionDialog(true);
                           }}
@@ -3326,7 +3360,24 @@ function App() {
               const mmToPx = 3.78;
               const scale = zoom * mmToPx;
 
-              return objectRegions.map((region: Region) => (
+              return objectRegions.map((region: Region) => {
+                // Determine highlighting style
+                const isEditing = editingRegion && editingRegion.id === region.id;
+                const isHighlighted = highlightedRegion === region.id;
+
+                // Set stroke color and width based on state
+                let strokeColor = region.borderColor;
+                let strokeWidth = 2;
+
+                if (isEditing) {
+                  strokeColor = '#007bff'; // Blue for editing
+                  strokeWidth = 4;
+                } else if (isHighlighted) {
+                  strokeColor = '#ff6b35'; // Orange for hover
+                  strokeWidth = 3;
+                }
+
+                return (
                 <g key={region.id}>
                   {/* Region Rectangle */}
                   <rect
@@ -3335,8 +3386,8 @@ function App() {
                     width={region.width * scale}
                     height={region.height * scale}
                     fill={region.backgroundColor}
-                    stroke={region.borderColor}
-                    strokeWidth="2"
+                    stroke={strokeColor}
+                    strokeWidth={strokeWidth}
                     strokeDasharray="5,5"
                     opacity="0.7"
                   />
@@ -3368,7 +3419,8 @@ function App() {
                     {region.width}×{region.height}mm
                   </text>
                 </g>
-              ));
+              );
+              });
             })()}
 
             {/* Sewing Lines with Dimensions */}
@@ -3882,7 +3934,7 @@ function App() {
                     fontFamily: 'monospace',
                     fontWeight: 'normal'
                   }}>
-                    v{packageJson.version}
+                    v{packageJson.version} • API: {apiStatus}
                   </span>
                 </div>
                 <div style={{ display: 'flex', gap: '5px' }}>
@@ -4168,8 +4220,8 @@ function App() {
             overflowY: 'auto',
             position: 'relative'
           }}>
-            {/* Disabled Overlay when dialogs are open */}
-            {(showRegionDialog || showAddRegionDialog) && (
+            {/* Disabled Overlay when dialogs are open - but not in master file mode */}
+            {(showRegionDialog || showAddRegionDialog) && !isMasterFileMode && (
               <div style={{
                 position: 'absolute',
                 top: 0,
@@ -4197,6 +4249,9 @@ function App() {
                   fontWeight: 'bold'
                 }}>
                   Hierarchy Locked
+                  <span style={{ marginLeft: 8, fontSize: '11px', color: apiStatus === 'online' ? '#2f855a' : '#c53030', fontFamily: 'monospace' }}>
+                    API: {apiStatus}
+                  </span>
                 </div>
                 <div style={{
                   fontSize: '12px',
@@ -5435,6 +5490,7 @@ function App() {
                 onClick={() => {
                   setShowRegionDialog(false);
                   setEditingRegion(null);
+                  setHighlightedRegion(null); // Clear highlighting on cancel
                 }}
                 style={{
                   padding: '10px 20px',
@@ -5450,10 +5506,15 @@ function App() {
                 ❌ Cancel
               </button>
               <button
-                onClick={() => {
+                onClick={async () => {
+                  console.log('🔥 SAVE BUTTON CLICKED!', { editingRegion, selectedObject, isMasterFileMode, editingMasterFileId });
+
                   if (editingRegion && selectedObject) {
                     // Update the region in the actual mother object
                     const currentData = data || webCreationData;
+                    console.log('📊 Current data before update:', currentData);
+                    console.log('📝 Editing region:', editingRegion);
+
                     if (currentData) {
                       const updatedObjects = currentData.objects.map(obj => {
                         if (obj.name === selectedObject.name && obj.type === 'mother') {
@@ -5476,10 +5537,56 @@ function App() {
 
                       setData(updatedData);
                       setWebCreationData(updatedData);
+
+                      // If in master file mode, also save to master file service
+                      if (isMasterFileMode && editingMasterFileId) {
+                        try {
+                          console.log('💾 Saving region changes to master file:', editingMasterFileId);
+
+                          // Calculate bounds for width/height
+                          const bounds = { minX: 0, minY: 0, maxX: 0, maxY: 0 };
+                          updatedData.objects.forEach(obj => {
+                            if (obj.type === 'mother') {
+                              bounds.maxX = Math.max(bounds.maxX, obj.x + obj.width);
+                              bounds.maxY = Math.max(bounds.maxY, obj.y + obj.height);
+                            }
+                          });
+
+                          const padding = 20;
+                          const widthInMm = Math.max(200, Math.ceil(bounds.maxX - bounds.minX + padding));
+                          const heightInMm = Math.max(150, Math.ceil(bounds.maxY - bounds.minY + padding));
+
+                          const result = await masterFileService.updateMasterFile({
+                            id: editingMasterFileId,
+                            name: originalMasterFile?.name || 'Updated Master File',
+                            width: widthInMm,
+                            height: heightInMm,
+                            description: `Updated: ${updatedData.objects.length} objects`,
+                            designData: {
+                              objects: updatedData.objects,
+                              metadata: {
+                                lastModified: new Date().toISOString(),
+                                modifiedBy: 'region-editor'
+                              }
+                            }
+                          });
+
+                          if (result.success) {
+                            console.log('✅ Master file updated successfully');
+                          } else {
+                            console.error('❌ Failed to update master file:', result.error);
+                            alert('Failed to save changes to master file: ' + result.error);
+                          }
+                        } catch (error) {
+                          console.error('❌ Error saving to master file:', error);
+                          alert('Error saving changes to master file');
+                        }
+                      }
                     }
 
                     setShowRegionDialog(false);
                     setEditingRegion(null);
+                    setHighlightedRegion(null); // Clear highlighting on save
                   }
                 }}
                 style={{
