@@ -1,0 +1,22 @@
+{
+  "name": "care-label-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "dev": "node index.js",
+    "start": "node index.js",
+    "prisma:generate": "prisma generate",
+    "prisma:push": "prisma db push"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "@prisma/client": "^5.16.1"
+  },
+  "devDependencies": {
+    "prisma": "^5.16.1"
+  }
+}
+

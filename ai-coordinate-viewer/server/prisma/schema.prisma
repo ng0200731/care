@@ -1,0 +1,23 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model MasterFile {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  width       Int      @default(200)
+  height      Int      @default(150)
+  customerId  String?
+  canvasImage String?
+  data        String?  // JSON string that includes designData, width, height, etc.
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+

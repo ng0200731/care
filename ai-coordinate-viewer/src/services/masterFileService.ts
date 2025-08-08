@@ -31,14 +31,10 @@ class MasterFileService {
           body: JSON.stringify({
             name: request.name,
             description: request.description,
-            data: JSON.stringify({
-              designData: request.designData,
-              width: request.width,
-              height: request.height,
-              customerId: request.customerId
-            }),
             width: request.width,
             height: request.height,
+            customerId: request.customerId,
+            designData: request.designData,
             canvasImage: request.canvasImage
           }),
         });
@@ -92,25 +88,30 @@ class MasterFileService {
         if (response.ok) {
           const result = await response.json();
           // Transform backend data to match frontend interface
-          const masterFiles = result.masterFiles.map((mf: any) => ({
-            id: mf.id,
-            name: mf.name,
-            description: mf.description,
-            width: mf.width || 200,
-            height: mf.height || 150,
-            customerId: 'default', // Backend doesn't have customerId yet
-            canvasImage: mf.canvasImage,
-            designData: mf.data ? JSON.parse(mf.data) : null,
-            revisionNumber: 1,
-            revisionHistory: [],
-            createdAt: new Date(mf.createdAt),
-            updatedAt: new Date(mf.updatedAt),
-            isActive: true,
-            customerName: 'Default Customer',
-            contactPerson: 'N/A',
-            templateCount: 0,
-            lastTemplateUpdate: undefined
-          }));
+          const masterFiles = result.masterFiles.map((mf: any) => {
+            let parsed: any = null;
+            try { parsed = mf.data ? JSON.parse(mf.data) : null; } catch {}
+            const metaCustomerName = parsed?.designData?.metadata?.customerName;
+            return {
+              id: mf.id,
+              name: mf.name,
+              description: mf.description,
+              width: mf.width || 200,
+              height: mf.height || 150,
+              customerId: mf.customerId || 'default',
+              canvasImage: mf.canvasImage,
+              designData: parsed?.designData ?? null,
+              revisionNumber: 1,
+              revisionHistory: [],
+              createdAt: new Date(mf.createdAt),
+              updatedAt: new Date(mf.updatedAt),
+              isActive: true,
+              customerName: metaCustomerName || 'Default Customer',
+              contactPerson: 'N/A',
+              templateCount: 0,
+              lastTemplateUpdate: undefined
+            } as MasterFileWithSummary;
+          });
 
           return {
             success: true,
@@ -182,9 +183,9 @@ class MasterFileService {
             description: mf.description,
             width: mf.width || 200,
             height: mf.height || 150,
-            customerId: 'default',
+            customerId: mf.customerId || 'default',
             canvasImage: mf.canvasImage,
-            designData: mf.data ? JSON.parse(mf.data) : null,
+            designData: mf.data ? JSON.parse(mf.data).designData : null,
             revisionNumber: 1,
             revisionHistory: [],
             createdAt: new Date(mf.createdAt),
@@ -240,13 +241,9 @@ class MasterFileService {
           body: JSON.stringify({
             name: request.name,
             description: request.description,
-            data: JSON.stringify({
-              designData: request.designData,
-              width: request.width,
-              height: request.height
-            }),
             width: request.width,
             height: request.height,
+            designData: request.designData,
             canvasImage: request.canvasImage
           }),
         });

@@ -1,5 +1,20 @@
 # Care Label Layout System - Version History
 
+## Version 1.9.0 - Backend Server Added (SQLite)
+
+## Version 1.9.2 - Master Files UI fixes: customer label, card click, thumbnails
+- Master Files grid now resolves customer name from customers list and metadata
+- Disabled card body navigation; use explicit Manage Templates button
+- Large thumbnail shows regions and mid-fold line; region border thin + dotted
+- Small thumbnail synced to show same styling as large preview
+- Minor: mid-fold legacy sewingPosition support in preview generator
+
+- Added Express + Prisma + SQLite backend at http://localhost:3001
+- Frontend auto-detects backend availability and displays API status badge
+- Region editing persists to SQL via masterFileService.updateMasterFile
+- Fallback to localStorage remains when backend is offline
+
+
 ## Version 1.7.0 (Current) - Mid-Fold Region Creation
 **Release Date:** 2025-01-08
 **Commit:** TBD
