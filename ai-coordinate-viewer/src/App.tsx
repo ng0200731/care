@@ -129,7 +129,7 @@ function App() {
   const [data, setData] = useState<AIData | null>(null);
   const [selectedObject, setSelectedObject] = useState<AIObject | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
-  const [expandedMothers, setExpandedMothers] = useState<Set<number>>(new Set());
+  const [expandedMothers, setExpandedMothers] = useState<Set<number>>(new Set([0])); // Expand first mother by default
   const [sonMetadata, setSonMetadata] = useState<Map<string, SonMetadata>>(new Map());
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [motherMetadata, setMotherMetadata] = useState<Map<string, MotherMetadata>>(new Map());
@@ -194,6 +194,12 @@ function App() {
 
   // Drag and drop state - Show content menu only in project mode
   const [showContentMenu, setShowContentMenu] = useState(isProjectMode);
+
+  // Update showContentMenu when project mode changes
+  React.useEffect(() => {
+    setShowContentMenu(isProjectMode);
+    addDebugMessage(`📋 Content menu ${isProjectMode ? 'shown' : 'hidden'} - Project mode: ${isProjectMode}`);
+  }, [isProjectMode]);
   const [dragOverRegion, setDragOverRegion] = useState<string | null>(null);
   const [translationDialog, setTranslationDialog] = useState<{
     isOpen: boolean;
@@ -2370,6 +2376,42 @@ function App() {
     setPureEnglishDialog({ isOpen: false, regionId: '' });
   };
 
+  // Content menu handlers
+  const handleEditContent = (content: any, regionId: string) => {
+    addDebugMessage(`✏️ Edit ${content.type} from menu`);
+    switch (content.type) {
+      case 'translation-paragraph':
+        setTranslationDialog({
+          isOpen: true,
+          regionId: regionId
+        });
+        break;
+      case 'pure-english-paragraph':
+        setPureEnglishDialog({
+          isOpen: true,
+          regionId: regionId
+        });
+        break;
+      default:
+        addDebugMessage(`❌ Edit not implemented for ${content.type}`);
+    }
+  };
+
+  const handleDeleteContent = (content: any, regionId: string) => {
+    addDebugMessage(`🗑️ Delete ${content.type} from menu`);
+    const currentContents = regionContents.get(regionId) || [];
+    const newContents = currentContents.filter(c => c.id !== content.id);
+    const updatedContents = new Map(regionContents);
+    if (newContents.length === 0) {
+      updatedContents.delete(regionId);
+    } else {
+      updatedContents.set(regionId, newContents);
+    }
+    setRegionContents(updatedContents);
+    setNotification(`Content deleted from ${regionId}`);
+    setTimeout(() => setNotification(null), 3000);
+  };
+
   // Region occupation handlers - COMMENTED OUT FOR NOW
   // const handleRegionOccupationConfirm = (occupationData: RegionOccupationData) => {
   //   console.log('📐 Region occupation confirmed:', occupationData);
@@ -2547,7 +2589,17 @@ function App() {
 
         {/* Mothers with their sons */}
         {mothers.map((mother, index) => {
+          // Auto-expand all mothers so regions are always visible
+          if (!expandedMothers.has(index)) {
+            setExpandedMothers(prev => new Set([...Array.from(prev), index]));
+          }
           const isExpanded = expandedMothers.has(index);
+          console.log(`👩 Mother ${index} (${mother.object.name}):`, {
+            isExpanded,
+            hasRegions: !!(mother.object as any).regions,
+            regionCount: ((mother.object as any).regions || []).length,
+            expandedMothers: Array.from(expandedMothers)
+          });
 
           return (
             <div key={index} style={{marginBottom: '15px'}}>
@@ -2672,9 +2724,30 @@ function App() {
                 </div>
               </div>
 
-              {/* Regions (always visible in master file mode) */}
-              {isMasterFileMode && (() => {
+              {/* Regions (visible in both master file mode and project mode) */}
+              {(() => {
                 const motherRegions = (mother.object as any).regions || [];
+                console.log(`🏗️ Mother ${mother.object.name} regions:`, motherRegions);
+
+                if (motherRegions.length === 0) {
+                  return (
+                    <div
+                      style={{
+                        margin: '4px 0 4px 20px',
+                        background: '#f5f5f5',
+                        color: '#999',
+                        borderRadius: '6px',
+                        borderLeft: '3px solid #ccc',
+                        padding: '8px 12px',
+                        fontSize: '11px',
+                        fontStyle: 'italic'
+                      }}
+                    >
+                      No regions yet. {isMasterFileMode ? 'Click "Add Region" to create regions.' : 'Regions will appear here when added.'}
+                    </div>
+                  );
+                }
+
                 return motherRegions.map((region: Region, regionIndex: number) => (
                   <div
                     key={region.id}
@@ -2790,11 +2863,126 @@ function App() {
                         </button>
                       </div>
                     </div>
+
+                    {/* Placed Content Items under this region */}
+                    {(() => {
+                      const regionContentItems = regionContents.get(region.id) || [];
+                      return regionContentItems.map((contentItem: any, contentIndex: number) => (
+                        <div
+                          key={`${region.id}-content-${contentIndex}`}
+                          style={{
+                            margin: '2px 0 2px 40px', // Double indented under region
+                            background: '#f5f5f5',
+                            color: '#666',
+                            borderRadius: '4px',
+                            borderLeft: '2px solid #9e9e9e',
+                            overflow: 'hidden'
+                          }}
+                        >
+                          <div
+                            style={{
+                              padding: '6px 8px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              fontSize: '11px'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{ fontSize: '12px' }}>
+                                {contentItem.type === 'translation-paragraph' ? '🌐' :
+                                 contentItem.type === 'pure-english-paragraph' ? '📄' :
+                                 contentItem.type === 'line-text' ? '📝' :
+                                 contentItem.type === 'washing-symbol' ? '🧺' :
+                                 contentItem.type === 'image' ? '🖼️' :
+                                 contentItem.type === 'coo' ? '🏷️' : '📄'}
+                              </span>
+                              <div>
+                                <div style={{ fontWeight: 'bold' }}>
+                                  {contentItem.type === 'translation-paragraph' ? 'Translation Paragraph' :
+                                   contentItem.type === 'pure-english-paragraph' ? 'Pure English Paragraph' :
+                                   contentItem.type === 'line-text' ? 'Line Text' :
+                                   contentItem.type === 'washing-symbol' ? 'Washing Symbol' :
+                                   contentItem.type === 'image' ? 'Image' :
+                                   contentItem.type === 'coo' ? 'COO' : contentItem.type}
+                                </div>
+                                {contentItem.text && (
+                                  <div style={{ fontSize: '9px', opacity: 0.7, maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {contentItem.text}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '2px' }}>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  // Edit content functionality
+                                  if (contentItem.type === 'translation-paragraph') {
+                                    setTranslationDialog({
+                                      isOpen: true,
+                                      regionId: region.id
+                                    });
+                                  } else if (contentItem.type === 'pure-english-paragraph') {
+                                    setPureEnglishDialog({
+                                      isOpen: true,
+                                      regionId: region.id
+                                    });
+                                  }
+                                }}
+                                style={{
+                                  background: '#4caf50',
+                                  border: 'none',
+                                  color: 'white',
+                                  fontSize: '8px',
+                                  padding: '2px 4px',
+                                  borderRadius: '2px',
+                                  cursor: 'pointer'
+                                }}
+                                title="Edit content"
+                              >
+                                ✏️
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  // Delete content functionality
+                                  const currentContents = regionContents.get(region.id) || [];
+                                  const newContents = currentContents.filter((_, index) => index !== contentIndex);
+                                  const updatedContents = new Map(regionContents);
+                                  if (newContents.length === 0) {
+                                    updatedContents.delete(region.id);
+                                  } else {
+                                    updatedContents.set(region.id, newContents);
+                                  }
+                                  setRegionContents(updatedContents);
+                                  setNotification(`Content deleted from ${region.name}`);
+                                  setTimeout(() => setNotification(null), 3000);
+                                }}
+                                style={{
+                                  background: '#f44336',
+                                  border: 'none',
+                                  color: 'white',
+                                  fontSize: '8px',
+                                  padding: '2px 4px',
+                                  borderRadius: '2px',
+                                  cursor: 'pointer'
+                                }}
+                                title="Delete content"
+                              >
+                                🗑️
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ));
+                    })()}
                   </div>
                 ));
               })()}
 
-              {/* Add Region Button - Only show if remaining space is available */}
+              {/* Add Region Button - Only show if remaining space is available and in master file mode */}
               {isMasterFileMode && (() => {
                 const motherRegions = (mother.object as any).regions || [];
                 const motherMargins = (mother.object as any).margins || { top: 5, left: 5, right: 5, down: 5 };
@@ -3595,10 +3783,16 @@ function App() {
                     // Don't add debug message here - it causes infinite re-renders
                     // The message will be added when content is saved instead
 
-                    const blockHeight = 20; // Height of each placeholder block
-                    const blockSpacing = 2; // Spacing between blocks
-                    const startY = baseY + (region.y * scale) + 25; // Start below region label
-                    const blockWidth = (region.width * scale) - 10; // Leave some margin
+                    // Scale-responsive placeholder dimensions
+                    const blockHeightMm = 5; // Height in mm (will scale with zoom)
+                    const blockSpacingMm = 0.5; // Spacing in mm (will scale with zoom)
+                    const startOffsetMm = 6; // Start offset in mm (will scale with zoom)
+                    const marginMm = 2; // Margin in mm (will scale with zoom)
+
+                    const blockHeight = blockHeightMm * scale;
+                    const blockSpacing = blockSpacingMm * scale;
+                    const startY = baseY + (region.y * scale) + (startOffsetMm * scale);
+                    const blockWidth = (region.width * scale) - (marginMm * scale * 2);
 
                     return regionContentsArray.map((content: any, index: number) => {
                       const blockY = startY + (index * (blockHeight + blockSpacing));
@@ -3647,7 +3841,7 @@ function App() {
                         <g key={`${region.id}-content-${index}`}>
                           {/* Placeholder Block Background */}
                           <rect
-                            x={baseX + (region.x * scale) + 5}
+                            x={baseX + (region.x * scale) + (marginMm * scale)}
                             y={blockY}
                             width={blockWidth}
                             height={blockHeight}
@@ -3664,7 +3858,7 @@ function App() {
                             x={baseX + (region.x * scale) + (region.width * scale) / 2}
                             y={blockY + blockHeight / 2}
                             fill={textColor}
-                            fontSize="10"
+                            fontSize={Math.max(8, Math.min(16, 3 * scale))}
                             fontWeight="bold"
                             textAnchor="middle"
                             dominantBaseline="middle"
@@ -4276,6 +4470,8 @@ function App() {
                                 const updatedContents = new Map(regionContents);
                                 updatedContents.set(testRegionId, newContents);
                                 setRegionContents(updatedContents);
+                                addDebugMessage(`🧪 Test content added to ${testRegionId}`);
+                                addDebugMessage(`📋 Total regions with content: ${updatedContents.size}`);
                                 setNotification(`Test content added to ${testRegionId}`);
                                 setTimeout(() => setNotification(null), 3000);
                                 break;
@@ -6670,7 +6866,12 @@ function App() {
       )}
 
       {/* Content Menu - Only show in project mode */}
-      <ContentMenu isVisible={showContentMenu} />
+      <ContentMenu
+        isVisible={showContentMenu}
+        regionContents={regionContents}
+        onEditContent={handleEditContent}
+        onDeleteContent={handleDeleteContent}
+      />
 
       {/* Region Occupation Dialog */}
       {/* <RegionOccupationDialog

@@ -48,9 +48,17 @@ export const contentTypes: ContentType[] = [
 
 interface ContentMenuProps {
   isVisible: boolean;
+  regionContents?: Map<string, any[]>;
+  onEditContent?: (content: any, regionId: string) => void;
+  onDeleteContent?: (content: any, regionId: string) => void;
 }
 
-const ContentMenu: React.FC<ContentMenuProps> = ({ isVisible }) => {
+const ContentMenu: React.FC<ContentMenuProps> = ({
+  isVisible,
+  regionContents = new Map(),
+  onEditContent,
+  onDeleteContent
+}) => {
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, contentType: ContentType) => {
     console.log('🎯 Drag started:', contentType.name);
     e.dataTransfer.setData('application/json', JSON.stringify(contentType));
@@ -65,6 +73,21 @@ const ContentMenu: React.FC<ContentMenuProps> = ({ isVisible }) => {
     e.currentTarget.style.opacity = '1';
   };
 
+  // Collect all placed content items and determine which content types have been placed
+  const placedContentItems: Array<{content: any, regionId: string}> = [];
+  const placedContentTypes = new Set<string>();
+
+  regionContents.forEach((contents, regionId) => {
+    contents.forEach((content: any) => {
+      placedContentItems.push({ content, regionId });
+      placedContentTypes.add(content.type);
+    });
+  });
+
+  // Debug logging
+  console.log('📋 ContentMenu - regionContents:', regionContents);
+  console.log('📋 ContentMenu - placedContentTypes:', Array.from(placedContentTypes));
+
   if (!isVisible) return null;
 
   return (
@@ -74,12 +97,14 @@ const ContentMenu: React.FC<ContentMenuProps> = ({ isVisible }) => {
       backgroundColor: '#f8f9fa',
       borderLeft: '1px solid #e2e8f0',
       padding: '20px',
+      paddingLeft: '50px', // Extra left padding to accommodate offset content
       boxSizing: 'border-box',
       position: 'fixed',
       right: 0,
       top: 0,
       zIndex: 1000,
-      overflowY: 'auto'
+      overflowY: 'auto',
+      overflowX: 'visible' // Allow horizontal overflow for offset content
     }}>
       {/* Header */}
       <div style={{
@@ -108,58 +133,71 @@ const ContentMenu: React.FC<ContentMenuProps> = ({ isVisible }) => {
       </div>
 
       {/* Content Type Items */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '12px'
+      }}>
         {contentTypes.map((contentType) => (
           <div
             key={contentType.id}
-            draggable
-            onDragStart={(e) => handleDragStart(e, contentType)}
-            onDragEnd={handleDragEnd}
             style={{
-              padding: '15px',
-              backgroundColor: 'white',
-              border: '2px solid #e2e8f0',
-              borderRadius: '8px',
-              cursor: 'grab',
-              transition: 'all 0.2s ease',
-              userSelect: 'none'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = '#3182ce';
-              e.currentTarget.style.boxShadow = '0 2px 8px rgba(49, 130, 206, 0.15)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = '#e2e8f0';
-              e.currentTarget.style.boxShadow = 'none';
+              position: 'relative'
             }}
           >
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              marginBottom: '8px'
-            }}>
-              <span style={{ fontSize: '20px' }}>{contentType.icon}</span>
-              <div>
-                <div style={{
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  color: '#2d3748'
-                }}>
-                  {contentType.name}
+            <div
+              draggable
+              onDragStart={(e) => handleDragStart(e, contentType)}
+              onDragEnd={handleDragEnd}
+              style={{
+                padding: '15px',
+                backgroundColor: 'white',
+                border: '2px solid #e2e8f0',
+                borderRadius: '8px',
+                cursor: 'grab',
+                transition: 'all 0.2s ease',
+                userSelect: 'none'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = '#3182ce';
+                e.currentTarget.style.boxShadow = '0 2px 8px rgba(49, 130, 206, 0.15)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = '#e2e8f0';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+            >
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                marginBottom: '8px'
+              }}>
+                <span style={{ fontSize: '20px' }}>{contentType.icon}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    color: '#2d3748'
+                  }}>
+                    {contentType.name}
+                  </div>
                 </div>
               </div>
-            </div>
-            <div style={{
-              fontSize: '12px',
-              color: '#718096',
-              lineHeight: '1.4'
-            }}>
-              {contentType.description}
+              <div style={{
+                fontSize: '12px',
+                color: '#718096',
+                lineHeight: '1.4'
+              }}>
+                {contentType.description}
+              </div>
             </div>
           </div>
-        ))}
+          )
+        )}
       </div>
+
+
 
       {/* Instructions */}
       <div style={{
