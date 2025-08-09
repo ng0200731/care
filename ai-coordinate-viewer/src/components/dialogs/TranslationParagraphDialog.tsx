@@ -439,7 +439,6 @@ const TranslationParagraphDialog: React.FC<TranslationParagraphDialogProps> = ({
           </button>
         </div>
         </div> {/* End form content wrapper */}
-      </div>
     </div>
   );
 };

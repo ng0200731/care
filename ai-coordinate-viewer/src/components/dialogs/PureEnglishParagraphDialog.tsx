@@ -495,7 +495,6 @@ const PureEnglishParagraphDialog: React.FC<PureEnglishParagraphDialogProps> = ({
           </button>
         </div>
         </div> {/* End form content wrapper */}
-      </div>
     </div>
   );
 };
