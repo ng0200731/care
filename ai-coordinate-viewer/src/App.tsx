@@ -2738,14 +2738,20 @@ function App() {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        cursor: 'pointer'
+                        cursor: isMasterFileMode ? 'pointer' : 'default'
                       }}
                       onClick={() => {
                         setSelectedObject(mother.object);
-                        setEditingRegion(region);
-                        setHighlightedRegion(region.id); // Set highlighting for editing
-                        setDialogPosition({ x: 0, y: 0 }); // Reset dialog position
-                        setShowRegionDialog(true);
+                        // Only allow editing in Master File Mode
+                        if (isMasterFileMode) {
+                          setEditingRegion(region);
+                          setHighlightedRegion(region.id); // Set highlighting for editing
+                          setDialogPosition({ x: 0, y: 0 }); // Reset dialog position
+                          setShowRegionDialog(true);
+                        } else {
+                          // In Project Mode, just highlight the region
+                          setHighlightedRegion(region.id);
+                        }
                       }}
                       onMouseEnter={() => {
                         // Only highlight on hover if not currently editing
@@ -2772,68 +2778,71 @@ function App() {
                         </div>
                       </div>
 
-                      <div style={{ display: 'flex', gap: '4px' }}>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setEditingRegion(region);
-                            setHighlightedRegion(region.id); // Set highlighting for editing
-                            setDialogPosition({ x: 0, y: 0 }); // Reset dialog position
-                            setShowRegionDialog(true);
-                          }}
-                          style={{
-                            background: '#4caf50',
-                            border: 'none',
-                            color: 'white',
-                            fontSize: '10px',
-                            padding: '2px 6px',
-                            borderRadius: '3px',
-                            cursor: 'pointer'
-                          }}
-                          title="Edit region"
-                        >
-                          ✏️
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            // Delete region
-                            const currentData = data || webCreationData;
-                            if (currentData) {
-                              const updatedObjects = currentData.objects.map(obj => {
-                                if (obj.name === mother.object.name) {
-                                  const updatedRegions = motherRegions.filter((r: Region) => r.id !== region.id);
-                                  return {
-                                    ...obj,
-                                    regions: updatedRegions
-                                  };
-                                }
-                                return obj;
-                              });
+                      {/* Edit/Delete buttons - Only show in Master File Mode */}
+                      {isMasterFileMode && (
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingRegion(region);
+                              setHighlightedRegion(region.id); // Set highlighting for editing
+                              setDialogPosition({ x: 0, y: 0 }); // Reset dialog position
+                              setShowRegionDialog(true);
+                            }}
+                            style={{
+                              background: '#4caf50',
+                              border: 'none',
+                              color: 'white',
+                              fontSize: '10px',
+                              padding: '2px 6px',
+                              borderRadius: '3px',
+                              cursor: 'pointer'
+                            }}
+                            title="Edit region"
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Delete region
+                              const currentData = data || webCreationData;
+                              if (currentData) {
+                                const updatedObjects = currentData.objects.map(obj => {
+                                  if (obj.name === mother.object.name) {
+                                    const updatedRegions = motherRegions.filter((r: Region) => r.id !== region.id);
+                                    return {
+                                      ...obj,
+                                      regions: updatedRegions
+                                    };
+                                  }
+                                  return obj;
+                                });
 
-                              const updatedData = {
-                                ...currentData,
-                                objects: updatedObjects
-                              };
+                                const updatedData = {
+                                  ...currentData,
+                                  objects: updatedObjects
+                                };
 
-                              setData(updatedData);
-                              setWebCreationData(updatedData);
-                            }
-                          }}
-                          style={{
-                            background: '#f44336',
-                            border: 'none',
-                            color: 'white',
-                            fontSize: '10px',
-                            padding: '2px 6px',
-                            borderRadius: '3px',
-                            cursor: 'pointer'
-                          }}
-                          title="Delete region"
-                        >
-                          🗑️
-                        </button>
-                      </div>
+                                setData(updatedData);
+                                setWebCreationData(updatedData);
+                              }
+                            }}
+                            style={{
+                              background: '#f44336',
+                              border: 'none',
+                              color: 'white',
+                              fontSize: '10px',
+                              padding: '2px 6px',
+                              borderRadius: '3px',
+                              cursor: 'pointer'
+                            }}
+                            title="Delete region"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     {/* Placed Content Items under this region */}
