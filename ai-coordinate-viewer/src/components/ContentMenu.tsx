@@ -60,7 +60,6 @@ const ContentMenu: React.FC<ContentMenuProps> = ({
   onDeleteContent
 }) => {
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, contentType: ContentType) => {
-    console.log('🎯 Drag started:', contentType.name);
     e.dataTransfer.setData('application/json', JSON.stringify(contentType));
     e.dataTransfer.effectAllowed = 'copy';
     
@@ -84,9 +83,7 @@ const ContentMenu: React.FC<ContentMenuProps> = ({
     });
   });
 
-  // Debug logging
-  console.log('📋 ContentMenu - regionContents:', regionContents);
-  console.log('📋 ContentMenu - placedContentTypes:', Array.from(placedContentTypes));
+
 
   if (!isVisible) return null;
 

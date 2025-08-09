@@ -198,7 +198,6 @@ function App() {
   // Update showContentMenu when project mode changes
   React.useEffect(() => {
     setShowContentMenu(isProjectMode);
-    addDebugMessage(`📋 Content menu ${isProjectMode ? 'shown' : 'hidden'} - Project mode: ${isProjectMode}`);
   }, [isProjectMode]);
   const [dragOverRegion, setDragOverRegion] = useState<string | null>(null);
   const [translationDialog, setTranslationDialog] = useState<{
@@ -240,13 +239,6 @@ function App() {
   //   dragDropInPreview: false
   // });
   const [showPreviewPanel, setShowPreviewPanel] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<string[]>([]);
-
-  // Debug helper function
-  const addDebugMessage = (message: string) => {
-    const timestamp = new Date().toLocaleTimeString();
-    setDebugInfo(prev => [...prev.slice(-4), `${timestamp}: ${message}`]); // Keep last 5 messages
-  };
 
   // Pending content data (after region occupation is confirmed)
   // const [pendingContentData, setPendingContentData] = useState<{
@@ -2301,24 +2293,21 @@ function App() {
       // });
 
       // For now, directly open the content dialogs
-      addDebugMessage(`🎯 Dropped ${contentTypeData.name} on ${regionId}`);
       switch (contentTypeData.id) {
         case 'translation-paragraph':
-          addDebugMessage(`🌐 Opening Translation dialog for region: ${regionId}`);
           setTranslationDialog({
             isOpen: true,
             regionId: regionId
           });
           break;
         case 'pure-english-paragraph':
-          addDebugMessage('📄 Opening Pure English dialog');
           setPureEnglishDialog({
             isOpen: true,
             regionId: regionId
           });
           break;
         default:
-          addDebugMessage(`❌ ${contentTypeData.id} not implemented`);
+          console.log(`❌ ${contentTypeData.id} not implemented`);
       }
 
     } catch (error) {
@@ -2327,17 +2316,12 @@ function App() {
   };
 
   const handleTranslationSave = (data: TranslationParagraphData) => {
-    addDebugMessage(`💾 Saving Translation to ${data.regionId}`);
-
     // Add content to region
     const currentContents = regionContents.get(data.regionId) || [];
     const newContents = [...currentContents, data];
     const updatedContents = new Map(regionContents);
     updatedContents.set(data.regionId, newContents);
     setRegionContents(updatedContents);
-
-    addDebugMessage(`📋 Content saved! Total items: ${newContents.length}`);
-    addDebugMessage(`🎨 Should render ${newContents.length} placeholders`);
 
     // Close dialog
     setTranslationDialog({ isOpen: false, regionId: '' });
@@ -2352,17 +2336,12 @@ function App() {
   };
 
   const handlePureEnglishSave = (data: PureEnglishParagraphData) => {
-    addDebugMessage(`💾 Saving Pure English to ${data.regionId}`);
-
     // Add content to region
     const currentContents = regionContents.get(data.regionId) || [];
     const newContents = [...currentContents, data];
     const updatedContents = new Map(regionContents);
     updatedContents.set(data.regionId, newContents);
     setRegionContents(updatedContents);
-
-    addDebugMessage(`📋 Content saved! Total items: ${newContents.length}`);
-    addDebugMessage(`🎨 Should render ${newContents.length} placeholders`);
 
     // Close dialog
     setPureEnglishDialog({ isOpen: false, regionId: '' });
@@ -2378,7 +2357,6 @@ function App() {
 
   // Content menu handlers
   const handleEditContent = (content: any, regionId: string) => {
-    addDebugMessage(`✏️ Edit ${content.type} from menu`);
     switch (content.type) {
       case 'translation-paragraph':
         setTranslationDialog({
@@ -2393,12 +2371,11 @@ function App() {
         });
         break;
       default:
-        addDebugMessage(`❌ Edit not implemented for ${content.type}`);
+        console.log(`❌ Edit not implemented for ${content.type}`);
     }
   };
 
   const handleDeleteContent = (content: any, regionId: string) => {
-    addDebugMessage(`🗑️ Delete ${content.type} from menu`);
     const currentContents = regionContents.get(regionId) || [];
     const newContents = currentContents.filter(c => c.id !== content.id);
     const updatedContents = new Map(regionContents);
@@ -2594,12 +2571,7 @@ function App() {
             setExpandedMothers(prev => new Set([...Array.from(prev), index]));
           }
           const isExpanded = expandedMothers.has(index);
-          console.log(`👩 Mother ${index} (${mother.object.name}):`, {
-            isExpanded,
-            hasRegions: !!(mother.object as any).regions,
-            regionCount: ((mother.object as any).regions || []).length,
-            expandedMothers: Array.from(expandedMothers)
-          });
+
 
           return (
             <div key={index} style={{marginBottom: '15px'}}>
@@ -2727,7 +2699,7 @@ function App() {
               {/* Regions (visible in both master file mode and project mode) */}
               {(() => {
                 const motherRegions = (mother.object as any).regions || [];
-                console.log(`🏗️ Mother ${mother.object.name} regions:`, motherRegions);
+
 
                 if (motherRegions.length === 0) {
                   return (
@@ -4447,50 +4419,7 @@ function App() {
                     </button>
                   )}
 
-                  {/* Test Placeholder Button - Only show in project mode */}
-                  {isProjectMode && (
-                    <button
-                      onClick={() => {
-                        // Add test content to first available region
-                        const currentData = data || webCreationData;
-                        if (currentData) {
-                          for (const obj of currentData.objects) {
-                            if (obj.type?.includes('mother')) {
-                              const regions = (obj as any).regions || [];
-                              if (regions.length > 0) {
-                                const testRegionId = regions[0].id;
-                                const testContent = {
-                                  id: `test-${Date.now()}`,
-                                  type: 'translation-paragraph',
-                                  regionId: testRegionId,
-                                  primaryContent: 'Test content'
-                                };
-                                const currentContents = regionContents.get(testRegionId) || [];
-                                const newContents = [...currentContents, testContent];
-                                const updatedContents = new Map(regionContents);
-                                updatedContents.set(testRegionId, newContents);
-                                setRegionContents(updatedContents);
-                                addDebugMessage(`🧪 Test content added to ${testRegionId}`);
-                                addDebugMessage(`📋 Total regions with content: ${updatedContents.size}`);
-                                setNotification(`Test content added to ${testRegionId}`);
-                                setTimeout(() => setNotification(null), 3000);
-                                break;
-                              }
-                            }
-                          }
-                        }
-                      }}
-                      style={{
-                        ...buttonStyle,
-                        background: '#fff3e0',
-                        color: '#f57c00',
-                        fontSize: '10px',
-                        padding: '4px 6px'
-                      }}
-                    >
-                      🧪 Test
-                    </button>
-                  )}
+
                 </div>
 
 
@@ -6920,54 +6849,7 @@ function App() {
         })()}
       /> */}
 
-      {/* Debug Panel - Only show in project mode */}
-      {isProjectMode && debugInfo.length > 0 && (
-        <div style={{
-          position: 'fixed',
-          bottom: '50px',
-          right: showContentMenu ? '320px' : '10px',
-          background: 'rgba(0,0,0,0.9)',
-          color: '#00ff00',
-          padding: '10px',
-          borderRadius: '6px',
-          fontSize: '11px',
-          fontFamily: 'monospace',
-          zIndex: 1000,
-          transition: 'right 0.3s ease',
-          maxWidth: '400px',
-          border: '1px solid #333'
-        }}>
-          <div style={{
-            color: '#ffff00',
-            fontWeight: 'bold',
-            marginBottom: '5px',
-            borderBottom: '1px solid #333',
-            paddingBottom: '3px'
-          }}>
-            🔍 Debug Log:
-          </div>
-          {debugInfo.map((msg, index) => (
-            <div key={index} style={{ marginBottom: '2px' }}>
-              {msg}
-            </div>
-          ))}
-          <button
-            onClick={() => setDebugInfo([])}
-            style={{
-              background: '#333',
-              color: 'white',
-              border: '1px solid #555',
-              padding: '2px 6px',
-              borderRadius: '3px',
-              fontSize: '10px',
-              marginTop: '5px',
-              cursor: 'pointer'
-            }}
-          >
-            Clear
-          </button>
-        </div>
-      )}
+
 
       {/* Version Footer */}
       <div style={{
