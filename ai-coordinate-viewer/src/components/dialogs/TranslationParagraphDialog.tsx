@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-// import MovableDialog from '../MovableDialog';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 export interface TranslationParagraphData {
   id: string;
@@ -60,6 +59,11 @@ const TranslationParagraphDialog: React.FC<TranslationParagraphDialogProps> = ({
   onSave,
   onCancel
 }) => {
+  // Dragging state
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [position, setPosition] = useState({ x: 100, y: 100 });
+  const dialogRef = useRef<HTMLDivElement>(null);
   const [formData, setFormData] = useState<TranslationParagraphData>({
     id: `translation-${Date.now()}`,
     type: 'translation-paragraph',
@@ -97,6 +101,43 @@ const TranslationParagraphDialog: React.FC<TranslationParagraphDialogProps> = ({
     }));
   };
 
+  // Drag handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (dialogRef.current) {
+      const rect = dialogRef.current.getBoundingClientRect();
+      setDragOffset({
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+      });
+      setIsDragging(true);
+    }
+  };
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (isDragging) {
+      setPosition({
+        x: e.clientX - dragOffset.x,
+        y: e.clientY - dragOffset.y
+      });
+    }
+  }, [isDragging, dragOffset]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  // Add/remove event listeners for dragging
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDragging, handleMouseMove, handleMouseUp]);
+
   const handleSave = () => {
     if (!formData.primaryContent.trim()) {
       alert('Please enter primary language content');
@@ -131,29 +172,40 @@ const TranslationParagraphDialog: React.FC<TranslationParagraphDialogProps> = ({
   };
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 2000
-    }}>
-      <div style={{
+    <div
+      ref={dialogRef}
+      style={{
+        position: 'fixed',
+        left: position.x,
+        top: position.y,
         backgroundColor: 'white',
         borderRadius: '12px',
         padding: '30px',
         width: '600px',
         maxHeight: '80vh',
         overflowY: 'auto',
-        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
-      }}>
-        {/* Header */}
-        <div style={{ marginBottom: '25px', textAlign: 'center' }}>
+        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2)',
+        zIndex: 2000,
+        border: '2px solid #e2e8f0'
+      }}
+    >
+        {/* Draggable Header */}
+        <div
+          style={{
+            marginBottom: '25px',
+            textAlign: 'center',
+            padding: '10px',
+            marginTop: '-10px',
+            marginLeft: '-10px',
+            marginRight: '-10px',
+            backgroundColor: '#f7fafc',
+            borderRadius: '8px 8px 0 0',
+            borderBottom: '1px solid #e2e8f0',
+            cursor: 'grab',
+            userSelect: 'none'
+          }}
+          onMouseDown={handleMouseDown}
+        >
           <h2 style={{
             margin: 0,
             fontSize: '20px',
@@ -161,13 +213,34 @@ const TranslationParagraphDialog: React.FC<TranslationParagraphDialogProps> = ({
             color: '#2d3748',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
+            justifyContent: 'space-between',
             gap: '10px'
           }}>
-            🌐 Translation Paragraph Properties
+            <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              🌐 Translation Paragraph Properties
+            </span>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onCancel();
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                fontSize: '18px',
+                cursor: 'pointer',
+                color: '#718096',
+                padding: '4px'
+              }}
+              title="Close dialog"
+            >
+              ✕
+            </button>
           </h2>
         </div>
 
+        {/* Form Content - Prevent dragging on form elements */}
+        <div onMouseDown={(e) => e.stopPropagation()}>
         {/* Primary Language */}
         <div style={sectionStyle}>
           <label style={labelStyle}>Primary Language:</label>
@@ -365,6 +438,7 @@ const TranslationParagraphDialog: React.FC<TranslationParagraphDialogProps> = ({
             Save
           </button>
         </div>
+        </div> {/* End form content wrapper */}
       </div>
     </div>
   );
