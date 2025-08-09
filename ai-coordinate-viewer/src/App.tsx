@@ -5,8 +5,7 @@ import NavigationButtons from './components/NavigationButtons';
 import SonObjectManager, { SonObject } from './components/content-editors/SonObjectManager';
 import { masterFileService } from './services/masterFileService';
 import ContentMenu, { ContentType } from './components/ContentMenu';
-import TranslationParagraphDialog, { TranslationParagraphData } from './components/dialogs/TranslationParagraphDialog';
-import PureEnglishParagraphDialog, { PureEnglishParagraphData } from './components/dialogs/PureEnglishParagraphDialog';
+import UniversalContentDialog, { UniversalContentData } from './components/dialogs/UniversalContentDialog';
 // import RegionOccupationDialog, { RegionOccupationData } from './components/dialogs/RegionOccupationDialog';
 // import PreviewControlPanel, { PreviewSettings } from './components/PreviewControlPanel';
 
@@ -200,19 +199,14 @@ function App() {
     setShowContentMenu(isProjectMode);
   }, [isProjectMode]);
   const [dragOverRegion, setDragOverRegion] = useState<string | null>(null);
-  const [translationDialog, setTranslationDialog] = useState<{
+  const [universalDialog, setUniversalDialog] = useState<{
     isOpen: boolean;
     regionId: string;
+    contentType: ContentType | null;
   }>({
     isOpen: false,
-    regionId: ''
-  });
-  const [pureEnglishDialog, setPureEnglishDialog] = useState<{
-    isOpen: boolean;
-    regionId: string;
-  }>({
-    isOpen: false,
-    regionId: ''
+    regionId: '',
+    contentType: null
   });
   const [regionContents, setRegionContents] = useState<Map<string, any[]>>(new Map());
 
@@ -2292,30 +2286,19 @@ function App() {
       //   }
       // });
 
-      // For now, directly open the content dialogs
-      switch (contentTypeData.id) {
-        case 'translation-paragraph':
-          setTranslationDialog({
-            isOpen: true,
-            regionId: regionId
-          });
-          break;
-        case 'pure-english-paragraph':
-          setPureEnglishDialog({
-            isOpen: true,
-            regionId: regionId
-          });
-          break;
-        default:
-          console.log(`❌ ${contentTypeData.id} not implemented`);
-      }
+      // Open universal content dialog for all content types
+      setUniversalDialog({
+        isOpen: true,
+        regionId: regionId,
+        contentType: contentTypeData
+      });
 
     } catch (error) {
       console.error('❌ Error parsing dropped data:', error);
     }
   };
 
-  const handleTranslationSave = (data: TranslationParagraphData) => {
+  const handleUniversalContentSave = (data: UniversalContentData) => {
     // Add content to region
     const currentContents = regionContents.get(data.regionId) || [];
     const newContents = [...currentContents, data];
@@ -2324,54 +2307,38 @@ function App() {
     setRegionContents(updatedContents);
 
     // Close dialog
-    setTranslationDialog({ isOpen: false, regionId: '' });
+    setUniversalDialog({ isOpen: false, regionId: '', contentType: null });
 
     // Show notification
-    setNotification(`Translation paragraph added to region ${data.regionId}`);
+    const contentTypeName = universalDialog.contentType?.name || 'Content';
+    setNotification(`${contentTypeName} added to region ${data.regionId}`);
     setTimeout(() => setNotification(null), 3000);
   };
 
-  const handleTranslationCancel = () => {
-    setTranslationDialog({ isOpen: false, regionId: '' });
-  };
-
-  const handlePureEnglishSave = (data: PureEnglishParagraphData) => {
-    // Add content to region
-    const currentContents = regionContents.get(data.regionId) || [];
-    const newContents = [...currentContents, data];
-    const updatedContents = new Map(regionContents);
-    updatedContents.set(data.regionId, newContents);
-    setRegionContents(updatedContents);
-
-    // Close dialog
-    setPureEnglishDialog({ isOpen: false, regionId: '' });
-
-    // Show notification
-    setNotification(`Pure English paragraph added to region ${data.regionId}`);
-    setTimeout(() => setNotification(null), 3000);
-  };
-
-  const handlePureEnglishCancel = () => {
-    setPureEnglishDialog({ isOpen: false, regionId: '' });
+  const handleUniversalContentCancel = () => {
+    setUniversalDialog({ isOpen: false, regionId: '', contentType: null });
   };
 
   // Content menu handlers
   const handleEditContent = (content: any, regionId: string) => {
-    switch (content.type) {
-      case 'translation-paragraph':
-        setTranslationDialog({
-          isOpen: true,
-          regionId: regionId
-        });
-        break;
-      case 'pure-english-paragraph':
-        setPureEnglishDialog({
-          isOpen: true,
-          regionId: regionId
-        });
-        break;
-      default:
-        console.log(`❌ Edit not implemented for ${content.type}`);
+    // Find the content type from the available content types
+    const contentType = [
+      { id: 'translation-paragraph', name: 'Translation Paragraph', icon: '🌐', description: 'Multi-language paragraph text' },
+      { id: 'pure-english-paragraph', name: 'Pure English Paragraph', icon: '📄', description: 'Single language paragraph text' },
+      { id: 'line-text', name: 'Line Text', icon: '📝', description: 'Simple line of text' },
+      { id: 'washing-symbol', name: 'Washing Symbol', icon: '🧺', description: 'Care instruction symbols' },
+      { id: 'image', name: 'Image', icon: '🖼️', description: 'Image content' },
+      { id: 'coo', name: 'COO', icon: '🏷️', description: 'Country of Origin' }
+    ].find(ct => ct.id === content.type);
+
+    if (contentType) {
+      setUniversalDialog({
+        isOpen: true,
+        regionId: regionId,
+        contentType: contentType
+      });
+    } else {
+      console.log(`❌ Edit not implemented for ${content.type}`);
     }
   };
 
@@ -2900,15 +2867,20 @@ function App() {
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   // Edit content functionality
-                                  if (contentItem.type === 'translation-paragraph') {
-                                    setTranslationDialog({
+                                  const contentType = [
+                                    { id: 'translation-paragraph', name: 'Translation Paragraph', icon: '🌐', description: 'Multi-language paragraph text' },
+                                    { id: 'pure-english-paragraph', name: 'Pure English Paragraph', icon: '📄', description: 'Single language paragraph text' },
+                                    { id: 'line-text', name: 'Line Text', icon: '📝', description: 'Simple line of text' },
+                                    { id: 'washing-symbol', name: 'Washing Symbol', icon: '🧺', description: 'Care instruction symbols' },
+                                    { id: 'image', name: 'Image', icon: '🖼️', description: 'Image content' },
+                                    { id: 'coo', name: 'COO', icon: '🏷️', description: 'Country of Origin' }
+                                  ].find(ct => ct.id === contentItem.type);
+
+                                  if (contentType) {
+                                    setUniversalDialog({
                                       isOpen: true,
-                                      regionId: region.id
-                                    });
-                                  } else if (contentItem.type === 'pure-english-paragraph') {
-                                    setPureEnglishDialog({
-                                      isOpen: true,
-                                      regionId: region.id
+                                      regionId: region.id,
+                                      contentType: contentType
                                     });
                                   }
                                 }}
@@ -4180,7 +4152,7 @@ function App() {
   // Space Allocation Dialog Component - REMOVED (now handled directly in son regions)
 
   // Check if any content dialog is open
-  const isAnyDialogOpen = translationDialog.isOpen || pureEnglishDialog.isOpen; // || regionOccupationDialog.isOpen;
+  const isAnyDialogOpen = universalDialog.isOpen; // || regionOccupationDialog.isOpen;
 
   return (
     <div style={{
@@ -6822,21 +6794,16 @@ function App() {
         onCancel={handleRegionOccupationCancel}
       /> */}
 
-      {/* Translation Paragraph Dialog */}
-      <TranslationParagraphDialog
-        isOpen={translationDialog.isOpen}
-        regionId={translationDialog.regionId}
-        onSave={handleTranslationSave}
-        onCancel={handleTranslationCancel}
-      />
-
-      {/* Pure English Paragraph Dialog */}
-      <PureEnglishParagraphDialog
-        isOpen={pureEnglishDialog.isOpen}
-        regionId={pureEnglishDialog.regionId}
-        onSave={handlePureEnglishSave}
-        onCancel={handlePureEnglishCancel}
-      />
+      {/* Universal Content Dialog */}
+      {universalDialog.contentType && (
+        <UniversalContentDialog
+          isOpen={universalDialog.isOpen}
+          contentType={universalDialog.contentType}
+          regionId={universalDialog.regionId}
+          onSave={handleUniversalContentSave}
+          onCancel={handleUniversalContentCancel}
+        />
+      )}
 
       {/* Preview Control Panel - Only show in project mode */}
       {/* <PreviewControlPanel
