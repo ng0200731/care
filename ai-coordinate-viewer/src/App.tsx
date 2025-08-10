@@ -210,6 +210,66 @@ function App() {
   });
   const [regionContents, setRegionContents] = useState<Map<string, any[]>>(new Map());
 
+  // Simple region occupation calculation
+  const calculateRegionOccupation = (regionId: string) => {
+    // Find the region
+    let region: any = null;
+    const currentData = data || webCreationData;
+    if (currentData) {
+      for (const obj of currentData.objects) {
+        if (obj.type?.includes('mother')) {
+          const regions = (obj as any).regions || [];
+          region = regions.find((r: any) => r.id === regionId);
+          if (region) break;
+        }
+      }
+    }
+
+    if (!region) {
+      return { usedPercentage: 0, isFull: false, leftoverArea: 0, regionName: 'Unknown' };
+    }
+
+    const contents = regionContents.get(regionId) || [];
+    const regionArea = region.width * region.height;
+
+    const contentArea = contents.reduce((sum, content) => {
+      // Calculate content area based on layout settings
+      let contentWidth = region.width;
+      let contentHeight = 0;
+
+      if (content.layout.fullWidth || content.layout.width.value === 100) {
+        contentWidth = region.width;
+      } else if (content.layout.width.unit === 'mm') {
+        contentWidth = content.layout.width.value;
+      } else {
+        contentWidth = (content.layout.width.value / 100) * region.width;
+      }
+
+      if (content.layout.fullHeight || content.layout.height.value === 100) {
+        contentHeight = region.height;
+      } else if (content.layout.height.unit === 'mm') {
+        contentHeight = content.layout.height.value;
+      } else {
+        contentHeight = (content.layout.height.value / 100) * region.height;
+      }
+
+      return sum + (contentWidth * contentHeight);
+    }, 0);
+
+    const usedPercentage = regionArea > 0 ? (contentArea / regionArea) * 100 : 0;
+    const isFull = usedPercentage >= 100;
+    const leftoverArea = Math.max(0, regionArea - contentArea);
+
+    return {
+      usedPercentage,
+      isFull,
+      leftoverArea,
+      regionName: region.name,
+      regionArea,
+      contentArea
+    };
+  };
+
   // Region occupation dialog state - COMMENTED OUT FOR NOW
   // const [regionOccupationDialog, setRegionOccupationDialog] = useState<{
   //   isOpen: boolean;
@@ -2231,6 +2291,18 @@ function App() {
   // Content Drag and Drop Handlers
   const handleContentDragOver = (e: React.DragEvent, regionId: string) => {
     e.preventDefault();
+
+    // Check region occupation
+    const occupation = calculateRegionOccupation(regionId);
+
+    if (occupation.isFull) {
+      // Region is full - no visual feedback, show alert
+      e.dataTransfer.dropEffect = 'none';
+      alert(`${occupation.regionName} is full`);
+      return;
+    }
+
+    // Region has space - allow drop and show visual feedback
     e.dataTransfer.dropEffect = 'copy';
     setDragOverRegion(regionId);
   };
@@ -2243,6 +2315,14 @@ function App() {
   const handleContentDrop = (e: React.DragEvent, regionId: string) => {
     e.preventDefault();
     setDragOverRegion(null);
+
+    // Check region occupation before allowing drop
+    const occupation = calculateRegionOccupation(regionId);
+
+    if (occupation.isFull) {
+      alert(`${occupation.regionName} is full`);
+      return;
+    }
 
     try {
       const contentTypeData = JSON.parse(e.dataTransfer.getData('application/json')) as ContentType;
@@ -2692,12 +2772,15 @@ function App() {
                     key={region.id}
                     style={{
                       margin: '4px 0 4px 20px', // Always indented under mother
-                      background: '#e3f2fd',
+                      background: dragOverRegion === region.id ? '#c8e6c9' : '#e3f2fd',
                       color: '#1976d2',
                       borderRadius: '6px',
-                      borderLeft: '3px solid #2196f3',
+                      borderLeft: `3px solid ${dragOverRegion === region.id ? '#4caf50' : '#2196f3'}`,
                       overflow: 'hidden'
                     }}
+                    onDragOver={isProjectMode ? (e) => handleContentDragOver(e, region.id) : undefined}
+                    onDragLeave={isProjectMode ? handleContentDragLeave : undefined}
+                    onDrop={isProjectMode ? (e) => handleContentDrop(e, region.id) : undefined}
                   >
                     <div
                       style={{
