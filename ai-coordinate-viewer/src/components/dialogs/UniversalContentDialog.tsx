@@ -48,6 +48,8 @@ interface UniversalContentDialogProps {
   };
   regionId: string;
   regionHeight?: number;
+  regionWidth?: number;
+  regionContents?: any[];
   onSave: (data: UniversalContentData) => void;
   onCancel: () => void;
 }
@@ -62,6 +64,8 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
   contentType,
   regionId,
   regionHeight = 50,
+  regionWidth = 100,
+  regionContents = [],
   onSave,
   onCancel
 }) => {
@@ -70,6 +74,10 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [position, setPosition] = useState({ x: 200, y: 100 });
   const dialogRef = useRef<HTMLDivElement>(null);
+
+  // Validation state
+  const [validationWarning, setValidationWarning] = useState<string>('');
+  const [inputError, setInputError] = useState<string>('');
 
   // Form data state
   const [formData, setFormData] = useState<UniversalContentData>({
@@ -100,6 +108,125 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
       regionId: regionId
     }));
   }, [regionId]);
+
+  // Calculate remaining space in region
+  const calculateRemainingSpace = () => {
+    const regionArea = regionWidth * regionHeight;
+    const usedArea = regionContents.reduce((sum, content) => {
+      let contentWidth = regionWidth;
+      let contentHeight = 0;
+
+      if (content.layout.fullWidth || content.layout.width.value === 100) {
+        contentWidth = regionWidth;
+      } else if (content.layout.width.unit === 'mm') {
+        contentWidth = content.layout.width.value;
+      } else {
+        contentWidth = (content.layout.width.value / 100) * regionWidth;
+      }
+
+      if (content.layout.fullHeight || content.layout.height.value === 100) {
+        contentHeight = regionHeight;
+      } else if (content.layout.height.unit === 'mm') {
+        contentHeight = content.layout.height.value;
+      } else {
+        contentHeight = (content.layout.height.value / 100) * regionHeight;
+      }
+
+      // Fix floating point precision errors by rounding
+      return sum + Math.round((contentWidth * contentHeight) * 1000000) / 1000000;
+    }, 0);
+
+    // Fix floating point precision errors by rounding to 6 decimal places
+    const remainingArea = Math.max(0, Math.round((regionArea - usedArea) * 1000000) / 1000000);
+    const remainingPercent = regionArea > 0 ? Math.round(((remainingArea / regionArea) * 100) * 1000000) / 1000000 : 0;
+
+
+
+    return { remainingArea, remainingPercent, usedArea, regionArea };
+  };
+
+  // Validate input values
+  const validateInput = (field: string, value: number, unit: string) => {
+    setInputError('');
+    setValidationWarning('');
+
+    if (field === 'width') {
+      if (unit === '%' && value > 100) {
+        setInputError('Maximum width is 100%');
+        return false;
+      }
+      if (unit === 'mm' && value > regionWidth) {
+        setInputError(`Maximum width is ${regionWidth}mm`);
+        return false;
+      }
+    }
+
+    if (field === 'height') {
+      if (unit === '%' && value > 100) {
+        setInputError('Maximum height is 100%');
+        return false;
+      }
+      if (unit === 'mm' && value > regionHeight) {
+        setInputError(`Maximum height is ${regionHeight}mm`);
+        return false;
+      }
+    }
+
+    // Check remaining space warning
+    const remaining = calculateRemainingSpace();
+    let proposedWidth = formData.layout.width.value;
+    let proposedHeight = formData.layout.height.value;
+
+    if (field === 'width') proposedWidth = value;
+    if (field === 'height') proposedHeight = value;
+
+    // Calculate proposed area based on units
+    let proposedArea = 0;
+    if (formData.layout.width.unit === '%' && formData.layout.height.unit === '%') {
+      proposedArea = (proposedWidth / 100 * regionWidth) * (proposedHeight / 100 * regionHeight);
+    } else if (formData.layout.width.unit === 'mm' && formData.layout.height.unit === 'mm') {
+      proposedArea = proposedWidth * proposedHeight;
+    } else {
+      // Mixed units
+      const widthMm = formData.layout.width.unit === 'mm' ? proposedWidth : (proposedWidth / 100 * regionWidth);
+      const heightMm = formData.layout.height.unit === 'mm' ? proposedHeight : (proposedHeight / 100 * regionHeight);
+      proposedArea = widthMm * heightMm;
+    }
+
+    if (proposedArea > remaining.remainingArea) {
+      setValidationWarning(`Only ${remaining.remainingPercent.toFixed(1)}% space remaining`);
+    } else {
+      setValidationWarning(''); // Clear warning if valid
+    }
+
+    return true;
+  };
+
+  // Check if save should be blocked
+  const isSaveBlocked = () => {
+    const remaining = calculateRemainingSpace();
+
+    // Calculate current proposed area with floating point precision fix
+    let proposedArea = 0;
+    if (formData.layout.width.unit === '%' && formData.layout.height.unit === '%') {
+      proposedArea = Math.round(((formData.layout.width.value / 100 * regionWidth) * (formData.layout.height.value / 100 * regionHeight)) * 1000000) / 1000000;
+    } else if (formData.layout.width.unit === 'mm' && formData.layout.height.unit === 'mm') {
+      proposedArea = Math.round((formData.layout.width.value * formData.layout.height.value) * 1000000) / 1000000;
+    } else {
+      // Mixed units
+      const widthMm = formData.layout.width.unit === 'mm' ? formData.layout.width.value : (formData.layout.width.value / 100 * regionWidth);
+      const heightMm = formData.layout.height.unit === 'mm' ? formData.layout.height.value : (formData.layout.height.value / 100 * regionHeight);
+      proposedArea = Math.round((widthMm * heightMm) * 1000000) / 1000000;
+    }
+
+    // Allow exactly 100% usage, block only when exceeding (with precision fix)
+    const totalUsedArea = Math.round((remaining.usedArea + proposedArea) * 1000000) / 1000000;
+    const usagePercent = Math.round(((totalUsedArea / remaining.regionArea) * 100) * 1000000) / 1000000;
+
+
+
+    return usagePercent > 100 || inputError !== '';
+  };
 
   // Drag handlers
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -140,6 +267,16 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
 
   // Input handlers
   const handleLayoutChange = (field: string, value: any) => {
+    // Validate width and height inputs
+    if (field === 'width.value' || field === 'height.value') {
+      const dimension = field.split('.')[0];
+      const currentUnit = dimension === 'width' ? formData.layout.width.unit : formData.layout.height.unit;
+
+      if (!validateInput(dimension, value, currentUnit)) {
+        return; // Block invalid input
+      }
+    }
+
     if (field.startsWith('padding.')) {
       const paddingField = field.split('.')[1];
       setFormData(prev => ({
@@ -164,6 +301,12 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
           }
         }
       }));
+
+      // Re-validate after unit change
+      if (property === 'unit') {
+        const currentValue = dimension === 'width' ? formData.layout.width.value : formData.layout.height.value;
+        validateInput(dimension, currentValue, value);
+      }
     } else {
       setFormData(prev => ({
         ...prev,
@@ -397,6 +540,34 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Validation Messages */}
+          {inputError && (
+            <div style={{
+              background: '#ffebee',
+              color: '#c62828',
+              padding: '8px 12px',
+              borderRadius: '4px',
+              fontSize: '12px',
+              marginBottom: '15px',
+              border: '1px solid #ef5350'
+            }}>
+              ❌ {inputError}
+            </div>
+          )}
+          {validationWarning && (
+            <div style={{
+              background: '#fff3e0',
+              color: '#ef6c00',
+              padding: '8px 12px',
+              borderRadius: '4px',
+              fontSize: '12px',
+              marginBottom: '15px',
+              border: '1px solid #ffb74d'
+            }}>
+              ⚠️ {validationWarning}
+            </div>
+          )}
 
           {/* Alignment Options */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
@@ -684,15 +855,17 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
           </button>
           <button
             onClick={handleSave}
+            disabled={isSaveBlocked()}
             style={{
               padding: '10px 20px',
-              backgroundColor: '#007bff',
+              backgroundColor: isSaveBlocked() ? '#ccc' : '#007bff',
               color: 'white',
               border: 'none',
               borderRadius: '6px',
-              cursor: 'pointer',
+              cursor: isSaveBlocked() ? 'not-allowed' : 'pointer',
               fontSize: '14px',
-              fontWeight: '600'
+              fontWeight: '600',
+              opacity: isSaveBlocked() ? 0.6 : 1
             }}
           >
             Save

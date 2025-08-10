@@ -2296,9 +2296,9 @@ function App() {
     const occupation = calculateRegionOccupation(regionId);
 
     if (occupation.isFull) {
-      // Region is full - no visual feedback, show alert
+      // Region is full - no visual feedback, set drop effect to none
       e.dataTransfer.dropEffect = 'none';
-      alert(`${occupation.regionName} is full`);
+      // Don't use alert here as it breaks drag flow - handle in drop instead
       return;
     }
 
@@ -2320,7 +2320,8 @@ function App() {
     const occupation = calculateRegionOccupation(regionId);
 
     if (occupation.isFull) {
-      alert(`${occupation.regionName} is full`);
+      setNotification(`❌ ${occupation.regionName} is full - cannot add more content`);
+      setTimeout(() => setNotification(null), 3000);
       return;
     }
 
@@ -6878,15 +6879,42 @@ function App() {
       /> */}
 
       {/* Universal Content Dialog */}
-      {universalDialog.contentType && (
-        <UniversalContentDialog
-          isOpen={universalDialog.isOpen}
-          contentType={universalDialog.contentType}
-          regionId={universalDialog.regionId}
-          onSave={handleUniversalContentSave}
-          onCancel={handleUniversalContentCancel}
-        />
-      )}
+      {universalDialog.contentType && (() => {
+        // Find region data for validation
+        const currentData = data || webCreationData;
+        let regionWidth = 100;
+        let regionHeight = 50;
+        let currentRegionContents: any[] = [];
+
+        if (currentData) {
+          for (const obj of currentData.objects) {
+            if (obj.type?.includes('mother')) {
+              const regions = (obj as any).regions || [];
+              const targetRegion = regions.find((r: any) => r.id === universalDialog.regionId);
+              if (targetRegion) {
+                regionWidth = targetRegion.width;
+                regionHeight = targetRegion.height;
+                break;
+              }
+            }
+          }
+        }
+
+        currentRegionContents = regionContents.get(universalDialog.regionId) || [];
+
+        return (
+          <UniversalContentDialog
+            isOpen={universalDialog.isOpen}
+            contentType={universalDialog.contentType}
+            regionId={universalDialog.regionId}
+            regionWidth={regionWidth}
+            regionHeight={regionHeight}
+            regionContents={currentRegionContents}
+            onSave={handleUniversalContentSave}
+            onCancel={handleUniversalContentCancel}
+          />
+        );
+      })()}
 
       {/* Preview Control Panel - Only show in project mode */}
       {/* <PreviewControlPanel
