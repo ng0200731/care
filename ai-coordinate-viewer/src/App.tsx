@@ -3844,18 +3844,60 @@ function App() {
                       currentY += contentHeight;
 
                       return (
-                        <rect
-                          key={`${region.id}-content-overlay-${contentIndex}`}
-                          x={overlayX}
-                          y={overlayY}
-                          width={overlayWidth}
-                          height={overlayHeight}
-                          fill={overlayColor}
-                          opacity={0.3}
-                          stroke={overlayColor}
-                          strokeWidth={1}
-                          strokeOpacity={0.6}
-                        />
+                        <g key={`${region.id}-content-overlay-${contentIndex}`}>
+                          {/* Content overlay rectangle */}
+                          <rect
+                            x={overlayX}
+                            y={overlayY}
+                            width={overlayWidth}
+                            height={overlayHeight}
+                            fill={overlayColor}
+                            opacity={0.3}
+                            stroke={overlayColor}
+                            strokeWidth={1}
+                            strokeOpacity={0.6}
+                          />
+
+                          {/* Content type label display - always centered */}
+                          {(() => {
+                            // Show only formatted content type labels (no actual text content)
+                            const typeLabels: { [key: string]: string } = {
+                              'line-text': '{Line Text}',
+                              'pure-english-paragraph': '{Pure English Paragraph}',
+                              'translation-paragraph': '{Translation Paragraph}',
+                              'washing-symbol': '{Washing Symbol}',
+                              'image': '{Image}',
+                              'coo': '{COO}'
+                            };
+
+                            const displayText = typeLabels[content.type] || `{${content.type.replace('-', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}}`;
+
+                            // Calculate font size based on overlay size
+                            const fontSize = Math.max(8, Math.min(14, overlayHeight / 4));
+
+                            // Always center content type labels
+                            const textX = overlayX + (overlayWidth / 2);
+                            const textY = overlayY + (overlayHeight / 2);
+
+                            return (
+                              <text
+                                x={textX}
+                                y={textY}
+                                fill="#333"
+                                fontSize={fontSize}
+                                fontWeight="500"
+                                textAnchor="middle"
+                                dominantBaseline="middle"
+                                opacity={0.9}
+                                style={{
+                                  textShadow: '1px 1px 2px rgba(255,255,255,0.8)'
+                                }}
+                              >
+                                {displayText}
+                              </text>
+                            );
+                          })()}
+                        </g>
                       );
                     });
                   })()}
