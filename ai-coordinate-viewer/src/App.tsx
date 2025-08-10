@@ -211,6 +211,26 @@ function App() {
   const [regionContents, setRegionContents] = useState<Map<string, any[]>>(new Map());
 
   // Simple region occupation calculation
+  // Generate colors for content objects
+  const getContentObjectColor = (contentType: string, index: number) => {
+    const colors = [
+      '#FF6B6B', // Red
+      '#4ECDC4', // Teal
+      '#45B7D1', // Blue
+      '#96CEB4', // Green
+      '#FFEAA7', // Yellow
+      '#DDA0DD', // Plum
+      '#98D8C8', // Mint
+      '#F7DC6F', // Light Yellow
+      '#BB8FCE', // Light Purple
+      '#85C1E9'  // Light Blue
+    ];
+
+    // Use content type and index to get consistent colors
+    const colorIndex = (contentType.length + index) % colors.length;
+    return colors[colorIndex];
+  };
+
   const calculateRegionOccupation = (regionId: string) => {
     // Find the region
     let region: any = null;
@@ -3782,6 +3802,63 @@ function App() {
                     onDragLeave={isProjectMode ? handleContentDragLeave : undefined}
                     onDrop={isProjectMode ? (e) => handleContentDrop(e, region.id) : undefined}
                   />
+
+                  {/* Content Area Overlays */}
+                  {(() => {
+                    const contents = regionContents.get(region.id) || [];
+                    if (contents.length === 0) return null;
+
+                    let currentY = 0; // Track vertical position for stacking
+
+                    return contents.map((content, contentIndex) => {
+                      // Calculate content dimensions
+                      let contentWidth = region.width;
+                      let contentHeight = 0;
+
+                      if (content.layout.fullWidth || content.layout.width.value === 100) {
+                        contentWidth = region.width;
+                      } else if (content.layout.width.unit === 'mm') {
+                        contentWidth = content.layout.width.value;
+                      } else {
+                        contentWidth = (content.layout.width.value / 100) * region.width;
+                      }
+
+                      if (content.layout.fullHeight || content.layout.height.value === 100) {
+                        contentHeight = region.height;
+                      } else if (content.layout.height.unit === 'mm') {
+                        contentHeight = content.layout.height.value;
+                      } else {
+                        contentHeight = (content.layout.height.value / 100) * region.height;
+                      }
+
+                      // Get color for this content object
+                      const overlayColor = getContentObjectColor(content.type, contentIndex);
+
+                      // Calculate position (simple stacking for now)
+                      const overlayX = baseX + (region.x * scale);
+                      const overlayY = baseY + (region.y * scale) + (currentY * scale);
+                      const overlayWidth = contentWidth * scale;
+                      const overlayHeight = contentHeight * scale;
+
+                      // Update currentY for next content
+                      currentY += contentHeight;
+
+                      return (
+                        <rect
+                          key={`${region.id}-content-overlay-${contentIndex}`}
+                          x={overlayX}
+                          y={overlayY}
+                          width={overlayWidth}
+                          height={overlayHeight}
+                          fill={overlayColor}
+                          opacity={0.3}
+                          stroke={overlayColor}
+                          strokeWidth={1}
+                          strokeOpacity={0.6}
+                        />
+                      );
+                    });
+                  })()}
 
                   {/* Region Label */}
                   <text
