@@ -139,6 +139,7 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
         type: contentType.id,
         regionId: regionId,
         layout: {
+          occupyLeftoverSpace: false, // Add missing property
           fullWidth: false,
           fullHeight: false,
           width: { value: 0, unit: '%' },

@@ -1,6 +1,6 @@
 {
   "name": "ai-coordinate-viewer",
-  "version": "2.1.36",
+  "version": "2.1.37",
   "private": true,
   "dependencies": {
     "@testing-library/dom": "^10.4.0",
