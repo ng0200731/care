@@ -203,10 +203,12 @@ function App() {
     isOpen: boolean;
     regionId: string;
     contentType: ContentType | null;
+    editingContent?: any; // Add editing content to state
   }>({
     isOpen: false,
     regionId: '',
-    contentType: null
+    contentType: null,
+    editingContent: null
   });
   const [regionContents, setRegionContents] = useState<Map<string, any[]>>(new Map());
 
@@ -2387,11 +2389,12 @@ function App() {
       //   }
       // });
 
-      // Open universal content dialog for all content types
+      // Open universal content dialog for all content types (new content, not editing)
       setUniversalDialog({
         isOpen: true,
         regionId: regionId,
-        contentType: contentTypeData
+        contentType: contentTypeData,
+        editingContent: null // Ensure we're creating new content, not editing
       });
 
     } catch (error) {
@@ -2400,28 +2403,47 @@ function App() {
   };
 
   const handleUniversalContentSave = (data: UniversalContentData) => {
-    // Add content to region
     const currentContents = regionContents.get(data.regionId) || [];
-    const newContents = [...currentContents, data];
     const updatedContents = new Map(regionContents);
-    updatedContents.set(data.regionId, newContents);
+
+    if (universalDialog.editingContent) {
+      // Editing existing content - replace it
+      const newContents = currentContents.map(content =>
+        content.id === universalDialog.editingContent.id ? data : content
+      );
+      updatedContents.set(data.regionId, newContents);
+
+      // Show notification for edit
+      const contentTypeName = universalDialog.contentType?.name || 'Content';
+      setNotification(`${contentTypeName} updated in region ${data.regionId}`);
+    } else {
+      // Adding new content
+      const newContents = [...currentContents, data];
+      updatedContents.set(data.regionId, newContents);
+
+      // Show notification for add
+      const contentTypeName = universalDialog.contentType?.name || 'Content';
+      setNotification(`${contentTypeName} added to region ${data.regionId}`);
+    }
+
     setRegionContents(updatedContents);
 
     // Close dialog
-    setUniversalDialog({ isOpen: false, regionId: '', contentType: null });
+    setUniversalDialog({ isOpen: false, regionId: '', contentType: null, editingContent: null });
 
-    // Show notification
-    const contentTypeName = universalDialog.contentType?.name || 'Content';
-    setNotification(`${contentTypeName} added to region ${data.regionId}`);
     setTimeout(() => setNotification(null), 3000);
   };
 
   const handleUniversalContentCancel = () => {
-    setUniversalDialog({ isOpen: false, regionId: '', contentType: null });
+    setUniversalDialog({ isOpen: false, regionId: '', contentType: null, editingContent: null });
   };
 
   // Content menu handlers
   const handleEditContent = (content: any, regionId: string) => {
+    // Debug: Log the content being edited
+    console.log('🔍 Edit content called with:', content);
+    console.log('🔍 Content structure:', JSON.stringify(content, null, 2));
+
     // Find the content type from the available content types
     const contentType = [
       { id: 'translation-paragraph', name: 'Translation Paragraph', icon: '🌐', description: 'Multi-language paragraph text' },
@@ -2433,10 +2455,12 @@ function App() {
     ].find(ct => ct.id === content.type);
 
     if (contentType) {
+      console.log('🔍 Setting universal dialog with editing content:', content);
       setUniversalDialog({
         isOpen: true,
         regionId: regionId,
-        contentType: contentType
+        contentType: contentType,
+        editingContent: content // Pass the existing content for editing
       });
     } else {
       console.log(`❌ Edit not implemented for ${content.type}`);
@@ -2970,23 +2994,9 @@ function App() {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  // Edit content functionality
-                                  const contentType = [
-                                    { id: 'translation-paragraph', name: 'Translation Paragraph', icon: '🌐', description: 'Multi-language paragraph text' },
-                                    { id: 'pure-english-paragraph', name: 'Pure English Paragraph', icon: '📄', description: 'Single language paragraph text' },
-                                    { id: 'line-text', name: 'Line Text', icon: '📝', description: 'Simple line of text' },
-                                    { id: 'washing-symbol', name: 'Washing Symbol', icon: '🧺', description: 'Care instruction symbols' },
-                                    { id: 'image', name: 'Image', icon: '🖼️', description: 'Image content' },
-                                    { id: 'coo', name: 'COO', icon: '🏷️', description: 'Country of Origin' }
-                                  ].find(ct => ct.id === contentItem.type);
-
-                                  if (contentType) {
-                                    setUniversalDialog({
-                                      isOpen: true,
-                                      regionId: region.id,
-                                      contentType: contentType
-                                    });
-                                  }
+                                  console.log('🔍 Inline edit button clicked for content:', contentItem);
+                                  // Use the centralized edit handler
+                                  handleEditContent(contentItem, region.id);
                                 }}
                                 style={{
                                   background: '#4caf50',
@@ -3929,103 +3939,7 @@ function App() {
                     {region.width}×{region.height}mm
                   </text>
 
-                  {/* Content Placeholders - Only show in project mode */}
-                  {isProjectMode && (() => {
-                    const regionContentsArray = regionContents.get(region.id) || [];
-                    if (regionContentsArray.length === 0) {
-                      return null;
-                    }
-
-                    // Don't add debug message here - it causes infinite re-renders
-                    // The message will be added when content is saved instead
-
-                    // Scale-responsive placeholder dimensions
-                    const blockHeightMm = 5; // Height in mm (will scale with zoom)
-                    const blockSpacingMm = 0.5; // Spacing in mm (will scale with zoom)
-                    const startOffsetMm = 6; // Start offset in mm (will scale with zoom)
-                    const marginMm = 2; // Margin in mm (will scale with zoom)
-
-                    const blockHeight = blockHeightMm * scale;
-                    const blockSpacing = blockSpacingMm * scale;
-                    const startY = baseY + (region.y * scale) + (startOffsetMm * scale);
-                    const blockWidth = (region.width * scale) - (marginMm * scale * 2);
-
-                    return regionContentsArray.map((content: any, index: number) => {
-                      const blockY = startY + (index * (blockHeight + blockSpacing));
-
-                      // Get content type display info
-                      let displayText = '';
-                      let bgColor = '#f0f0f0';
-                      let textColor = '#333';
-
-                      switch (content.type) {
-                        case 'translation-paragraph':
-                          displayText = '{Translation Paragraph}';
-                          bgColor = '#e3f2fd';
-                          textColor = '#1976d2';
-                          break;
-                        case 'pure-english-paragraph':
-                          displayText = '{Pure English Paragraph}';
-                          bgColor = '#f3e5f5';
-                          textColor = '#7b1fa2';
-                          break;
-                        case 'line-text':
-                          displayText = '{Line Text}';
-                          bgColor = '#e8f5e8';
-                          textColor = '#2e7d32';
-                          break;
-                        case 'washing-symbol':
-                          displayText = '{Washing Symbol}';
-                          bgColor = '#fff3e0';
-                          textColor = '#f57c00';
-                          break;
-                        case 'image':
-                          displayText = '{Image}';
-                          bgColor = '#fce4ec';
-                          textColor = '#c2185b';
-                          break;
-                        case 'coo':
-                          displayText = '{COO}';
-                          bgColor = '#e0f2f1';
-                          textColor = '#00695c';
-                          break;
-                        default:
-                          displayText = `{${content.type}}`;
-                      }
-
-                      return (
-                        <g key={`${region.id}-content-${index}`}>
-                          {/* Placeholder Block Background */}
-                          <rect
-                            x={baseX + (region.x * scale) + (marginMm * scale)}
-                            y={blockY}
-                            width={blockWidth}
-                            height={blockHeight}
-                            fill={bgColor}
-                            stroke={textColor}
-                            strokeWidth="1"
-                            strokeDasharray="3,3"
-                            opacity="0.8"
-                            rx="3"
-                          />
-
-                          {/* Placeholder Text */}
-                          <text
-                            x={baseX + (region.x * scale) + (region.width * scale) / 2}
-                            y={blockY + blockHeight / 2}
-                            fill={textColor}
-                            fontSize={Math.max(8, Math.min(16, 3 * scale))}
-                            fontWeight="bold"
-                            textAnchor="middle"
-                            dominantBaseline="middle"
-                            opacity="0.9"
-                          >
-                            {displayText}
-                          </text>
-                        </g>
-                      );
-                    });
-                  })()}
+                  {/* Content Placeholders removed - only show centered content type labels in overlays above */}
                 </g>
               );
               });
@@ -7029,6 +6943,7 @@ function App() {
             regionWidth={regionWidth}
             regionHeight={regionHeight}
             regionContents={currentRegionContents}
+            editingContent={universalDialog.editingContent} // Pass editing content
             onSave={handleUniversalContentSave}
             onCancel={handleUniversalContentCancel}
           />

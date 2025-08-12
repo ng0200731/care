@@ -50,6 +50,7 @@ interface UniversalContentDialogProps {
   regionHeight?: number;
   regionWidth?: number;
   regionContents?: any[];
+  editingContent?: UniversalContentData | null; // Add editing content prop
   onSave: (data: UniversalContentData) => void;
   onCancel: () => void;
 }
@@ -66,6 +67,7 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
   regionHeight = 50,
   regionWidth = 100,
   regionContents = [],
+  editingContent = null, // Add editing content prop
   onSave,
   onCancel
 }) => {
@@ -79,35 +81,79 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
   const [validationWarning, setValidationWarning] = useState<string>('');
   const [inputError, setInputError] = useState<string>('');
 
-  // Form data state
-  const [formData, setFormData] = useState<UniversalContentData>({
-    id: `${contentType.id}_${Date.now()}`,
-    type: contentType.id,
-    regionId: regionId,
-    layout: {
-      fullWidth: false,
-      fullHeight: false,
-      width: { value: 100, unit: '%' },
-      height: { value: 20, unit: 'mm' },
-      horizontalAlign: 'left',
-      verticalAlign: 'top',
-      padding: { top: 2, right: 2, bottom: 2, left: 2 }
-    },
-    typography: {
-      fontFamily: 'Arial',
-      fontSize: 12,
-      fontColor: '#000000'
-    },
-    content: {}
+  // Padding toggle state
+  const [applyPaddingToAll, setApplyPaddingToAll] = useState(false);
+
+  // Form data state - Initialize with editing content if provided
+  const [formData, setFormData] = useState<UniversalContentData>(() => {
+    if (editingContent) {
+      // Use existing content data for editing
+      return {
+        ...editingContent,
+        regionId: regionId // Ensure region ID is current
+      };
+    } else {
+      // Default values for new content
+      return {
+        id: `${contentType.id}_${Date.now()}`,
+        type: contentType.id,
+        regionId: regionId,
+        layout: {
+          fullWidth: false,
+          fullHeight: false,
+          width: { value: 0, unit: '%' }, // Default blank (0) with % unit
+          height: { value: 0, unit: '%' }, // Default blank (0) with % unit
+          horizontalAlign: 'left',
+          verticalAlign: 'top',
+          padding: { top: 2, right: 2, bottom: 2, left: 2 }
+        },
+        typography: {
+          fontFamily: 'Arial',
+          fontSize: 12,
+          fontColor: '#000000'
+        },
+        content: {}
+      };
+    }
   });
 
-  // Update regionId when prop changes
+  // Update form data when editing content or regionId changes
   useEffect(() => {
-    setFormData(prev => ({
-      ...prev,
-      regionId: regionId
-    }));
-  }, [regionId]);
+    if (editingContent) {
+      // Debug: Log the editing content structure
+      console.log('🔍 Editing content received:', editingContent);
+      console.log('🔍 Content layout:', editingContent.layout);
+      console.log('🔍 Content typography:', editingContent.typography);
+
+      // Load existing content data for editing
+      setFormData({
+        ...editingContent,
+        regionId: regionId // Ensure region ID is current
+      });
+    } else {
+      // Reset to default values for new content
+      setFormData({
+        id: `${contentType.id}_${Date.now()}`,
+        type: contentType.id,
+        regionId: regionId,
+        layout: {
+          fullWidth: false,
+          fullHeight: false,
+          width: { value: 0, unit: '%' },
+          height: { value: 0, unit: '%' },
+          horizontalAlign: 'left',
+          verticalAlign: 'top',
+          padding: { top: 2, right: 2, bottom: 2, left: 2 }
+        },
+        typography: {
+          fontFamily: 'Arial',
+          fontSize: 12,
+          fontColor: '#000000'
+        },
+        content: {}
+      });
+    }
+  }, [editingContent, regionId, contentType.id]);
 
   // Calculate remaining space in region
   const calculateRemainingSpace = () => {
@@ -308,13 +354,27 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
         validateInput(dimension, currentValue, value);
       }
     } else {
-      setFormData(prev => ({
-        ...prev,
-        layout: {
+      setFormData(prev => {
+        const newLayout = {
           ...prev.layout,
           [field]: value
+        };
+
+        // Auto-set values when Full Width/Height is checked
+        if (field === 'fullWidth' && value === true) {
+          newLayout.width.value = 100;
+          newLayout.width.unit = '%';
         }
-      }));
+        if (field === 'fullHeight' && value === true) {
+          newLayout.height.value = 100;
+          newLayout.height.unit = '%';
+        }
+
+        return {
+          ...prev,
+          layout: newLayout
+        };
+      });
     }
   };
 
@@ -339,20 +399,56 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
   };
 
   // Apply padding to all sides
-  const applyPaddingToAll = () => {
-    const topValue = formData.layout.padding.top;
-    setFormData(prev => ({
-      ...prev,
-      layout: {
-        ...prev.layout,
-        padding: {
-          top: topValue,
-          right: topValue,
-          bottom: topValue,
-          left: topValue
+  const handleApplyPaddingToAllToggle = () => {
+    const newToggleState = !applyPaddingToAll;
+    setApplyPaddingToAll(newToggleState);
+
+    if (newToggleState) {
+      // When toggled on, apply top value to all sides
+      const topValue = formData.layout.padding.top;
+      setFormData(prev => ({
+        ...prev,
+        layout: {
+          ...prev.layout,
+          padding: {
+            top: topValue,
+            right: topValue,
+            bottom: topValue,
+            left: topValue
+          }
         }
-      }
-    }));
+      }));
+    }
+  };
+
+  const handlePaddingChange = (side: 'top' | 'right' | 'bottom' | 'left', value: number) => {
+    if (applyPaddingToAll) {
+      // When "apply to all" is enabled, update all sides
+      setFormData(prev => ({
+        ...prev,
+        layout: {
+          ...prev.layout,
+          padding: {
+            top: value,
+            right: value,
+            bottom: value,
+            left: value
+          }
+        }
+      }));
+    } else {
+      // Normal behavior - update only the specific side
+      setFormData(prev => ({
+        ...prev,
+        layout: {
+          ...prev.layout,
+          padding: {
+            ...prev.layout.padding,
+            [side]: value
+          }
+        }
+      }));
+    }
   };
 
   const handleSave = () => {
@@ -404,32 +500,33 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
       style={{
         position: 'fixed',
         left: position.x,
-        top: position.y,
+        top: 0, // Always start from top
         backgroundColor: 'white',
         borderRadius: '12px',
-        padding: '30px',
+        padding: '0', // Remove padding from main container
         width: '700px',
-        maxHeight: '90vh',
-        overflowY: 'auto',
+        height: '100vh', // Full height exactly from top
         boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2)',
         zIndex: 2000,
-        border: '2px solid #e2e8f0'
+        border: '2px solid #e2e8f0',
+        display: 'flex',
+        flexDirection: 'column'
       }}
     >
-      {/* Draggable Header */}
-      <div 
-        style={{ 
-          marginBottom: '25px', 
+      {/* Fixed Draggable Header */}
+      <div
+        style={{
           textAlign: 'center',
-          padding: '10px',
-          marginTop: '-10px',
-          marginLeft: '-10px',
-          marginRight: '-10px',
+          padding: '20px',
           backgroundColor: '#f7fafc',
-          borderRadius: '8px 8px 0 0',
+          borderRadius: '10px 10px 0 0',
           borderBottom: '1px solid #e2e8f0',
           cursor: 'grab',
-          userSelect: 'none'
+          userSelect: 'none',
+          position: 'sticky',
+          top: 0,
+          zIndex: 10,
+          flexShrink: 0 // Prevent header from shrinking
         }}
         onMouseDown={handleMouseDown}
       >
@@ -444,7 +541,7 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
           gap: '10px'
         }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {contentType.icon} {contentType.name} Properties
+            <span style={{ fontSize: '18px', color: '#666', fontWeight: 'bold' }}>↔️</span> {contentType.name} property
           </span>
           <button
             onClick={(e) => {
@@ -466,8 +563,15 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
         </h2>
       </div>
 
-      {/* Form Content - Prevent dragging on form elements */}
-      <div onMouseDown={(e) => e.stopPropagation()}>
+      {/* Scrollable Form Content */}
+      <div
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: '30px'
+        }}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
 
         {/* PART 1: Layout & Positioning */}
         <div style={sectionStyle}>
@@ -475,42 +579,45 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
             📐 Layout & Positioning
           </h3>
 
-          {/* Full Width/Height Options */}
-          <div style={{ display: 'flex', gap: '20px', marginBottom: '15px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <input
-                type="checkbox"
-                checked={formData.layout.fullWidth}
-                onChange={(e) => handleLayoutChange('fullWidth', e.target.checked)}
-              />
-              <span>Full Width</span>
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <input
-                type="checkbox"
-                checked={formData.layout.fullHeight}
-                onChange={(e) => handleLayoutChange('fullHeight', e.target.checked)}
-              />
-              <span>Full Height</span>
-            </label>
-          </div>
-
-          {/* Width/Height Inputs */}
+          {/* Width/Height with Checkboxes Above */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
             <div>
+              {/* Full Width Checkbox */}
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                <input
+                  type="checkbox"
+                  checked={formData.layout.fullWidth}
+                  onChange={(e) => handleLayoutChange('fullWidth', e.target.checked)}
+                />
+                <span>Full Width</span>
+              </label>
+              {/* Width Input */}
               <label style={labelStyle}>Width:</label>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <input
                   type="number"
-                  value={formData.layout.width.value}
-                  onChange={(e) => handleLayoutChange('width.value', Number(e.target.value))}
-                  style={smallInputStyle}
+                  value={formData.layout.fullWidth ? 100 : (formData.layout.width.value === 0 ? '' : formData.layout.width.value)} // Show 100 when fullWidth, blank when 0
+                  placeholder=""
+                  onChange={(e) => {
+                    const value = e.target.value === '' ? 0 : Number(e.target.value);
+                    handleLayoutChange('width.value', value);
+                  }}
+                  style={{
+                    ...smallInputStyle,
+                    backgroundColor: formData.layout.fullWidth ? '#f5f5f5' : 'white',
+                    cursor: formData.layout.fullWidth ? 'not-allowed' : 'text'
+                  }}
                   disabled={formData.layout.fullWidth}
                 />
                 <select
-                  value={formData.layout.width.unit}
+                  value={formData.layout.fullWidth ? '%' : formData.layout.width.unit}
                   onChange={(e) => handleLayoutChange('width.unit', e.target.value)}
-                  style={{ ...smallInputStyle, width: '60px' }}
+                  style={{
+                    ...smallInputStyle,
+                    width: '60px',
+                    backgroundColor: formData.layout.fullWidth ? '#f5f5f5' : 'white',
+                    cursor: formData.layout.fullWidth ? 'not-allowed' : 'pointer'
+                  }}
                   disabled={formData.layout.fullWidth}
                 >
                   <option value="%">%</option>
@@ -519,19 +626,42 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
               </div>
             </div>
             <div>
+              {/* Full Height Checkbox */}
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                <input
+                  type="checkbox"
+                  checked={formData.layout.fullHeight}
+                  onChange={(e) => handleLayoutChange('fullHeight', e.target.checked)}
+                />
+                <span>Full Height</span>
+              </label>
+              {/* Height Input */}
               <label style={labelStyle}>Height:</label>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <input
                   type="number"
-                  value={formData.layout.height.value}
-                  onChange={(e) => handleLayoutChange('height.value', Number(e.target.value))}
-                  style={smallInputStyle}
+                  value={formData.layout.fullHeight ? 100 : (formData.layout.height.value === 0 ? '' : formData.layout.height.value)} // Show 100 when fullHeight, blank when 0
+                  placeholder=""
+                  onChange={(e) => {
+                    const value = e.target.value === '' ? 0 : Number(e.target.value);
+                    handleLayoutChange('height.value', value);
+                  }}
+                  style={{
+                    ...smallInputStyle,
+                    backgroundColor: formData.layout.fullHeight ? '#f5f5f5' : 'white',
+                    cursor: formData.layout.fullHeight ? 'not-allowed' : 'text'
+                  }}
                   disabled={formData.layout.fullHeight}
                 />
                 <select
-                  value={formData.layout.height.unit}
+                  value={formData.layout.fullHeight ? '%' : formData.layout.height.unit}
                   onChange={(e) => handleLayoutChange('height.unit', e.target.value)}
-                  style={{ ...smallInputStyle, width: '60px' }}
+                  style={{
+                    ...smallInputStyle,
+                    width: '60px',
+                    backgroundColor: formData.layout.fullHeight ? '#f5f5f5' : 'white',
+                    cursor: formData.layout.fullHeight ? 'not-allowed' : 'pointer'
+                  }}
                   disabled={formData.layout.fullHeight}
                 >
                   <option value="%">%</option>
@@ -601,22 +731,15 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
               <label style={labelStyle}>Padding (mm):</label>
-              <button
-                type="button"
-                onClick={applyPaddingToAll}
-                style={{
-                  padding: '4px 8px',
-                  fontSize: '12px',
-                  backgroundColor: '#007bff',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer'
-                }}
-                title="Apply top value to all sides"
-              >
-                Apply to All
-              </button>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={applyPaddingToAll}
+                  onChange={handleApplyPaddingToAllToggle}
+                  style={{ cursor: 'pointer' }}
+                />
+                <span style={{ fontSize: '12px', color: '#666' }}>Apply to All</span>
+              </label>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
               <div>
@@ -624,7 +747,7 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
                 <input
                   type="number"
                   value={formData.layout.padding.top}
-                  onChange={(e) => handleLayoutChange('padding.top', Number(e.target.value))}
+                  onChange={(e) => handlePaddingChange('top', Number(e.target.value))}
                   style={smallInputStyle}
                 />
               </div>
@@ -633,8 +756,13 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
                 <input
                   type="number"
                   value={formData.layout.padding.right}
-                  onChange={(e) => handleLayoutChange('padding.right', Number(e.target.value))}
-                  style={smallInputStyle}
+                  onChange={(e) => handlePaddingChange('right', Number(e.target.value))}
+                  style={{
+                    ...smallInputStyle,
+                    backgroundColor: applyPaddingToAll ? '#f5f5f5' : 'white',
+                    cursor: applyPaddingToAll ? 'not-allowed' : 'text'
+                  }}
+                  disabled={applyPaddingToAll}
                 />
               </div>
               <div>
@@ -642,8 +770,13 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
                 <input
                   type="number"
                   value={formData.layout.padding.bottom}
-                  onChange={(e) => handleLayoutChange('padding.bottom', Number(e.target.value))}
-                  style={smallInputStyle}
+                  onChange={(e) => handlePaddingChange('bottom', Number(e.target.value))}
+                  style={{
+                    ...smallInputStyle,
+                    backgroundColor: applyPaddingToAll ? '#f5f5f5' : 'white',
+                    cursor: applyPaddingToAll ? 'not-allowed' : 'text'
+                  }}
+                  disabled={applyPaddingToAll}
                 />
               </div>
               <div>
@@ -651,8 +784,13 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
                 <input
                   type="number"
                   value={formData.layout.padding.left}
-                  onChange={(e) => handleLayoutChange('padding.left', Number(e.target.value))}
-                  style={smallInputStyle}
+                  onChange={(e) => handlePaddingChange('left', Number(e.target.value))}
+                  style={{
+                    ...smallInputStyle,
+                    backgroundColor: applyPaddingToAll ? '#f5f5f5' : 'white',
+                    cursor: applyPaddingToAll ? 'not-allowed' : 'text'
+                  }}
+                  disabled={applyPaddingToAll}
                 />
               </div>
             </div>
@@ -871,7 +1009,7 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
             Save
           </button>
         </div>
-        </div> {/* End form content wrapper */}
+      </div> {/* End scrollable form content wrapper */}
     </div>
   );
 };
