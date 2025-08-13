@@ -134,22 +134,22 @@ function App() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [motherMetadata, setMotherMetadata] = useState<Map<string, MotherMetadata>>(new Map());
 
-  // Backend availability indicator
-  const [apiStatus, setApiStatus] = useState<'online' | 'offline' | 'checking'>('checking');
-  useEffect(() => {
-    let cancelled = false;
-    const ping = async () => {
-      try {
-        const res = await fetch('http://localhost:3001/api/health');
-        if (!cancelled) setApiStatus(res.ok ? 'online' : 'offline');
-      } catch {
-        if (!cancelled) setApiStatus('offline');
-      }
-    };
-    ping();
-    const t = setInterval(ping, 10000);
-    return () => { cancelled = true; clearInterval(t); };
-  }, []);
+  // Backend availability indicator - DISABLED
+  const [apiStatus, setApiStatus] = useState<'online' | 'offline' | 'checking'>('offline');
+  // useEffect(() => {
+  //   let cancelled = false;
+  //   const ping = async () => {
+  //     try {
+  //       const res = await fetch('http://localhost:3001/api/health');
+  //       if (!cancelled) setApiStatus(res.ok ? 'online' : 'offline');
+  //     } catch {
+  //       if (!cancelled) setApiStatus('offline');
+  //     }
+  //   };
+  //   ping();
+  //   const t = setInterval(ping, 10000);
+  //   return () => { cancelled = true; clearInterval(t); };
+  // }, []);
 
   // Edit mode state
   const [isEditMode, setIsEditMode] = useState(false);
@@ -1731,102 +1731,88 @@ function App() {
     return svgContent;
   };
 
-  // Generate 1:1 scale PDF of mother with regions
+  // Generate PDF with visual canvas at 1:1 scale on A4 paper - DIRECT DRAWING
   const generateMotherPDF = (motherObject: AIObject) => {
-    console.log('🖨️ Generating 1:1 scale PDF for mother:', motherObject.name);
+    console.log('🖨️ Generating 1:1 scale PDF with visual layout for mother:', motherObject.name);
 
-    // Convert mm to points (1mm = 2.834645669 points)
-    const mmToPoints = 2.834645669;
-    const widthInPoints = motherObject.width * mmToPoints;
-    const heightInPoints = motherObject.height * mmToPoints;
+    try {
+      // A4 dimensions in mm
+      const A4_WIDTH = 210;
+      const A4_HEIGHT = 297;
 
-    // Create PDF with exact mother dimensions
-    const pdf = new jsPDF({
-      orientation: widthInPoints > heightInPoints ? 'landscape' : 'portrait',
-      unit: 'pt',
-      format: [widthInPoints, heightInPoints]
-    });
+      // Create A4 PDF
+      const pdf = new jsPDF('portrait', 'mm', 'a4');
 
-    console.log('📄 PDF created:', {
-      motherSize: `${motherObject.width}×${motherObject.height}mm`,
-      pdfSize: `${widthInPoints.toFixed(1)}×${heightInPoints.toFixed(1)}pt`,
-      orientation: widthInPoints > heightInPoints ? 'landscape' : 'portrait'
-    });
+      // Calculate canvas dimensions in mm (1:1 scale)
+      const canvasWidthMM = motherObject.width;
+      const canvasHeightMM = motherObject.height;
 
-    // Draw mother outline
-    pdf.setDrawColor(0, 0, 0);
-    pdf.setLineWidth(1);
-    pdf.rect(0, 0, widthInPoints, heightInPoints);
+      // Calculate center position on A4
+      const centerX = (A4_WIDTH - canvasWidthMM) / 2;
+      const centerY = (A4_HEIGHT - canvasHeightMM) / 2;
 
-    // Add mother name
-    pdf.setFontSize(12);
-    pdf.setTextColor(0, 0, 0);
-    pdf.text(motherObject.name, 10, 20);
+      console.log('📍 Canvas will be centered at:', `${centerX.toFixed(1)}, ${centerY.toFixed(1)}mm`);
+      console.log('📏 Canvas size on PDF:', `${canvasWidthMM}×${canvasHeightMM}mm (1:1 scale)`);
 
-    // Draw regions
-    const motherRegions = (motherObject as any).regions || [];
-    motherRegions.forEach((region: any, index: number) => {
-      const regionX = region.x * mmToPoints;
-      const regionY = region.y * mmToPoints;
-      const regionWidth = region.width * mmToPoints;
-      const regionHeight = region.height * mmToPoints;
+      // Add title
+      pdf.setFontSize(12);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(`${motherObject.name} - 1:1 Scale Template`, 20, 20);
 
-      // Draw region outline
-      pdf.setDrawColor(255, 152, 0); // Orange color
-      pdf.setLineWidth(0.5);
-      pdf.rect(regionX, regionY, regionWidth, regionHeight);
-
-      // Add region name and dimensions
+      // Add scale info
       pdf.setFontSize(8);
-      pdf.setTextColor(255, 152, 0);
-      const regionText = `${region.name} (${region.width}×${region.height}mm)`;
-      pdf.text(regionText, regionX + 2, regionY + 12);
-    });
+      pdf.text(`Size: ${canvasWidthMM}×${canvasHeightMM}mm (TRUE 1:1 SCALE)`, 20, 30);
+      pdf.text('Print at 100% scale - NO scaling/fitting', 20, 38);
 
-    // Add margins if they exist
-    const motherMargins = (motherObject as any).margins;
-    if (motherMargins) {
-      pdf.setDrawColor(76, 175, 80); // Green color
-      pdf.setLineWidth(0.3);
+      // Draw mother outline at center position
+      pdf.setDrawColor(0, 0, 0);
+      pdf.setLineWidth(0.5);
+      pdf.rect(centerX, centerY, canvasWidthMM, canvasHeightMM);
 
-      if (motherMargins.top > 0) {
-        const y = motherMargins.top * mmToPoints;
-        pdf.line(0, y, widthInPoints, y);
-      }
-      if (motherMargins.left > 0) {
-        const x = motherMargins.left * mmToPoints;
-        pdf.line(x, 0, x, heightInPoints);
-      }
-      if (motherMargins.right > 0) {
-        const x = (motherObject.width - motherMargins.right) * mmToPoints;
-        pdf.line(x, 0, x, heightInPoints);
-      }
-      if (motherMargins.down > 0) {
-        const y = (motherObject.height - motherMargins.down) * mmToPoints;
-        pdf.line(0, y, widthInPoints, y);
-      }
+      // Add mother name inside
+      pdf.setFontSize(8);
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(motherObject.name, centerX + 5, centerY + 10);
+
+      // Draw regions with colors
+      const motherRegions = (motherObject as any).regions || [];
+      console.log('📊 Drawing', motherRegions.length, 'regions');
+
+      motherRegions.forEach((region: any, index: number) => {
+        console.log(`Region ${index + 1}:`, `${region.x},${region.y} ${region.width}×${region.height}mm`);
+
+        // Draw region rectangle at EXACT coordinates (offset by center)
+        pdf.setDrawColor(255, 152, 0); // Orange
+        pdf.setLineWidth(0.3);
+        pdf.rect(centerX + region.x, centerY + region.y, region.width, region.height);
+
+        // Add region label
+        pdf.setFontSize(6);
+        pdf.setTextColor(255, 152, 0);
+        pdf.text(region.name, centerX + region.x + 1, centerY + region.y + 4);
+      });
+
+      // Add 10mm reference line for scale verification
+      pdf.setDrawColor(0, 0, 0);
+      pdf.setLineWidth(0.5);
+      const refY = centerY + canvasHeightMM + 10;
+      pdf.rect(centerX, refY, 10, 0.5); // 10mm reference line
+      pdf.setFontSize(6);
+      pdf.text('10mm reference', centerX, refY + 4);
+
+      // Save PDF
+      const fileName = `${motherObject.name}_${canvasWidthMM}x${canvasHeightMM}mm_1-1_LAYOUT.pdf`;
+      pdf.save(fileName);
+
+      console.log('✅ 1:1 scale layout PDF saved:', fileName);
+
+      alert(`✅ 1:1 Scale Layout PDF Generated!\n\nFile: ${fileName}\n\n📏 PRINT INSTRUCTIONS:\n• Print at 100% scale (NO scaling/fitting)\n• Shows mother outline and regions\n• True size: ${canvasWidthMM}×${canvasHeightMM}mm\n• Measure 10mm reference line to verify scale`);
+
+    } catch (error) {
+      console.error('❌ PDF generation failed:', error);
+      console.error('❌ Error details:', error);
+      alert('PDF generation failed. Check console for details.');
     }
-
-    // Add mid-fold line if it exists
-    const midFoldLine = (motherObject as any).midFoldLine;
-    if (midFoldLine && midFoldLine.enabled) {
-      pdf.setDrawColor(255, 0, 0); // Red color
-      pdf.setLineWidth(1);
-
-      if (midFoldLine.type === 'horizontal') {
-        const y = midFoldLine.position * mmToPoints;
-        pdf.line(0, y, widthInPoints, y);
-      } else if (midFoldLine.type === 'vertical') {
-        const x = midFoldLine.position * mmToPoints;
-        pdf.line(x, 0, x, heightInPoints);
-      }
-    }
-
-    // Save PDF
-    const fileName = `${motherObject.name}_${motherObject.width}x${motherObject.height}mm.pdf`;
-    pdf.save(fileName);
-
-    console.log('✅ PDF saved:', fileName);
   };
 
   // Removed unused convertSVGToPNG function
