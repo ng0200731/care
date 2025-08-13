@@ -2791,8 +2791,10 @@ function App() {
     console.log('📊 Current objects count:', currentData.objects.length);
 
     // Find next mother number
-    const nextMotherNumber = currentData.objects.length + 1;
+    const motherObjects = currentData.objects.filter(obj => obj.type?.includes('mother'));
+    const nextMotherNumber = motherObjects.length + 1;
     console.log('🔢 Next mother number:', nextMotherNumber);
+    console.log('📊 Existing mothers:', motherObjects.map(m => ({ name: m.name, x: m.x, y: m.y })));
 
     // Copy all regions from original mother
     const originalRegions = (originalMother as any).regions || [];
@@ -2804,12 +2806,33 @@ function App() {
     console.log('📋 Copying regions from original mother:', originalRegions.length);
     console.log('📋 Copied regions:', copiedRegions);
 
+    // Calculate position for new mother to avoid overlaps
+    const spacing = 20; // Consistent spacing between mothers
+    let newX = originalMother.x;
+    let newY = originalMother.y;
+
+    // Find the rightmost position of all existing mothers
+    let maxRightX = 0;
+    motherObjects.forEach(mother => {
+      const rightEdge = mother.x + mother.width;
+      if (rightEdge > maxRightX) {
+        maxRightX = rightEdge;
+      }
+    });
+
+    // Position new mother to the right of all existing mothers
+    newX = maxRightX + spacing;
+    newY = originalMother.y; // Same Y level as Mother_1
+
+    console.log(`📍 Positioning Mother_${nextMotherNumber} at (${newX}, ${newY})`);
+    console.log(`📏 Spacing from rightmost mother: ${spacing}mm`);
+
     // Create new mother using the same structure as the original createMotherObject function
     const newMother: AIObject = {
       name: `Mother_${nextMotherNumber}`,
       type: 'mother',
-      x: originalMother.x + originalMother.width + 50, // Position to the right
-      y: originalMother.y,
+      x: newX,
+      y: newY,
       width: originalMother.width,
       height: originalMother.height,
       typename: 'mother',
@@ -2983,16 +3006,70 @@ function App() {
       motherCount: mothers.length
     };
 
-    // Generate PDF for all mothers - for now, generate individual PDFs
-    // TODO: Implement multi-mother PDF generation
-    mothers.forEach((mother, index) => {
-      setTimeout(() => {
-        generateMotherPDF(mother);
-      }, index * 1000); // Stagger PDF generation to avoid conflicts
-    });
+    // Generate single PDF with all mothers using jsPDF
+    try {
+      const { jsPDF } = require('jspdf');
 
-    setNotification(`✅ Generated PDF with ${mothers.length} mothers on ${paperSize}`);
-    setTimeout(() => setNotification(null), 3000);
+      // Create PDF with calculated paper size
+      const pdf = new jsPDF({
+        orientation: paperWidthMM > paperHeightMM ? 'landscape' : 'portrait',
+        unit: 'mm',
+        format: [paperWidthMM, paperHeightMM]
+      });
+
+      // Add title and paper size info
+      pdf.setFontSize(16);
+      pdf.text(`Master File: All Mothers (${mothers.length})`, 10, 15);
+      pdf.setFontSize(10);
+      pdf.text(`Paper Size: ${paperSize} (${paperWidthMM/10}cm × ${paperHeightMM/10}cm)`, 10, 25);
+      pdf.text(`Generated: ${new Date().toLocaleString()}`, 10, 30);
+
+      // Draw each mother and its regions
+      mothers.forEach((mother, motherIndex) => {
+        const motherRegions = (mother as any).regions || [];
+
+        // Draw mother outline
+        pdf.setDrawColor(255, 165, 0); // Orange
+        pdf.setLineWidth(0.5);
+        pdf.rect(mother.x, mother.y + 35, mother.width, mother.height); // +35 for header space
+
+        // Add mother label
+        pdf.setFontSize(8);
+        pdf.text(`${mother.name} (${mother.width}×${mother.height}mm)`, mother.x, mother.y + 32);
+
+        // Draw regions
+        motherRegions.forEach((region: any, regionIndex: number) => {
+          pdf.setDrawColor(0, 0, 255); // Blue for regions
+          pdf.setLineWidth(0.3);
+          pdf.rect(
+            mother.x + region.x,
+            mother.y + region.y + 35,
+            region.width,
+            region.height
+          );
+
+          // Add region label
+          pdf.setFontSize(6);
+          pdf.text(
+            `R${regionIndex + 1}`,
+            mother.x + region.x + 1,
+            mother.y + region.y + 38
+          );
+        });
+      });
+
+      // Save the PDF
+      const fileName = `AllMothers_${paperSize}_${new Date().toISOString().slice(0, 10)}.pdf`;
+      pdf.save(fileName);
+
+      console.log(`✅ Generated single PDF: ${fileName}`);
+      setNotification(`✅ Generated single PDF with ${mothers.length} mothers on ${paperSize}`);
+      setTimeout(() => setNotification(null), 3000);
+
+    } catch (error) {
+      console.error('❌ Error generating PDF:', error);
+      alert('❌ Error generating PDF. Please try again.');
+    }
   };
 
   // Content menu handlers
@@ -3414,8 +3491,8 @@ function App() {
                       👑 Fit View
                     </button>
 
-                    {/* Duplicate Mother Button - Only show in web creation mode */}
-                    {isWebCreationMode && (
+                    {/* Duplicate Mother Button - Only show for Mother_1 in web creation mode */}
+                    {isWebCreationMode && mother.object.name === 'Mother_1' && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
