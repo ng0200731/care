@@ -6,6 +6,7 @@ import SonObjectManager, { SonObject } from './components/content-editors/SonObj
 import { masterFileService } from './services/masterFileService';
 import ContentMenu, { ContentType } from './components/ContentMenu';
 import UniversalContentDialog, { UniversalContentData } from './components/dialogs/UniversalContentDialog';
+import jsPDF from 'jspdf';
 // import RegionOccupationDialog, { RegionOccupationData } from './components/dialogs/RegionOccupationDialog';
 // import PreviewControlPanel, { PreviewSettings } from './components/PreviewControlPanel';
 
@@ -1730,6 +1731,104 @@ function App() {
     return svgContent;
   };
 
+  // Generate 1:1 scale PDF of mother with regions
+  const generateMotherPDF = (motherObject: AIObject) => {
+    console.log('🖨️ Generating 1:1 scale PDF for mother:', motherObject.name);
+
+    // Convert mm to points (1mm = 2.834645669 points)
+    const mmToPoints = 2.834645669;
+    const widthInPoints = motherObject.width * mmToPoints;
+    const heightInPoints = motherObject.height * mmToPoints;
+
+    // Create PDF with exact mother dimensions
+    const pdf = new jsPDF({
+      orientation: widthInPoints > heightInPoints ? 'landscape' : 'portrait',
+      unit: 'pt',
+      format: [widthInPoints, heightInPoints]
+    });
+
+    console.log('📄 PDF created:', {
+      motherSize: `${motherObject.width}×${motherObject.height}mm`,
+      pdfSize: `${widthInPoints.toFixed(1)}×${heightInPoints.toFixed(1)}pt`,
+      orientation: widthInPoints > heightInPoints ? 'landscape' : 'portrait'
+    });
+
+    // Draw mother outline
+    pdf.setDrawColor(0, 0, 0);
+    pdf.setLineWidth(1);
+    pdf.rect(0, 0, widthInPoints, heightInPoints);
+
+    // Add mother name
+    pdf.setFontSize(12);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(motherObject.name, 10, 20);
+
+    // Draw regions
+    const motherRegions = (motherObject as any).regions || [];
+    motherRegions.forEach((region: any, index: number) => {
+      const regionX = region.x * mmToPoints;
+      const regionY = region.y * mmToPoints;
+      const regionWidth = region.width * mmToPoints;
+      const regionHeight = region.height * mmToPoints;
+
+      // Draw region outline
+      pdf.setDrawColor(255, 152, 0); // Orange color
+      pdf.setLineWidth(0.5);
+      pdf.rect(regionX, regionY, regionWidth, regionHeight);
+
+      // Add region name and dimensions
+      pdf.setFontSize(8);
+      pdf.setTextColor(255, 152, 0);
+      const regionText = `${region.name} (${region.width}×${region.height}mm)`;
+      pdf.text(regionText, regionX + 2, regionY + 12);
+    });
+
+    // Add margins if they exist
+    const motherMargins = (motherObject as any).margins;
+    if (motherMargins) {
+      pdf.setDrawColor(76, 175, 80); // Green color
+      pdf.setLineWidth(0.3);
+
+      if (motherMargins.top > 0) {
+        const y = motherMargins.top * mmToPoints;
+        pdf.line(0, y, widthInPoints, y);
+      }
+      if (motherMargins.left > 0) {
+        const x = motherMargins.left * mmToPoints;
+        pdf.line(x, 0, x, heightInPoints);
+      }
+      if (motherMargins.right > 0) {
+        const x = (motherObject.width - motherMargins.right) * mmToPoints;
+        pdf.line(x, 0, x, heightInPoints);
+      }
+      if (motherMargins.down > 0) {
+        const y = (motherObject.height - motherMargins.down) * mmToPoints;
+        pdf.line(0, y, widthInPoints, y);
+      }
+    }
+
+    // Add mid-fold line if it exists
+    const midFoldLine = (motherObject as any).midFoldLine;
+    if (midFoldLine && midFoldLine.enabled) {
+      pdf.setDrawColor(255, 0, 0); // Red color
+      pdf.setLineWidth(1);
+
+      if (midFoldLine.type === 'horizontal') {
+        const y = midFoldLine.position * mmToPoints;
+        pdf.line(0, y, widthInPoints, y);
+      } else if (midFoldLine.type === 'vertical') {
+        const x = midFoldLine.position * mmToPoints;
+        pdf.line(x, 0, x, heightInPoints);
+      }
+    }
+
+    // Save PDF
+    const fileName = `${motherObject.name}_${motherObject.width}x${motherObject.height}mm.pdf`;
+    pdf.save(fileName);
+
+    console.log('✅ PDF saved:', fileName);
+  };
+
   // Removed unused convertSVGToPNG function
 
   // Removed unused generatePerfectThumbnail function
@@ -2903,7 +3002,38 @@ function App() {
                       );
                     })()}
 
-
+                    {/* PDF Print Button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        generateMotherPDF(mother.object);
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'linear-gradient(135deg, #FF5722 0%, #E64A19 100%)';
+                        e.currentTarget.style.transform = 'scale(1.05)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'linear-gradient(135deg, #FF7043 0%, #FF5722 100%)';
+                        e.currentTarget.style.transform = 'scale(1)';
+                      }}
+                      style={{
+                        padding: '4px 8px',
+                        border: 'none',
+                        borderRadius: '4px',
+                        background: 'linear-gradient(135deg, #FF7043 0%, #FF5722 100%)',
+                        color: 'white',
+                        fontSize: '10px',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        boxShadow: '0 2px 4px rgba(255, 87, 34, 0.3)',
+                        position: 'relative',
+                        zIndex: 1001
+                      }}
+                      title="Print mother as 1:1 scale PDF with all regions"
+                    >
+                      🖨️ PDF
+                    </button>
 
                     {/* Fit View Button */}
                     <button
