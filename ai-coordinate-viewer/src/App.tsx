@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import SonDetailsPanel from './SonDetailsPanel';
 import NavigationButtons from './components/NavigationButtons';
@@ -193,6 +193,9 @@ function App() {
 
   // Drag and drop state - Show content menu only in project mode
   const [showContentMenu, setShowContentMenu] = useState(isProjectMode);
+
+  // Debug state for leftover space calculations
+  const [debugInfo, setDebugInfo] = useState<string[]>([]);
 
   // Update showContentMenu when project mode changes
   React.useEffect(() => {
@@ -2717,27 +2720,57 @@ function App() {
 
                   {/* Action Buttons */}
                   <div style={{ display: 'flex', gap: '4px' }}>
-                    {/* Edit Button - Only show in web creation mode AND not in project context */}
-                    {isWebCreationMode && context !== 'projects' && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openEditMotherDialog(mother.object);
-                        }}
-                        style={{
-                          background: 'rgba(255,255,255,0.2)',
-                          border: '1px solid rgba(255,255,255,0.3)',
-                          color: 'inherit',
-                          fontSize: '10px',
-                          padding: '4px 8px',
-                          borderRadius: '4px',
-                          cursor: 'pointer'
-                        }}
-                        title="Edit mother object"
-                      >
-                        ✏️ Edit
-                      </button>
-                    )}
+                    {/* Edit Button - Only enabled when no regions exist (mother dimension/margin changes affect regions) */}
+                    {(isWebCreationMode || isMasterFileMode) && (() => {
+                      const motherRegions = (mother.object as any).regions || [];
+                      const hasRegions = motherRegions.length > 0;
+                      const isDisabled = hasRegions;
+
+                      return (
+                        <button
+                          disabled={isDisabled}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!isDisabled) {
+                              openEditMotherDialog(mother.object);
+                            }
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isDisabled) {
+                              e.currentTarget.style.background = 'linear-gradient(135deg, #1976D2 0%, #1565C0 100%)';
+                              e.currentTarget.style.transform = 'scale(1.05)';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isDisabled) {
+                              e.currentTarget.style.background = 'linear-gradient(135deg, #2196F3 0%, #1976D2 100%)';
+                              e.currentTarget.style.transform = 'scale(1)';
+                            }
+                          }}
+                          style={{
+                            background: isDisabled
+                              ? 'linear-gradient(135deg, #ccc 0%, #999 100%)'
+                              : 'linear-gradient(135deg, #2196F3 0%, #1976D2 100%)',
+                            border: isDisabled ? '1px solid #ccc' : '1px solid #2196F3',
+                            color: isDisabled ? '#666' : 'white',
+                            fontSize: '10px',
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            cursor: isDisabled ? 'not-allowed' : 'pointer',
+                            opacity: isDisabled ? 0.5 : 1,
+                            pointerEvents: 'auto',
+                            fontWeight: 'bold',
+                            transition: 'all 0.2s ease',
+                            zIndex: 1001
+                          }}
+                          title={isDisabled
+                            ? "Cannot edit mother: dimension/margin will affect the region"
+                            : "Edit mother object"}
+                        >
+                          ✏️ Edit
+                        </button>
+                      );
+                    })()}
 
 
 
@@ -3821,37 +3854,190 @@ function App() {
                     let currentY = 0; // Track vertical position for stacking
 
                     return contents.map((content, contentIndex) => {
-                      // Calculate content dimensions
-                      let contentWidth = region.width;
+                      // Calculate content dimensions - CONSTRAINED TO REGION BOUNDARIES
+                      let contentWidth = 0;
                       let contentHeight = 0;
 
-                      if (content.layout.fullWidth || content.layout.width.value === 100) {
-                        contentWidth = region.width;
-                      } else if (content.layout.width.unit === 'mm') {
-                        contentWidth = content.layout.width.value;
+                      // Check if content occupies leftover space first
+                      if (content.layout.occupyLeftoverSpace) {
+                        // Calculate space used by other content in THIS region (excluding this one)
+                        const otherContents = contents.filter((_, idx) => idx !== contentIndex);
+
+                        // Create rectangles for existing content to find available space
+                        const existingContentRects: { x: number, y: number, width: number, height: number }[] = [];
+
+                        otherContents.forEach(otherContent => {
+                          let otherWidth = 0;
+                          let otherHeight = 0;
+
+                          // Calculate width
+                          if (otherContent.layout.fullWidth || otherContent.layout.width.value === 100) {
+                            otherWidth = region.width;
+                          } else if (otherContent.layout.width.unit === 'mm') {
+                            otherWidth = Math.min(otherContent.layout.width.value, region.width);
+                          } else {
+                            otherWidth = Math.min((otherContent.layout.width.value / 100) * region.width, region.width);
+                          }
+
+                          // Calculate height
+                          if (otherContent.layout.fullHeight || otherContent.layout.height.value === 100) {
+                            otherHeight = region.height;
+                          } else if (otherContent.layout.height.unit === 'mm') {
+                            otherHeight = Math.min(otherContent.layout.height.value, region.height);
+                          } else {
+                            otherHeight = Math.min((otherContent.layout.height.value / 100) * region.height, region.height);
+                          }
+
+                          // Add content rectangle (positioned at 0,0 relative to region)
+                          existingContentRects.push({
+                            x: 0, // Content positioning within region starts at 0
+                            y: 0,
+                            width: otherWidth,
+                            height: otherHeight
+                          });
+                        });
+
+                        console.log('🔍 Finding leftover space in region:', {
+                          regionWidth: region.width,
+                          regionHeight: region.height,
+                          existingContent: existingContentRects.length,
+                          contentRects: existingContentRects
+                        });
+
+                        // Store debug info using setTimeout to avoid re-render loop
+                        setTimeout(() => {
+                          const debugMsg = `🔍 LEFTOVER SPACE SEARCH:\nRegion: ${region.width}×${region.height}mm\nExisting content: ${existingContentRects.length} items\nContent rects: ${JSON.stringify(existingContentRects, null, 2)}`;
+                          setDebugInfo(prev => [...prev.slice(-4), debugMsg]);
+                        }, 0);
+
+                        // For leftover space, calculate the remaining area after existing content
+                        // Instead of finding largest rectangle, use simple subtraction approach
+
+                        if (existingContentRects.length === 0) {
+                          // No existing content, use full region
+                          contentWidth = region.width;
+                          contentHeight = region.height;
+                          (content as any)._calculatedPosition = { x: 0, y: 0 };
+                        } else {
+                          // Find the rightmost edge of existing content
+                          const rightmostEdge = Math.max(...existingContentRects.map(rect => rect.x + rect.width));
+                          const bottomEdge = Math.max(...existingContentRects.map(rect => rect.y + rect.height));
+
+                          // Calculate remaining space to the right
+                          const remainingWidth = region.width - rightmostEdge;
+                          const remainingHeight = region.height;
+
+                          if (remainingWidth > 0) {
+                            // Use the remaining space to the right
+                            contentWidth = remainingWidth;
+                            contentHeight = remainingHeight;
+                            (content as any)._calculatedPosition = { x: rightmostEdge, y: 0 };
+                          } else {
+                            // No space to the right, try below
+                            const remainingHeightBelow = region.height - bottomEdge;
+                            if (remainingHeightBelow > 0) {
+                              contentWidth = region.width;
+                              contentHeight = remainingHeightBelow;
+                              (content as any)._calculatedPosition = { x: 0, y: bottomEdge };
+                            } else {
+                              // Fallback: minimal space
+                              contentWidth = 10;
+                              contentHeight = 10;
+                              (content as any)._calculatedPosition = { x: 0, y: 0 };
+                            }
+                          }
+                        }
+
+                        console.log('✅ Found leftover space:', {
+                          width: contentWidth,
+                          height: contentHeight,
+                          area: contentWidth * contentHeight,
+                          position: (content as any)._calculatedPosition
+                        });
+
+                        // Store debug info using setTimeout to avoid re-render loop
+                        setTimeout(() => {
+                          const calcPos = (content as any)._calculatedPosition;
+                          const debugMsg = `✅ FOUND LEFTOVER SPACE:\nSize: ${contentWidth}×${contentHeight}mm\nArea: ${contentWidth * contentHeight}mm²\nPosition: x=${calcPos.x}, y=${calcPos.y}`;
+                          setDebugInfo(prev => [...prev.slice(-4), debugMsg]);
+                        }, 10);
                       } else {
-                        contentWidth = (content.layout.width.value / 100) * region.width;
+                        // Normal width calculation - CONSTRAINED TO REGION
+                        if (content.layout.fullWidth || content.layout.width.value === 100) {
+                          contentWidth = region.width;
+                        } else if (content.layout.width.unit === 'mm') {
+                          contentWidth = Math.min(content.layout.width.value, region.width); // Constrain to region
+                        } else {
+                          contentWidth = Math.min((content.layout.width.value / 100) * region.width, region.width);
+                        }
+
+                        // Normal height calculation - CONSTRAINED TO REGION
+                        if (content.layout.fullHeight || content.layout.height.value === 100) {
+                          contentHeight = region.height;
+                        } else if (content.layout.height.unit === 'mm') {
+                          contentHeight = Math.min(content.layout.height.value, region.height); // Constrain to region
+                        } else {
+                          contentHeight = Math.min((content.layout.height.value / 100) * region.height, region.height);
+                        }
                       }
 
-                      if (content.layout.fullHeight || content.layout.height.value === 100) {
-                        contentHeight = region.height;
-                      } else if (content.layout.height.unit === 'mm') {
-                        contentHeight = content.layout.height.value;
-                      } else {
-                        contentHeight = (content.layout.height.value / 100) * region.height;
-                      }
+                      // ENFORCE REGION BOUNDARY CONSTRAINTS
+                      contentWidth = Math.min(contentWidth, region.width);
+                      contentHeight = Math.min(contentHeight, region.height);
 
                       // Get color for this content object
                       const overlayColor = getContentObjectColor(content.type, contentIndex);
 
-                      // Calculate position (simple stacking for now)
-                      const overlayX = baseX + (region.x * scale);
-                      const overlayY = baseY + (region.y * scale) + (currentY * scale);
-                      const overlayWidth = contentWidth * scale;
-                      const overlayHeight = contentHeight * scale;
+                      // Calculate position - CONSTRAINED WITHIN REGION BOUNDARIES
+                      const regionStartX = baseX + (region.x * scale);
+                      const regionStartY = baseY + (region.y * scale);
+                      const regionEndX = regionStartX + (region.width * scale);
+                      const regionEndY = regionStartY + (region.height * scale);
 
-                      // Update currentY for next content
-                      currentY += contentHeight;
+                      // Position content within region boundaries
+                      let overlayX: number, overlayY: number;
+
+                      if (content.layout.occupyLeftoverSpace && (content as any)._calculatedPosition) {
+                        // Use calculated position from leftover space algorithm
+                        const calcPos = (content as any)._calculatedPosition;
+                        overlayX = regionStartX + (calcPos.x * scale);
+                        overlayY = regionStartY + (calcPos.y * scale);
+
+                        console.log('🎯 Positioning leftover content at calculated position:', {
+                          calcPos,
+                          overlayX,
+                          overlayY,
+                          regionStart: { x: regionStartX, y: regionStartY }
+                        });
+
+                        // Store debug info using setTimeout to avoid re-render loop
+                        setTimeout(() => {
+                          const debugMsg = `🎯 POSITIONING LEFTOVER CONTENT:\nCalculated pos: x=${calcPos.x}, y=${calcPos.y}\nOverlay pos: x=${overlayX}, y=${overlayY}\nRegion start: x=${regionStartX}, y=${regionStartY}`;
+                          setDebugInfo(prev => [...prev.slice(-4), debugMsg]);
+                        }, 20);
+                      } else {
+                        // Use normal stacking position
+                        overlayX = regionStartX;
+                        overlayY = regionStartY + (currentY * scale);
+                      }
+
+                      let overlayWidth = contentWidth * scale;
+                      let overlayHeight = contentHeight * scale;
+
+                      // Ensure content doesn't exceed region boundaries
+                      if (overlayX + overlayWidth > regionEndX) {
+                        overlayWidth = regionEndX - overlayX;
+                      }
+                      if (overlayY + overlayHeight > regionEndY) {
+                        overlayHeight = regionEndY - overlayY;
+                      }
+
+                      // Update currentY for next content - but only for non-leftover content
+                      if (!content.layout.occupyLeftoverSpace) {
+                        const nextY = currentY + contentHeight;
+                        currentY = Math.min(nextY, region.height);
+                      }
+                      // Leftover content doesn't affect stacking position since it uses calculated position
 
                       return (
                         <g key={`${region.id}-content-overlay-${contentIndex}`}>
@@ -4119,8 +4305,33 @@ function App() {
                 const lineStartX = baseX;
                 const lineEndX = baseX + width;
 
+                // Calculate padding areas
+                const paddingPx = padding * scale;
+                const topPaddingY = lineY - paddingPx;
+                const bottomPaddingY = lineY;
+                const paddingHeight = paddingPx;
+
                 return (
                   <>
+                    {/* Top Padding Area */}
+                    <rect
+                      x={lineStartX}
+                      y={topPaddingY}
+                      width={width}
+                      height={paddingHeight}
+                      fill="#d32f2f"
+                      opacity="0.3"
+                    />
+                    {/* Bottom Padding Area */}
+                    <rect
+                      x={lineStartX}
+                      y={bottomPaddingY}
+                      width={width}
+                      height={paddingHeight}
+                      fill="#d32f2f"
+                      opacity="0.3"
+                    />
+                    {/* Mid Fold Line */}
                     <line
                       x1={lineStartX}
                       y1={lineY}
@@ -4163,8 +4374,33 @@ function App() {
                 const lineStartY = baseY;
                 const lineEndY = baseY + height;
 
+                // Calculate padding areas
+                const paddingPx = padding * scale;
+                const leftPaddingX = lineX - paddingPx;
+                const rightPaddingX = lineX;
+                const paddingWidth = paddingPx;
+
                 return (
                   <>
+                    {/* Left Padding Area */}
+                    <rect
+                      x={leftPaddingX}
+                      y={lineStartY}
+                      width={paddingWidth}
+                      height={height}
+                      fill="#d32f2f"
+                      opacity="0.3"
+                    />
+                    {/* Right Padding Area */}
+                    <rect
+                      x={rightPaddingX}
+                      y={lineStartY}
+                      width={paddingWidth}
+                      height={height}
+                      fill="#d32f2f"
+                      opacity="0.3"
+                    />
+                    {/* Mid Fold Line */}
                     <line
                       x1={lineX}
                       y1={lineStartY}
@@ -5065,7 +5301,7 @@ function App() {
             cursor: isDragging ? 'grabbing' : 'default',
             pointerEvents: 'auto' // Re-enable pointer events for the dialog itself
           }}>
-            {/* Draggable Header */}
+            {/* Fixed Draggable Header */}
             <div
               style={{
                 background: 'linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%)',
@@ -5076,7 +5312,10 @@ function App() {
                 userSelect: 'none',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'space-between'
+                justifyContent: 'space-between',
+                position: 'sticky',
+                top: 0,
+                zIndex: 10
               }}
               onMouseDown={(e) => {
                 setIsDragging(true);
@@ -5102,8 +5341,12 @@ function App() {
               </div>
             </div>
 
-            {/* Dialog Content */}
-            <div style={{ padding: '30px' }}>
+            {/* Scrollable Dialog Content */}
+            <div style={{
+              padding: '30px',
+              maxHeight: '400px',
+              overflowY: 'auto'
+            }}>
 
             <div style={{ marginBottom: '20px' }}>
               <h3 style={{ margin: '0 0 15px 0', color: '#333', fontSize: '16px' }}>
@@ -6971,6 +7214,64 @@ function App() {
       /> */}
 
 
+
+      {/* Debug Panel for Leftover Space */}
+      {debugInfo.length > 0 && (
+        <div style={{
+          position: 'fixed',
+          bottom: '50px',
+          right: showContentMenu ? '320px' : '10px',
+          background: 'rgba(255,255,255,0.95)',
+          color: '#333',
+          padding: '10px',
+          borderRadius: '8px',
+          fontSize: '11px',
+          fontFamily: 'monospace',
+          zIndex: 1000,
+          transition: 'right 0.3s ease',
+          maxWidth: '400px',
+          maxHeight: '300px',
+          overflowY: 'auto',
+          border: '2px solid #007acc',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+        }}>
+          <div style={{
+            fontWeight: 'bold',
+            marginBottom: '8px',
+            color: '#007acc',
+            borderBottom: '1px solid #007acc',
+            paddingBottom: '4px'
+          }}>
+            🐛 LEFTOVER SPACE DEBUG INFO
+          </div>
+          {debugInfo.map((info, index) => (
+            <div key={index} style={{
+              marginBottom: '8px',
+              padding: '4px',
+              background: index % 2 === 0 ? '#f0f8ff' : '#fff',
+              borderRadius: '4px',
+              whiteSpace: 'pre-wrap'
+            }}>
+              {info}
+            </div>
+          ))}
+          <button
+            onClick={() => setDebugInfo([])}
+            style={{
+              marginTop: '8px',
+              padding: '4px 8px',
+              background: '#dc3545',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              fontSize: '10px',
+              cursor: 'pointer'
+            }}
+          >
+            Clear Debug
+          </button>
+        </div>
+      )}
 
       {/* Version Footer */}
       <div style={{

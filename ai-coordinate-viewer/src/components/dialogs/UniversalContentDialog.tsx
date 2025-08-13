@@ -161,24 +161,42 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
   // Calculate remaining space in region
   const calculateRemainingSpace = () => {
     const regionArea = regionWidth * regionHeight;
+
+    // Calculate used area by existing content (excluding current content being edited)
     const usedArea = regionContents.reduce((sum, content) => {
+      // Skip the content we're currently editing to avoid double counting
+      if (editingContent && content.id === editingContent.id) {
+        return sum;
+      }
+
       let contentWidth = regionWidth;
       let contentHeight = 0;
 
-      if (content.layout.fullWidth || content.layout.width.value === 100) {
+      // Check if content occupies leftover space
+      if (content.layout.occupyLeftoverSpace) {
+        // For "occupy leftover space" content, we need to calculate what space was available when it was created
+        // For now, we'll treat it as using remaining space at that time
+        // This is complex to calculate retroactively, so we'll use a simplified approach
         contentWidth = regionWidth;
-      } else if (content.layout.width.unit === 'mm') {
-        contentWidth = content.layout.width.value;
+        contentHeight = regionHeight; // Simplified: assume it took all remaining space
       } else {
-        contentWidth = (content.layout.width.value / 100) * regionWidth;
-      }
+        // Normal width calculation
+        if (content.layout.fullWidth || content.layout.width.value === 100) {
+          contentWidth = regionWidth;
+        } else if (content.layout.width.unit === 'mm') {
+          contentWidth = content.layout.width.value;
+        } else {
+          contentWidth = (content.layout.width.value / 100) * regionWidth;
+        }
 
-      if (content.layout.fullHeight || content.layout.height.value === 100) {
-        contentHeight = regionHeight;
-      } else if (content.layout.height.unit === 'mm') {
-        contentHeight = content.layout.height.value;
-      } else {
-        contentHeight = (content.layout.height.value / 100) * regionHeight;
+        // Normal height calculation
+        if (content.layout.fullHeight || content.layout.height.value === 100) {
+          contentHeight = regionHeight;
+        } else if (content.layout.height.unit === 'mm') {
+          contentHeight = content.layout.height.value;
+        } else {
+          contentHeight = (content.layout.height.value / 100) * regionHeight;
+        }
       }
 
       // Fix floating point precision errors by rounding
@@ -253,6 +271,16 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
 
   // Check if save should be blocked
   const isSaveBlocked = () => {
+    // If there's an input error, block save
+    if (inputError !== '') {
+      return true;
+    }
+
+    // If occupying leftover space, always allow save (no area calculation needed)
+    if (formData.layout.occupyLeftoverSpace) {
+      return false;
+    }
+
     const remaining = calculateRemainingSpace();
 
     // Calculate current proposed area with floating point precision fix
@@ -272,9 +300,7 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
     const totalUsedArea = Math.round((remaining.usedArea + proposedArea) * 1000000) / 1000000;
     const usagePercent = Math.round(((totalUsedArea / remaining.regionArea) * 100) * 1000000) / 1000000;
 
-
-
-    return usagePercent > 100 || inputError !== '';
+    return usagePercent > 100;
   };
 
   // Drag handlers
@@ -582,97 +608,7 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
             📐 Layout & Positioning
           </h3>
 
-          {/* Width/Height with Checkboxes Above */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
-            <div>
-              {/* Full Width Checkbox */}
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                <input
-                  type="checkbox"
-                  checked={formData.layout.fullWidth}
-                  onChange={(e) => handleLayoutChange('fullWidth', e.target.checked)}
-                />
-                <span>Full Width</span>
-              </label>
-              {/* Width Input */}
-              <label style={labelStyle}>Width:</label>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <input
-                  type="number"
-                  value={formData.layout.fullWidth ? 100 : (formData.layout.width.value === 0 ? '' : formData.layout.width.value)} // Show 100 when fullWidth, blank when 0
-                  placeholder=""
-                  onChange={(e) => {
-                    const value = e.target.value === '' ? 0 : Number(e.target.value);
-                    handleLayoutChange('width.value', value);
-                  }}
-                  style={{
-                    ...smallInputStyle,
-                    backgroundColor: formData.layout.fullWidth ? '#f5f5f5' : 'white',
-                    cursor: formData.layout.fullWidth ? 'not-allowed' : 'text'
-                  }}
-                  disabled={formData.layout.fullWidth}
-                />
-                <select
-                  value={formData.layout.fullWidth ? '%' : formData.layout.width.unit}
-                  onChange={(e) => handleLayoutChange('width.unit', e.target.value)}
-                  style={{
-                    ...smallInputStyle,
-                    width: '60px',
-                    backgroundColor: formData.layout.fullWidth ? '#f5f5f5' : 'white',
-                    cursor: formData.layout.fullWidth ? 'not-allowed' : 'pointer'
-                  }}
-                  disabled={formData.layout.fullWidth}
-                >
-                  <option value="%">%</option>
-                  <option value="mm">mm</option>
-                </select>
-              </div>
-            </div>
-            <div>
-              {/* Full Height Checkbox */}
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                <input
-                  type="checkbox"
-                  checked={formData.layout.fullHeight}
-                  onChange={(e) => handleLayoutChange('fullHeight', e.target.checked)}
-                />
-                <span>Full Height</span>
-              </label>
-              {/* Height Input */}
-              <label style={labelStyle}>Height:</label>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <input
-                  type="number"
-                  value={formData.layout.fullHeight ? 100 : (formData.layout.height.value === 0 ? '' : formData.layout.height.value)} // Show 100 when fullHeight, blank when 0
-                  placeholder=""
-                  onChange={(e) => {
-                    const value = e.target.value === '' ? 0 : Number(e.target.value);
-                    handleLayoutChange('height.value', value);
-                  }}
-                  style={{
-                    ...smallInputStyle,
-                    backgroundColor: formData.layout.fullHeight ? '#f5f5f5' : 'white',
-                    cursor: formData.layout.fullHeight ? 'not-allowed' : 'text'
-                  }}
-                  disabled={formData.layout.fullHeight}
-                />
-                <select
-                  value={formData.layout.fullHeight ? '%' : formData.layout.height.unit}
-                  onChange={(e) => handleLayoutChange('height.unit', e.target.value)}
-                  style={{
-                    ...smallInputStyle,
-                    width: '60px',
-                    backgroundColor: formData.layout.fullHeight ? '#f5f5f5' : 'white',
-                    cursor: formData.layout.fullHeight ? 'not-allowed' : 'pointer'
-                  }}
-                  disabled={formData.layout.fullHeight}
-                >
-                  <option value="%">%</option>
-                  <option value="mm">mm</option>
-                </select>
-              </div>
-            </div>
-          </div>
+          {/* Duplicate Full Width/Height section removed - only keep the one below "Occupy Leftover Space" */}
 
           {/* Occupy Leftover Space Option */}
           <div style={{ marginBottom: '15px' }}>

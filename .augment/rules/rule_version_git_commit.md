@@ -5,6 +5,9 @@ type: "manual"
 CONFIRMED! Complete Version Management Protocol
 I understand and will follow this exact protocol for EVERY code change:
 
+do not auto git add commit
+unless i tell to do so 
+
 📋 Mandatory Workflow for ALL Code Changes:
 1. Version Increment Strategy:
 ✅ EVERY code change = Version increment (even smallest fixes)

@@ -1,5 +1,176 @@
 # Care Label Layout System - Version History
 
+## Version 2.1.49 - Enhanced Mother Edit Button Visibility
+**Release Date:** 2025-01-12
+**Commit:** TBD
+
+### 🎨 UI Enhancement
+- **Enhanced Edit Button Styling**: Made mother edit button more prominent and always clearly enabled
+  - **Problem**: Edit button appeared dimmed/disabled when regions existed
+  - **Solution**: Applied explicit blue gradient styling with hover effects
+  - **Features**:
+    - Bright blue gradient background (`#2196F3` to `#1976D2`)
+    - Hover effect with scale animation
+    - Explicit `disabled={false}` and `opacity: 1`
+    - High z-index to prevent overlay interference
+    - Bold white text for maximum visibility
+
+### 🔧 Technical Improvements
+- **Explicit Styling**: Overrides any inherited disabled styles
+- **Hover Feedback**: Visual confirmation that button is interactive
+- **Z-Index Protection**: Ensures button stays above any overlay elements
+- **Accessibility**: Clear visual indication of button availability
+
+---
+
+## Version 2.1.48 - Fixed Mother Edit Button Availability
+**Release Date:** 2025-01-12
+**Commit:** TBD
+
+### 🐛 Critical Bug Fix
+- **Fixed Mother Edit Button**: Removed restriction that prevented editing mother objects when regions exist
+  - **Problem**: Edit button disappeared after creating regions, forcing users to delete all regions to edit mother
+  - **Root Cause**: Edit button condition included `context !== 'projects'` which was blocking access
+  - **Solution**: Simplified condition to only check `isWebCreationMode`
+  - **Result**: Users can now edit mother objects at any time, regardless of regions
+
+### 🔧 Technical Improvements
+- **Simplified Edit Logic**: Removed unnecessary context restrictions for mother editing
+- **Better User Experience**: No longer need to delete regions to modify mother properties
+- **Consistent Behavior**: Edit functionality now available throughout the workflow
+
+---
+
+## Version 2.1.47 - Fixed Header & Mid Fold Line Padding Visualization
+**Release Date:** 2025-01-12
+**Commit:** TBD
+
+### 🎯 UI/UX Improvements
+- **Fixed Header for Edit Mother Dialog**: Header now stays fixed at top when scrolling
+  - **Problem**: Header scrolled with content making it hard to see dialog title
+  - **Solution**: Added `position: sticky, top: 0, zIndex: 10` to header
+  - **Benefit**: Always visible dialog title and drag handle
+- **Scrollable Content Area**: Dialog content now has max height with scroll
+  - **Implementation**: `maxHeight: '400px', overflowY: 'auto'`
+  - **Benefit**: Better space management for long forms
+
+### 🎨 Visual Enhancement
+- **Mid Fold Line Padding Visualization**: Added visual padding areas around mid fold lines
+  - **Horizontal Lines**: Shows padding areas above and below the fold line
+  - **Vertical Lines**: Shows padding areas left and right of the fold line
+  - **Styling**: Semi-transparent red rectangles (`#d32f2f`, 30% opacity)
+  - **Purpose**: Clearly shows restricted areas where regions cannot be placed
+
+### 🔧 Technical Improvements
+- **Enhanced Canvas Rendering**: Improved mid fold line visualization system
+- **Consistent Color Scheme**: Padding areas use same color as fold lines for clarity
+- **Responsive Design**: Padding visualization scales with zoom level
+- **User Experience**: Better visual feedback for layout constraints
+
+---
+
+## Version 2.1.46 - Fixed Leftover Space Size Calculation
+**Release Date:** 2025-01-12
+**Commit:** TBD
+
+### 🐛 Critical Bug Fix
+- **Fixed Leftover Space Size**: Resolved incorrect size calculation for "Occupy leftover space" content
+  - **Problem**: Algorithm was finding 13×116mm instead of full remaining space (18×126mm)
+  - **Root Cause**: `findLargestAvailableRectangle()` finds largest single rectangle, not all remaining space
+  - **Solution**: Replaced with simple subtraction approach for leftover space calculation
+  - **Result**: Leftover content now uses full remaining area as expected
+
+### 🔧 Technical Improvements
+- **Simplified Algorithm**: Direct calculation of remaining space instead of complex rectangle finding
+- **Better Logic**: Prioritizes space to the right, then below existing content
+- **Accurate Sizing**: Uses actual remaining dimensions (region.width - usedWidth)
+- **Debug Enhancement**: Updated debug output to show new calculation method
+
+---
+
+## Version 2.1.45 - Fixed Debug Panel Infinite Re-render
+**Release Date:** 2025-01-12
+**Commit:** TBD
+
+### 🐛 Critical Bug Fix
+- **Fixed Infinite Re-render Loop**: Resolved "Too many re-renders" error in debug panel
+  - **Problem**: `setDebugInfo` calls during render cycle caused infinite re-render loop
+  - **Solution**: Use `setTimeout` to defer state updates outside render cycle
+  - **Approach**: Debug info stored using async state updates with proper TypeScript typing
+  - **Result**: Debug panel works without causing render loops
+
+### 🔧 Technical Improvements
+- **Render-Safe Debug Storage**: Debug info updates deferred using `setTimeout`
+- **TypeScript Compliance**: Fixed variable typing issues for `overlayX` and `overlayY`
+- **Performance**: No unnecessary re-renders, debug info updates asynchronously
+- **User Experience**: Clear button restored, debug panel shows real-time calculations
+
+---
+
+## Version 2.1.44 - Added Debug Panel for Leftover Space
+**Release Date:** 2025-01-12
+**Commit:** TBD
+
+### 🐛 Debug Enhancement
+- **Added On-Screen Debug Panel**: Real-time debugging information displayed on web page
+  - **Problem**: Console logs are too sensitive and hard to copy due to mouse movements
+  - **Solution**: Debug panel shows leftover space calculations directly on the page
+  - **Features**: Shows region dimensions, existing content, found space, and positioning info
+  - **UI**: Fixed position panel with clear button, scrollable, and professional styling
+
+### 🔧 Technical Improvements
+- **Debug State Management**: Added `debugInfo` state to store debug messages
+- **Real-time Updates**: Debug info updates as leftover space calculations occur
+- **User-Friendly Display**: Formatted debug information with clear labels and structure
+- **Easy Access**: No need to open browser console, information visible on page
+
+---
+
+## Version 2.1.43 - Fixed "Occupy Leftover Space" Positioning
+**Release Date:** 2025-01-12
+**Commit:** TBD
+
+### 🐛 Critical Positioning Fix
+- **Fixed Content Positioning for "Occupy Leftover Space"**: Content now properly positions in calculated available space
+  - **Problem**: Content was using vertical stacking position instead of calculated horizontal position
+  - **Result**: Content appeared as thin line at bottom instead of occupying right half
+  - **Solution**: Store and use calculated position (x, y) from space detection algorithm
+  - **Positioning**: Content now correctly positions at calculated coordinates within region
+
+### 🔧 Technical Improvements
+- **Position Storage**: Store calculated position in content object for rendering
+- **Conditional Positioning**: Use calculated position for leftover content, normal stacking for others
+- **Stack Management**: Leftover content doesn't affect vertical stacking of other content
+- **Debug Logging**: Enhanced positioning debug information
+
+---
+
+## Version 2.1.42 - Fixed "Occupy Leftover Space" Logic
+**Release Date:** 2025-01-12
+**Commit:** TBD
+
+### 🐛 Critical Bug Fix
+- **Fixed "Occupy Leftover Space" Content Logic**: Completely rewrote the leftover space calculation
+  - **Problem**: Content with "Occupy leftover space" was only looking for vertical space (remaining height)
+  - **Result**: Content appeared as thin horizontal line instead of occupying available horizontal space
+  - **Solution**: Now finds largest available rectangular area within the region
+  - **Works with**: All scenarios (with/without mid-fold lines, any region configuration)
+
+### 🔧 Technical Improvements
+- **Enhanced Space Detection**: Uses existing `findLargestAvailableRectangle()` function
+- **Proper Content Positioning**: Calculates actual content rectangles for space analysis
+- **Region Boundary Respect**: Content stays within region boundaries
+- **Content Overlap Prevention**: Avoids overlapping with existing content
+- **Debug Logging**: Added comprehensive logging for troubleshooting
+
+### 🎯 Scenarios Fixed
+- **No Mid-Fold**: Content properly occupies right half of region (W=50%, H=100%)
+- **Horizontal Mid-Fold**: Content occupies available space in respective regions
+- **Vertical Mid-Fold**: Content occupies available space in respective regions
+- **Any Region Size**: Logic works consistently across all region configurations
+
+---
+
 ## Version 1.9.0 - Backend Server Added (SQLite)
 
 ## Version 1.9.2 - Master Files UI fixes: customer label, card click, thumbnails
