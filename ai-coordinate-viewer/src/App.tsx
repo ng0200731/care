@@ -2675,6 +2675,16 @@ function App() {
     e.preventDefault();
     setDragOverRegion(null);
 
+    // Check if region already has content (1 content type per region limit)
+    const currentContents = regionContents.get(regionId) || [];
+    if (currentContents.length > 0) {
+      const existingContentType = currentContents[0].type;
+      const existingTypeName = existingContentType.replace('-', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
+      setNotification(`❌ Region already contains ${existingTypeName} - only 1 content type per region allowed`);
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
+
     // Check region occupation before allowing drop
     const occupation = calculateRegionOccupation(regionId);
 
@@ -2743,10 +2753,26 @@ function App() {
     const currentContents = regionContents.get(data.regionId) || [];
     const updatedContents = new Map(regionContents);
 
+    // In Project Mode, ensure content occupies the whole region
+    let contentData = data;
+    if (isProjectMode) {
+      contentData = {
+        ...data,
+        layout: {
+          ...data.layout,
+          fullWidth: true,
+          fullHeight: true,
+          width: { value: 100, unit: '%' },
+          height: { value: 100, unit: '%' }
+        }
+      };
+      console.log('🎯 Project Mode: Setting content to occupy full region', contentData);
+    }
+
     if (universalDialog.editingContent) {
       // Editing existing content - replace it
       const newContents = currentContents.map(content =>
-        content.id === universalDialog.editingContent.id ? data : content
+        content.id === universalDialog.editingContent.id ? contentData : content
       );
       updatedContents.set(data.regionId, newContents);
 
@@ -2755,7 +2781,7 @@ function App() {
       setNotification(`${contentTypeName} updated in region ${data.regionId}`);
     } else {
       // Adding new content
-      const newContents = [...currentContents, data];
+      const newContents = [...currentContents, contentData];
       updatedContents.set(data.regionId, newContents);
 
       // Show notification for add
@@ -3417,7 +3443,7 @@ function App() {
                   {/* Action Buttons */}
                   <div style={{ display: 'flex', gap: '4px' }}>
                     {/* Edit Button - Only enabled when no regions exist (mother dimension/margin changes affect regions) */}
-                    {(isWebCreationMode || isMasterFileMode) && (() => {
+                    {(isWebCreationMode || isMasterFileMode) && !isProjectMode && (() => {
                       const motherRegions = (mother.object as any).regions || [];
                       const hasRegions = motherRegions.length > 0;
                       const isDisabled = hasRegions;
@@ -3491,8 +3517,11 @@ function App() {
                       👑 Fit View
                     </button>
 
-                    {/* Duplicate Mother Button - Only show for Mother_1 in web creation mode */}
-                    {isWebCreationMode && mother.object.name === 'Mother_1' && (
+                    {/* Duplicate Mother Button - Mother_1 only in Master Mode, All mothers in Project Mode */}
+                    {isWebCreationMode && (
+                      (isProjectMode) ||
+                      (!isProjectMode && mother.object.name === 'Mother_1')
+                    ) && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -4847,13 +4876,20 @@ function App() {
                           setDebugInfo(prev => [...prev.slice(-4), debugMsg]);
                         }, 20);
                       } else {
-                        // Use normal stacking position
-                        overlayX = regionStartX;
-                        overlayY = regionStartY + (currentY * scale);
+                        // In Project Mode, content should occupy the whole region
+                        if (isProjectMode) {
+                          overlayX = regionStartX;
+                          overlayY = regionStartY;
+                        } else {
+                          // Use normal stacking position for other modes
+                          overlayX = regionStartX;
+                          overlayY = regionStartY + (currentY * scale);
+                        }
                       }
 
-                      let overlayWidth = contentWidth * scale;
-                      let overlayHeight = contentHeight * scale;
+                      // In Project Mode, content occupies the whole region
+                      let overlayWidth = isProjectMode ? (region.width * scale) : (contentWidth * scale);
+                      let overlayHeight = isProjectMode ? (region.height * scale) : (contentHeight * scale);
 
                       // Ensure content doesn't exceed region boundaries
                       if (overlayX + overlayWidth > regionEndX) {
@@ -4872,56 +4908,93 @@ function App() {
 
                       return (
                         <g key={`${region.id}-content-overlay-${contentIndex}`}>
-                          {/* Content overlay rectangle */}
+                          {/* Content overlay rectangle - More visible background */}
                           <rect
                             x={overlayX}
                             y={overlayY}
                             width={overlayWidth}
                             height={overlayHeight}
-                            fill={overlayColor}
-                            opacity={0.3}
-                            stroke={overlayColor}
-                            strokeWidth={1}
-                            strokeOpacity={0.6}
+                            fill="#e3f2fd"
+                            opacity={0.8}
+                            stroke="#2196f3"
+                            strokeWidth={2}
+                            strokeOpacity={0.9}
+                            rx={3}
+                            ry={3}
                           />
 
                           {/* Content type label display - always centered */}
                           {(() => {
-                            // Show only formatted content type labels (no actual text content)
+                            // Show content type labels (no actual text content) - Project Mode
                             const typeLabels: { [key: string]: string } = {
-                              'line-text': '{Line Text}',
-                              'pure-english-paragraph': '{Pure English Paragraph}',
-                              'translation-paragraph': '{Translation Paragraph}',
-                              'washing-symbol': '{Washing Symbol}',
-                              'image': '{Image}',
-                              'coo': '{COO}'
+                              'line-text': 'line text',
+                              'pure-english-paragraph': 'Pure English Paragraph',
+                              'translation-paragraph': 'translation paragraph',
+                              'washing-symbol': 'washing symbol',
+                              'image': 'Image',
+                              'coo': 'COO'
                             };
 
-                            const displayText = typeLabels[content.type] || `{${content.type.replace('-', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}}`;
+                            const displayText = typeLabels[content.type] || content.type.replace('-', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
 
-                            // Calculate font size based on overlay size
-                            const fontSize = Math.max(8, Math.min(14, overlayHeight / 4));
+                            // Calculate font size based on overlay size - Make text more visible
+                            const baseFontSize = Math.max(10, Math.min(16, overlayHeight / 3));
+                            const fontSize = Math.max(8, Math.min(baseFontSize, overlayWidth / displayText.length * 1.5));
 
-                            // Always center content type labels
+                            // Always center the content type text (ignore alignment settings for content type display)
                             const textX = overlayX + (overlayWidth / 2);
                             const textY = overlayY + (overlayHeight / 2);
+                            const textAnchor: 'start' | 'middle' | 'end' = 'middle';
+                            const dominantBaseline: 'hanging' | 'middle' | 'baseline' = 'middle';
+
+                            console.log('🎯 Text positioning:', {
+                              overlayX,
+                              overlayY,
+                              overlayWidth,
+                              overlayHeight,
+                              textX,
+                              textY,
+                              displayText,
+                              isProjectMode,
+                              regionWidth: region.width,
+                              regionHeight: region.height
+                            });
+
+                            // Calculate background rectangle dimensions for centered text
+                            const textWidth = displayText.length * fontSize * 0.6;
+                            const textHeight = fontSize + 4;
+                            const bgX = textX - (textWidth / 2);
+                            const bgY = textY - (textHeight / 2);
 
                             return (
-                              <text
-                                x={textX}
-                                y={textY}
-                                fill="#333"
-                                fontSize={fontSize}
-                                fontWeight="500"
-                                textAnchor="middle"
-                                dominantBaseline="middle"
-                                opacity={0.9}
-                                style={{
-                                  textShadow: '1px 1px 2px rgba(255,255,255,0.8)'
-                                }}
-                              >
-                                {displayText}
-                              </text>
+                              <>
+                                {/* Text background for better visibility - centered */}
+                                <rect
+                                  x={bgX}
+                                  y={bgY}
+                                  width={textWidth}
+                                  height={textHeight}
+                                  fill="rgba(255,255,255,0.95)"
+                                  rx={3}
+                                  ry={3}
+                                  stroke="#1976d2"
+                                  strokeWidth={1}
+                                  opacity={0.9}
+                                />
+                                {/* Centered text */}
+                                <text
+                                  x={textX}
+                                  y={textY}
+                                  fill="#1976d2"
+                                  fontSize={fontSize}
+                                  fontWeight="bold"
+                                  textAnchor={textAnchor}
+                                  dominantBaseline={dominantBaseline}
+                                  opacity={1}
+                                >
+                                  {displayText}
+                                </text>
+                              </>
                             );
                           })()}
                         </g>
