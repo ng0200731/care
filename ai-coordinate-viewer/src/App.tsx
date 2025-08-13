@@ -2234,14 +2234,79 @@ function App() {
   // Master File Loading Functions
   const loadMasterFileForEditing = async (masterFileId: string) => {
     try {
-      console.log('🔄 Loading master file for editing:', masterFileId);
+      console.log('🔄 Loading for editing:', { masterFileId, isProjectMode });
       setIsLoadingMasterFile(true);
 
-      // Fetch master file from database
+      // In Project Mode, try to load project state first
+      if (isProjectMode) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const projectSlug = urlParams.get('projectSlug');
+        const layoutId = urlParams.get('layoutId');
+
+        if (projectSlug) {
+          console.log('🔄 Project Mode: Attempting to load project state:', { projectSlug, layoutId });
+
+          try {
+            // Try to load from project API
+            const projectResponse = await fetch(`/api/projects/load?projectSlug=${projectSlug}`);
+
+            if (projectResponse.ok) {
+              const projectData = await projectResponse.json();
+              if (projectData.success && projectData.projectState) {
+                console.log('✅ Loaded project state from API:', projectData.projectState);
+                await loadProjectState(projectData.projectState, masterFileId);
+                return;
+              }
+            }
+          } catch (apiError) {
+            console.log('⚠️ API not available, trying localStorage fallback');
+          }
+
+          // Fallback: Try localStorage
+          try {
+            const storageKey = `project_${projectSlug}_layouts`;
+            const savedLayouts = localStorage.getItem(storageKey);
+
+            if (savedLayouts) {
+              const parsedLayouts = JSON.parse(savedLayouts);
+
+              // If layoutId is specified, load that specific layout
+              if (layoutId) {
+                const specificLayout = parsedLayouts.find((layout: any) => layout.id === layoutId);
+                if (specificLayout) {
+                  console.log('✅ Loading specific layout from localStorage:', specificLayout);
+                  await loadProjectState(specificLayout, masterFileId);
+                  return;
+                }
+              }
+
+              // If no specific layout or layout not found, load the most recent one
+              if (parsedLayouts.length > 0) {
+                const mostRecentLayout = parsedLayouts[parsedLayouts.length - 1];
+                console.log('✅ Loading most recent layout from localStorage:', mostRecentLayout);
+                await loadProjectState(mostRecentLayout, masterFileId);
+                return;
+              }
+            }
+          } catch (storageError) {
+            console.log('⚠️ No saved layouts found, loading empty template from master file');
+          }
+        }
+      }
+
+      // Default: Load from master file
+      console.log('🔄 Loading from master file:', masterFileId, { isProjectMode });
       const result = await masterFileService.getMasterFileById(masterFileId);
 
       if (!result.success || !result.data) {
         console.error(`❌ Error loading master file: ${result.error || 'Master file not found'}`);
+        return;
+      }
+
+      // In Project Mode, create empty mothers from master file template
+      if (isProjectMode) {
+        console.log('🎯 Project Mode: Creating empty mothers from master file template');
+        await loadEmptyProjectFromMasterFile(result.data, masterFileId);
         return;
       }
 
@@ -2298,6 +2363,152 @@ function App() {
 
     } catch (error) {
       console.error('❌ Error loading master file:', error);
+    } finally {
+      setIsLoadingMasterFile(false);
+    }
+  };
+
+  // Function to load project state (for Project Mode)
+  const loadProjectState = async (projectState: any, masterFileId: string) => {
+    try {
+      console.log('🔄 Loading project state:', projectState);
+
+      // Enter web creation mode and edit mode
+      setIsWebCreationMode(true);
+      setIsEditMode(true);
+      setEditingMasterFileId(masterFileId);
+
+      // Restore canvas data
+      if (projectState.canvasData) {
+        setData(projectState.canvasData);
+        setWebCreationData(projectState.canvasData);
+        console.log('✅ Canvas data restored:', projectState.canvasData);
+      }
+
+      // Restore region contents (content objects)
+      if (projectState.regionContents) {
+        const restoredContents = new Map<string, any[]>();
+        Object.entries(projectState.regionContents).forEach(([key, value]) => {
+          restoredContents.set(key, Array.isArray(value) ? value : []);
+        });
+        setRegionContents(restoredContents);
+        console.log('✅ Region contents restored:', restoredContents.size, 'regions with content');
+      }
+
+      // Restore view state
+      if (projectState.viewState) {
+        setZoom(projectState.viewState.zoom || 1);
+        setPanX(projectState.viewState.panX || 0);
+        setPanY(projectState.viewState.panY || 0);
+        console.log('✅ View state restored:', projectState.viewState);
+      } else {
+        // Default view state
+        setZoom(1);
+        setPanX(0);
+        setPanY(0);
+      }
+
+      // Reset other states
+      setSelectedObject(null);
+      setSonMetadata(new Map());
+      setExpandedMothers(new Set());
+
+      // Get project info for display
+      const urlParams = new URLSearchParams(window.location.search);
+      const projectName = urlParams.get('projectName') || 'Project';
+
+      console.log(`✅ Project Loaded Successfully! Name: ${projectName}, Saved: ${projectState.savedAt}`);
+
+      setNotification(`✅ Project loaded: ${projectName}`);
+      setTimeout(() => setNotification(null), 3000);
+
+    } catch (error) {
+      console.error('❌ Error loading project state:', error);
+      throw error;
+    } finally {
+      setIsLoadingMasterFile(false);
+    }
+  };
+
+  // Function to load empty project from master file template (Project Mode)
+  const loadEmptyProjectFromMasterFile = async (masterFile: any, masterFileId: string) => {
+    try {
+      console.log('🔄 Creating empty project from master file template:', masterFile);
+
+      // Enter web creation mode and edit mode
+      setIsWebCreationMode(true);
+      setIsEditMode(true);
+      setEditingMasterFileId(masterFileId);
+
+      // Create empty mothers based on master file structure
+      const emptyMothers = masterFile.designData.objects
+        .filter((obj: any) => obj.type?.includes('mother'))
+        .map((motherTemplate: any) => {
+          // Create mother with same structure but empty regions
+          const emptyMother = {
+            ...motherTemplate,
+            regions: (motherTemplate.regions || []).map((region: any) => ({
+              ...region,
+              // Keep region structure but ensure it's empty of content
+              content: null,
+              isEmpty: true
+            }))
+          };
+
+          console.log('👩 Created empty mother from template:', {
+            name: emptyMother.name,
+            originalRegions: motherTemplate.regions?.length || 0,
+            emptyRegions: emptyMother.regions?.length || 0
+          });
+
+          return emptyMother;
+        });
+
+      // Create empty project data structure
+      const emptyProjectData = {
+        document: `Project: ${masterFile.name} (Empty Template)`,
+        totalObjects: emptyMothers.length,
+        objects: emptyMothers,
+        // Copy master file metadata
+        width: masterFile.width,
+        height: masterFile.height,
+        customerId: masterFile.customerId,
+        description: `Empty project based on ${masterFile.name}`,
+        // Project-specific metadata
+        isProjectMode: true,
+        masterFileId: masterFileId,
+        createdAt: new Date().toISOString()
+      };
+
+      // Set the empty project data
+      setData(emptyProjectData);
+      setWebCreationData(emptyProjectData);
+
+      // Clear any existing region contents (start completely empty)
+      setRegionContents(new Map());
+
+      // Reset view state
+      setZoom(1);
+      setPanX(0);
+      setPanY(0);
+
+      // Reset other states
+      setSelectedObject(null);
+      setSonMetadata(new Map());
+      setExpandedMothers(new Set());
+
+      // Get project info for display
+      const urlParams = new URLSearchParams(window.location.search);
+      const projectName = urlParams.get('projectName') || 'Project';
+
+      console.log(`✅ Empty Project Created! Name: ${projectName}, Template: ${masterFile.name}, Empty Mothers: ${emptyMothers.length}`);
+
+      setNotification(`✅ Empty project created from ${masterFile.name}`);
+      setTimeout(() => setNotification(null), 3000);
+
+    } catch (error) {
+      console.error('❌ Error creating empty project:', error);
+      throw error;
     } finally {
       setIsLoadingMasterFile(false);
     }
@@ -2949,8 +3160,31 @@ function App() {
     setTimeout(() => setNotification(null), 3000);
   };
 
-  // Function to save all mothers to master file
+  // Function to save everything to project (not master file)
   const saveAllMothers = async () => {
+    if (!isProjectMode) {
+      // For non-project mode, use original master file saving
+      const currentData = data || webCreationData;
+      if (!currentData) {
+        alert('❌ No data to save');
+        return;
+      }
+
+      const motherCount = currentData.objects.filter(obj => obj.type?.includes('mother')).length;
+      console.log('💾 Saving all mothers to master file:', motherCount);
+
+      try {
+        await saveDirectly();
+        setNotification(`✅ Saved ${motherCount} mothers to master file`);
+        setTimeout(() => setNotification(null), 3000);
+      } catch (error) {
+        console.error('❌ Error saving all mothers:', error);
+        alert('❌ Error saving mothers to master file');
+      }
+      return;
+    }
+
+    // Project Mode: Save everything to project (not master file)
     const currentData = data || webCreationData;
     if (!currentData) {
       alert('❌ No data to save');
@@ -2958,16 +3192,123 @@ function App() {
     }
 
     const motherCount = currentData.objects.filter(obj => obj.type?.includes('mother')).length;
-    console.log('💾 Saving all mothers to master file:', motherCount);
+    console.log('💾 Project Mode: Saving everything to project (not master file):', {
+      motherCount,
+      regionContents: regionContents.size,
+      projectMode: isProjectMode
+    });
 
     try {
-      // Use existing save functionality
-      await saveDirectly();
-      setNotification(`✅ Saved ${motherCount} mothers to master file`);
-      setTimeout(() => setNotification(null), 3000);
+      // Create complete layout state for parent project
+      const layoutState = {
+        // Layout metadata
+        id: `layout_${Date.now()}`,
+        name: `Layout ${new Date().toLocaleString()}`,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+
+        // Canvas data
+        canvasData: currentData,
+        // Content objects in regions
+        regionContents: Object.fromEntries(regionContents),
+        // Canvas view state
+        viewState: {
+          zoom,
+          panX,
+          panY
+        },
+        // Metadata
+        version: '2.1.78',
+        motherCount: motherCount,
+        contentObjectCount: regionContents.size
+      };
+
+      // Get project information from URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const projectSlug = urlParams.get('projectSlug');
+      const projectName = urlParams.get('projectName');
+
+      if (!projectSlug) {
+        alert('❌ Project information not found');
+        return;
+      }
+
+      // Save layout to parent project
+      const response = await fetch('/api/projects/save-layout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          parentProjectSlug: projectSlug, // fall2025-ttt
+          layoutData: layoutState
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to save layout to project: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ Layout saved to parent project:', result);
+
+      // Show success notification
+      setNotification(`✅ Layout saved to project: ${motherCount} mothers, ${regionContents.size} content objects`);
+
+      // Redirect to parent project page after short delay
+      setTimeout(() => {
+        const parentProjectUrl = `http://localhost:3002/projects/${projectSlug}`;
+        console.log('🔄 Redirecting to parent project:', parentProjectUrl);
+        window.location.href = parentProjectUrl;
+      }, 2000); // 2 second delay to show notification
+
     } catch (error) {
-      console.error('❌ Error saving all mothers:', error);
-      alert('❌ Error saving mothers to master file');
+      console.error('❌ Error saving project:', error);
+      // Fallback: Save to localStorage for development
+      try {
+        // Create layouts array in localStorage if it doesn't exist
+        const urlParams = new URLSearchParams(window.location.search);
+        const projectSlug = urlParams.get('projectSlug');
+        const projectStorageKey = `project_${projectSlug}_layouts`;
+
+        // Get existing layouts or create empty array
+        const existingLayouts = JSON.parse(localStorage.getItem(projectStorageKey) || '[]');
+
+        // Create layout state for fallback
+        const fallbackLayoutState = {
+          id: `layout_${Date.now()}`,
+          name: `Layout ${new Date().toLocaleString()}`,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          canvasData: currentData,
+          regionContents: Object.fromEntries(regionContents),
+          viewState: { zoom, panX, panY },
+          version: '2.1.80',
+          motherCount: motherCount,
+          contentObjectCount: regionContents.size
+        };
+
+        // Add new layout
+        existingLayouts.push(fallbackLayoutState);
+
+        // Save updated layouts array
+        localStorage.setItem(projectStorageKey, JSON.stringify(existingLayouts));
+        console.log('💾 Saved layout to localStorage as fallback:', projectStorageKey);
+        console.log('📊 Layout data saved:', fallbackLayoutState);
+
+        setNotification(`✅ Layout saved to project (local): ${motherCount} mothers, ${regionContents.size} content objects`);
+
+        // Redirect to parent project page after short delay
+        setTimeout(() => {
+          const parentProjectUrl = `http://localhost:3002/projects/${projectSlug}`;
+          console.log('🔄 Redirecting to parent project (fallback):', parentProjectUrl);
+          window.location.href = parentProjectUrl;
+        }, 2000); // 2 second delay to show notification
+
+      } catch (localError) {
+        console.error('❌ Error saving to localStorage:', localError);
+        alert('❌ Error saving project. Please try again.');
+      }
     }
   };
 
@@ -3045,7 +3386,8 @@ function App() {
 
       // Add title and paper size info
       pdf.setFontSize(16);
-      pdf.text(`Master File: All Mothers (${mothers.length})`, 10, 15);
+      const titleText = isProjectMode ? `Project: All Content (${mothers.length} mothers)` : `Master File: All Mothers (${mothers.length})`;
+      pdf.text(titleText, 10, 15);
       pdf.setFontSize(10);
       pdf.text(`Paper Size: ${paperSize} (${paperWidthMM/10}cm × ${paperHeightMM/10}cm)`, 10, 25);
       pdf.text(`Generated: ${new Date().toLocaleString()}`, 10, 30);
@@ -3063,33 +3405,66 @@ function App() {
         pdf.setFontSize(8);
         pdf.text(`${mother.name} (${mother.width}×${mother.height}mm)`, mother.x, mother.y + 32);
 
-        // Draw regions
+        // Draw regions with content
         motherRegions.forEach((region: any, regionIndex: number) => {
           pdf.setDrawColor(0, 0, 255); // Blue for regions
           pdf.setLineWidth(0.3);
-          pdf.rect(
-            mother.x + region.x,
-            mother.y + region.y + 35,
-            region.width,
-            region.height
-          );
+          const regionX = mother.x + region.x;
+          const regionY = mother.y + region.y + 35;
+
+          pdf.rect(regionX, regionY, region.width, region.height);
 
           // Add region label
           pdf.setFontSize(6);
           pdf.text(
             `R${regionIndex + 1}`,
-            mother.x + region.x + 1,
-            mother.y + region.y + 38
+            regionX + 1,
+            regionY + 4
           );
+
+          // Add content type names if in Project Mode
+          if (isProjectMode) {
+            const regionContentsForRegion = regionContents.get(region.id) || [];
+
+            regionContentsForRegion.forEach((content: any, contentIndex: number) => {
+              // Content type name mapping
+              const typeLabels: { [key: string]: string } = {
+                'line-text': 'line text',
+                'pure-english-paragraph': 'Pure English Paragraph',
+                'translation-paragraph': 'translation paragraph',
+                'washing-symbol': 'washing symbol',
+                'image': 'Image',
+                'coo': 'COO'
+              };
+
+              const displayText = typeLabels[content.type] || content.type.replace('-', ' ');
+
+              // Center the content type text in the region
+              const textX = regionX + (region.width / 2);
+              const textY = regionY + (region.height / 2);
+
+              // Set font size based on region size
+              const fontSize = Math.max(4, Math.min(8, region.height / 6));
+              pdf.setFontSize(fontSize);
+              pdf.setTextColor(25, 118, 210); // Blue color
+
+              // Add text centered in region
+              pdf.text(displayText, textX, textY, { align: 'center' });
+            });
+          }
         });
       });
 
       // Save the PDF
-      const fileName = `AllMothers_${paperSize}_${new Date().toISOString().slice(0, 10)}.pdf`;
+      const filePrefix = isProjectMode ? 'Project_Everything' : 'AllMothers';
+      const fileName = `${filePrefix}_${paperSize}_${new Date().toISOString().slice(0, 10)}.pdf`;
       pdf.save(fileName);
 
-      console.log(`✅ Generated single PDF: ${fileName}`);
-      setNotification(`✅ Generated single PDF with ${mothers.length} mothers on ${paperSize}`);
+      console.log(`✅ Generated PDF: ${fileName}`);
+      const notificationText = isProjectMode
+        ? `✅ Generated PDF with everything on canvas (${mothers.length} mothers) on ${paperSize}`
+        : `✅ Generated single PDF with ${mothers.length} mothers on ${paperSize}`;
+      setNotification(notificationText);
       setTimeout(() => setNotification(null), 3000);
 
     } catch (error) {
@@ -3348,9 +3723,9 @@ function App() {
               transition: 'all 0.2s ease',
               boxShadow: '0 3px 6px rgba(76, 175, 80, 0.3)'
             }}
-            title="Save all mothers to master file"
+            title="Save everything for project"
           >
-            💾 SAVE ALL MOTHERS
+            💾 SAVE EVERYTHING FOR PROJECT
           </button>
 
           <button
@@ -3375,9 +3750,9 @@ function App() {
               transition: 'all 0.2s ease',
               boxShadow: '0 3px 6px rgba(244, 67, 54, 0.3)'
             }}
-            title="Generate PDF with all mothers (auto paper size)"
+            title="Print everything as PDF (auto paper size)"
           >
-            🖨️ PDF ALL (A4/A3/A2)
+            🖨️ PRINT AS PDF
           </button>
         </div>
 

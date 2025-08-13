@@ -44,6 +44,7 @@ const ProjectDetail: React.FC = () => {
   // Load project data
   useEffect(() => {
     loadProject();
+    loadSavedLayouts(); // Load saved layouts from localStorage
   }, [slug]);
 
   const loadProject = async () => {
@@ -56,7 +57,7 @@ const ProjectDetail: React.FC = () => {
         // Convert to ProjectDetail format
         const projectDetail: ProjectDetail = {
           ...projectData,
-          pages: [] // Start with empty pages - will be loaded separately if needed
+          pages: [] // Will be loaded from saved layouts
         };
         setProject(projectDetail);
       } else {
@@ -67,6 +68,60 @@ const ProjectDetail: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Load saved layouts from localStorage and convert to pages
+  const loadSavedLayouts = async () => {
+    if (!slug) return;
+
+    try {
+      console.log('🔄 Loading saved layouts for project:', slug);
+
+      // Try to load from API first
+      try {
+        const response = await fetch(`/api/projects/${slug}/layouts`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.layouts) {
+            const pages = convertLayoutsToPages(data.layouts);
+            setProject(prev => prev ? { ...prev, pages } : null);
+            console.log('✅ Loaded layouts from API:', data.layouts.length);
+            return;
+          }
+        }
+      } catch (apiError) {
+        console.log('⚠️ API not available, trying localStorage');
+      }
+
+      // Fallback: Load from localStorage
+      const storageKey = `project_${slug}_layouts`;
+      const savedLayouts = localStorage.getItem(storageKey);
+
+      if (savedLayouts) {
+        const parsedLayouts = JSON.parse(savedLayouts);
+        const pages = convertLayoutsToPages(parsedLayouts);
+        setProject(prev => prev ? { ...prev, pages } : null);
+        console.log('✅ Loaded layouts from localStorage:', parsedLayouts.length);
+      } else {
+        console.log('📝 No saved layouts found');
+      }
+    } catch (error) {
+      console.error('❌ Error loading saved layouts:', error);
+    }
+  };
+
+  // Convert saved layouts to ProjectPage format
+  const convertLayoutsToPages = (layouts: any[]): ProjectPage[] => {
+    return layouts.map((layout, index) => ({
+      id: layout.id || `layout_${index}`,
+      name: layout.name || `Layout ${index + 1}`,
+      width: layout.canvasData?.width || 200,
+      height: layout.canvasData?.height || 189,
+      masterFileId: layout.canvasData?.masterFileId,
+      order: index + 1,
+      createdAt: layout.createdAt || new Date().toISOString(),
+      updatedAt: layout.updatedAt || layout.createdAt || new Date().toISOString()
+    }));
   };
 
   const getStatusColor = (status: string) => {
@@ -148,16 +203,38 @@ const ProjectDetail: React.FC = () => {
   };
 
   const handleEditPage = (pageId: string) => {
-    // Navigate to canvas with project context
-    navigate(`/create_zero?context=projects&projectSlug=${slug}&pageId=${pageId}`);
+    // Find the page to get its master file ID
+    const page = project?.pages.find(p => p.id === pageId);
+    const masterFileId = page?.masterFileId || '449356c3-5fa9-454f-9267-8284f965e39f'; // Default fallback
+
+    // Navigate to canvas with project context and layout ID
+    navigate(`/create_zero?context=projects&projectSlug=${slug}&masterFileId=${masterFileId}&projectName=${encodeURIComponent(project?.name || '')}&layoutId=${pageId}`);
   };
 
   const handleDeletePage = (pageId: string) => {
-    if (window.confirm('Are you sure you want to delete this page?')) {
-      setProject(prev => prev ? {
-        ...prev,
-        pages: prev.pages.filter(p => p.id !== pageId)
-      } : null);
+    if (window.confirm('Are you sure you want to delete this layout?')) {
+      try {
+        // Remove from localStorage
+        const storageKey = `project_${slug}_layouts`;
+        const savedLayouts = localStorage.getItem(storageKey);
+
+        if (savedLayouts) {
+          const parsedLayouts = JSON.parse(savedLayouts);
+          const updatedLayouts = parsedLayouts.filter((layout: any) => layout.id !== pageId);
+          localStorage.setItem(storageKey, JSON.stringify(updatedLayouts));
+          console.log('🗑️ Layout deleted from localStorage:', pageId);
+        }
+
+        // Update UI
+        setProject(prev => prev ? {
+          ...prev,
+          pages: prev.pages.filter(p => p.id !== pageId)
+        } : null);
+
+      } catch (error) {
+        console.error('❌ Error deleting layout:', error);
+        alert('Error deleting layout. Please try again.');
+      }
     }
   };
 
