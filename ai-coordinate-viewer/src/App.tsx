@@ -370,6 +370,108 @@ function App() {
     vertical: []
   });
 
+  // State for draggable slice popup
+  const [slicePopupPosition, setSlicePopupPosition] = useState({ x: 100, y: 100 });
+  const [isSliceDragging, setIsSliceDragging] = useState(false);
+  const [sliceDragOffset, setSliceDragOffset] = useState({ x: 0, y: 0 });
+
+  // Function to trash all regions with confirmation
+  const trashAllRegions = (motherObject: AIObject) => {
+    const regions = (motherObject as any).regions || [];
+    if (regions.length === 0) {
+      alert('No regions to delete.');
+      return;
+    }
+
+    // Red background, yellow text confirmation
+    const confirmed = window.confirm(`🗑️ DELETE ALL REGIONS?\n\nThis will permanently delete all ${regions.length} regions from "${motherObject.name}".\n\nThis action cannot be undone!`);
+
+    if (confirmed) {
+      if (!data) return;
+
+      const updatedObjects = data.objects.map(obj => {
+        if (obj.name === motherObject.name) {
+          return { ...obj, regions: [] };
+        }
+        return obj;
+      });
+
+      const updatedData = { ...data, objects: updatedObjects };
+      setData(updatedData);
+
+      // Clear all region contents
+      const updatedContents = new Map(regionContents);
+      regions.forEach((region: Region) => {
+        updatedContents.delete(region.id);
+      });
+      setRegionContents(updatedContents);
+
+      console.log(`🗑️ Deleted all ${regions.length} regions from mother: ${motherObject.name}`);
+    }
+  };
+
+  // Function to trash single region with confirmation
+  const trashSingleRegion = (motherObject: AIObject, region: Region) => {
+    const confirmed = window.confirm(`Delete region "${region.name || 'Unnamed'}"?\n\nThis action cannot be undone.`);
+
+    if (confirmed) {
+      if (!data) return;
+
+      const updatedObjects = data.objects.map(obj => {
+        if (obj.name === motherObject.name) {
+          const currentRegions = (obj as any).regions || [];
+          const filteredRegions = currentRegions.filter((r: Region) => r.id !== region.id);
+          return { ...obj, regions: filteredRegions };
+        }
+        return obj;
+      });
+
+      const updatedData = { ...data, objects: updatedObjects };
+      setData(updatedData);
+
+      // Clear region contents
+      const updatedContents = new Map(regionContents);
+      updatedContents.delete(region.id);
+      setRegionContents(updatedContents);
+
+      console.log(`🗑️ Deleted region: ${region.name || 'Unnamed'} from mother: ${motherObject.name}`);
+    }
+  };
+
+  // Mouse event handlers for dragging slice popup
+  const handleSliceMouseDown = (e: React.MouseEvent) => {
+    setIsSliceDragging(true);
+    setSliceDragOffset({
+      x: e.clientX - slicePopupPosition.x,
+      y: e.clientY - slicePopupPosition.y
+    });
+  };
+
+  const handleSliceMouseMove = (e: MouseEvent) => {
+    if (isSliceDragging) {
+      setSlicePopupPosition({
+        x: e.clientX - sliceDragOffset.x,
+        y: e.clientY - sliceDragOffset.y
+      });
+    }
+  };
+
+  const handleSliceMouseUp = () => {
+    setIsSliceDragging(false);
+  };
+
+  // Add global mouse event listeners for dragging slice popup
+  React.useEffect(() => {
+    if (isSliceDragging) {
+      document.addEventListener('mousemove', handleSliceMouseMove);
+      document.addEventListener('mouseup', handleSliceMouseUp);
+      return () => {
+        document.removeEventListener('mousemove', handleSliceMouseMove);
+        document.removeEventListener('mouseup', handleSliceMouseUp);
+      };
+    }
+  }, [isSliceDragging, sliceDragOffset]);
+
   // Region highlighting states
   const [highlightedRegion, setHighlightedRegion] = useState<string | null>(null);
 
@@ -1759,8 +1861,24 @@ function App() {
       pdf.setTextColor(0, 0, 0);
       pdf.text(`${motherObject.name} - 1:1 Scale Template`, 20, 20);
 
+      // Add created date in top right corner
+      const currentDate = new Date();
+      const dateString = currentDate.toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+      const timeString = currentDate.toLocaleTimeString('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      pdf.setFontSize(8);
+      pdf.setTextColor(100, 100, 100); // Gray color
+      pdf.text(`Created: ${dateString} ${timeString}`, A4_WIDTH - 60, 15);
+
       // Add scale info
       pdf.setFontSize(8);
+      pdf.setTextColor(0, 0, 0);
       pdf.text(`Size: ${canvasWidthMM}×${canvasHeightMM}mm (TRUE 1:1 SCALE)`, 20, 30);
       pdf.text('Print at 100% scale - NO scaling/fitting', 20, 38);
 
@@ -3092,7 +3210,40 @@ function App() {
                   );
                 }
 
-                return motherRegions.map((region: Region, regionIndex: number) => {
+                return (
+                  <>
+                    {/* Trash All Regions Button - appears above first region */}
+                    {motherRegions.length > 0 && (
+                      <div style={{ margin: '4px 0 8px 20px' }}>
+                        <button
+                          onClick={() => trashAllRegions(mother.object)}
+                          style={{
+                            padding: '4px 8px',
+                            border: 'none',
+                            borderRadius: '4px',
+                            background: 'linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%)',
+                            color: '#ffeb3b',
+                            fontSize: '10px',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                            boxShadow: '0 2px 4px rgba(211, 47, 47, 0.3)'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = 'linear-gradient(135deg, #f44336 0%, #d32f2f 100%)';
+                            e.currentTarget.style.transform = 'scale(1.05)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%)';
+                            e.currentTarget.style.transform = 'scale(1)';
+                          }}
+                        >
+                          🗑️ Trash All Regions ({motherRegions.length})
+                        </button>
+                      </div>
+                    )}
+
+                    {motherRegions.map((region: Region, regionIndex: number) => {
                   // Determine visual state for synchronized hover feedback
                   const isHighlighted = highlightedRegion === region.id;
                   const isDraggedOver = dragOverRegion === region.id;
@@ -3125,11 +3276,24 @@ function App() {
                       borderRadius: '6px',
                       borderLeft: `3px solid ${borderColor}`,
                       overflow: 'hidden',
-                      transition: 'all 0.2s ease' // Smooth transition for hover effects
+                      transition: 'all 0.2s ease', // Smooth transition for hover effects
+                      cursor: 'pointer'
                     }}
                     onDragOver={isProjectMode ? (e) => handleContentDragOver(e, region.id) : undefined}
                     onDragLeave={isProjectMode ? handleContentDragLeave : undefined}
                     onDrop={isProjectMode ? (e) => handleContentDrop(e, region.id) : undefined}
+                    onDoubleClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log('🖱️ Double-clicked region:', region.name);
+                      // Double click opens slice popup (same as slice button)
+                      setSlicingRegion(region);
+                      setHighlightedRegion(region.id);
+                      setSliceLines({ horizontal: [], vertical: [] });
+                      setSliceMode('visual');
+                      setShowSliceDialog(true);
+                      setSlicePopupPosition({ x: 100, y: 100 }); // Reset to default position
+                    }}
                   >
                     <div
                       style={{
@@ -3139,10 +3303,29 @@ function App() {
                         justifyContent: 'space-between',
                         cursor: isMasterFileMode ? 'pointer' : 'default'
                       }}
-                      onClick={() => {
-                        setSelectedObject(mother.object);
-                        // Just highlight the region (no editing functionality)
+                      onClick={(e) => {
+                        // Prevent double-click from triggering click
+                        if (e.detail === 1) {
+                          setTimeout(() => {
+                            if (e.detail === 1) {
+                              setSelectedObject(mother.object);
+                              // Just highlight the region (no editing functionality)
+                              setHighlightedRegion(region.id);
+                            }
+                          }, 200);
+                        }
+                      }}
+                      onDoubleClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        console.log('🖱️ Double-clicked region (inner):', region.name);
+                        // Double click opens slice popup (same as slice button)
+                        setSlicingRegion(region);
                         setHighlightedRegion(region.id);
+                        setSliceLines({ horizontal: [], vertical: [] });
+                        setSliceMode('visual');
+                        setShowSliceDialog(true);
+                        setSlicePopupPosition({ x: 100, y: 100 }); // Reset to default position
                       }}
                       onMouseEnter={() => {
                         // Only highlight on hover if not currently editing
@@ -3197,28 +3380,8 @@ function App() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              // Delete region
-                              const currentData = data || webCreationData;
-                              if (currentData) {
-                                const updatedObjects = currentData.objects.map(obj => {
-                                  if (obj.name === mother.object.name) {
-                                    const updatedRegions = motherRegions.filter((r: Region) => r.id !== region.id);
-                                    return {
-                                      ...obj,
-                                      regions: updatedRegions
-                                    };
-                                  }
-                                  return obj;
-                                });
-
-                                const updatedData = {
-                                  ...currentData,
-                                  objects: updatedObjects
-                                };
-
-                                setData(updatedData);
-                                setWebCreationData(updatedData);
-                              }
+                              // Use confirmation function for single region deletion
+                              trashSingleRegion(mother.object, region);
                             }}
                             style={{
                               background: '#f44336',
@@ -3344,7 +3507,9 @@ function App() {
                     })()}
                   </div>
                 );
-                });
+                    })}
+                  </>
+                );
               })()}
 
               {/* Add Region Button - Only show if remaining space is available and in master file mode */}
@@ -4105,7 +4270,7 @@ function App() {
                     strokeWidth={dragOverRegion === region.id ? 4 : strokeWidth}
                     strokeDasharray="5,5"
                     opacity={dragOverRegion === region.id ? 0.9 : 0.7}
-                    style={{ cursor: isProjectMode ? 'copy' : 'default' }}
+                    style={{ cursor: isProjectMode ? 'copy' : 'pointer' }}
                     onDragOver={isProjectMode ? (e) => handleContentDragOver(e, region.id) : undefined}
                     onDragLeave={isProjectMode ? handleContentDragLeave : undefined}
                     onDrop={isProjectMode ? (e) => handleContentDrop(e, region.id) : undefined}
@@ -4120,6 +4285,18 @@ function App() {
                       if (!editingRegion || editingRegion.id !== region.id) {
                         setHighlightedRegion(null);
                       }
+                    }}
+                    onDoubleClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log('🖱️ Double-clicked region in canvas:', region.name);
+                      // Double click opens slice popup
+                      setSlicingRegion(region);
+                      setHighlightedRegion(region.id);
+                      setSliceLines({ horizontal: [], vertical: [] });
+                      setSliceMode('visual');
+                      setShowSliceDialog(true);
+                      setSlicePopupPosition({ x: 100, y: 100 }); // Reset to default position
                     }}
                   />
 
@@ -7235,7 +7412,7 @@ function App() {
         </div>
       )}
 
-      {/* Region Slice Dialog */}
+      {/* Region Slice Dialog - Draggable */}
       {showSliceDialog && slicingRegion && (
         <div style={{
           position: 'fixed',
@@ -7244,12 +7421,12 @@ function App() {
           right: 0,
           bottom: 0,
           background: 'rgba(0,0,0,0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
           zIndex: 2000
         }}>
           <div style={{
+            position: 'absolute',
+            left: slicePopupPosition.x,
+            top: slicePopupPosition.y,
             background: 'white',
             padding: '20px',
             borderRadius: '10px',
@@ -7265,16 +7442,29 @@ function App() {
               paddingBottom: '15px',
               marginBottom: '20px'
             }}>
-              <h2 style={{
-                margin: 0,
-                fontSize: '18px',
-                fontWeight: 'bold',
-                color: '#333'
-              }}>
-                ✂️ Slice Region: "{slicingRegion.name || 'Unnamed'}" ({slicingRegion.width}×{slicingRegion.height}mm)
-              </h2>
+              {/* Draggable Header */}
+              <div
+                style={{
+                  padding: '10px 15px',
+                  background: '#f5f5f5',
+                  borderBottom: '1px solid #ddd',
+                  cursor: 'move',
+                  userSelect: 'none'
+                }}
+                onMouseDown={handleSliceMouseDown}
+              >
+                <h2 style={{
+                  margin: 0,
+                  fontSize: '18px',
+                  fontWeight: 'bold',
+                  color: '#333'
+                }}>
+                  ✂️ Slice Region: "{slicingRegion.name || 'Unnamed'}" ({slicingRegion.width}×{slicingRegion.height}mm)
+                </h2>
+              </div>
 
-              {/* Mode Tabs */}
+              <div style={{ padding: '15px' }}>
+                {/* Mode Tabs */}
               <div style={{
                 display: 'flex',
                 gap: '10px',
@@ -7719,6 +7909,7 @@ function App() {
                 ✂️ Slice Region
               </button>
             </div>
+              </div>
           </div>
         </div>
       )}
