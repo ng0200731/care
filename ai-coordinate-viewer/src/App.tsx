@@ -7226,9 +7226,9 @@ function App() {
                 }}>
                   {/* Width dimension between B and C (top) */}
                   <div style={{
-                    fontSize: '16px',
-                    fontWeight: 'bold',
-                    color: 'black',
+                    fontSize: '14px',
+                    fontWeight: 'normal',
+                    color: '#666',
                     textAlign: 'center',
                     padding: '5px 0',
                     background: 'white',
@@ -7237,38 +7237,14 @@ function App() {
                     {slicingRegion.width}mm
                   </div>
 
-                  {/* Container for height label and canvas */}
+                  {/* C: Canvas Image (SVG) - Full width */}
                   <div style={{
-                    display: 'flex',
                     flex: 1,
-                    minHeight: 0
+                    background: '#f9f9f9',
+                    minHeight: 0,
+                    minWidth: 0,
+                    overflow: 'hidden'
                   }}>
-                    {/* Height dimension between B and C (left) */}
-                    <div style={{
-                      fontSize: '16px',
-                      fontWeight: 'bold',
-                      color: 'black',
-                      writingMode: 'vertical-rl',
-                      textOrientation: 'mixed',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      padding: '0 2px',
-                      background: 'white',
-                      minWidth: '20px',
-                      flexShrink: 0
-                    }}>
-                      {slicingRegion.height}mm
-                    </div>
-
-                    {/* C: Canvas Image (SVG) */}
-                    <div style={{
-                      flex: 1,
-                      background: '#f9f9f9',
-                      minHeight: 0,
-                      minWidth: 0,
-                      overflow: 'hidden'
-                    }}>
                       <svg
                         width="100%"
                         height="100%"
@@ -7311,6 +7287,19 @@ function App() {
                         strokeDasharray="3,3"
                       />
                     ))}
+
+                    {/* Height dimension text - crossing vertical line, smaller font */}
+                    <text
+                      x={-10}
+                      y={slicingRegion.height / 2}
+                      fill="#666"
+                      fontSize="5"
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      transform={`rotate(-90, -10, ${slicingRegion.height / 2})`}
+                    >
+                      {slicingRegion.height}mm
+                    </text>
 
                     {/* Preview of resulting regions */}
                     {(() => {
@@ -7357,9 +7346,8 @@ function App() {
 
                       return previewRegions;
                     })()}
-                  </svg>
+                      </svg>
                     </div>
-                  </div>
                 </div>
               </div>
 
