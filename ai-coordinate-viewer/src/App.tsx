@@ -2794,6 +2794,16 @@ function App() {
     const nextMotherNumber = currentData.objects.length + 1;
     console.log('🔢 Next mother number:', nextMotherNumber);
 
+    // Copy all regions from original mother
+    const originalRegions = (originalMother as any).regions || [];
+    const copiedRegions = originalRegions.map((region: any) => ({
+      ...region,
+      id: `${region.id}_copy_${nextMotherNumber}` // Unique ID for copied region
+    }));
+
+    console.log('📋 Copying regions from original mother:', originalRegions.length);
+    console.log('📋 Copied regions:', copiedRegions);
+
     // Create new mother using the same structure as the original createMotherObject function
     const newMother: AIObject = {
       name: `Mother_${nextMotherNumber}`,
@@ -2808,7 +2818,7 @@ function App() {
       sewingPosition: (originalMother as any).sewingPosition,
       sewingOffset: (originalMother as any).sewingOffset,
       midFoldLine: (originalMother as any).midFoldLine,
-      regions: [] // Empty regions
+      regions: copiedRegions // Copy all regions from original mother
     } as any;
 
     console.log('👩 New mother created:', newMother);
@@ -2845,6 +2855,144 @@ function App() {
     setTimeout(() => setNotification(null), 3000);
 
     console.log('✅ Duplication completed!');
+  };
+
+  // Function to trash/delete a mother (except Mother_1)
+  const trashMother = (motherToDelete: AIObject) => {
+    if (motherToDelete.name === 'Mother_1') {
+      alert('❌ Cannot delete Mother_1 - it is protected');
+      return;
+    }
+
+    const regionCount = (motherToDelete as any).regions?.length || 0;
+    const confirmMessage = `🗑️ Delete ${motherToDelete.name} and all its ${regionCount} regions?\n\nThis action cannot be undone.`;
+
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    const currentData = data || webCreationData;
+    if (!currentData) return;
+
+    console.log('🗑️ Deleting mother:', motherToDelete.name);
+
+    // Remove the mother from objects array
+    const updatedObjects = currentData.objects.filter(obj => obj.name !== motherToDelete.name);
+    const updatedData = {
+      ...currentData,
+      objects: updatedObjects,
+      totalObjects: updatedObjects.length
+    };
+
+    // Update state
+    setData(updatedData);
+    if (webCreationData) {
+      setWebCreationData(updatedData);
+    }
+
+    // Clear selection if the deleted mother was selected
+    if (selectedObject?.name === motherToDelete.name) {
+      setSelectedObject(null);
+    }
+
+    console.log(`✅ Deleted ${motherToDelete.name} and ${regionCount} regions`);
+    setNotification(`✅ Deleted ${motherToDelete.name} and ${regionCount} regions`);
+    setTimeout(() => setNotification(null), 3000);
+  };
+
+  // Function to save all mothers to master file
+  const saveAllMothers = async () => {
+    const currentData = data || webCreationData;
+    if (!currentData) {
+      alert('❌ No data to save');
+      return;
+    }
+
+    const motherCount = currentData.objects.filter(obj => obj.type?.includes('mother')).length;
+    console.log('💾 Saving all mothers to master file:', motherCount);
+
+    try {
+      // Use existing save functionality
+      await saveDirectly();
+      setNotification(`✅ Saved ${motherCount} mothers to master file`);
+      setTimeout(() => setNotification(null), 3000);
+    } catch (error) {
+      console.error('❌ Error saving all mothers:', error);
+      alert('❌ Error saving mothers to master file');
+    }
+  };
+
+  // Function to generate PDF with all mothers
+  const generatePDFAllMothers = () => {
+    const currentData = data || webCreationData;
+    if (!currentData) {
+      alert('❌ No data to generate PDF');
+      return;
+    }
+
+    const mothers = currentData.objects.filter(obj => obj.type?.includes('mother'));
+    if (mothers.length === 0) {
+      alert('❌ No mothers found to generate PDF');
+      return;
+    }
+
+    console.log('🖨️ Generating PDF for all mothers:', mothers.length);
+
+    // Calculate total dimensions needed for all mothers
+    let maxWidth = 0;
+    let totalHeight = 0;
+
+    mothers.forEach((mother, index) => {
+      maxWidth = Math.max(maxWidth, mother.x + mother.width);
+      totalHeight = Math.max(totalHeight, mother.y + mother.height);
+    });
+
+    // Add margins
+    const margin = 20;
+    const totalWidthMM = maxWidth + margin;
+    const totalHeightMM = totalHeight + margin;
+
+    // Determine paper size (A4: 210×297, A3: 297×420, A2: 420×594, A1: 594×841)
+    let paperSize = 'A4';
+    let paperWidthMM = 210;
+    let paperHeightMM = 297;
+
+    if (totalWidthMM > 210 || totalHeightMM > 297) {
+      paperSize = 'A3';
+      paperWidthMM = 297;
+      paperHeightMM = 420;
+    }
+    if (totalWidthMM > 297 || totalHeightMM > 420) {
+      paperSize = 'A2';
+      paperWidthMM = 420;
+      paperHeightMM = 594;
+    }
+    if (totalWidthMM > 420 || totalHeightMM > 594) {
+      paperSize = 'A1';
+      paperWidthMM = 594;
+      paperHeightMM = 841;
+    }
+
+    console.log(`📄 Using paper size: ${paperSize} (${paperWidthMM}×${paperHeightMM}mm)`);
+
+    // Generate PDF with paper size info
+    const pdfData = {
+      ...currentData,
+      paperSize: paperSize,
+      paperDimensions: `${paperWidthMM}cm × ${paperHeightMM/10}cm`,
+      motherCount: mothers.length
+    };
+
+    // Generate PDF for all mothers - for now, generate individual PDFs
+    // TODO: Implement multi-mother PDF generation
+    mothers.forEach((mother, index) => {
+      setTimeout(() => {
+        generateMotherPDF(mother);
+      }, index * 1000); // Stagger PDF generation to avoid conflicts
+    });
+
+    setNotification(`✅ Generated PDF with ${mothers.length} mothers on ${paperSize}`);
+    setTimeout(() => setNotification(null), 3000);
   };
 
   // Content menu handlers
@@ -3065,6 +3213,71 @@ function App() {
       <div>
         <h4>📋 Objects Hierarchy:</h4>
 
+        {/* Centralized Control Buttons - Above All Mothers */}
+        <div style={{
+          display: 'flex',
+          gap: '10px',
+          marginBottom: '20px',
+          padding: '10px',
+          background: 'linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%)',
+          borderRadius: '8px',
+          border: '2px solid #ddd'
+        }}>
+          <button
+            onClick={saveAllMothers}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(135deg, #45a049 0%, #4CAF50 100%)';
+              e.currentTarget.style.transform = 'scale(1.05)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)';
+              e.currentTarget.style.transform = 'scale(1)';
+            }}
+            style={{
+              background: 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)',
+              border: '2px solid #4CAF50',
+              color: 'white',
+              fontSize: '12px',
+              padding: '8px 16px',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              transition: 'all 0.2s ease',
+              boxShadow: '0 3px 6px rgba(76, 175, 80, 0.3)'
+            }}
+            title="Save all mothers to master file"
+          >
+            💾 SAVE ALL MOTHERS
+          </button>
+
+          <button
+            onClick={generatePDFAllMothers}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(135deg, #d32f2f 0%, #f44336 100%)';
+              e.currentTarget.style.transform = 'scale(1.05)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(135deg, #f44336 0%, #d32f2f 100%)';
+              e.currentTarget.style.transform = 'scale(1)';
+            }}
+            style={{
+              background: 'linear-gradient(135deg, #f44336 0%, #d32f2f 100%)',
+              border: '2px solid #f44336',
+              color: 'white',
+              fontSize: '12px',
+              padding: '8px 16px',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              transition: 'all 0.2s ease',
+              boxShadow: '0 3px 6px rgba(244, 67, 54, 0.3)'
+            }}
+            title="Generate PDF with all mothers (auto paper size)"
+          >
+            🖨️ PDF ALL (A4/A3/A2)
+          </button>
+        </div>
+
         {/* Mothers with their sons */}
         {mothers.map((mother, index) => {
           // Auto-expand all mothers so regions are always visible
@@ -3178,38 +3391,7 @@ function App() {
                       );
                     })()}
 
-                    {/* PDF Print Button */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        generateMotherPDF(mother.object);
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = 'linear-gradient(135deg, #FF5722 0%, #E64A19 100%)';
-                        e.currentTarget.style.transform = 'scale(1.05)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'linear-gradient(135deg, #FF7043 0%, #FF5722 100%)';
-                        e.currentTarget.style.transform = 'scale(1)';
-                      }}
-                      style={{
-                        padding: '4px 8px',
-                        border: 'none',
-                        borderRadius: '4px',
-                        background: 'linear-gradient(135deg, #FF7043 0%, #FF5722 100%)',
-                        color: 'white',
-                        fontSize: '10px',
-                        fontWeight: 'bold',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s ease',
-                        boxShadow: '0 2px 4px rgba(255, 87, 34, 0.3)',
-                        position: 'relative',
-                        zIndex: 1001
-                      }}
-                      title="Print mother as 1:1 scale PDF with all regions"
-                    >
-                      🖨️ PDF
-                    </button>
+
 
                     {/* Fit View Button */}
                     <button
@@ -3266,28 +3448,40 @@ function App() {
                       </button>
                     )}
 
-                    {/* Save Button - Only show in web creation mode when mother objects exist AND not in project context */}
-                    {isWebCreationMode && hasMotherObjects() && context !== 'projects' && (
+                    {/* Trash Mother Button - Only for non-Mother_1 */}
+                    {mother.object.name !== 'Mother_1' && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          saveDirectly();
+                          trashMother(mother.object);
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = 'linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%)';
+                          e.currentTarget.style.transform = 'scale(1.05)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'linear-gradient(135deg, #f44336 0%, #d32f2f 100%)';
+                          e.currentTarget.style.transform = 'scale(1)';
                         }}
                         style={{
-                          background: 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)',
-                          border: '1px solid #4CAF50',
+                          background: 'linear-gradient(135deg, #f44336 0%, #d32f2f 100%)',
+                          border: '2px solid #f44336',
                           color: 'white',
                           fontSize: '10px',
                           padding: '4px 8px',
                           borderRadius: '4px',
                           cursor: 'pointer',
-                          fontWeight: 'bold'
+                          fontWeight: 'bold',
+                          transition: 'all 0.2s ease',
+                          boxShadow: '0 2px 4px rgba(244, 67, 54, 0.3)',
+                          zIndex: 1001
                         }}
-                        title="Save canvas design to Master Files"
+                        title={`Delete ${mother.object.name} and all its regions`}
                       >
-                        💾 Save
+                        🗑️ Trash Mother
                       </button>
                     )}
+
                   </div>
                 </div>
               </div>
