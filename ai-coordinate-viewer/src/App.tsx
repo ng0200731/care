@@ -2918,16 +2918,40 @@ function App() {
                   );
                 }
 
-                return motherRegions.map((region: Region, regionIndex: number) => (
+                return motherRegions.map((region: Region, regionIndex: number) => {
+                  // Determine visual state for synchronized hover feedback
+                  const isHighlighted = highlightedRegion === region.id;
+                  const isDraggedOver = dragOverRegion === region.id;
+                  const isBeingEdited = editingRegion && editingRegion.id === region.id;
+
+                  // Enhanced styling based on state
+                  let backgroundColor = '#e3f2fd'; // Default blue
+                  let borderColor = '#2196f3'; // Default blue
+                  let textColor = '#1976d2'; // Default dark blue
+
+                  if (isDraggedOver) {
+                    backgroundColor = '#c8e6c9'; // Green for drag over
+                    borderColor = '#4caf50'; // Green border
+                  } else if (isHighlighted) {
+                    backgroundColor = '#fff3e0'; // Orange tint for hover
+                    borderColor = '#ff6b35'; // Orange border
+                    textColor = '#e65100'; // Darker orange text
+                  } else if (isBeingEdited) {
+                    backgroundColor = '#e3f2fd'; // Blue for editing
+                    borderColor = '#007bff'; // Bright blue border
+                  }
+
+                  return (
                   <div
                     key={region.id}
                     style={{
                       margin: '4px 0 4px 20px', // Always indented under mother
-                      background: dragOverRegion === region.id ? '#c8e6c9' : '#e3f2fd',
-                      color: '#1976d2',
+                      background: backgroundColor,
+                      color: textColor,
                       borderRadius: '6px',
-                      borderLeft: `3px solid ${dragOverRegion === region.id ? '#4caf50' : '#2196f3'}`,
-                      overflow: 'hidden'
+                      borderLeft: `3px solid ${borderColor}`,
+                      overflow: 'hidden',
+                      transition: 'all 0.2s ease' // Smooth transition for hover effects
                     }}
                     onDragOver={isProjectMode ? (e) => handleContentDragOver(e, region.id) : undefined}
                     onDragLeave={isProjectMode ? handleContentDragLeave : undefined}
@@ -3152,7 +3176,8 @@ function App() {
                       ));
                     })()}
                   </div>
-                ));
+                );
+                });
               })()}
 
               {/* Add Region Button - Only show if remaining space is available and in master file mode */}
@@ -3917,6 +3942,18 @@ function App() {
                     onDragOver={isProjectMode ? (e) => handleContentDragOver(e, region.id) : undefined}
                     onDragLeave={isProjectMode ? handleContentDragLeave : undefined}
                     onDrop={isProjectMode ? (e) => handleContentDrop(e, region.id) : undefined}
+                    onMouseEnter={() => {
+                      // Synchronized hover: highlight both SVG region and corresponding region in list
+                      if (!editingRegion || editingRegion.id !== region.id) {
+                        setHighlightedRegion(region.id);
+                      }
+                    }}
+                    onMouseLeave={() => {
+                      // Clear highlight when leaving SVG region (unless currently editing)
+                      if (!editingRegion || editingRegion.id !== region.id) {
+                        setHighlightedRegion(null);
+                      }
+                    }}
                   />
 
                   {/* Content Area Overlays */}
