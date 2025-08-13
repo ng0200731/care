@@ -7212,58 +7212,77 @@ function App() {
                 <h3 style={{ margin: '0 0 15px 0', fontSize: '14px', color: '#666' }}>
                   Preview
                 </h3>
-                {/* Enhanced Visual Preview with Canvas Dimension Labels */}
+                {/* A: Preview Area with B: Canvas Border containing dimensions and C: Canvas Image */}
                 <div style={{
                   width: '100%',
                   height: '200px',
                   border: '1px solid #ddd',
                   borderRadius: '4px',
                   overflow: 'hidden',
-                  background: 'white'
+                  background: 'white',
+                  position: 'relative',
+                  display: 'flex',
+                  flexDirection: 'column'
                 }}>
-                  <svg
-                    width="100%"
-                    height="100%"
-                    viewBox={`0 0 ${slicingRegion.width} ${slicingRegion.height}`}
-                    style={{ background: '#f9f9f9' }}
-                  >
-                    {/* Original region outline */}
-                    <rect
-                      x="0"
-                      y="0"
-                      width={slicingRegion.width}
-                      height={slicingRegion.height}
-                      fill="rgba(76, 175, 80, 0.1)"
-                      stroke="#4caf50"
-                      strokeWidth="2"
-                      strokeDasharray="5,5"
-                    />
+                  {/* Width dimension between B and C (top) */}
+                  <div style={{
+                    fontSize: '16px',
+                    fontWeight: 'bold',
+                    color: 'black',
+                    textAlign: 'center',
+                    padding: '5px 0',
+                    background: 'white',
+                    flexShrink: 0
+                  }}>
+                    {slicingRegion.width}mm
+                  </div>
 
-                    {/* Canvas Dimension Labels */}
-                    {/* Width label on top edge of canvas */}
-                    <text
-                      x={slicingRegion.width / 2}
-                      y="8"
-                      textAnchor="middle"
-                      fontSize="5"
-                      fill="black"
-                      fontWeight="bold"
-                    >
-                      {slicingRegion.width}mm
-                    </text>
-
-                    {/* Height label on left edge of canvas */}
-                    <text
-                      x="6"
-                      y={slicingRegion.height / 2}
-                      textAnchor="middle"
-                      fontSize="5"
-                      fill="black"
-                      fontWeight="bold"
-                      transform={`rotate(-90, 6, ${slicingRegion.height / 2})`}
-                    >
+                  {/* Container for height label and canvas */}
+                  <div style={{
+                    display: 'flex',
+                    flex: 1,
+                    minHeight: 0
+                  }}>
+                    {/* Height dimension between B and C (left) */}
+                    <div style={{
+                      fontSize: '16px',
+                      fontWeight: 'bold',
+                      color: 'black',
+                      writingMode: 'vertical-rl',
+                      textOrientation: 'mixed',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '0 2px',
+                      background: 'white',
+                      minWidth: '20px',
+                      flexShrink: 0
+                    }}>
                       {slicingRegion.height}mm
-                    </text>
+                    </div>
+
+                    {/* C: Canvas Image (SVG) */}
+                    <div style={{
+                      flex: 1,
+                      background: '#f9f9f9',
+                      minHeight: 0,
+                      minWidth: 0,
+                      overflow: 'hidden'
+                    }}>
+                      <svg
+                        width="100%"
+                        height="100%"
+                        viewBox={`0 0 ${slicingRegion.width} ${slicingRegion.height}`}
+                        preserveAspectRatio="xMidYMid meet"
+                        style={{
+                          background: '#f9f9f9',
+                          display: 'block',
+                          maxWidth: '100%',
+                          maxHeight: '100%'
+                        }}
+                      >
+
+
 
                     {/* Horizontal cut lines */}
                     {sliceLines.horizontal.map((cut, index) => (
@@ -7274,7 +7293,7 @@ function App() {
                         x2={slicingRegion.width}
                         y2={cut}
                         stroke="#ff9800"
-                        strokeWidth="2"
+                        strokeWidth="1"
                         strokeDasharray="3,3"
                       />
                     ))}
@@ -7288,7 +7307,7 @@ function App() {
                         x2={cut}
                         y2={slicingRegion.height}
                         stroke="#ff9800"
-                        strokeWidth="2"
+                        strokeWidth="1"
                         strokeDasharray="3,3"
                       />
                     ))}
@@ -7339,6 +7358,8 @@ function App() {
                       return previewRegions;
                     })()}
                   </svg>
+                    </div>
+                  </div>
                 </div>
               </div>
 
