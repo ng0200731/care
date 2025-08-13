@@ -2775,6 +2775,78 @@ function App() {
     setUniversalDialog({ isOpen: false, regionId: '', contentType: null, editingContent: null });
   };
 
+  // Function to duplicate a mother object - using the same approach as createMotherObject
+  const duplicateMother = (originalMother: AIObject) => {
+    console.log('🔄 DUPLICATE BUTTON CLICKED!');
+    console.log('📊 Original mother to duplicate:', originalMother);
+
+    const currentData = data || webCreationData;
+    if (!currentData) {
+      console.error('❌ No current data available');
+      alert('❌ No data available for duplication');
+      return;
+    }
+
+    console.log('📊 Current data before duplication:', currentData);
+    console.log('📊 Current objects count:', currentData.objects.length);
+
+    // Find next mother number
+    const nextMotherNumber = currentData.objects.length + 1;
+    console.log('🔢 Next mother number:', nextMotherNumber);
+
+    // Create new mother using the same structure as the original createMotherObject function
+    const newMother: AIObject = {
+      name: `Mother_${nextMotherNumber}`,
+      type: 'mother',
+      x: originalMother.x + originalMother.width + 50, // Position to the right
+      y: originalMother.y,
+      width: originalMother.width,
+      height: originalMother.height,
+      typename: 'mother',
+      // Copy all the additional properties
+      margins: (originalMother as any).margins,
+      sewingPosition: (originalMother as any).sewingPosition,
+      sewingOffset: (originalMother as any).sewingOffset,
+      midFoldLine: (originalMother as any).midFoldLine,
+      regions: [] // Empty regions
+    } as any;
+
+    console.log('👩 New mother created:', newMother);
+
+    // Add to objects array
+    const updatedObjects = [...currentData.objects, newMother];
+    console.log('📊 Updated objects array:', updatedObjects);
+
+    // Create new data structure
+    const updatedData = {
+      ...currentData,
+      objects: updatedObjects,
+      totalObjects: updatedObjects.length
+    };
+
+    console.log('💾 Updated data structure:', updatedData);
+
+    // Update state - always update the main data since we're editing a master file
+    console.log('💾 Setting data (master file mode)...');
+    setData(updatedData);
+
+    // Also update webCreationData if it exists to keep them in sync
+    if (webCreationData) {
+      console.log('💾 Also updating webCreationData for sync...');
+      setWebCreationData(updatedData);
+    }
+
+    // Select the new mother
+    setSelectedObject(newMother);
+    console.log('🎯 Selected new mother');
+
+    // Show notification
+    setNotification(`✅ Created ${newMother.name} from ${originalMother.name}`);
+    setTimeout(() => setNotification(null), 3000);
+
+    console.log('✅ Duplication completed!');
+  };
+
   // Content menu handlers
   const handleEditContent = (content: any, regionId: string) => {
     // Debug: Log the content being edited
@@ -3159,6 +3231,40 @@ function App() {
                     >
                       👑 Fit View
                     </button>
+
+                    {/* Duplicate Mother Button - Only show in web creation mode */}
+                    {isWebCreationMode && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          duplicateMother(mother.object);
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = 'linear-gradient(135deg, #9C27B0 0%, #7B1FA2 100%)';
+                          e.currentTarget.style.transform = 'scale(1.05)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'linear-gradient(135deg, #BA68C8 0%, #9C27B0 100%)';
+                          e.currentTarget.style.transform = 'scale(1)';
+                        }}
+                        style={{
+                          background: 'linear-gradient(135deg, #BA68C8 0%, #9C27B0 100%)',
+                          border: '1px solid #9C27B0',
+                          color: 'white',
+                          fontSize: '10px',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontWeight: 'bold',
+                          transition: 'all 0.2s ease',
+                          boxShadow: '0 2px 4px rgba(156, 39, 176, 0.3)',
+                          zIndex: 1001
+                        }}
+                        title="Duplicate this mother object"
+                      >
+                        ➕ Duplicate
+                      </button>
+                    )}
 
                     {/* Save Button - Only show in web creation mode when mother objects exist AND not in project context */}
                     {isWebCreationMode && hasMotherObjects() && context !== 'projects' && (

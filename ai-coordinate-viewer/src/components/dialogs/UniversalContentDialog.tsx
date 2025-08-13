@@ -602,118 +602,13 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
         onMouseDown={(e) => e.stopPropagation()}
       >
 
-        {/* PART 1: Layout & Positioning */}
+
+
+        {/* PART 1: Layout & Positioning (Simplified) */}
         <div style={sectionStyle}>
           <h3 style={{ margin: '0 0 15px 0', color: '#2d3748', fontSize: '16px' }}>
             📐 Layout & Positioning
           </h3>
-
-          {/* Duplicate Full Width/Height section removed - only keep the one below "Occupy Leftover Space" */}
-
-          {/* Occupy Leftover Space Option */}
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <input
-                type="checkbox"
-                checked={formData.layout.occupyLeftoverSpace}
-                onChange={(e) => handleLayoutChange('occupyLeftoverSpace', e.target.checked)}
-              />
-              <span style={{ fontWeight: 'bold' }}>Occupy all leftover space</span>
-            </label>
-          </div>
-
-          {/* Width/Height Controls - Only show when not occupying leftover space */}
-          {!formData.layout.occupyLeftoverSpace && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '15px' }}>
-              {/* Left Column - Width */}
-              <div>
-                <div style={{ marginBottom: '10px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <input
-                      type="checkbox"
-                      checked={formData.layout.fullWidth}
-                      onChange={(e) => handleLayoutChange('fullWidth', e.target.checked)}
-                    />
-                    <span>Full Width</span>
-                  </label>
-                </div>
-                <div>
-                  <label style={labelStyle}>Width:</label>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <input
-                      type="number"
-                      value={formData.layout.width.value}
-                      onChange={(e) => handleLayoutChange('width.value', Number(e.target.value))}
-                      style={{
-                        ...smallInputStyle,
-                        opacity: formData.layout.fullWidth ? 0.5 : 1,
-                        cursor: formData.layout.fullWidth ? 'not-allowed' : 'text'
-                      }}
-                      disabled={formData.layout.fullWidth}
-                    />
-                    <select
-                      value={formData.layout.width.unit}
-                      onChange={(e) => handleLayoutChange('width.unit', e.target.value)}
-                      style={{
-                        ...smallInputStyle,
-                        width: '60px',
-                        opacity: formData.layout.fullWidth ? 0.5 : 1,
-                        cursor: formData.layout.fullWidth ? 'not-allowed' : 'pointer'
-                      }}
-                      disabled={formData.layout.fullWidth}
-                    >
-                      <option value="%">%</option>
-                      <option value="mm">mm</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Column - Height */}
-              <div>
-                <div style={{ marginBottom: '10px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <input
-                      type="checkbox"
-                      checked={formData.layout.fullHeight}
-                      onChange={(e) => handleLayoutChange('fullHeight', e.target.checked)}
-                    />
-                    <span>Full Height</span>
-                  </label>
-                </div>
-                <div>
-                  <label style={labelStyle}>Height:</label>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <input
-                      type="number"
-                      value={formData.layout.height.value}
-                      onChange={(e) => handleLayoutChange('height.value', Number(e.target.value))}
-                      style={{
-                        ...smallInputStyle,
-                        opacity: formData.layout.fullHeight ? 0.5 : 1,
-                        cursor: formData.layout.fullHeight ? 'not-allowed' : 'text'
-                      }}
-                      disabled={formData.layout.fullHeight}
-                    />
-                    <select
-                      value={formData.layout.height.unit}
-                      onChange={(e) => handleLayoutChange('height.unit', e.target.value)}
-                      style={{
-                        ...smallInputStyle,
-                        width: '60px',
-                        opacity: formData.layout.fullHeight ? 0.5 : 1,
-                        cursor: formData.layout.fullHeight ? 'not-allowed' : 'pointer'
-                      }}
-                      disabled={formData.layout.fullHeight}
-                    >
-                      <option value="%">%</option>
-                      <option value="mm">mm</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Validation Messages */}
           {inputError && (
