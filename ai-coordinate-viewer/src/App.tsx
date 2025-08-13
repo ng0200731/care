@@ -941,6 +941,66 @@ function App() {
     return { type: 'none', regions: [] };
   };
 
+  // Function to automatically create regions when mother is created
+  const createAutoRegionsForNewMother = (motherObject: any) => {
+    console.log('🤖 Auto-creating regions for new mother:', motherObject.name);
+
+    const motherMargins = motherObject.margins || { top: 5, left: 5, right: 5, down: 5 };
+    const midFoldLine = motherObject.midFoldLine;
+
+    // Use the existing space analysis function
+    const spaceAnalysis = findAvailableSpaceWithMidFold(
+      motherObject.width,
+      motherObject.height,
+      [], // No existing regions for new mother
+      motherMargins,
+      midFoldLine
+    );
+
+    console.log('🔍 Space analysis result:', spaceAnalysis);
+
+    if (spaceAnalysis.type === 'horizontal_split' || spaceAnalysis.type === 'vertical_split') {
+      // Mid-fold enabled: Create 2 regions
+      const autoRegions = spaceAnalysis.regions.map((regionData: any, index: number) => ({
+        id: `region_${Date.now()}_${index}`,
+        name: '', // Empty name as requested
+        x: regionData.x,
+        y: regionData.y,
+        width: regionData.width,
+        height: regionData.height,
+        margins: { top: 2, bottom: 2, left: 2, right: 2 },
+        borderColor: '#4caf50',
+        backgroundColor: 'rgba(76, 175, 80, 0.1)',
+        allowOverflow: false
+      }));
+
+      console.log('✅ Auto-created 2 regions (mid-fold):', autoRegions);
+      return autoRegions;
+
+    } else if (spaceAnalysis.type === 'single' && spaceAnalysis.regions[0]) {
+      // No mid-fold: Create 1 region
+      const singleRegionData = spaceAnalysis.regions[0];
+      const autoRegion = [{
+        id: `region_${Date.now()}_0`,
+        name: '', // Empty name as requested
+        x: singleRegionData.x,
+        y: singleRegionData.y,
+        width: singleRegionData.width,
+        height: singleRegionData.height,
+        margins: { top: 2, bottom: 2, left: 2, right: 2 },
+        borderColor: '#4caf50',
+        backgroundColor: 'rgba(76, 175, 80, 0.1)',
+        allowOverflow: false
+      }];
+
+      console.log('✅ Auto-created 1 region (no mid-fold):', autoRegion);
+      return autoRegion;
+    }
+
+    console.log('❌ Could not auto-create regions - no viable space found');
+    return [];
+  };
+
   // Function to automatically update existing regions when mid-fold line properties change
   const updateRegionsForMidFoldChange = (motherObject: any, newMidFoldLine: any, oldMidFoldLine: any) => {
     console.log('🔄 Updating regions for mid-fold change:', { newMidFoldLine, oldMidFoldLine });
@@ -2065,7 +2125,7 @@ function App() {
 
   const createOrUpdateMotherObject = () => {
     console.log(isEditingMother ? '✏️ Updating mother object' : '👩 Creating new mother object', 'with config:', motherConfig);
-    if (!isWebCreationMode) return;
+    if (!isWebCreationMode && !isMasterFileMode) return;
 
     const currentData = data || webCreationData;
     if (!currentData) return;
@@ -2101,16 +2161,25 @@ function App() {
             midFoldLine: motherConfig.midFoldLine
           } as any;
 
-          // Automatically update regions if mid-fold line properties changed
-          const updatedRegions = updateRegionsForMidFoldChange(
-            updatedObj,
-            motherConfig.midFoldLine,
-            oldMidFoldLine
-          );
+          // Check if mother currently has no regions - if so, auto-create them
+          const currentRegions = (obj as any).regions || [];
+          if (currentRegions.length === 0) {
+            console.log('🤖 Mother has no regions - auto-creating regions for updated mother');
+            const autoRegions = createAutoRegionsForNewMother(updatedObj);
+            updatedObj.regions = autoRegions;
+            console.log('✅ Auto-created regions for updated mother:', autoRegions);
+          } else {
+            // Automatically update regions if mid-fold line properties changed (existing regions)
+            const updatedRegions = updateRegionsForMidFoldChange(
+              updatedObj,
+              motherConfig.midFoldLine,
+              oldMidFoldLine
+            );
 
-          if (updatedRegions !== updatedObj.regions) {
-            updatedObj.regions = updatedRegions;
-            console.log('🔄 Automatically updated regions due to mid-fold changes:', updatedRegions);
+            if (updatedRegions !== updatedObj.regions) {
+              updatedObj.regions = updatedRegions;
+              console.log('🔄 Automatically updated regions due to mid-fold changes:', updatedRegions);
+            }
           }
 
           console.log('✅ Updated mother object with mid-fold:', updatedObj);
@@ -2151,8 +2220,12 @@ function App() {
         sewingPosition: motherConfig.sewingPosition,
         sewingOffset: motherConfig.sewingOffset,
         midFoldLine: motherConfig.midFoldLine,
-        regions: [] // Initialize with empty regions array
+        regions: [] // Initialize with empty regions array first
       } as any;
+
+      // Automatically create regions based on mid-fold configuration
+      const autoRegions = createAutoRegionsForNewMother(newMother);
+      (newMother as any).regions = autoRegions;
 
       const updatedData: AIData = {
         ...currentData,
