@@ -360,6 +360,15 @@ function App() {
   const [showAddRegionDialog, setShowAddRegionDialog] = useState(false);
   const [selectedMotherForRegion, setSelectedMotherForRegion] = useState<AIObject | null>(null);
 
+  // Region slicing state
+  const [showSliceDialog, setShowSliceDialog] = useState(false);
+  const [slicingRegion, setSlicingRegion] = useState<Region | null>(null);
+  const [sliceMode, setSliceMode] = useState<'visual' | 'mm'>('visual');
+  const [sliceLines, setSliceLines] = useState<{horizontal: number[], vertical: number[]}>({
+    horizontal: [],
+    vertical: []
+  });
+
   // Region highlighting states
   const [highlightedRegion, setHighlightedRegion] = useState<string | null>(null);
 
@@ -999,6 +1008,55 @@ function App() {
 
     console.log('❌ Could not auto-create regions - no viable space found');
     return [];
+  };
+
+  // Function to slice a region into multiple smaller regions
+  const sliceRegion = (regionToSlice: Region, horizontalCuts: number[], verticalCuts: number[]) => {
+    console.log('🔪 Slicing region:', regionToSlice.name, 'with cuts:', { horizontalCuts, verticalCuts });
+
+    // Validate cuts are within region bounds
+    const validHorizontalCuts = horizontalCuts.filter(cut => cut > 0 && cut < regionToSlice.height);
+    const validVerticalCuts = verticalCuts.filter(cut => cut > 0 && cut < regionToSlice.width);
+
+    console.log('✅ Valid cuts:', { validHorizontalCuts, validVerticalCuts });
+
+    // Create sorted arrays with region boundaries
+    const hCuts = [0, ...validHorizontalCuts.sort((a, b) => a - b), regionToSlice.height];
+    const vCuts = [0, ...validVerticalCuts.sort((a, b) => a - b), regionToSlice.width];
+
+    console.log('📏 Cut boundaries:', { hCuts, vCuts });
+
+    // Generate new regions
+    const newRegions: Region[] = [];
+    let regionIndex = 0;
+
+    for (let i = 0; i < hCuts.length - 1; i++) {
+      for (let j = 0; j < vCuts.length - 1; j++) {
+        const newRegion: Region = {
+          id: `region_${Date.now()}_slice_${regionIndex}`,
+          name: '', // Empty name as requested
+          x: regionToSlice.x + vCuts[j],
+          y: regionToSlice.y + hCuts[i],
+          width: vCuts[j + 1] - vCuts[j],
+          height: hCuts[i + 1] - hCuts[i],
+          margins: { top: 2, bottom: 2, left: 2, right: 2 },
+          borderColor: '#4caf50',
+          backgroundColor: 'rgba(76, 175, 80, 0.1)',
+          allowOverflow: false
+        };
+
+        // Validate minimum size (10mm)
+        if (newRegion.width >= 10 && newRegion.height >= 10) {
+          newRegions.push(newRegion);
+          regionIndex++;
+        } else {
+          console.warn('⚠️ Skipping region too small:', newRegion.width, 'x', newRegion.height);
+        }
+      }
+    }
+
+    console.log('✂️ Created', newRegions.length, 'new regions:', newRegions);
+    return newRegions;
   };
 
   // Function to automatically update existing regions when mid-fold line properties change
@@ -2967,16 +3025,8 @@ function App() {
                       }}
                       onClick={() => {
                         setSelectedObject(mother.object);
-                        // Only allow editing in Master File Mode
-                        if (isMasterFileMode) {
-                          setEditingRegion(region);
-                          setHighlightedRegion(region.id); // Set highlighting for editing
-                          setDialogPosition({ x: 0, y: 0 }); // Reset dialog position
-                          setShowRegionDialog(true);
-                        } else {
-                          // In Project Mode, just highlight the region
-                          setHighlightedRegion(region.id);
-                        }
+                        // Just highlight the region (no editing functionality)
+                        setHighlightedRegion(region.id);
                       }}
                       onMouseEnter={() => {
                         // Only highlight on hover if not currently editing
@@ -3003,19 +3053,20 @@ function App() {
                         </div>
                       </div>
 
-                      {/* Edit/Delete buttons - Only show in Master File Mode */}
+                      {/* Slice/Delete buttons - Only show in Master File Mode */}
                       {isMasterFileMode && (
                         <div style={{ display: 'flex', gap: '4px' }}>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              setEditingRegion(region);
-                              setHighlightedRegion(region.id); // Set highlighting for editing
-                              setDialogPosition({ x: 0, y: 0 }); // Reset dialog position
-                              setShowRegionDialog(true);
+                              setSlicingRegion(region);
+                              setHighlightedRegion(region.id); // Set highlighting for slicing
+                              setSliceLines({ horizontal: [], vertical: [] }); // Reset slice lines
+                              setSliceMode('visual'); // Default to visual mode
+                              setShowSliceDialog(true);
                             }}
                             style={{
-                              background: '#4caf50',
+                              background: '#ff9800',
                               border: 'none',
                               color: 'white',
                               fontSize: '10px',
@@ -3023,9 +3074,9 @@ function App() {
                               borderRadius: '3px',
                               cursor: 'pointer'
                             }}
-                            title="Edit region"
+                            title="Slice region into smaller regions"
                           >
-                            ✏️
+                            ✂️
                           </button>
                           <button
                             onClick={(e) => {
@@ -6162,323 +6213,8 @@ function App() {
         </div>
       )}
 
-      {/* Region Edit Dialog */}
-      {showRegionDialog && editingRegion && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0,0,0,0.3)', // More transparent to allow canvas interaction
-          zIndex: 10001,
-          pointerEvents: 'none' // Allow clicks to pass through to canvas
-        }}
-        onMouseMove={(e) => {
-          if (isDragging) {
-            e.preventDefault(); // Prevent text selection during drag
-            const newX = e.clientX - dragStart.x;
-            const newY = e.clientY - dragStart.y;
-            setDialogPosition({ x: newX, y: newY });
-          }
-        }}
-        onMouseUp={() => {
-          setIsDragging(false);
-        }}
-        >
-          <div style={{
-            background: 'white',
-            borderRadius: '12px',
-            boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
-            minWidth: '400px',
-            maxWidth: '500px',
-            position: 'absolute',
-            left: `calc(50% + ${dialogPosition.x}px)`,
-            top: `calc(50% + ${dialogPosition.y}px)`,
-            transform: 'translate(-50%, -50%)',
-            cursor: isDragging ? 'grabbing' : 'default',
-            pointerEvents: 'auto' // Re-enable pointer events for the dialog itself
-          }}>
-            {/* Draggable Header */}
-            <div
-              style={{
-                background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)',
-                color: 'white',
-                padding: '15px 30px',
-                borderRadius: '12px 12px 0 0',
-                cursor: 'grab',
-                userSelect: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between'
-              }}
-              onMouseDown={(e) => {
-                setIsDragging(true);
-                setDragStart({
-                  x: e.clientX - dialogPosition.x,
-                  y: e.clientY - dialogPosition.y
-                });
-              }}
-            >
-              <h2 style={{
-                margin: 0,
-                fontSize: '18px',
-                fontWeight: 'bold'
-              }}>
-                ✏️ Edit Region
-              </h2>
-              <div style={{
-                fontSize: '12px',
-                opacity: 0.8,
-                fontStyle: 'italic'
-              }}>
-                Drag to move
-              </div>
-            </div>
+      {/* Region Edit Dialog - COMPLETELY REMOVED */}
 
-            {/* Dialog Content */}
-            <div style={{ padding: '30px' }}>
-
-            {/* Region Name */}
-            <div style={{ marginBottom: '15px' }}>
-              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>
-                Region Name:
-              </label>
-              <input
-                type="text"
-                value={editingRegion.name}
-                onChange={(e) => setEditingRegion(prev => prev ? { ...prev, name: e.target.value } : null)}
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  border: '2px solid #ddd',
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  outline: 'none'
-                }}
-                onFocus={(e) => e.target.style.borderColor = '#2196f3'}
-                onBlur={(e) => e.target.style.borderColor = '#ddd'}
-              />
-            </div>
-
-            {/* Position and Size */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>
-                  X Position (mm):
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max={motherConfig.width - 10}
-                  value={editingRegion.x}
-                  onChange={(e) => setEditingRegion(prev => prev ? { ...prev, x: parseInt(e.target.value) || 0 } : null)}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '2px solid #ddd',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    outline: 'none'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#2196f3'}
-                  onBlur={(e) => e.target.style.borderColor = '#ddd'}
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>
-                  Y Position (mm):
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max={motherConfig.height - 10}
-                  value={editingRegion.y}
-                  onChange={(e) => setEditingRegion(prev => prev ? { ...prev, y: parseInt(e.target.value) || 0 } : null)}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '2px solid #ddd',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    outline: 'none'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#2196f3'}
-                  onBlur={(e) => e.target.style.borderColor = '#ddd'}
-                />
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '15px' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>
-                  Width (mm):
-                </label>
-                <input
-                  type="number"
-                  min="10"
-                  max={motherConfig.width - editingRegion.x}
-                  value={editingRegion.width}
-                  onChange={(e) => setEditingRegion(prev => prev ? { ...prev, width: parseInt(e.target.value) || 10 } : null)}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '2px solid #ddd',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    outline: 'none'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#2196f3'}
-                  onBlur={(e) => e.target.style.borderColor = '#ddd'}
-                />
-              </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#555' }}>
-                  Height (mm):
-                </label>
-                <input
-                  type="number"
-                  min="10"
-                  max={motherConfig.height - editingRegion.y}
-                  value={editingRegion.height}
-                  onChange={(e) => setEditingRegion(prev => prev ? { ...prev, height: parseInt(e.target.value) || 10 } : null)}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '2px solid #ddd',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    outline: 'none'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#2196f3'}
-                  onBlur={(e) => e.target.style.borderColor = '#ddd'}
-                />
-              </div>
-            </div>
-
-            {/* Buttons */}
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-              <button
-                onClick={() => {
-                  setShowRegionDialog(false);
-                  setEditingRegion(null);
-                  setHighlightedRegion(null); // Clear highlighting on cancel
-                }}
-                style={{
-                  padding: '10px 20px',
-                  border: '2px solid #ddd',
-                  borderRadius: '6px',
-                  background: 'white',
-                  color: '#666',
-                  fontSize: '14px',
-                  fontWeight: 'bold',
-                  cursor: 'pointer'
-                }}
-              >
-                ❌ Cancel
-              </button>
-              <button
-                onClick={async () => {
-                  console.log('🔥 SAVE BUTTON CLICKED!', { editingRegion, selectedObject, isMasterFileMode, editingMasterFileId });
-
-                  if (editingRegion && selectedObject) {
-                    // Update the region in the actual mother object
-                    const currentData = data || webCreationData;
-                    console.log('📊 Current data before update:', currentData);
-                    console.log('📝 Editing region:', editingRegion);
-
-                    if (currentData) {
-                      const updatedObjects = currentData.objects.map(obj => {
-                        if (obj.name === selectedObject.name && obj.type === 'mother') {
-                          const currentRegions = (obj as any).regions || [];
-                          const updatedRegions = currentRegions.map((r: Region) =>
-                            r.id === editingRegion.id ? editingRegion : r
-                          );
-                          return {
-                            ...obj,
-                            regions: updatedRegions
-                          };
-                        }
-                        return obj;
-                      });
-
-                      const updatedData = {
-                        ...currentData,
-                        objects: updatedObjects
-                      };
-
-                      setData(updatedData);
-                      setWebCreationData(updatedData);
-
-                      // If in master file mode, also save to master file service
-                      if (isMasterFileMode && editingMasterFileId) {
-                        try {
-                          console.log('💾 Saving region changes to master file:', editingMasterFileId);
-
-                          // Calculate bounds for width/height
-                          const bounds = { minX: 0, minY: 0, maxX: 0, maxY: 0 };
-                          updatedData.objects.forEach(obj => {
-                            if (obj.type === 'mother') {
-                              bounds.maxX = Math.max(bounds.maxX, obj.x + obj.width);
-                              bounds.maxY = Math.max(bounds.maxY, obj.y + obj.height);
-                            }
-                          });
-
-                          const padding = 20;
-                          const widthInMm = Math.max(200, Math.ceil(bounds.maxX - bounds.minX + padding));
-                          const heightInMm = Math.max(150, Math.ceil(bounds.maxY - bounds.minY + padding));
-
-                          const result = await masterFileService.updateMasterFile({
-                            id: editingMasterFileId,
-                            name: originalMasterFile?.name || 'Updated Master File',
-                            width: widthInMm,
-                            height: heightInMm,
-                            description: `Updated: ${updatedData.objects.length} objects`,
-                            designData: {
-                              objects: updatedData.objects,
-                              metadata: {
-                                lastModified: new Date().toISOString(),
-                                modifiedBy: 'region-editor'
-                              }
-                            }
-                          });
-
-                          if (result.success) {
-                            console.log('✅ Master file updated successfully');
-                          } else {
-                            console.error('❌ Failed to update master file:', result.error);
-                            alert('Failed to save changes to master file: ' + result.error);
-                          }
-                        } catch (error) {
-                          console.error('❌ Error saving to master file:', error);
-                          alert('Error saving changes to master file');
-                        }
-                      }
-                    }
-
-                    setShowRegionDialog(false);
-                    setEditingRegion(null);
-                    setHighlightedRegion(null); // Clear highlighting on save
-                  }
-                }}
-                style={{
-                  padding: '10px 20px',
-                  border: 'none',
-                  borderRadius: '6px',
-                  background: 'linear-gradient(135deg, #2196f3 0%, #1976d2 100%)',
-                  color: 'white',
-                  fontSize: '14px',
-                  fontWeight: 'bold',
-                  cursor: 'pointer'
-                }}
-              >
-                ✅ Save
-              </button>
-            </div>
-            </div> {/* Close Dialog Content */}
-          </div>
-        </div>
-      )}
 
       {/* Add Region Dialog */}
       {showAddRegionDialog && selectedMotherForRegion && (
@@ -7380,6 +7116,484 @@ function App() {
           >
             Clear Debug
           </button>
+        </div>
+      )}
+
+      {/* Region Slice Dialog */}
+      {showSliceDialog && slicingRegion && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 2000
+        }}>
+          <div style={{
+            background: 'white',
+            padding: '20px',
+            borderRadius: '10px',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+            minWidth: '600px',
+            maxWidth: '800px',
+            maxHeight: '80vh',
+            overflow: 'auto'
+          }}>
+            {/* Header */}
+            <div style={{
+              borderBottom: '2px solid #f0f0f0',
+              paddingBottom: '15px',
+              marginBottom: '20px'
+            }}>
+              <h2 style={{
+                margin: 0,
+                fontSize: '18px',
+                fontWeight: 'bold',
+                color: '#333'
+              }}>
+                ✂️ Slice Region: "{slicingRegion.name || 'Unnamed'}" ({slicingRegion.width}×{slicingRegion.height}mm)
+              </h2>
+
+              {/* Mode Tabs */}
+              <div style={{
+                display: 'flex',
+                gap: '10px',
+                marginTop: '15px'
+              }}>
+                <button
+                  onClick={() => setSliceMode('visual')}
+                  style={{
+                    padding: '8px 16px',
+                    border: sliceMode === 'visual' ? '2px solid #ff9800' : '2px solid #ddd',
+                    borderRadius: '6px',
+                    background: sliceMode === 'visual' ? '#fff3e0' : 'white',
+                    color: sliceMode === 'visual' ? '#e65100' : '#666',
+                    cursor: 'pointer',
+                    fontWeight: sliceMode === 'visual' ? 'bold' : 'normal'
+                  }}
+                >
+                  🎨 Visual Draw
+                </button>
+                <button
+                  onClick={() => setSliceMode('mm')}
+                  style={{
+                    padding: '8px 16px',
+                    border: sliceMode === 'mm' ? '2px solid #ff9800' : '2px solid #ddd',
+                    borderRadius: '6px',
+                    background: sliceMode === 'mm' ? '#fff3e0' : 'white',
+                    color: sliceMode === 'mm' ? '#e65100' : '#666',
+                    cursor: 'pointer',
+                    fontWeight: sliceMode === 'mm' ? 'bold' : 'normal'
+                  }}
+                >
+                  📏 MM Precision
+                </button>
+              </div>
+            </div>
+
+            {/* Content Area */}
+            <div style={{
+              display: 'flex',
+              gap: '20px',
+              minHeight: '300px'
+            }}>
+              {/* Preview Area */}
+              <div style={{
+                flex: 1,
+                border: '2px solid #ddd',
+                borderRadius: '8px',
+                padding: '15px',
+                background: '#f9f9f9'
+              }}>
+                <h3 style={{ margin: '0 0 15px 0', fontSize: '14px', color: '#666' }}>
+                  Preview
+                </h3>
+                {/* Enhanced Visual Preview with Canvas Dimension Labels */}
+                <div style={{
+                  width: '100%',
+                  height: '200px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  overflow: 'hidden',
+                  background: 'white'
+                }}>
+                  <svg
+                    width="100%"
+                    height="100%"
+                    viewBox={`0 0 ${slicingRegion.width} ${slicingRegion.height}`}
+                    style={{ background: '#f9f9f9' }}
+                  >
+                    {/* Original region outline */}
+                    <rect
+                      x="0"
+                      y="0"
+                      width={slicingRegion.width}
+                      height={slicingRegion.height}
+                      fill="rgba(76, 175, 80, 0.1)"
+                      stroke="#4caf50"
+                      strokeWidth="2"
+                      strokeDasharray="5,5"
+                    />
+
+                    {/* Canvas Dimension Labels */}
+                    {/* Width label on top edge of canvas */}
+                    <text
+                      x={slicingRegion.width / 2}
+                      y="8"
+                      textAnchor="middle"
+                      fontSize="5"
+                      fill="black"
+                      fontWeight="bold"
+                    >
+                      {slicingRegion.width}mm
+                    </text>
+
+                    {/* Height label on left edge of canvas */}
+                    <text
+                      x="6"
+                      y={slicingRegion.height / 2}
+                      textAnchor="middle"
+                      fontSize="5"
+                      fill="black"
+                      fontWeight="bold"
+                      transform={`rotate(-90, 6, ${slicingRegion.height / 2})`}
+                    >
+                      {slicingRegion.height}mm
+                    </text>
+
+                    {/* Horizontal cut lines */}
+                    {sliceLines.horizontal.map((cut, index) => (
+                      <line
+                        key={`h-${index}`}
+                        x1="0"
+                        y1={cut}
+                        x2={slicingRegion.width}
+                        y2={cut}
+                        stroke="#ff9800"
+                        strokeWidth="2"
+                        strokeDasharray="3,3"
+                      />
+                    ))}
+
+                    {/* Vertical cut lines */}
+                    {sliceLines.vertical.map((cut, index) => (
+                      <line
+                        key={`v-${index}`}
+                        x1={cut}
+                        y1="0"
+                        x2={cut}
+                        y2={slicingRegion.height}
+                        stroke="#ff9800"
+                        strokeWidth="2"
+                        strokeDasharray="3,3"
+                      />
+                    ))}
+
+                    {/* Preview of resulting regions */}
+                    {(() => {
+                      const hCuts = [0, ...sliceLines.horizontal.filter(cut => cut > 0 && cut < slicingRegion.height).sort((a, b) => a - b), slicingRegion.height];
+                      const vCuts = [0, ...sliceLines.vertical.filter(cut => cut > 0 && cut < slicingRegion.width).sort((a, b) => a - b), slicingRegion.width];
+
+                      const previewRegions = [];
+                      let regionIndex = 0;
+
+                      for (let i = 0; i < hCuts.length - 1; i++) {
+                        for (let j = 0; j < vCuts.length - 1; j++) {
+                          const width = vCuts[j + 1] - vCuts[j];
+                          const height = hCuts[i + 1] - hCuts[i];
+
+                          if (width >= 10 && height >= 10) {
+                            previewRegions.push(
+                              <g key={`preview-${regionIndex}`}>
+                                <rect
+                                  x={vCuts[j]}
+                                  y={hCuts[i]}
+                                  width={width}
+                                  height={height}
+                                  fill="rgba(255, 152, 0, 0.1)"
+                                  stroke="#ff9800"
+                                  strokeWidth="1"
+                                />
+                                <text
+                                  x={vCuts[j] + width / 2}
+                                  y={hCuts[i] + height / 2}
+                                  textAnchor="middle"
+                                  dominantBaseline="middle"
+                                  fontSize="8"
+                                  fill="#e65100"
+                                  fontWeight="bold"
+                                >
+                                  {regionIndex + 1}
+                                </text>
+                              </g>
+                            );
+                            regionIndex++;
+                          }
+                        }
+                      }
+
+                      return previewRegions;
+                    })()}
+                  </svg>
+                </div>
+              </div>
+
+              {/* Controls Area */}
+              <div style={{
+                width: '250px',
+                border: '2px solid #ddd',
+                borderRadius: '8px',
+                padding: '15px',
+                background: '#f9f9f9'
+              }}>
+                <h3 style={{ margin: '0 0 15px 0', fontSize: '14px', color: '#666' }}>
+                  {sliceMode === 'visual' ? 'Drawing Tools' : 'Measurements'}
+                </h3>
+
+                {sliceMode === 'visual' ? (
+                  <div>
+                    <p style={{ fontSize: '12px', color: '#666', margin: '0 0 10px 0' }}>
+                      Click and drag to draw slice lines on the preview area.
+                    </p>
+                    <button
+                      onClick={() => setSliceLines({ horizontal: [], vertical: [] })}
+                      style={{
+                        width: '100%',
+                        padding: '8px',
+                        background: '#f44336',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '12px'
+                      }}
+                    >
+                      🗑️ Clear All Lines
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <div style={{ marginBottom: '15px' }}>
+                      <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px', fontWeight: 'bold' }}>
+                        <span style={{ transform: 'rotate(-90deg)', display: 'inline-block' }}>✂️</span> Horizontal Cuts (from top):
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 30,60,90"
+                        style={{
+                          width: '100%',
+                          padding: '6px',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px',
+                          fontSize: '12px'
+                        }}
+                        onChange={(e) => {
+                          const values = e.target.value.split(',').map(v => parseFloat(v.trim())).filter(v => !isNaN(v));
+                          setSliceLines(prev => ({ ...prev, horizontal: values }));
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '5px', fontSize: '12px', fontWeight: 'bold' }}>
+                        <span style={{ transform: 'rotate(0deg)', display: 'inline-block' }}>✂️</span> Vertical Cuts (from left):
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 40,80"
+                        style={{
+                          width: '100%',
+                          padding: '6px',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px',
+                          fontSize: '12px'
+                        }}
+                        onChange={(e) => {
+                          const values = e.target.value.split(',').map(v => parseFloat(v.trim())).filter(v => !isNaN(v));
+                          setSliceLines(prev => ({ ...prev, vertical: values }));
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Result Info */}
+            <div style={{
+              marginTop: '20px',
+              padding: '10px',
+              background: '#e3f2fd',
+              borderRadius: '6px',
+              fontSize: '12px'
+            }}>
+              {(() => {
+                const hCuts = [0, ...sliceLines.horizontal.filter(cut => cut > 0 && cut < slicingRegion.height).sort((a, b) => a - b), slicingRegion.height];
+                const vCuts = [0, ...sliceLines.vertical.filter(cut => cut > 0 && cut < slicingRegion.width).sort((a, b) => a - b), slicingRegion.width];
+
+                let validRegions = 0;
+                let invalidRegions = 0;
+
+                for (let i = 0; i < hCuts.length - 1; i++) {
+                  for (let j = 0; j < vCuts.length - 1; j++) {
+                    const width = vCuts[j + 1] - vCuts[j];
+                    const height = hCuts[i + 1] - hCuts[i];
+
+                    if (width >= 10 && height >= 10) {
+                      validRegions++;
+                    } else {
+                      invalidRegions++;
+                    }
+                  }
+                }
+
+                return (
+                  <div>
+                    <div><strong>Result:</strong> Will create {validRegions} valid regions</div>
+                    {invalidRegions > 0 && (
+                      <div style={{ color: '#d32f2f', marginTop: '5px' }}>
+                        ⚠️ {invalidRegions} regions will be skipped (smaller than 10mm minimum)
+                      </div>
+                    )}
+                    {validRegions === 0 && (
+                      <div style={{ color: '#d32f2f', marginTop: '5px' }}>
+                        ❌ No valid regions can be created with these cuts
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{
+              display: 'flex',
+              gap: '10px',
+              justifyContent: 'flex-end',
+              marginTop: '20px'
+            }}>
+              <button
+                onClick={() => {
+                  setShowSliceDialog(false);
+                  setSlicingRegion(null);
+                  setHighlightedRegion(null);
+                  setSliceLines({ horizontal: [], vertical: [] });
+                }}
+                style={{
+                  padding: '10px 20px',
+                  border: '2px solid #ddd',
+                  borderRadius: '6px',
+                  background: 'white',
+                  color: '#666',
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+              >
+                ❌ Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setSliceLines({ horizontal: [], vertical: [] });
+                }}
+                style={{
+                  padding: '10px 20px',
+                  border: '2px solid #ff9800',
+                  borderRadius: '6px',
+                  background: 'white',
+                  color: '#ff9800',
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+              >
+                🔄 Reset
+              </button>
+              <button
+                onClick={() => {
+                  console.log('🔪 Executing slice operation with lines:', sliceLines);
+
+                  if (!slicingRegion) return;
+
+                  // Perform the slice operation
+                  const newRegions = sliceRegion(slicingRegion, sliceLines.horizontal, sliceLines.vertical);
+
+                  if (newRegions.length === 0) {
+                    alert('❌ No valid regions could be created. Check that cuts create regions larger than 10mm.');
+                    return;
+                  }
+
+                  // Find the mother object that contains this region
+                  const currentData = data || webCreationData;
+                  if (!currentData) return;
+
+                  const updatedObjects = currentData.objects.map(obj => {
+                    if (obj.type === 'mother') {
+                      const motherRegions = (obj as any).regions || [];
+                      const regionIndex = motherRegions.findIndex((r: Region) => r.id === slicingRegion.id);
+
+                      if (regionIndex !== -1) {
+                        // Remove the original region and add the new sliced regions
+                        const updatedRegions = [
+                          ...motherRegions.slice(0, regionIndex),
+                          ...newRegions,
+                          ...motherRegions.slice(regionIndex + 1)
+                        ];
+
+                        console.log('🔄 Updating mother regions:', updatedRegions.length, 'total regions');
+
+                        return {
+                          ...obj,
+                          regions: updatedRegions
+                        };
+                      }
+                    }
+                    return obj;
+                  });
+
+                  const updatedData = {
+                    ...currentData,
+                    objects: updatedObjects
+                  };
+
+                  // Update the data
+                  setData(updatedData);
+                  setWebCreationData(updatedData);
+
+                  // Clear any existing region contents for the sliced region
+                  const updatedContents = new Map(regionContents);
+                  updatedContents.delete(slicingRegion.id);
+                  setRegionContents(updatedContents);
+
+                  // Close the dialog
+                  setShowSliceDialog(false);
+                  setSlicingRegion(null);
+                  setHighlightedRegion(null);
+                  setSliceLines({ horizontal: [], vertical: [] });
+
+                  // Show success message
+                  setNotification(`✂️ Region sliced into ${newRegions.length} new regions`);
+                  setTimeout(() => setNotification(null), 3000);
+
+                  console.log('✅ Slice operation completed successfully');
+                }}
+                disabled={sliceLines.horizontal.length === 0 && sliceLines.vertical.length === 0}
+                style={{
+                  padding: '10px 20px',
+                  border: 'none',
+                  borderRadius: '6px',
+                  background: (sliceLines.horizontal.length === 0 && sliceLines.vertical.length === 0) ? '#ccc' : '#ff9800',
+                  color: 'white',
+                  cursor: (sliceLines.horizontal.length === 0 && sliceLines.vertical.length === 0) ? 'not-allowed' : 'pointer',
+                  fontSize: '14px',
+                  fontWeight: 'bold'
+                }}
+              >
+                ✂️ Slice Region
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
