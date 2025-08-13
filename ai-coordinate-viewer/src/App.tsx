@@ -7212,7 +7212,7 @@ function App() {
                 <h3 style={{ margin: '0 0 15px 0', fontSize: '14px', color: '#666' }}>
                   Preview
                 </h3>
-                {/* A: Preview Area with B: Canvas Border containing dimensions and C: Canvas Image */}
+                {/* A: Preview Area - MOTHER THUMBNAIL STYLE */}
                 <div style={{
                   width: '100%',
                   height: '200px',
@@ -7224,10 +7224,9 @@ function App() {
                   display: 'flex',
                   flexDirection: 'column'
                 }}>
-                  {/* Width dimension between B and C (top) */}
+                  {/* Width dimension text - simple top */}
                   <div style={{
-                    fontSize: '14px',
-                    fontWeight: 'normal',
+                    fontSize: '12px',
                     color: '#666',
                     textAlign: 'center',
                     padding: '5px 0',
@@ -7237,26 +7236,39 @@ function App() {
                     {slicingRegion.width}mm
                   </div>
 
-                  {/* C: Canvas Image (SVG) - Full width */}
+                  {/* Canvas container - flex grow */}
                   <div style={{
                     flex: 1,
                     background: '#f9f9f9',
+                    position: 'relative',
                     minHeight: 0,
                     minWidth: 0,
                     overflow: 'hidden'
                   }}>
-                      <svg
-                        width="100%"
-                        height="100%"
-                        viewBox={`0 0 ${slicingRegion.width} ${slicingRegion.height}`}
-                        preserveAspectRatio="xMidYMid meet"
-                        style={{
-                          background: '#f9f9f9',
-                          display: 'block',
-                          maxWidth: '100%',
-                          maxHeight: '100%'
-                        }}
-                      >
+                    {/* Height dimension text - simple left side */}
+                    <div style={{
+                      position: 'absolute',
+                      left: '5px',
+                      top: '50%',
+                      transform: 'translateY(-50%) rotate(-90deg)',
+                      fontSize: '10px',
+                      color: '#666',
+                      whiteSpace: 'nowrap'
+                    }}>
+                      {slicingRegion.height}mm
+                    </div>
+
+                    {/* Canvas SVG - mother thumbnail style */}
+                    <svg
+                      width="100%"
+                      height="100%"
+                      viewBox={`0 0 ${slicingRegion.width} ${slicingRegion.height}`}
+                      preserveAspectRatio="xMidYMid meet"
+                      style={{
+                        background: '#f9f9f9',
+                        display: 'block'
+                      }}
+                    >
 
 
 
@@ -7288,18 +7300,7 @@ function App() {
                       />
                     ))}
 
-                    {/* Height dimension text - crossing vertical line, smaller font */}
-                    <text
-                      x={-10}
-                      y={slicingRegion.height / 2}
-                      fill="#666"
-                      fontSize="5"
-                      textAnchor="middle"
-                      dominantBaseline="middle"
-                      transform={`rotate(-90, -10, ${slicingRegion.height / 2})`}
-                    >
-                      {slicingRegion.height}mm
-                    </text>
+
 
                     {/* Preview of resulting regions */}
                     {(() => {
@@ -7346,8 +7347,8 @@ function App() {
 
                       return previewRegions;
                     })()}
-                      </svg>
-                    </div>
+                    </svg>
+                  </div>
                 </div>
               </div>
 
