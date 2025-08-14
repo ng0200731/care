@@ -288,12 +288,54 @@ const ProjectDetail: React.FC = () => {
       backgroundColor: 'white',
       minHeight: '100vh'
     }}>
+      {/* System Header */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '20px',
+        padding: '15px 0',
+        borderBottom: '2px solid #e9ecef'
+      }}>
+        <div>
+          <h1 style={{
+            margin: 0,
+            fontSize: '24px',
+            fontWeight: 'bold',
+            color: '#2c3e50'
+          }}>
+            🏷️ Care Label Layout System
+          </h1>
+        </div>
+        <div style={{
+          textAlign: 'right',
+          fontSize: '14px',
+          color: '#6c757d'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+            <span style={{ color: '#28a745', fontSize: '12px' }}>🟢</span>
+            <span style={{ fontWeight: '600' }}>System Online</span>
+          </div>
+          <div>2025/8/14</div>
+          <div style={{ fontWeight: 'bold', color: '#007bff' }}>v2.2.3</div>
+        </div>
+      </div>
+
+      {/* Project Navigation */}
+      <div style={{
+        marginBottom: '20px',
+        fontSize: '16px',
+        color: '#495057'
+      }}>
+        ← Project: {project.name} :: select master file
+      </div>
+
       {/* Header */}
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
         alignItems: 'flex-start',
-        marginBottom: '30px' 
+        marginBottom: '30px'
       }}>
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
@@ -364,7 +406,7 @@ const ProjectDetail: React.FC = () => {
               gap: '8px'
             }}
           >
-            ➕ Add Page
+            ➕ Add Master File
           </button>
         </div>
       </div>
@@ -457,7 +499,7 @@ const ProjectDetail: React.FC = () => {
           <div style={{ fontSize: '48px', marginBottom: '16px' }}>📄</div>
           <h3 style={{ margin: '0 0 8px 0', fontSize: '18px' }}>No pages yet</h3>
           <p style={{ margin: '0 0 20px 0', fontSize: '14px' }}>
-            Add your first page to start designing your multi-page label project
+            Add your first master file to start designing your multi-page label project
           </p>
           <button
             onClick={() => {
@@ -475,7 +517,7 @@ const ProjectDetail: React.FC = () => {
               fontWeight: '600'
             }}
           >
-            ➕ Add First Page
+            ➕ Add First Master File
           </button>
         </div>
       )}
@@ -505,7 +547,7 @@ const ProjectDetail: React.FC = () => {
             boxShadow: '0 10px 30px rgba(0,0,0,0.2)'
           }}>
             <h2 style={{ margin: '0 0 24px 0', fontSize: '20px', fontWeight: 'bold' }}>
-              📄 Select Master File for New Page
+              📄 Select Master File
             </h2>
 
             <p style={{
@@ -514,7 +556,7 @@ const ProjectDetail: React.FC = () => {
               margin: '0 0 20px 0',
               lineHeight: '1.5'
             }}>
-              Choose a master file from <strong>{project?.customerName}</strong> to use as the template for this page
+              Choose a master file from <strong>{project?.customerName}</strong> to use as the template
             </p>
 
 

@@ -370,6 +370,50 @@ function App() {
   const [slicePopupPosition, setSlicePopupPosition] = useState({ x: 100, y: 100 });
   const [isSliceDragging, setIsSliceDragging] = useState(false);
   const [sliceDragOffset, setSliceDragOffset] = useState({ x: 0, y: 0 });
+  const [sliceMinSize, setSliceMinSize] = useState(2); // Dynamic minimum size for slicing
+
+  // Function to trash all regions completely (Master File Management only)
+  const trashAllRegions = (motherObject: AIObject) => {
+    const regions = (motherObject as any).regions || [];
+    if (regions.length === 0) {
+      alert('No regions to delete.');
+      return;
+    }
+
+    // Red background, yellow text confirmation
+    const confirmed = window.confirm(`🗑️ DELETE ALL REGIONS?\n\nThis will permanently delete all ${regions.length} regions from "${motherObject.name}".\n\nThis action cannot be undone!`);
+
+    if (confirmed) {
+      if (!data) return;
+
+      const updatedObjects = data.objects.map(obj => {
+        if (obj.name === motherObject.name) {
+          return { ...obj, regions: [] };
+        }
+        return obj;
+      });
+
+      const updatedData = { ...data, objects: updatedObjects };
+      setData(updatedData);
+
+      // Clear all region contents
+      const updatedContents = new Map(regionContents);
+      regions.forEach((region: Region) => {
+        updatedContents.delete(region.id);
+        // Also clear child region contents if they exist
+        if (region.children && region.children.length > 0) {
+          region.children.forEach((childRegion: Region) => {
+            updatedContents.delete(childRegion.id);
+          });
+        }
+      });
+      setRegionContents(updatedContents);
+
+      console.log(`🗑️ Deleted all ${regions.length} regions from mother: ${motherObject.name}`);
+      setNotification(`✅ Deleted all ${regions.length} regions`);
+      setTimeout(() => setNotification(null), 3000);
+    }
+  };
 
   // Function to trash all slices (child regions) while keeping parent regions
   const trashAllSlices = (motherObject: AIObject) => {
@@ -430,6 +474,60 @@ function App() {
 
       console.log(`🗑️ Deleted all ${totalSlices} slices from mother: ${motherObject.name}, preserved ${regions.length} parent regions`);
       setNotification(`✅ Deleted ${totalSlices} slices, preserved ${regions.length} parent regions`);
+      setTimeout(() => setNotification(null), 3000);
+    }
+  };
+
+  // Function to delete individual slice
+  const deleteIndividualSlice = (motherObject: AIObject, parentRegion: Region, sliceToDelete: Region) => {
+    const confirmed = window.confirm(`Delete slice "${sliceToDelete.name}"?\n\nThis action cannot be undone.`);
+
+    if (confirmed) {
+      if (!data) return;
+
+      const updatedObjects = data.objects.map(obj => {
+        if (obj.name === motherObject.name) {
+          const regions = (obj as any).regions || [];
+          const updatedRegions = regions.map((region: Region) => {
+            if (region.id === parentRegion.id && region.children) {
+              // Remove the specific slice from children
+              const updatedChildren = region.children.filter(child => child.id !== sliceToDelete.id);
+
+              // If no children left, reset parent to unsliced state
+              if (updatedChildren.length === 0) {
+                return {
+                  ...region,
+                  children: undefined,
+                  isSliced: false,
+                  borderColor: '#2196f3', // Reset to default blue border
+                  backgroundColor: 'rgba(33, 150, 243, 0.1)' // Reset to default blue background
+                };
+              }
+
+              // Otherwise, keep remaining children
+              return {
+                ...region,
+                children: updatedChildren
+              };
+            }
+            return region;
+          });
+
+          return { ...obj, regions: updatedRegions };
+        }
+        return obj;
+      });
+
+      const updatedData = { ...data, objects: updatedObjects };
+      setData(updatedData);
+
+      // Clear content for the deleted slice
+      const updatedContents = new Map(regionContents);
+      updatedContents.delete(sliceToDelete.id);
+      setRegionContents(updatedContents);
+
+      console.log(`🗑️ Deleted individual slice: ${sliceToDelete.name}`);
+      setNotification(`✅ Deleted slice "${sliceToDelete.name}"`);
       setTimeout(() => setNotification(null), 3000);
     }
   };
@@ -1137,9 +1235,9 @@ function App() {
     return [];
   };
 
-  // Function to slice a region into hierarchical child regions
-  const sliceRegion = (regionToSlice: Region, horizontalCuts: number[], verticalCuts: number[]) => {
-    console.log('🔪 Slicing region into hierarchy:', regionToSlice.name, 'with cuts:', { horizontalCuts, verticalCuts });
+  // Function to slice a region (either parent or child) with flat structure
+  const sliceRegion = (regionToSlice: Region, horizontalCuts: number[], verticalCuts: number[], isChildSlice: boolean = false) => {
+    console.log('🔪 Slicing region:', regionToSlice.name, 'with cuts:', { horizontalCuts, verticalCuts, isChildSlice });
 
     // Validate cuts are within region bounds
     const validHorizontalCuts = horizontalCuts.filter(cut => cut > 0 && cut < regionToSlice.height);
@@ -1153,15 +1251,15 @@ function App() {
 
     console.log('📏 Cut boundaries:', { hCuts, vCuts });
 
-    // Generate child regions
-    const childRegions: Region[] = [];
+    // Generate new regions
+    const newRegions: Region[] = [];
     let regionIndex = 0;
 
     for (let i = 0; i < hCuts.length - 1; i++) {
       for (let j = 0; j < vCuts.length - 1; j++) {
-        const childRegion: Region = {
-          id: `${regionToSlice.id}_slice_${regionIndex}`,
-          name: `Slice ${regionIndex + 1}`, // Give slices meaningful names
+        const newRegion: Region = {
+          id: `${regionToSlice.id}_slice_${Date.now()}_${regionIndex}`,
+          name: isChildSlice ? `${regionToSlice.name}.${regionIndex + 1}` : `Slice ${regionIndex + 1}`,
           x: regionToSlice.x + vCuts[j],
           y: regionToSlice.y + hCuts[i],
           width: vCuts[j + 1] - vCuts[j],
@@ -1170,31 +1268,36 @@ function App() {
           borderColor: '#4caf50',
           backgroundColor: 'rgba(76, 175, 80, 0.1)',
           allowOverflow: false,
-          parentId: regionToSlice.id // Set parent relationship
+          parentId: isChildSlice ? regionToSlice.parentId : regionToSlice.id // Maintain parent relationship
         };
 
-        // Validate minimum size (10mm)
-        if (childRegion.width >= 10 && childRegion.height >= 10) {
-          childRegions.push(childRegion);
+        // Validate minimum size (dynamic)
+        if (newRegion.width >= sliceMinSize && newRegion.height >= sliceMinSize) {
+          newRegions.push(newRegion);
           regionIndex++;
         } else {
-          console.warn('⚠️ Skipping region too small:', childRegion.width, 'x', childRegion.height);
+          console.warn('⚠️ Skipping region too small:', newRegion.width, 'x', newRegion.height, 'minimum:', sliceMinSize);
         }
       }
     }
 
-    // Create the updated parent region with children
-    const updatedParentRegion: Region = {
-      ...regionToSlice,
-      children: childRegions,
-      isSliced: true,
-      // Keep original visual properties but mark as sliced
-      borderColor: '#ff9800', // Orange border to indicate it's sliced
-      backgroundColor: 'rgba(255, 152, 0, 0.05)' // Light orange background
-    };
+    if (isChildSlice) {
+      // For child slicing, return the new regions to replace the child
+      console.log('🎯 Generated replacement slices:', newRegions.length, 'for child:', regionToSlice.name);
+      return { replacementRegions: newRegions };
+    } else {
+      // For parent slicing, create hierarchical structure
+      const updatedParentRegion: Region = {
+        ...regionToSlice,
+        children: newRegions,
+        isSliced: true,
+        borderColor: '#ff9800', // Orange border to indicate it's sliced
+        backgroundColor: 'rgba(255, 152, 0, 0.05)' // Light orange background
+      };
 
-    console.log('🎯 Generated hierarchy:', childRegions.length, 'child regions under parent:', updatedParentRegion.name);
-    return { parentRegion: updatedParentRegion, childRegions };
+      console.log('🎯 Generated hierarchy:', newRegions.length, 'child regions under parent:', updatedParentRegion.name);
+      return { parentRegion: updatedParentRegion, childRegions: newRegions };
+    }
   };
 
   // Function to automatically update existing regions when mid-fold line properties change
@@ -2018,8 +2121,8 @@ function App() {
     return `${basePattern}1`;
   };
 
-  // Save Master File functions - Prompt user for name
-  const saveDirectly = async () => {
+  // Save Master File functions - Prompt user for name (or use provided name)
+  const saveDirectly = async (providedFileName?: string) => {
     console.log('🔍 Save button clicked - checking conditions...');
     console.log('isWebCreationMode:', isWebCreationMode);
     console.log('data exists:', !!data);
@@ -2042,6 +2145,10 @@ function App() {
       // Perform overwrite save directly without confirmation
       console.log(`🔄 Updating master file: ${originalMasterFile.name} (revision ${originalMasterFile.revisionNumber} → ${originalMasterFile.revisionNumber + 1})`);
       await performOverwriteSave();
+    } else if (providedFileName) {
+      // Use provided filename (from saveProject flow)
+      console.log('Using provided filename:', providedFileName);
+      await performSave(providedFileName);
     } else {
       console.log('💬 Prompting user for layout name...');
 
@@ -2404,6 +2511,71 @@ function App() {
     }
   };
 
+  // Function to save as new master file (always prompts for name)
+  const saveAsNewMasterFile = async () => {
+    console.log('🔍 Save As button clicked - checking conditions...');
+
+    if (!isWebCreationMode || !data || data.objects.length === 0) {
+      alert('Please create some objects before saving as master file.');
+      return;
+    }
+
+    if (!selectedCustomer) {
+      alert('No customer selected. Please select a customer first.');
+      return;
+    }
+
+    console.log('💬 Prompting user for new master file name...');
+
+    // Prompt for new file name
+    let layoutName = '';
+
+    while (true) {
+      layoutName = prompt('🏷️ Save As New Master File\n\nEnter a name for the new master file:', '') || '';
+
+      console.log('User entered name:', layoutName);
+
+      if (layoutName === null || layoutName === '') {
+        // User cancelled or entered empty
+        const retry = window.confirm('Master file name is required to save. Would you like to try again?');
+        if (!retry) {
+          console.log('User cancelled save as operation');
+          return;
+        }
+        continue; // Ask again
+      }
+
+      if (layoutName.trim()) {
+        // Check if name already exists for this customer
+        try {
+          const result = await masterFileService.getAllMasterFiles({ customerId: selectedCustomer.id });
+          if (result.success && result.data) {
+            const nameExists = result.data.some((file: any) =>
+              file.name.toLowerCase() === layoutName.trim().toLowerCase()
+            );
+
+            if (nameExists) {
+              alert(`❌ A master file named "${layoutName.trim()}" already exists for this customer. Please choose a different name.`);
+              continue; // Ask again
+            }
+          }
+
+          break; // Valid unique name entered
+        } catch (error) {
+          console.error('Error checking existing file names:', error);
+          // Continue anyway if we can't check
+          break;
+        }
+      }
+
+      alert('Please enter a valid master file name (not just spaces).');
+    }
+
+    console.log('Proceeding to save as new file with name:', layoutName.trim());
+    // Save with user-provided name as new file
+    await performSave(layoutName.trim());
+  };
+
   // Function to load project state (for Project Mode)
   const loadProjectState = async (projectState: any, masterFileId: string) => {
     try {
@@ -2480,10 +2652,10 @@ function App() {
     }
   };
 
-  // Function to load empty project from master file template (Project Mode)
+  // Function to load project from master file template (Project Mode)
   const loadEmptyProjectFromMasterFile = async (masterFile: any, masterFileId: string) => {
     try {
-      console.log('🔄 Creating empty project from master file template:', masterFile);
+      console.log('🔄 Creating project from master file template:', masterFile);
 
       // Load customer information for the master file
       if (masterFile.customerId && !selectedCustomer) {
@@ -2507,52 +2679,96 @@ function App() {
       // Store the original master file for header display
       setOriginalMasterFile(masterFile);
 
-      // Create empty mothers based on master file structure
-      const emptyMothers = masterFile.designData.objects
+      // Load the actual master file content (not empty template)
+      const projectMothers = masterFile.designData.objects
         .filter((obj: any) => obj.type?.includes('mother'))
         .map((motherTemplate: any) => {
-          // Create mother with same structure but empty regions
-          const emptyMother = {
+          // Create mother with actual master file content
+          const projectMother = {
             ...motherTemplate,
+            // Keep all regions with their actual structure and properties
             regions: (motherTemplate.regions || []).map((region: any) => ({
               ...region,
-              // Keep region structure but ensure it's empty of content
-              content: null,
-              isEmpty: true
+              // Preserve all region properties from master file
+              id: region.id || `region_${Date.now()}_${Math.random()}`,
+              name: region.name || 'Unnamed Region',
+              x: region.x || 0,
+              y: region.y || 0,
+              width: region.width || 50,
+              height: region.height || 20,
+              margins: region.margins || { top: 2, bottom: 2, left: 2, right: 2 },
+              borderColor: region.borderColor || '#2196f3',
+              backgroundColor: region.backgroundColor || 'rgba(33, 150, 243, 0.1)',
+              allowOverflow: region.allowOverflow || false,
+              // Preserve slice structure if it exists
+              children: region.children || undefined,
+              parentId: region.parentId || undefined,
+              isSliced: region.isSliced || false
             }))
           };
 
-          console.log('👩 Created empty mother from template:', {
-            name: emptyMother.name,
+          console.log('👩 Created project mother from master file:', {
+            name: projectMother.name,
             originalRegions: motherTemplate.regions?.length || 0,
-            emptyRegions: emptyMother.regions?.length || 0
+            projectRegions: projectMother.regions?.length || 0,
+            hasSlices: projectMother.regions?.some((r: any) => r.children?.length > 0) || false
           });
 
-          return emptyMother;
+          return projectMother;
         });
 
-      // Create empty project data structure
-      const emptyProjectData = {
-        document: `Project: ${masterFile.name} (Empty Template)`,
-        totalObjects: emptyMothers.length,
-        objects: emptyMothers,
+      // Create project data structure with actual master file content
+      const projectData = {
+        document: `Project: ${masterFile.name}`,
+        totalObjects: projectMothers.length,
+        objects: projectMothers,
         // Copy master file metadata
         width: masterFile.width,
         height: masterFile.height,
         customerId: masterFile.customerId,
-        description: `Empty project based on ${masterFile.name}`,
+        description: `Project based on ${masterFile.name}`,
         // Project-specific metadata
         isProjectMode: true,
         masterFileId: masterFileId,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        // Preserve master file design data
+        originalMasterFile: {
+          id: masterFileId,
+          name: masterFile.name,
+          loadedAt: new Date().toISOString()
+        }
       };
 
-      // Set the empty project data
-      setData(emptyProjectData);
-      setWebCreationData(emptyProjectData);
+      // Set the project data with master file content
+      setData(projectData);
+      setWebCreationData(projectData);
 
-      // Clear any existing region contents (start completely empty)
-      setRegionContents(new Map());
+      // Initialize region contents from master file (if any exist)
+      const initialRegionContents = new Map();
+
+      // Check if master file has any existing content in regions
+      projectMothers.forEach((mother: any) => {
+        if (mother.regions) {
+          mother.regions.forEach((region: any) => {
+            // If region has content from master file, preserve it
+            if (region.content && region.content.length > 0) {
+              initialRegionContents.set(region.id, region.content);
+            }
+
+            // Also check child regions (slices) for content
+            if (region.children) {
+              region.children.forEach((childRegion: any) => {
+                if (childRegion.content && childRegion.content.length > 0) {
+                  initialRegionContents.set(childRegion.id, childRegion.content);
+                }
+              });
+            }
+          });
+        }
+      });
+
+      setRegionContents(initialRegionContents);
+      console.log('📋 Initialized region contents from master file:', initialRegionContents.size, 'regions with content');
 
       // Reset view state
       setZoom(1);
@@ -2568,13 +2784,13 @@ function App() {
       const urlParams = new URLSearchParams(window.location.search);
       const projectName = urlParams.get('projectName') || 'Project';
 
-      console.log(`✅ Empty Project Created! Name: ${projectName}, Template: ${masterFile.name}, Empty Mothers: ${emptyMothers.length}`);
+      console.log(`✅ Project Created from Master File! Name: ${projectName}, Template: ${masterFile.name}, Mothers: ${projectMothers.length}, Regions with content: ${initialRegionContents.size}`);
 
-      setNotification(`✅ Empty project created from ${masterFile.name}`);
+      setNotification(`✅ Project created from ${masterFile.name} with ${projectMothers.length} mothers and ${initialRegionContents.size} content regions`);
       setTimeout(() => setNotification(null), 3000);
 
     } catch (error) {
-      console.error('❌ Error creating empty project:', error);
+      console.error('❌ Error creating project from master file:', error);
       throw error;
     } finally {
       setIsLoadingMasterFile(false);
@@ -3293,7 +3509,7 @@ function App() {
       console.log('💾 Saving all mothers to master file:', motherCount);
 
       try {
-        await saveDirectly();
+        await saveDirectly(customName || undefined);
         setNotification(`✅ Saved ${motherCount} mothers to master file`);
         setTimeout(() => setNotification(null), 3000);
       } catch (error) {
@@ -3900,13 +4116,47 @@ function App() {
               boxShadow: '0 3px 6px rgba(76, 175, 80, 0.3)'
             }}
             title={(() => {
-              const urlParams = new URLSearchParams(window.location.search);
-              const layoutId = urlParams.get('layoutId');
-              return layoutId ? "Save project (overwrite existing)" : "Save project (enter name)";
+              if (isMasterFileMode) {
+                return isEditMode ? "Save master file (overwrite existing)" : "Save master file (enter name)";
+              } else {
+                const urlParams = new URLSearchParams(window.location.search);
+                const layoutId = urlParams.get('layoutId');
+                return layoutId ? "Save project (overwrite existing)" : "Save project (enter name)";
+              }
             })()}
           >
             💾 SAVE
           </button>
+
+          {/* Save As Button - Only show in Master File Mode when editing existing file */}
+          {isMasterFileMode && isEditMode && (
+            <button
+              onClick={saveAsNewMasterFile}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'linear-gradient(135deg, #1976d2 0%, #2196f3 100%)';
+                e.currentTarget.style.transform = 'scale(1.05)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'linear-gradient(135deg, #2196f3 0%, #1976d2 100%)';
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
+              style={{
+                background: 'linear-gradient(135deg, #2196f3 0%, #1976d2 100%)',
+                border: '2px solid #2196f3',
+                color: 'white',
+                fontSize: '12px',
+                padding: '8px 16px',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                transition: 'all 0.2s ease',
+                boxShadow: '0 3px 6px rgba(33, 150, 243, 0.3)'
+              }}
+              title="Save as new master file (enter name)"
+            >
+              💾 SAVE AS
+            </button>
+          )}
 
           {/* Save As Button - Only show when editing existing layout */}
           {(() => {
@@ -4207,29 +4457,61 @@ function App() {
 
                 return (
                   <>
-                    {/* Trash All Slices Button - appears above first region */}
+                    {/* Trash Buttons - different for Master File vs Project Mode */}
                     {motherRegions.length > 0 && (
-                      <div style={{ margin: '4px 0 8px 20px' }}>
+                      <div style={{ margin: '4px 0 8px 20px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+
+                        {/* Trash All Regions Button - Master File Management only */}
+                        {isMasterFileMode && (
+                          <button
+                            onClick={() => trashAllRegions(mother.object)}
+                            style={{
+                              padding: '4px 8px',
+                              border: 'none',
+                              borderRadius: '4px',
+                              background: 'linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%)',
+                              color: '#ffeb3b',
+                              fontSize: '10px',
+                              fontWeight: 'bold',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s ease',
+                              boxShadow: '0 2px 4px rgba(211, 47, 47, 0.3)'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = 'linear-gradient(135deg, #f44336 0%, #d32f2f 100%)';
+                              e.currentTarget.style.transform = 'scale(1.05)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = 'linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%)';
+                              e.currentTarget.style.transform = 'scale(1)';
+                            }}
+                            title="Delete all regions completely"
+                          >
+                            🗑️ Trash All Regions ({motherRegions.length})
+                          </button>
+                        )}
+
+                        {/* Trash All Slices Button - Both Master File and Project Mode */}
                         <button
                           onClick={() => trashAllSlices(mother.object)}
                           style={{
                             padding: '4px 8px',
                             border: 'none',
                             borderRadius: '4px',
-                            background: 'linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%)',
-                            color: '#ffeb3b',
+                            background: 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)',
+                            color: 'white',
                             fontSize: '10px',
                             fontWeight: 'bold',
                             cursor: 'pointer',
                             transition: 'all 0.2s ease',
-                            boxShadow: '0 2px 4px rgba(211, 47, 47, 0.3)'
+                            boxShadow: '0 2px 4px rgba(255, 152, 0, 0.3)'
                           }}
                           onMouseEnter={(e) => {
-                            e.currentTarget.style.background = 'linear-gradient(135deg, #f44336 0%, #d32f2f 100%)';
+                            e.currentTarget.style.background = 'linear-gradient(135deg, #ffa726 0%, #ff9800 100%)';
                             e.currentTarget.style.transform = 'scale(1.05)';
                           }}
                           onMouseLeave={(e) => {
-                            e.currentTarget.style.background = 'linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%)';
+                            e.currentTarget.style.background = 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)';
                             e.currentTarget.style.transform = 'scale(1)';
                           }}
                           title="Delete all slices while preserving parent regions"
@@ -4348,41 +4630,77 @@ function App() {
                         </div>
                       </div>
 
-                      {/* Slice/Delete buttons - Show in both Master File Mode and Project Mode */}
+                      {/* Dynamic buttons based on slice state */}
                       {(isMasterFileMode || isProjectMode) && (
                         <div style={{ display: 'flex', gap: '4px' }}>
-                          {/* Slice button - Available in both modes */}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSlicingRegion(region);
-                              setHighlightedRegion(region.id); // Set highlighting for slicing
-                              setSliceLines({ horizontal: [], vertical: [] }); // Reset slice lines
-                              setSliceMode('visual'); // Default to visual mode
-                              setShowSliceDialog(true);
-                              setSlicePopupPosition({ x: 100, y: 100 }); // Reset popup position
-                            }}
-                            style={{
-                              background: '#ff9800',
-                              border: 'none',
-                              color: 'white',
-                              fontSize: '10px',
-                              padding: '2px 6px',
-                              borderRadius: '3px',
-                              cursor: 'pointer'
-                            }}
-                            title="Slice region into smaller regions"
-                          >
-                            ✂️
-                          </button>
-
-                          {/* Delete button - Only in Master File Mode */}
-                          {isMasterFileMode && (
+                          {/* If region has no slices - show slice button */}
+                          {(!region.children || region.children.length === 0) && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                // Use confirmation function for single region deletion
-                                trashSingleRegion(mother.object, region);
+                                setSlicingRegion(region);
+                                setHighlightedRegion(region.id);
+                                setSliceLines({ horizontal: [], vertical: [] });
+                                setSliceMode('visual');
+                                setShowSliceDialog(true);
+                                setSlicePopupPosition({ x: 100, y: 100 });
+                              }}
+                              style={{
+                                background: '#ff9800',
+                                border: 'none',
+                                color: 'white',
+                                fontSize: '10px',
+                                padding: '2px 6px',
+                                borderRadius: '3px',
+                                cursor: 'pointer'
+                              }}
+                              title="Slice region into smaller regions"
+                            >
+                              ✂️
+                            </button>
+                          )}
+
+                          {/* If region has slices - show trash all slices button */}
+                          {region.children && region.children.length > 0 && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const confirmed = window.confirm(`Delete all ${region.children?.length} slices from "${region.name}"?\n\nThis will remove all slices but keep the parent region.\n\nThis action cannot be undone.`);
+                                if (confirmed) {
+                                  // Reset region to unsliced state
+                                  if (!data) return;
+                                  const updatedObjects = data.objects.map(obj => {
+                                    if (obj.name === mother.object.name) {
+                                      const regions = (obj as any).regions || [];
+                                      const updatedRegions = regions.map((r: Region) => {
+                                        if (r.id === region.id) {
+                                          return {
+                                            ...r,
+                                            children: undefined,
+                                            isSliced: false,
+                                            borderColor: '#2196f3',
+                                            backgroundColor: 'rgba(33, 150, 243, 0.1)'
+                                          };
+                                        }
+                                        return r;
+                                      });
+                                      return { ...obj, regions: updatedRegions };
+                                    }
+                                    return obj;
+                                  });
+                                  const updatedData = { ...data, objects: updatedObjects };
+                                  setData(updatedData);
+
+                                  // Clear slice contents
+                                  const updatedContents = new Map(regionContents);
+                                  region.children?.forEach((child: Region) => {
+                                    updatedContents.delete(child.id);
+                                  });
+                                  setRegionContents(updatedContents);
+
+                                  setNotification(`✅ Deleted all slices from "${region.name}"`);
+                                  setTimeout(() => setNotification(null), 3000);
+                                }
                               }}
                               style={{
                                 background: '#f44336',
@@ -4393,7 +4711,29 @@ function App() {
                                 borderRadius: '3px',
                                 cursor: 'pointer'
                               }}
-                              title="Delete region"
+                              title={`Delete all ${region.children?.length} slices`}
+                            >
+                              🗑️
+                            </button>
+                          )}
+
+                          {/* Delete button for entire region - Only in Master File Mode */}
+                          {isMasterFileMode && (!region.children || region.children.length === 0) && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                trashSingleRegion(mother.object, region);
+                              }}
+                              style={{
+                                background: '#9e9e9e',
+                                border: 'none',
+                                color: 'white',
+                                fontSize: '10px',
+                                padding: '2px 6px',
+                                borderRadius: '3px',
+                                cursor: 'pointer'
+                              }}
+                              title="Delete entire region"
                             >
                               🗑️
                             </button>
@@ -4588,9 +4928,10 @@ function App() {
                                   </div>
                                 </div>
 
-                                {/* Slice button for child regions */}
+                                {/* Slice and Delete buttons for child regions */}
                                 {(isMasterFileMode || isProjectMode) && (
                                   <div style={{ display: 'flex', gap: '2px' }}>
+                                    {/* Slice button - creates new slices at same level */}
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
@@ -4610,9 +4951,29 @@ function App() {
                                         borderRadius: '2px',
                                         cursor: 'pointer'
                                       }}
-                                      title="Slice child region"
+                                      title="Slice this region (replaces with multiple slices)"
                                     >
                                       ✂️
+                                    </button>
+
+                                    {/* Delete button - removes this specific slice */}
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        deleteIndividualSlice(mother.object, region, childRegion);
+                                      }}
+                                      style={{
+                                        background: '#f44336',
+                                        border: 'none',
+                                        color: 'white',
+                                        fontSize: '8px',
+                                        padding: '1px 4px',
+                                        borderRadius: '2px',
+                                        cursor: 'pointer'
+                                      }}
+                                      title="Delete this slice"
+                                    >
+                                      🗑️
                                     </button>
                                   </div>
                                 )}
@@ -7038,7 +7399,7 @@ function App() {
                     }
                   </p>
                   <button
-                    onClick={saveDirectly}
+                    onClick={() => saveDirectly()}
                     style={{
                       background: hasMotherObjects()
                         ? 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)'
@@ -8848,6 +9209,60 @@ function App() {
               </div>
 
               <div style={{ padding: '15px' }}>
+                {/* Minimum Size Input */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  marginBottom: '15px',
+                  padding: '10px',
+                  background: '#f8f9fa',
+                  borderRadius: '6px',
+                  border: '1px solid #e9ecef'
+                }}>
+                  <label style={{
+                    fontWeight: 'bold',
+                    color: '#495057',
+                    fontSize: '14px'
+                  }}>
+                    Minimum Region Size:
+                  </label>
+                  <input
+                    type="number"
+                    value={sliceMinSize}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value);
+                      if (value >= 0.1 && value <= 50) { // Reasonable range
+                        setSliceMinSize(value);
+                      }
+                    }}
+                    min="0.1"
+                    max="50"
+                    step="0.1"
+                    style={{
+                      width: '60px',
+                      padding: '4px 8px',
+                      border: '1px solid #ced4da',
+                      borderRadius: '4px',
+                      fontSize: '14px',
+                      textAlign: 'center'
+                    }}
+                  />
+                  <span style={{
+                    color: '#6c757d',
+                    fontSize: '14px'
+                  }}>
+                    mm
+                  </span>
+                  <span style={{
+                    color: '#6c757d',
+                    fontSize: '12px',
+                    fontStyle: 'italic'
+                  }}>
+                    (Regions smaller than this will be skipped)
+                  </span>
+                </div>
+
                 {/* Mode Tabs */}
               <div style={{
                 display: 'flex',
@@ -9142,7 +9557,7 @@ function App() {
                     const width = vCuts[j + 1] - vCuts[j];
                     const height = hCuts[i + 1] - hCuts[i];
 
-                    if (width >= 10 && height >= 10) {
+                    if (width >= sliceMinSize && height >= sliceMinSize) {
                       validRegions++;
                     } else {
                       invalidRegions++;
@@ -9155,7 +9570,7 @@ function App() {
                     <div><strong>Result:</strong> Will create {validRegions} valid regions</div>
                     {invalidRegions > 0 && (
                       <div style={{ color: '#d32f2f', marginTop: '5px' }}>
-                        ⚠️ {invalidRegions} regions will be skipped (smaller than 10mm minimum)
+                        ⚠️ {invalidRegions} regions will be skipped (smaller than {sliceMinSize}mm minimum)
                       </div>
                     )}
                     {validRegions === 0 && (
@@ -9216,68 +9631,95 @@ function App() {
 
                   if (!slicingRegion) return;
 
-                  // Perform the slice operation (now returns hierarchical structure)
-                  const sliceResult = sliceRegion(slicingRegion, sliceLines.horizontal, sliceLines.vertical);
+                  // Determine if we're slicing a child region
+                  const isChildSlice = !!slicingRegion.parentId;
 
-                  if (sliceResult.childRegions.length === 0) {
-                    alert('❌ No valid regions could be created. Check that cuts create regions larger than 10mm.');
-                    return;
-                  }
+                  // Perform the slice operation
+                  const sliceResult = sliceRegion(slicingRegion, sliceLines.horizontal, sliceLines.vertical, isChildSlice);
 
-                  // Find the mother object that contains this region
-                  const currentData = data || webCreationData;
-                  if (!currentData) return;
-
-                  const updatedObjects = currentData.objects.map(obj => {
-                    if (obj.type === 'mother') {
-                      const motherRegions = (obj as any).regions || [];
-                      const regionIndex = motherRegions.findIndex((r: Region) => r.id === slicingRegion.id);
-
-                      if (regionIndex !== -1) {
-                        // Replace the original region with the updated parent region (containing children)
-                        const updatedRegions = [
-                          ...motherRegions.slice(0, regionIndex),
-                          sliceResult.parentRegion, // Replace with parent that has children
-                          ...motherRegions.slice(regionIndex + 1)
-                        ];
-
-                        console.log('🔄 Updating mother regions with hierarchy:', {
-                          totalRegions: updatedRegions.length,
-                          parentRegion: sliceResult.parentRegion.name,
-                          childCount: sliceResult.childRegions.length
-                        });
-
-                        return {
-                          ...obj,
-                          regions: updatedRegions
-                        };
-                      }
+                  if (isChildSlice) {
+                    // Child slicing - replace the child with new slices at same level
+                    if (!sliceResult.replacementRegions || sliceResult.replacementRegions.length === 0) {
+                      alert(`❌ No valid regions could be created. Check that cuts create regions larger than ${sliceMinSize}mm.`);
+                      return;
                     }
-                    return obj;
-                  });
 
-                  const updatedData = {
-                    ...currentData,
-                    objects: updatedObjects
-                  };
+                    const currentData = data || webCreationData;
+                    if (!currentData) return;
 
-                  // Update the data
-                  setData(updatedData);
-                  setWebCreationData(updatedData);
+                    const updatedObjects = currentData.objects.map(obj => {
+                      if (obj.type === 'mother') {
+                        const motherRegions = (obj as any).regions || [];
+                        const updatedRegions = motherRegions.map((region: Region) => {
+                          if (region.id === slicingRegion.parentId && region.children) {
+                            // Replace the sliced child with new slices
+                            const updatedChildren = region.children.flatMap((child: Region) =>
+                              child.id === slicingRegion.id ? sliceResult.replacementRegions! : [child]
+                            );
+                            return { ...region, children: updatedChildren };
+                          }
+                          return region;
+                        });
+                        return { ...obj, regions: updatedRegions };
+                      }
+                      return obj;
+                    });
 
-                  // Clear any existing region contents for the sliced region
-                  const updatedContents = new Map(regionContents);
-                  updatedContents.delete(slicingRegion.id);
-                  setRegionContents(updatedContents);
+                    const updatedData = { ...currentData, objects: updatedObjects };
+                    setData(updatedData);
+                    setWebCreationData(updatedData);
+
+                    // Clear content for the original slice
+                    const updatedContents = new Map(regionContents);
+                    updatedContents.delete(slicingRegion.id);
+                    setRegionContents(updatedContents);
+
+                    setNotification(`✂️ Slice "${slicingRegion.name}" replaced with ${sliceResult.replacementRegions.length} new slices`);
+                  } else {
+                    // Parent slicing - create hierarchical structure
+                    if (!sliceResult.childRegions || sliceResult.childRegions.length === 0) {
+                      alert(`❌ No valid regions could be created. Check that cuts create regions larger than ${sliceMinSize}mm.`);
+                      return;
+                    }
+
+                    const currentData = data || webCreationData;
+                    if (!currentData) return;
+
+                    const updatedObjects = currentData.objects.map(obj => {
+                      if (obj.type === 'mother') {
+                        const motherRegions = (obj as any).regions || [];
+                        const regionIndex = motherRegions.findIndex((r: Region) => r.id === slicingRegion.id);
+
+                        if (regionIndex !== -1) {
+                          const updatedRegions = [
+                            ...motherRegions.slice(0, regionIndex),
+                            sliceResult.parentRegion!, // Replace with parent that has children
+                            ...motherRegions.slice(regionIndex + 1)
+                          ];
+
+                          return { ...obj, regions: updatedRegions };
+                        }
+                      }
+                      return obj;
+                    });
+
+                    const updatedData = { ...currentData, objects: updatedObjects };
+                    setData(updatedData);
+                    setWebCreationData(updatedData);
+
+                    // Clear content for the original region
+                    const updatedContents = new Map(regionContents);
+                    updatedContents.delete(slicingRegion.id);
+                    setRegionContents(updatedContents);
+
+                    setNotification(`✂️ Region "${slicingRegion.name}" sliced into ${sliceResult.childRegions.length} child regions`);
+                  }
 
                   // Close the dialog
                   setShowSliceDialog(false);
                   setSlicingRegion(null);
                   setHighlightedRegion(null);
                   setSliceLines({ horizontal: [], vertical: [] });
-
-                  // Show success message
-                  setNotification(`✂️ Region "${slicingRegion.name}" sliced into ${sliceResult.childRegions.length} child regions`);
                   setTimeout(() => setNotification(null), 3000);
 
                   console.log('✅ Slice operation completed successfully');
