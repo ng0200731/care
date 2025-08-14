@@ -4,6 +4,7 @@ import SonDetailsPanel from './SonDetailsPanel';
 import NavigationButtons from './components/NavigationButtons';
 import SonObjectManager, { SonObject } from './components/content-editors/SonObjectManager';
 import { masterFileService } from './services/masterFileService';
+import { customerService, Customer } from './services/customerService';
 import ContentMenu, { ContentType } from './components/ContentMenu';
 import UniversalContentDialog, { UniversalContentData } from './components/dialogs/UniversalContentDialog';
 import jsPDF from 'jspdf';
@@ -13,15 +14,7 @@ import jsPDF from 'jspdf';
 // Import version from package.json
 const packageJson = require('../package.json');
 
-interface Customer {
-  id: string;
-  customerName: string;
-  person: string;
-  email: string;
-  phone: string;
-  address: string;
-  createdAt?: string;
-}
+
 
 interface Region {
   id: string;
@@ -2343,8 +2336,9 @@ function App() {
           customerName: masterFile.designData.metadata?.customerName || 'Unknown Customer',
           person: '',
           email: '',
-          phone: '',
-          address: ''
+          tel: '',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
         };
         setSelectedCustomer(customer);
         console.log('📋 Customer restored from master file:', customer.customerName);
@@ -2372,6 +2366,20 @@ function App() {
   const loadProjectState = async (projectState: any, masterFileId: string) => {
     try {
       console.log('🔄 Loading project state:', projectState);
+
+      // Load customer information if we have canvas data with customerId
+      if (projectState.canvasData?.customerId && !selectedCustomer) {
+        console.log('🔄 Loading customer information for project state:', projectState.canvasData.customerId);
+        try {
+          const customer = await customerService.getCustomerById(projectState.canvasData.customerId);
+          if (customer) {
+            setSelectedCustomer(customer);
+            console.log('✅ Customer loaded for project state:', customer.customerName);
+          }
+        } catch (customerError) {
+          console.error('⚠️ Could not load customer for project state:', customerError);
+        }
+      }
 
       // Enter web creation mode and edit mode
       setIsWebCreationMode(true);
@@ -2435,10 +2443,27 @@ function App() {
     try {
       console.log('🔄 Creating empty project from master file template:', masterFile);
 
+      // Load customer information for the master file
+      if (masterFile.customerId && !selectedCustomer) {
+        console.log('🔄 Loading customer information for project mode:', masterFile.customerId);
+        try {
+          const customer = await customerService.getCustomerById(masterFile.customerId);
+          if (customer) {
+            setSelectedCustomer(customer);
+            console.log('✅ Customer loaded for project mode:', customer.customerName);
+          }
+        } catch (customerError) {
+          console.error('⚠️ Could not load customer for project mode:', customerError);
+        }
+      }
+
       // Enter web creation mode and edit mode
       setIsWebCreationMode(true);
       setIsEditMode(true);
       setEditingMasterFileId(masterFileId);
+
+      // Store the original master file for header display
+      setOriginalMasterFile(masterFile);
 
       // Create empty mothers based on master file structure
       const emptyMothers = masterFile.designData.objects
@@ -3160,8 +3185,60 @@ function App() {
     setTimeout(() => setNotification(null), 3000);
   };
 
-  // Function to save everything to project (not master file)
-  const saveAllMothers = async () => {
+  // Function to save project with overwrite logic
+  const saveProject = async () => {
+    // Check if we're editing an existing layout
+    const urlParams = new URLSearchParams(window.location.search);
+    const layoutId = urlParams.get('layoutId');
+
+    if (layoutId) {
+      // Existing layout - overwrite (no name prompt needed)
+      await saveProjectWithOption('overwrite', null);
+    } else {
+      // New layout - prompt for name
+      const layoutName = window.prompt(
+        '💾 Save Layout\n\nEnter a name for this layout:',
+        `Layout ${new Date().toLocaleDateString()}`
+      );
+
+      if (layoutName === null) {
+        // User cancelled
+        console.log('❌ Save cancelled by user');
+        return;
+      }
+
+      if (layoutName.trim() === '') {
+        alert('❌ Layout name cannot be empty');
+        return;
+      }
+
+      await saveProjectWithOption('new', layoutName.trim());
+    }
+  };
+
+  // Function to save project as new (always prompts for name)
+  const saveProjectAs = async () => {
+    const layoutName = window.prompt(
+      '💾 Save As New Layout\n\nEnter a name for the new layout:',
+      `Layout ${new Date().toLocaleDateString()}`
+    );
+
+    if (layoutName === null) {
+      // User cancelled
+      console.log('❌ Save As cancelled by user');
+      return;
+    }
+
+    if (layoutName.trim() === '') {
+      alert('❌ Layout name cannot be empty');
+      return;
+    }
+
+    await saveProjectWithOption('new', layoutName.trim());
+  };
+
+  // Core save function with save option parameter
+  const saveProjectWithOption = async (saveOption: 'overwrite' | 'new', customName: string | null = null) => {
     if (!isProjectMode) {
       // For non-project mode, use original master file saving
       const currentData = data || webCreationData;
@@ -3192,19 +3269,32 @@ function App() {
     }
 
     const motherCount = currentData.objects.filter(obj => obj.type?.includes('mother')).length;
-    console.log('💾 Project Mode: Saving everything to project (not master file):', {
+
+    // Get layout information
+    const urlParams = new URLSearchParams(window.location.search);
+    const layoutId = urlParams.get('layoutId');
+    const isEditingExisting = !!layoutId;
+
+    console.log('💾 Project Mode: Saving to project with option:', {
       motherCount,
       regionContents: regionContents.size,
-      projectMode: isProjectMode
+      projectMode: isProjectMode,
+      saveOption,
+      isEditingExisting,
+      layoutId
     });
 
     try {
       // Create complete layout state for parent project
       const layoutState = {
-        // Layout metadata
-        id: `layout_${Date.now()}`,
-        name: `Layout ${new Date().toLocaleString()}`,
-        createdAt: new Date().toISOString(),
+        // Layout metadata - use existing ID if overwriting, new ID if saving as new
+        id: saveOption === 'overwrite' && layoutId ? layoutId : `layout_${Date.now()}`,
+        name: customName || (saveOption === 'overwrite' && layoutId
+          ? `Layout ${layoutId.replace('layout_', '')} (Updated ${new Date().toLocaleString()})`
+          : `Layout ${new Date().toLocaleString()}`),
+        createdAt: saveOption === 'overwrite' && layoutId
+          ? new Date().toISOString() // Keep original creation time if we had it
+          : new Date().toISOString(),
         updatedAt: new Date().toISOString(),
 
         // Canvas data
@@ -3218,9 +3308,12 @@ function App() {
           panY
         },
         // Metadata
-        version: '2.1.78',
+        version: '2.1.89',
         motherCount: motherCount,
-        contentObjectCount: regionContents.size
+        contentObjectCount: regionContents.size,
+        // Save metadata
+        saveType: saveOption,
+        originalLayoutId: layoutId
       };
 
       // Get project information from URL
@@ -3253,7 +3346,8 @@ function App() {
       console.log('✅ Layout saved to parent project:', result);
 
       // Show success notification
-      setNotification(`✅ Layout saved to project: ${motherCount} mothers, ${regionContents.size} content objects`);
+      const actionText = saveOption === 'overwrite' && layoutId ? 'overwritten' : 'saved as new';
+      setNotification(`✅ Layout ${actionText} in project: ${motherCount} mothers, ${regionContents.size} content objects`);
 
       // Redirect to parent project page after short delay
       setTimeout(() => {
@@ -3274,29 +3368,63 @@ function App() {
         // Get existing layouts or create empty array
         const existingLayouts = JSON.parse(localStorage.getItem(projectStorageKey) || '[]');
 
-        // Create layout state for fallback
+        // Create layout state for fallback (same structure as main save)
         const fallbackLayoutState = {
-          id: `layout_${Date.now()}`,
-          name: `Layout ${new Date().toLocaleString()}`,
-          createdAt: new Date().toISOString(),
+          // Layout metadata - use existing ID if overwriting, new ID if saving as new
+          id: saveOption === 'overwrite' && layoutId ? layoutId : `layout_${Date.now()}`,
+          name: customName || (saveOption === 'overwrite' && layoutId
+            ? `Layout ${layoutId.replace('layout_', '')} (Updated ${new Date().toLocaleString()})`
+            : `Layout ${new Date().toLocaleString()}`),
+          createdAt: saveOption === 'overwrite' && layoutId
+            ? new Date().toISOString() // Keep original creation time if we had it
+            : new Date().toISOString(),
           updatedAt: new Date().toISOString(),
+
+          // Canvas data
           canvasData: currentData,
+          // Content objects in regions
           regionContents: Object.fromEntries(regionContents),
-          viewState: { zoom, panX, panY },
-          version: '2.1.80',
+          // Canvas view state
+          viewState: {
+            zoom,
+            panX,
+            panY
+          },
+          // Metadata
+          version: '2.1.90',
           motherCount: motherCount,
-          contentObjectCount: regionContents.size
+          contentObjectCount: regionContents.size,
+          // Save metadata
+          saveType: saveOption,
+          originalLayoutId: layoutId
         };
 
-        // Add new layout
-        existingLayouts.push(fallbackLayoutState);
+        // Handle overwrite vs new save
+        if (saveOption === 'overwrite' && layoutId) {
+          // Find and replace existing layout
+          const existingIndex = existingLayouts.findIndex((layout: any) => layout.id === layoutId);
+          if (existingIndex !== -1) {
+            // Update existing layout
+            existingLayouts[existingIndex] = fallbackLayoutState;
+            console.log('🔄 Overwriting existing layout in localStorage:', layoutId);
+          } else {
+            // Layout not found, add as new
+            existingLayouts.push(fallbackLayoutState);
+            console.log('⚠️ Layout not found for overwrite, saving as new:', layoutId);
+          }
+        } else {
+          // Add new layout
+          existingLayouts.push(fallbackLayoutState);
+          console.log('➕ Adding new layout to localStorage:', fallbackLayoutState.id);
+        }
 
         // Save updated layouts array
         localStorage.setItem(projectStorageKey, JSON.stringify(existingLayouts));
         console.log('💾 Saved layout to localStorage as fallback:', projectStorageKey);
         console.log('📊 Layout data saved:', fallbackLayoutState);
 
-        setNotification(`✅ Layout saved to project (local): ${motherCount} mothers, ${regionContents.size} content objects`);
+        const actionText = saveOption === 'overwrite' && layoutId ? 'overwritten' : 'saved as new';
+        setNotification(`✅ Layout ${actionText} in project (local): ${motherCount} mothers, ${regionContents.size} content objects`);
 
         // Redirect to parent project page after short delay
         setTimeout(() => {
@@ -3310,6 +3438,11 @@ function App() {
         alert('❌ Error saving project. Please try again.');
       }
     }
+  };
+
+  // Legacy function for backward compatibility - defaults to save as new
+  const saveAllMothers = async () => {
+    await saveProjectWithOption('new', null);
   };
 
   // Function to generate PDF with all mothers
@@ -3701,8 +3834,9 @@ function App() {
           borderRadius: '8px',
           border: '2px solid #ddd'
         }}>
+          {/* Save Button - Always visible */}
           <button
-            onClick={saveAllMothers}
+            onClick={saveProject}
             onMouseEnter={(e) => {
               e.currentTarget.style.background = 'linear-gradient(135deg, #45a049 0%, #4CAF50 100%)';
               e.currentTarget.style.transform = 'scale(1.05)';
@@ -3723,10 +3857,48 @@ function App() {
               transition: 'all 0.2s ease',
               boxShadow: '0 3px 6px rgba(76, 175, 80, 0.3)'
             }}
-            title="Save everything for project"
+            title={(() => {
+              const urlParams = new URLSearchParams(window.location.search);
+              const layoutId = urlParams.get('layoutId');
+              return layoutId ? "Save project (overwrite existing)" : "Save project (enter name)";
+            })()}
           >
-            💾 SAVE EVERYTHING FOR PROJECT
+            💾 SAVE
           </button>
+
+          {/* Save As Button - Only show when editing existing layout */}
+          {(() => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const layoutId = urlParams.get('layoutId');
+            return layoutId ? (
+              <button
+                onClick={saveProjectAs}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'linear-gradient(135deg, #1976d2 0%, #2196f3 100%)';
+                  e.currentTarget.style.transform = 'scale(1.05)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'linear-gradient(135deg, #2196f3 0%, #1976d2 100%)';
+                  e.currentTarget.style.transform = 'scale(1)';
+                }}
+                style={{
+                  background: 'linear-gradient(135deg, #2196f3 0%, #1976d2 100%)',
+                  border: '2px solid #2196f3',
+                  color: 'white',
+                  fontSize: '12px',
+                  padding: '8px 16px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  transition: 'all 0.2s ease',
+                  boxShadow: '0 3px 6px rgba(33, 150, 243, 0.3)'
+                }}
+                title="Save as new project layout (enter name)"
+              >
+                💾 SAVE AS
+              </button>
+            ) : null;
+          })()}
 
           <button
             onClick={generatePDFAllMothers}
@@ -5865,8 +6037,8 @@ function App() {
           }
         `}
       </style>
-      {/* Customer Header and Navigation */}
-      {selectedCustomer && (
+      {/* Header and Navigation - Show for both master file and project modes */}
+      {(selectedCustomer || context === 'projects') && (
         <>
           {/* Navigation Buttons */}
           <NavigationButtons
@@ -5878,8 +6050,8 @@ function App() {
                   : "/coordinate-viewer"
             }
             previousPageLabel={
-              context === 'projects' && projectName
-                ? `Project: ${decodeURIComponent(projectName)}`
+              context === 'projects' && projectSlug
+                ? `Project: ${projectSlug}`
                 : isEditMode
                   ? "Master Files Management"
                   : "Create Method"
@@ -5888,22 +6060,32 @@ function App() {
             showPreviousButton={true}
           />
 
-          {/* Customer Info Header */}
+          {/* Header - Different for Project Mode vs Master File Mode */}
           <div style={{
             background: '#2d3748',
             color: 'white',
             padding: '12px 20px',
             borderBottom: '1px solid #4a5568'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600' }}>
-                🏷️ Care Label Designer - {selectedCustomer.customerName}
-                {originalMasterFile && (
-                  <span style={{ color: '#81c784', marginLeft: '10px' }}>
-                    • Editing: {originalMasterFile.name}
-                  </span>
-                )}
-              </h3>
+            {/* System Title and Status */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 'bold' }}>
+                  🏷️ Care Label Layout System
+                </h2>
+                <span style={{
+                  fontSize: '12px',
+                  color: '#68d391',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px'
+                }}>
+                  🟢 System Online
+                </span>
+                <span style={{ fontSize: '12px', color: '#a0aec0' }}>
+                  {new Date().toLocaleDateString()}
+                </span>
+              </div>
               <span style={{
                 fontSize: '12px',
                 color: '#a0aec0',
@@ -5917,14 +6099,65 @@ function App() {
                 v{packageJson.version}
               </span>
             </div>
-            <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#a0aec0' }}>
-              Contact: {selectedCustomer.person} • {selectedCustomer.email}
-              {originalMasterFile && (
-                <span style={{ marginLeft: '10px', color: '#90caf9' }}>
-                  • Master File ID: {originalMasterFile.id}
-                </span>
-              )}
-            </p>
+
+            {/* Mode-specific content */}
+            {context === 'projects' ? (
+              // Project Mode Header
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '14px', color: '#a0aec0' }}>
+                    ← Project: {selectedCustomer?.customerName || (() => {
+                      // Extract customer name from project slug (e.g., "fall2025-ttt" -> "TTT")
+                      if (projectSlug) {
+                        const parts = projectSlug.split('-');
+                        const lastPart = parts[parts.length - 1];
+                        return lastPart.toUpperCase();
+                      }
+                      return 'Loading Customer';
+                    })()} - {decodeURIComponent(projectName || projectSlug || 'Unknown Project')} - {originalMasterFile?.name || (isLoadingMasterFile ? 'Loading...' : 'Master File')}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#81c784' }}>
+                    🏷️ Care Label Designer - Project Mode
+                  </h3>
+                </div>
+                <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#a0aec0' }}>
+                  Contact: {selectedCustomer?.person || 'Loading'} • {selectedCustomer?.email || 'Loading'}
+                  {(() => {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const layoutId = urlParams.get('layoutId');
+                    return layoutId ? (
+                      <span style={{ marginLeft: '10px', color: '#90caf9' }}>
+                        • Layout ID: {layoutId}
+                      </span>
+                    ) : null;
+                  })()}
+                </p>
+              </div>
+            ) : (
+              // Master File Mode Header (original)
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600' }}>
+                    🏷️ Care Label Designer - {selectedCustomer?.customerName || 'Loading Customer'}
+                    {originalMasterFile && (
+                      <span style={{ color: '#81c784', marginLeft: '10px' }}>
+                        • Editing: {originalMasterFile.name}
+                      </span>
+                    )}
+                  </h3>
+                </div>
+                <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#a0aec0' }}>
+                  Contact: {selectedCustomer?.person || 'Loading'} • {selectedCustomer?.email || 'Loading'}
+                  {originalMasterFile && (
+                    <span style={{ marginLeft: '10px', color: '#90caf9' }}>
+                      • Master File ID: {originalMasterFile.id}
+                    </span>
+                  )}
+                </p>
+              </div>
+            )}
           </div>
         </>
       )}

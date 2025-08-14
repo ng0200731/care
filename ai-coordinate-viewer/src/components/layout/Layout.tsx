@@ -1,6 +1,9 @@
 import React from 'react';
 import MainNavigation from './MainNavigation';
 
+// Import version from package.json
+const packageJson = require('../../../package.json');
+
 interface LayoutProps {
   children: React.ReactNode;
 }
@@ -72,6 +75,18 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 border: '1px solid #e2e8f0'
               }}>
                 {new Date().toLocaleDateString()}
+              </div>
+              <div style={{
+                padding: '8px 16px',
+                background: '#f7fafc',
+                color: '#2d3748',
+                fontSize: '13px',
+                fontWeight: '600',
+                border: '1px solid #e2e8f0',
+                borderRadius: '4px',
+                fontFamily: 'monospace'
+              }}>
+                v{packageJson.version}
               </div>
             </div>
           </div>
