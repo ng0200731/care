@@ -2022,13 +2022,13 @@ function App() {
       pdf.text('Print at 100% scale - NO scaling/fitting', 20, 38);
 
       // Draw mother outline at center position
-      pdf.setDrawColor(0, 0, 0);
-      pdf.setLineWidth(0.5);
+      pdf.setDrawColor(0, 0, 0); // Black
+      pdf.setLineWidth(0.3); // Standard thickness
       pdf.rect(centerX, centerY, canvasWidthMM, canvasHeightMM);
 
       // Add mother name inside
-      pdf.setFontSize(8);
-      pdf.setTextColor(0, 0, 0);
+      pdf.setFontSize(8); // Standard font size
+      pdf.setTextColor(0, 0, 0); // Black text
       pdf.text(motherObject.name, centerX + 5, centerY + 10);
 
       // Draw mother margins if they exist
@@ -3999,19 +3999,20 @@ function App() {
         const motherRegions = (mother as any).regions || [];
 
         // Draw mother outline
-        pdf.setDrawColor(255, 165, 0); // Orange
-        pdf.setLineWidth(0.5);
+        pdf.setDrawColor(0, 0, 0); // Black
+        pdf.setLineWidth(0.3); // Standard thickness
         pdf.rect(mother.x, mother.y + 35, mother.width, mother.height); // +35 for header space
 
         // Add mother label
         pdf.setFontSize(8);
+        pdf.setTextColor(0, 0, 0); // Black text
         pdf.text(`${mother.name} (${mother.width}×${mother.height}mm)`, mother.x, mother.y + 32);
 
         // Draw mother margins if they exist
         const motherMargins = (mother as any).margins;
         if (motherMargins) {
-          pdf.setDrawColor(100, 100, 100); // Gray for margins
-          pdf.setLineWidth(0.2);
+          pdf.setDrawColor(0, 0, 0); // Black for margins
+          pdf.setLineWidth(0.3); // Standard thickness
           pdf.setLineDashPattern([1, 1], 0); // Dotted line
 
           const motherX = mother.x;
@@ -4057,16 +4058,16 @@ function App() {
               }
             }
 
-            // Draw horizontal fold line (red dotted)
-            pdf.setDrawColor(255, 0, 0); // Red for fold lines
-            pdf.setLineWidth(0.5);
-            pdf.setLineDashPattern([2, 2], 0); // Dotted line
+            // Draw horizontal fold line (black dotted)
+            pdf.setDrawColor(0, 0, 0); // Black for fold lines
+            pdf.setLineWidth(0.3); // Standard thickness
+            pdf.setLineDashPattern([1, 1], 0); // Dotted line
             pdf.line(motherX, motherY + midFoldY, motherX + mother.width, motherY + midFoldY);
 
             // Draw fold padding margin lines (dotted, no fill)
-            pdf.setDrawColor(255, 0, 0); // Red for padding margins
-            pdf.setLineWidth(0.3);
-            pdf.setLineDashPattern([1, 1], 0); // Fine dotted line
+            pdf.setDrawColor(0, 0, 0); // Black for padding margins
+            pdf.setLineWidth(0.3); // Standard thickness
+            pdf.setLineDashPattern([1, 1], 0); // Dotted line
 
             // Top padding line
             pdf.line(motherX, motherY + midFoldY - padding/2, motherX + mother.width, motherY + midFoldY - padding/2);
@@ -4074,8 +4075,8 @@ function App() {
             pdf.line(motherX, motherY + midFoldY + padding/2, motherX + mother.width, motherY + midFoldY + padding/2);
 
             // Add padding dimension labels
-            pdf.setFontSize(6);
-            pdf.setTextColor(255, 0, 0);
+            pdf.setFontSize(8); // Standard font size
+            pdf.setTextColor(0, 0, 0); // Black text
             pdf.text(`${padding}mm`, motherX + mother.width + 2, motherY + midFoldY);
 
           } else if (midFoldLine.type === 'vertical') {
@@ -4091,16 +4092,16 @@ function App() {
               }
             }
 
-            // Draw vertical fold line (red dotted)
-            pdf.setDrawColor(255, 0, 0); // Red for fold lines
-            pdf.setLineWidth(0.5);
-            pdf.setLineDashPattern([2, 2], 0); // Dotted line
+            // Draw vertical fold line (black dotted)
+            pdf.setDrawColor(0, 0, 0); // Black for fold lines
+            pdf.setLineWidth(0.3); // Standard thickness
+            pdf.setLineDashPattern([1, 1], 0); // Dotted line
             pdf.line(motherX + midFoldX, motherY, motherX + midFoldX, motherY + mother.height);
 
             // Draw fold padding margin lines (dotted, no fill)
-            pdf.setDrawColor(255, 0, 0); // Red for padding margins
-            pdf.setLineWidth(0.3);
-            pdf.setLineDashPattern([1, 1], 0); // Fine dotted line
+            pdf.setDrawColor(0, 0, 0); // Black for padding margins
+            pdf.setLineWidth(0.3); // Standard thickness
+            pdf.setLineDashPattern([1, 1], 0); // Dotted line
 
             // Left padding line
             pdf.line(motherX + midFoldX - padding/2, motherY, motherX + midFoldX - padding/2, motherY + mother.height);
@@ -4108,8 +4109,8 @@ function App() {
             pdf.line(motherX + midFoldX + padding/2, motherY, motherX + midFoldX + padding/2, motherY + mother.height);
 
             // Add padding dimension labels
-            pdf.setFontSize(6);
-            pdf.setTextColor(255, 0, 0);
+            pdf.setFontSize(8); // Standard font size
+            pdf.setTextColor(0, 0, 0); // Black text
             pdf.text(`${padding}mm`, motherX + midFoldX - 5, motherY + mother.height + 8);
           }
 
@@ -4118,8 +4119,8 @@ function App() {
 
         // Add mother margin dimension labels
         if (motherMargins) {
-          pdf.setFontSize(6);
-          pdf.setTextColor(100, 100, 100);
+          pdf.setFontSize(8); // Standard font size
+          pdf.setTextColor(0, 0, 0); // Black text
 
           const motherX = mother.x;
           const motherY = mother.y + 35;
@@ -4151,14 +4152,14 @@ function App() {
           const hasSlices = region.children && region.children.length > 0;
 
           if (hasSlices) {
-            // Draw parent region outline (lighter)
-            pdf.setDrawColor(150, 150, 150); // Light gray for parent
-            pdf.setLineWidth(0.2);
+            // Draw parent region outline
+            pdf.setDrawColor(0, 0, 0); // Black for parent
+            pdf.setLineWidth(0.3); // Standard thickness
             pdf.rect(regionX, regionY, region.width, region.height);
 
             // Add parent region label
-            pdf.setFontSize(5);
-            pdf.setTextColor(100, 100, 100);
+            pdf.setFontSize(8); // Standard font size
+            pdf.setTextColor(0, 0, 0); // Black text
             pdf.text(`P${regionIndex + 1}`, regionX + 1, regionY + 3);
 
             // Draw child slices (slices have absolute coordinates within mother, need to make relative to region)
@@ -4171,13 +4172,13 @@ function App() {
               const childY = regionY + relativeY;
 
               // Draw slice outline
-              pdf.setDrawColor(255, 0, 0); // Red for slices
-              pdf.setLineWidth(0.3);
+              pdf.setDrawColor(0, 0, 0); // Black for slices
+              pdf.setLineWidth(0.3); // Standard thickness
               pdf.rect(childX, childY, childRegion.width, childRegion.height);
 
               // Add slice label
-              pdf.setFontSize(5);
-              pdf.setTextColor(255, 0, 0);
+              pdf.setFontSize(8); // Standard font size
+              pdf.setTextColor(0, 0, 0); // Black text
               pdf.text(`S${childIndex + 1}`, childX + 1, childY + 3);
 
               // Add content type for slice (only if slice is large enough)
@@ -4199,21 +4200,21 @@ function App() {
                   const textY = childY + (childRegion.height / 2) + 1;
                   const fontSize = Math.max(3, Math.min(5, Math.min(childRegion.width / 8, childRegion.height / 4)));
 
-                  pdf.setFontSize(fontSize);
-                  pdf.setTextColor(150, 0, 0); // Darker red for better visibility
+                  pdf.setFontSize(8); // Standard font size
+                  pdf.setTextColor(0, 0, 0); // Black text
                   pdf.text(displayText, textX, textY, { align: 'center' });
                 }
               }
             });
           } else {
             // Draw regular region (no slices)
-            pdf.setDrawColor(0, 0, 255); // Blue for regions
-            pdf.setLineWidth(0.3);
+            pdf.setDrawColor(0, 0, 0); // Black for regions
+            pdf.setLineWidth(0.3); // Standard thickness
             pdf.rect(regionX, regionY, region.width, region.height);
 
             // Add region label
-            pdf.setFontSize(6);
-            pdf.setTextColor(0, 0, 255);
+            pdf.setFontSize(8); // Standard font size
+            pdf.setTextColor(0, 0, 0); // Black text
             pdf.text(`R${regionIndex + 1}`, regionX + 1, regionY + 4);
 
             // Add content type for region (only if region is large enough)
@@ -4235,8 +4236,8 @@ function App() {
                 const textY = regionY + (region.height / 2) + 2;
                 const fontSize = Math.max(4, Math.min(7, Math.min(region.width / 12, region.height / 8)));
 
-                pdf.setFontSize(fontSize);
-                pdf.setTextColor(25, 118, 210);
+                pdf.setFontSize(8); // Standard font size
+                pdf.setTextColor(0, 0, 0); // Black text
                 pdf.text(displayText, textX, textY, { align: 'center' });
               }
             }
