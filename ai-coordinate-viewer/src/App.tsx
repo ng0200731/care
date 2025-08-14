@@ -4204,12 +4204,24 @@ function App() {
               pdf.setTextColor(0, 0, 0); // Black text
               pdf.text(`S${childIndex + 1}`, childX + 1, childY + 3);
 
-              // Add content type for slice (only if slice is large enough)
-              if (isProjectMode && childRegion.width > 10 && childRegion.height > 5) {
+              // Add content type for slice - intelligent text sizing based on available space
+              if (isProjectMode && childRegion.width > 3 && childRegion.height > 2) {
                 const sliceContents = regionContents.get(childRegion.id) || [];
+                console.log(`🔍 Slice ${childIndex + 1} (${childRegion.id}):`, {
+                  width: childRegion.width,
+                  height: childRegion.height,
+                  hasContent: sliceContents.length > 0,
+                  contentCount: sliceContents.length,
+                  contents: sliceContents
+                });
                 if (sliceContents.length > 0) {
                   const content = sliceContents[0]; // Show only first content type
-                  const typeLabels: { [key: string]: string } = {
+
+                  // Full content type names
+                  const fullText = content.type;
+
+                  // Abbreviated labels for small spaces
+                  const abbreviatedLabels: { [key: string]: string } = {
                     'line-text': 'text',
                     'pure-english-paragraph': 'eng',
                     'translation-paragraph': 'trans',
@@ -4218,14 +4230,44 @@ function App() {
                     'coo': 'coo'
                   };
 
-                  const displayText = typeLabels[content.type] || content.type.substring(0, 4);
-                  const textX = childX + (childRegion.width / 2);
-                  const textY = childY + (childRegion.height / 2) + 1;
-                  const fontSize = Math.max(3, Math.min(5, Math.min(childRegion.width / 8, childRegion.height / 4)));
+                  // Calculate available space for text (more conservative estimate)
+                  const availableWidth = childRegion.width - 2; // 1mm margin on each side
+                  const charWidth = 0.8; // More conservative character width in mm at 8pt
+                  const maxChars = Math.floor(availableWidth / charWidth);
 
-                  pdf.setFontSize(8); // Standard font size
-                  pdf.setTextColor(0, 0, 0); // Black text
-                  pdf.text(displayText, textX, textY, { align: 'center' });
+                  console.log(`🔍 Slice ${childIndex + 1} space calc:`, {
+                    sliceWidth: childRegion.width,
+                    availableWidth,
+                    maxChars,
+                    fullTextLength: fullText.length,
+                    fullText,
+                    contentType: content.type
+                  });
+
+                  // Choose display text based on available space - be more generous with space
+                  let displayText: string;
+                  if (availableWidth >= 15) { // If slice is wider than 15mm, try full text
+                    displayText = fullText;
+                  } else if (maxChars >= fullText.length) {
+                    // Calculated space is enough for full text
+                    displayText = fullText;
+                  } else if (maxChars >= 4) {
+                    // Use abbreviated text if available, otherwise truncate
+                    displayText = abbreviatedLabels[content.type] || fullText.substring(0, Math.max(3, maxChars));
+                  } else {
+                    // Too small for any meaningful text
+                    displayText = '';
+                  }
+
+                  // Only render text if we have something to show
+                  if (displayText) {
+                    const textX = childX + (childRegion.width / 2);
+                    const textY = childY + (childRegion.height / 2) + 1;
+
+                    pdf.setFontSize(8); // Standard font size
+                    pdf.setTextColor(0, 0, 0); // Black text
+                    pdf.text(displayText, textX, textY, { align: 'center' });
+                  }
                 }
               }
             });
@@ -4240,24 +4282,49 @@ function App() {
             pdf.setTextColor(0, 0, 0); // Black text
             pdf.text(`R${regionIndex + 1}`, regionX + 1, regionY + 4);
 
-            // Add content type for region (only if region is large enough)
-            if (isProjectMode && region.width > 15 && region.height > 8) {
+            // Add content type for region - use full text like slices
+            if (isProjectMode && region.width > 10 && region.height > 5) {
               const regionContentsForRegion = regionContents.get(region.id) || [];
+              console.log(`🔍 Region R${regionIndex + 1} (${region.id}):`, {
+                width: region.width,
+                height: region.height,
+                hasContent: regionContentsForRegion.length > 0,
+                contentCount: regionContentsForRegion.length,
+                contents: regionContentsForRegion
+              });
               if (regionContentsForRegion.length > 0) {
                 const content = regionContentsForRegion[0]; // Show only first content type
-                const typeLabels: { [key: string]: string } = {
-                  'line-text': 'line text',
-                  'pure-english-paragraph': 'english',
-                  'translation-paragraph': 'translation',
-                  'washing-symbol': 'washing',
-                  'image': 'image',
-                  'coo': 'coo'
-                };
 
-                const displayText = typeLabels[content.type] || content.type.replace('-', ' ');
+                // Use full content type names for regions (same as slices)
+                const fullText = content.type;
+
+                // Calculate available space for text
+                const availableWidth = region.width - 4; // 2mm margin on each side
+                const charWidth = 0.8; // Character width in mm at 8pt
+                const maxChars = Math.floor(availableWidth / charWidth);
+
+                // Choose display text based on available space
+                let displayText: string;
+                if (availableWidth >= 20) { // If region is wider than 20mm, use full text
+                  displayText = fullText;
+                } else if (maxChars >= fullText.length) {
+                  // Calculated space is enough for full text
+                  displayText = fullText;
+                } else {
+                  // Use abbreviated text for small regions
+                  const abbreviatedLabels: { [key: string]: string } = {
+                    'line-text': 'line text',
+                    'pure-english-paragraph': 'english',
+                    'translation-paragraph': 'translation',
+                    'washing-symbol': 'washing',
+                    'image': 'image',
+                    'coo': 'coo'
+                  };
+                  displayText = abbreviatedLabels[content.type] || fullText.substring(0, Math.max(3, maxChars));
+                }
+
                 const textX = regionX + (region.width / 2);
                 const textY = regionY + (region.height / 2) + 2;
-                const fontSize = Math.max(4, Math.min(7, Math.min(region.width / 12, region.height / 8)));
 
                 pdf.setFontSize(8); // Standard font size
                 pdf.setTextColor(0, 0, 0); // Black text
