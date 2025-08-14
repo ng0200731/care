@@ -2031,6 +2031,133 @@ function App() {
       pdf.setTextColor(0, 0, 0);
       pdf.text(motherObject.name, centerX + 5, centerY + 10);
 
+      // Draw mother margins if they exist
+      const motherMargins = (motherObject as any).margins;
+      if (motherMargins) {
+        pdf.setDrawColor(100, 100, 100); // Gray for margins
+        pdf.setLineWidth(0.2);
+        pdf.setLineDashPattern([1, 1], 0); // Dotted line
+
+        // Top margin
+        if (motherMargins.top > 0) {
+          pdf.line(centerX, centerY + motherMargins.top, centerX + canvasWidthMM, centerY + motherMargins.top);
+        }
+        // Bottom margin
+        if (motherMargins.bottom > 0) {
+          pdf.line(centerX, centerY + canvasHeightMM - motherMargins.bottom, centerX + canvasWidthMM, centerY + canvasHeightMM - motherMargins.bottom);
+        }
+        // Left margin
+        if (motherMargins.left > 0) {
+          pdf.line(centerX + motherMargins.left, centerY, centerX + motherMargins.left, centerY + canvasHeightMM);
+        }
+        // Right margin
+        if (motherMargins.right > 0) {
+          pdf.line(centerX + canvasWidthMM - motherMargins.right, centerY, centerX + canvasWidthMM - motherMargins.right, centerY + canvasHeightMM);
+        }
+
+        pdf.setLineDashPattern([], 0); // Reset to solid line
+      }
+
+      // Draw mid fold lines if they exist
+      const midFoldLine = (motherObject as any).midFoldLine;
+      if (midFoldLine && midFoldLine.enabled) {
+        const padding = midFoldLine.padding || 3;
+
+        if (midFoldLine.type === 'horizontal') {
+          // Calculate Y position of mid-fold line
+          let midFoldY: number;
+          if (midFoldLine.position.useDefault) {
+            midFoldY = canvasHeightMM / 2;
+          } else {
+            if (midFoldLine.direction === 'top') {
+              midFoldY = midFoldLine.position.customDistance;
+            } else { // bottom
+              midFoldY = canvasHeightMM - midFoldLine.position.customDistance;
+            }
+          }
+
+          // Draw horizontal fold line (red dotted)
+          pdf.setDrawColor(255, 0, 0); // Red for fold lines
+          pdf.setLineWidth(0.5);
+          pdf.setLineDashPattern([2, 2], 0); // Dotted line
+          pdf.line(centerX, centerY + midFoldY, centerX + canvasWidthMM, centerY + midFoldY);
+
+          // Draw fold padding margin lines (dotted, no fill)
+          pdf.setDrawColor(255, 0, 0); // Red for padding margins
+          pdf.setLineWidth(0.3);
+          pdf.setLineDashPattern([1, 1], 0); // Fine dotted line
+
+          // Top padding line
+          pdf.line(centerX, centerY + midFoldY - padding/2, centerX + canvasWidthMM, centerY + midFoldY - padding/2);
+          // Bottom padding line
+          pdf.line(centerX, centerY + midFoldY + padding/2, centerX + canvasWidthMM, centerY + midFoldY + padding/2);
+
+          // Add padding dimension labels
+          pdf.setFontSize(6);
+          pdf.setTextColor(255, 0, 0);
+          pdf.text(`${padding}mm`, centerX + canvasWidthMM + 2, centerY + midFoldY);
+
+        } else if (midFoldLine.type === 'vertical') {
+          // Calculate X position of mid-fold line
+          let midFoldX: number;
+          if (midFoldLine.position.useDefault) {
+            midFoldX = canvasWidthMM / 2;
+          } else {
+            if (midFoldLine.direction === 'left') {
+              midFoldX = midFoldLine.position.customDistance;
+            } else { // right
+              midFoldX = canvasWidthMM - midFoldLine.position.customDistance;
+            }
+          }
+
+          // Draw vertical fold line (red dotted)
+          pdf.setDrawColor(255, 0, 0); // Red for fold lines
+          pdf.setLineWidth(0.5);
+          pdf.setLineDashPattern([2, 2], 0); // Dotted line
+          pdf.line(centerX + midFoldX, centerY, centerX + midFoldX, centerY + canvasHeightMM);
+
+          // Draw fold padding margin lines (dotted, no fill)
+          pdf.setDrawColor(255, 0, 0); // Red for padding margins
+          pdf.setLineWidth(0.3);
+          pdf.setLineDashPattern([1, 1], 0); // Fine dotted line
+
+          // Left padding line
+          pdf.line(centerX + midFoldX - padding/2, centerY, centerX + midFoldX - padding/2, centerY + canvasHeightMM);
+          // Right padding line
+          pdf.line(centerX + midFoldX + padding/2, centerY, centerX + midFoldX + padding/2, centerY + canvasHeightMM);
+
+          // Add padding dimension labels
+          pdf.setFontSize(6);
+          pdf.setTextColor(255, 0, 0);
+          pdf.text(`${padding}mm`, centerX + midFoldX - 5, centerY + canvasHeightMM + 8);
+        }
+
+        pdf.setLineDashPattern([], 0); // Reset to solid line
+      }
+
+      // Add mother margin dimension labels
+      if (motherMargins) {
+        pdf.setFontSize(6);
+        pdf.setTextColor(100, 100, 100);
+
+        // Top margin label
+        if (motherMargins.top > 0) {
+          pdf.text(`${motherMargins.top}mm`, centerX - 15, centerY + motherMargins.top);
+        }
+        // Bottom margin label
+        if (motherMargins.bottom > 0) {
+          pdf.text(`${motherMargins.bottom}mm`, centerX - 15, centerY + canvasHeightMM - motherMargins.bottom);
+        }
+        // Left margin label
+        if (motherMargins.left > 0) {
+          pdf.text(`${motherMargins.left}mm`, centerX + motherMargins.left - 5, centerY - 5);
+        }
+        // Right margin label
+        if (motherMargins.right > 0) {
+          pdf.text(`${motherMargins.right}mm`, centerX + canvasWidthMM - motherMargins.right - 5, centerY - 5);
+        }
+      }
+
       // Draw regions and slices with colors
       const motherRegions = (motherObject as any).regions || [];
       console.log('📊 Drawing', motherRegions.length, 'regions');
@@ -2101,7 +2228,7 @@ function App() {
 
       console.log('✅ 1:1 scale layout PDF saved:', fileName);
 
-      alert(`✅ 1:1 Scale Layout PDF Generated!\n\nFile: ${fileName}\nSize: ${canvasWidthMM}×${canvasHeightMM}mm (TRUE 1:1 SCALE)\n\nPDF Contents:\n• Mother outline\n• Regions and slices\n• 10mm reference line\n\n🖨️ PRINT INSTRUCTIONS:\n• Print at 100% scale (NO scaling/fitting)\n• Measure 10mm reference line to verify scale`);
+      alert(`✅ 1:1 Scale Layout PDF Generated!\n\nFile: ${fileName}\nSize: ${canvasWidthMM}×${canvasHeightMM}mm (TRUE 1:1 SCALE)\n\nPDF Contents:\n• Mother outline and margins\n• Regions and slices\n• Mid fold lines and padding\n• 10mm reference line\n\n🖨️ PRINT INSTRUCTIONS:\n• Print at 100% scale (NO scaling/fitting)\n• Measure 10mm reference line to verify scale`);
 
     } catch (error) {
       console.error('❌ PDF generation failed:', error);
@@ -3795,7 +3922,7 @@ function App() {
     }
 
     // Simple confirmation dialog
-    const confirmed = window.confirm(`🖨️ Generate PDF with layout and content information?\n\n📊 Mothers: ${mothers.length}\n📋 Mode: ${isProjectMode ? 'Project Mode' : 'Master File Mode'}\n\n📄 PDF will include:\n• Mother outlines\n• Regions and slices\n• Content types\n\nContinue?`);
+    const confirmed = window.confirm(`🖨️ Generate PDF with layout and content information?\n\n📊 Mothers: ${mothers.length}\n📋 Mode: ${isProjectMode ? 'Project Mode' : 'Master File Mode'}\n\n📄 PDF will include:\n• Mother outlines and margins\n• Regions and slices\n• Content types\n• Mid fold lines and padding\n\nContinue?`);
 
     if (!confirmed) {
       return;
@@ -3879,6 +4006,141 @@ function App() {
         // Add mother label
         pdf.setFontSize(8);
         pdf.text(`${mother.name} (${mother.width}×${mother.height}mm)`, mother.x, mother.y + 32);
+
+        // Draw mother margins if they exist
+        const motherMargins = (mother as any).margins;
+        if (motherMargins) {
+          pdf.setDrawColor(100, 100, 100); // Gray for margins
+          pdf.setLineWidth(0.2);
+          pdf.setLineDashPattern([1, 1], 0); // Dotted line
+
+          const motherX = mother.x;
+          const motherY = mother.y + 35;
+
+          // Top margin
+          if (motherMargins.top > 0) {
+            pdf.line(motherX, motherY + motherMargins.top, motherX + mother.width, motherY + motherMargins.top);
+          }
+          // Bottom margin
+          if (motherMargins.bottom > 0) {
+            pdf.line(motherX, motherY + mother.height - motherMargins.bottom, motherX + mother.width, motherY + mother.height - motherMargins.bottom);
+          }
+          // Left margin
+          if (motherMargins.left > 0) {
+            pdf.line(motherX + motherMargins.left, motherY, motherX + motherMargins.left, motherY + mother.height);
+          }
+          // Right margin
+          if (motherMargins.right > 0) {
+            pdf.line(motherX + mother.width - motherMargins.right, motherY, motherX + mother.width - motherMargins.right, motherY + mother.height);
+          }
+
+          pdf.setLineDashPattern([], 0); // Reset to solid line
+        }
+
+        // Draw mid fold lines if they exist
+        const midFoldLine = (mother as any).midFoldLine;
+        if (midFoldLine && midFoldLine.enabled) {
+          const motherX = mother.x;
+          const motherY = mother.y + 35;
+          const padding = midFoldLine.padding || 3;
+
+          if (midFoldLine.type === 'horizontal') {
+            // Calculate Y position of mid-fold line
+            let midFoldY: number;
+            if (midFoldLine.position.useDefault) {
+              midFoldY = mother.height / 2;
+            } else {
+              if (midFoldLine.direction === 'top') {
+                midFoldY = midFoldLine.position.customDistance;
+              } else { // bottom
+                midFoldY = mother.height - midFoldLine.position.customDistance;
+              }
+            }
+
+            // Draw horizontal fold line (red dotted)
+            pdf.setDrawColor(255, 0, 0); // Red for fold lines
+            pdf.setLineWidth(0.5);
+            pdf.setLineDashPattern([2, 2], 0); // Dotted line
+            pdf.line(motherX, motherY + midFoldY, motherX + mother.width, motherY + midFoldY);
+
+            // Draw fold padding margin lines (dotted, no fill)
+            pdf.setDrawColor(255, 0, 0); // Red for padding margins
+            pdf.setLineWidth(0.3);
+            pdf.setLineDashPattern([1, 1], 0); // Fine dotted line
+
+            // Top padding line
+            pdf.line(motherX, motherY + midFoldY - padding/2, motherX + mother.width, motherY + midFoldY - padding/2);
+            // Bottom padding line
+            pdf.line(motherX, motherY + midFoldY + padding/2, motherX + mother.width, motherY + midFoldY + padding/2);
+
+            // Add padding dimension labels
+            pdf.setFontSize(6);
+            pdf.setTextColor(255, 0, 0);
+            pdf.text(`${padding}mm`, motherX + mother.width + 2, motherY + midFoldY);
+
+          } else if (midFoldLine.type === 'vertical') {
+            // Calculate X position of mid-fold line
+            let midFoldX: number;
+            if (midFoldLine.position.useDefault) {
+              midFoldX = mother.width / 2;
+            } else {
+              if (midFoldLine.direction === 'left') {
+                midFoldX = midFoldLine.position.customDistance;
+              } else { // right
+                midFoldX = mother.width - midFoldLine.position.customDistance;
+              }
+            }
+
+            // Draw vertical fold line (red dotted)
+            pdf.setDrawColor(255, 0, 0); // Red for fold lines
+            pdf.setLineWidth(0.5);
+            pdf.setLineDashPattern([2, 2], 0); // Dotted line
+            pdf.line(motherX + midFoldX, motherY, motherX + midFoldX, motherY + mother.height);
+
+            // Draw fold padding margin lines (dotted, no fill)
+            pdf.setDrawColor(255, 0, 0); // Red for padding margins
+            pdf.setLineWidth(0.3);
+            pdf.setLineDashPattern([1, 1], 0); // Fine dotted line
+
+            // Left padding line
+            pdf.line(motherX + midFoldX - padding/2, motherY, motherX + midFoldX - padding/2, motherY + mother.height);
+            // Right padding line
+            pdf.line(motherX + midFoldX + padding/2, motherY, motherX + midFoldX + padding/2, motherY + mother.height);
+
+            // Add padding dimension labels
+            pdf.setFontSize(6);
+            pdf.setTextColor(255, 0, 0);
+            pdf.text(`${padding}mm`, motherX + midFoldX - 5, motherY + mother.height + 8);
+          }
+
+          pdf.setLineDashPattern([], 0); // Reset to solid line
+        }
+
+        // Add mother margin dimension labels
+        if (motherMargins) {
+          pdf.setFontSize(6);
+          pdf.setTextColor(100, 100, 100);
+
+          const motherX = mother.x;
+          const motherY = mother.y + 35;
+
+          // Top margin label
+          if (motherMargins.top > 0) {
+            pdf.text(`${motherMargins.top}mm`, motherX - 15, motherY + motherMargins.top);
+          }
+          // Bottom margin label
+          if (motherMargins.bottom > 0) {
+            pdf.text(`${motherMargins.bottom}mm`, motherX - 15, motherY + mother.height - motherMargins.bottom);
+          }
+          // Left margin label
+          if (motherMargins.left > 0) {
+            pdf.text(`${motherMargins.left}mm`, motherX + motherMargins.left - 5, motherY - 5);
+          }
+          // Right margin label
+          if (motherMargins.right > 0) {
+            pdf.text(`${motherMargins.right}mm`, motherX + mother.width - motherMargins.right - 5, motherY - 5);
+          }
+        }
 
         // Draw regions with content and slices
         motherRegions.forEach((region: any, regionIndex: number) => {
@@ -3990,7 +4252,7 @@ function App() {
       console.log(`✅ Generated PDF: ${fileName}`);
 
       // Simple success dialog
-      alert(`✅ PDF Generated Successfully!\n\nFile: ${fileName}\nPaper: ${paperSize}\nMothers: ${mothers.length}\n\nPDF includes:\n• Mother outlines\n• Regions and slices\n• Content types\n\nSaved to Downloads folder`);
+      alert(`✅ PDF Generated Successfully!\n\nFile: ${fileName}\nPaper: ${paperSize}\nMothers: ${mothers.length}\n\nPDF includes:\n• Mother outlines and margins\n• Regions and slices\n• Content types\n• Mid fold lines and padding\n\nSaved to Downloads folder`);
 
       const notificationText = isProjectMode
         ? `✅ Generated PDF with everything on canvas (${mothers.length} mothers) on ${paperSize}`
