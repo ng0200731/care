@@ -2031,22 +2031,60 @@ function App() {
       pdf.setTextColor(0, 0, 0);
       pdf.text(motherObject.name, centerX + 5, centerY + 10);
 
-      // Draw regions with colors
+      // Draw regions and slices with colors
       const motherRegions = (motherObject as any).regions || [];
       console.log('📊 Drawing', motherRegions.length, 'regions');
 
       motherRegions.forEach((region: any, index: number) => {
         console.log(`Region ${index + 1}:`, `${region.x},${region.y} ${region.width}×${region.height}mm`);
 
-        // Draw region rectangle at EXACT coordinates (offset by center)
-        pdf.setDrawColor(255, 152, 0); // Orange
-        pdf.setLineWidth(0.3);
-        pdf.rect(centerX + region.x, centerY + region.y, region.width, region.height);
+        const regionX = centerX + region.x;
+        const regionY = centerY + region.y;
 
-        // Add region label
-        pdf.setFontSize(6);
-        pdf.setTextColor(255, 152, 0);
-        pdf.text(region.name, centerX + region.x + 1, centerY + region.y + 4);
+        // Check if region has slices
+        const hasSlices = region.children && region.children.length > 0;
+
+        if (hasSlices) {
+          // Draw parent region outline (lighter)
+          pdf.setDrawColor(200, 200, 200); // Light gray
+          pdf.setLineWidth(0.2);
+          pdf.rect(regionX, regionY, region.width, region.height);
+
+          // Add parent region label
+          pdf.setFontSize(5);
+          pdf.setTextColor(150, 150, 150);
+          pdf.text(`P${index + 1}`, regionX + 1, regionY + 3);
+
+          // Draw child slices (slices have absolute coordinates within mother, need to make relative to region)
+          region.children.forEach((childRegion: any, childIndex: number) => {
+            // childRegion.x/y are absolute within mother, region.x/y are also absolute within mother
+            // So slice position relative to region is: childRegion.x - region.x
+            const relativeX = childRegion.x - region.x;
+            const relativeY = childRegion.y - region.y;
+            const childX = regionX + relativeX;
+            const childY = regionY + relativeY;
+
+            // Draw slice rectangle
+            pdf.setDrawColor(255, 0, 0); // Red for slices
+            pdf.setLineWidth(0.3);
+            pdf.rect(childX, childY, childRegion.width, childRegion.height);
+
+            // Add slice label
+            pdf.setFontSize(5);
+            pdf.setTextColor(255, 0, 0);
+            pdf.text(`S${childIndex + 1}`, childX + 1, childY + 3);
+          });
+        } else {
+          // Draw regular region rectangle
+          pdf.setDrawColor(255, 152, 0); // Orange
+          pdf.setLineWidth(0.3);
+          pdf.rect(regionX, regionY, region.width, region.height);
+
+          // Add region label
+          pdf.setFontSize(6);
+          pdf.setTextColor(255, 152, 0);
+          pdf.text(region.name, regionX + 1, regionY + 4);
+        }
       });
 
       // Add 10mm reference line for scale verification
@@ -2063,7 +2101,7 @@ function App() {
 
       console.log('✅ 1:1 scale layout PDF saved:', fileName);
 
-      alert(`✅ 1:1 Scale Layout PDF Generated!\n\nFile: ${fileName}\n\n📏 PRINT INSTRUCTIONS:\n• Print at 100% scale (NO scaling/fitting)\n• Shows mother outline and regions\n• True size: ${canvasWidthMM}×${canvasHeightMM}mm\n• Measure 10mm reference line to verify scale`);
+      alert(`✅ 1:1 Scale Layout PDF Generated!\n\nFile: ${fileName}\nSize: ${canvasWidthMM}×${canvasHeightMM}mm (TRUE 1:1 SCALE)\n\nPDF Contents:\n• Mother outline\n• Regions and slices\n• 10mm reference line\n\n🖨️ PRINT INSTRUCTIONS:\n• Print at 100% scale (NO scaling/fitting)\n• Measure 10mm reference line to verify scale`);
 
     } catch (error) {
       console.error('❌ PDF generation failed:', error);
@@ -3756,6 +3794,13 @@ function App() {
       return;
     }
 
+    // Simple confirmation dialog
+    const confirmed = window.confirm(`🖨️ Generate PDF with layout and content information?\n\n📊 Mothers: ${mothers.length}\n📋 Mode: ${isProjectMode ? 'Project Mode' : 'Master File Mode'}\n\n📄 PDF will include:\n• Mother outlines\n• Regions and slices\n• Content types\n\nContinue?`);
+
+    if (!confirmed) {
+      return;
+    }
+
     console.log('🖨️ Generating PDF for all mothers:', mothers.length);
 
     // Calculate total dimensions needed for all mothers
@@ -3835,52 +3880,104 @@ function App() {
         pdf.setFontSize(8);
         pdf.text(`${mother.name} (${mother.width}×${mother.height}mm)`, mother.x, mother.y + 32);
 
-        // Draw regions with content
+        // Draw regions with content and slices
         motherRegions.forEach((region: any, regionIndex: number) => {
-          pdf.setDrawColor(0, 0, 255); // Blue for regions
-          pdf.setLineWidth(0.3);
           const regionX = mother.x + region.x;
           const regionY = mother.y + region.y + 35;
 
-          pdf.rect(regionX, regionY, region.width, region.height);
+          // Check if region has child slices
+          const hasSlices = region.children && region.children.length > 0;
 
-          // Add region label
-          pdf.setFontSize(6);
-          pdf.text(
-            `R${regionIndex + 1}`,
-            regionX + 1,
-            regionY + 4
-          );
+          if (hasSlices) {
+            // Draw parent region outline (lighter)
+            pdf.setDrawColor(150, 150, 150); // Light gray for parent
+            pdf.setLineWidth(0.2);
+            pdf.rect(regionX, regionY, region.width, region.height);
 
-          // Add content type names if in Project Mode
-          if (isProjectMode) {
-            const regionContentsForRegion = regionContents.get(region.id) || [];
+            // Add parent region label
+            pdf.setFontSize(5);
+            pdf.setTextColor(100, 100, 100);
+            pdf.text(`P${regionIndex + 1}`, regionX + 1, regionY + 3);
 
-            regionContentsForRegion.forEach((content: any, contentIndex: number) => {
-              // Content type name mapping
-              const typeLabels: { [key: string]: string } = {
-                'line-text': 'line text',
-                'pure-english-paragraph': 'Pure English Paragraph',
-                'translation-paragraph': 'translation paragraph',
-                'washing-symbol': 'washing symbol',
-                'image': 'Image',
-                'coo': 'COO'
-              };
+            // Draw child slices (slices have absolute coordinates within mother, need to make relative to region)
+            region.children.forEach((childRegion: any, childIndex: number) => {
+              // childRegion.x/y are absolute within mother, region.x/y are also absolute within mother
+              // So slice position relative to region is: childRegion.x - region.x
+              const relativeX = childRegion.x - region.x;
+              const relativeY = childRegion.y - region.y;
+              const childX = regionX + relativeX;
+              const childY = regionY + relativeY;
 
-              const displayText = typeLabels[content.type] || content.type.replace('-', ' ');
+              // Draw slice outline
+              pdf.setDrawColor(255, 0, 0); // Red for slices
+              pdf.setLineWidth(0.3);
+              pdf.rect(childX, childY, childRegion.width, childRegion.height);
 
-              // Center the content type text in the region
-              const textX = regionX + (region.width / 2);
-              const textY = regionY + (region.height / 2);
+              // Add slice label
+              pdf.setFontSize(5);
+              pdf.setTextColor(255, 0, 0);
+              pdf.text(`S${childIndex + 1}`, childX + 1, childY + 3);
 
-              // Set font size based on region size
-              const fontSize = Math.max(4, Math.min(8, region.height / 6));
-              pdf.setFontSize(fontSize);
-              pdf.setTextColor(25, 118, 210); // Blue color
+              // Add content type for slice (only if slice is large enough)
+              if (isProjectMode && childRegion.width > 10 && childRegion.height > 5) {
+                const sliceContents = regionContents.get(childRegion.id) || [];
+                if (sliceContents.length > 0) {
+                  const content = sliceContents[0]; // Show only first content type
+                  const typeLabels: { [key: string]: string } = {
+                    'line-text': 'text',
+                    'pure-english-paragraph': 'eng',
+                    'translation-paragraph': 'trans',
+                    'washing-symbol': 'wash',
+                    'image': 'img',
+                    'coo': 'coo'
+                  };
 
-              // Add text centered in region
-              pdf.text(displayText, textX, textY, { align: 'center' });
+                  const displayText = typeLabels[content.type] || content.type.substring(0, 4);
+                  const textX = childX + (childRegion.width / 2);
+                  const textY = childY + (childRegion.height / 2) + 1;
+                  const fontSize = Math.max(3, Math.min(5, Math.min(childRegion.width / 8, childRegion.height / 4)));
+
+                  pdf.setFontSize(fontSize);
+                  pdf.setTextColor(150, 0, 0); // Darker red for better visibility
+                  pdf.text(displayText, textX, textY, { align: 'center' });
+                }
+              }
             });
+          } else {
+            // Draw regular region (no slices)
+            pdf.setDrawColor(0, 0, 255); // Blue for regions
+            pdf.setLineWidth(0.3);
+            pdf.rect(regionX, regionY, region.width, region.height);
+
+            // Add region label
+            pdf.setFontSize(6);
+            pdf.setTextColor(0, 0, 255);
+            pdf.text(`R${regionIndex + 1}`, regionX + 1, regionY + 4);
+
+            // Add content type for region (only if region is large enough)
+            if (isProjectMode && region.width > 15 && region.height > 8) {
+              const regionContentsForRegion = regionContents.get(region.id) || [];
+              if (regionContentsForRegion.length > 0) {
+                const content = regionContentsForRegion[0]; // Show only first content type
+                const typeLabels: { [key: string]: string } = {
+                  'line-text': 'line text',
+                  'pure-english-paragraph': 'english',
+                  'translation-paragraph': 'translation',
+                  'washing-symbol': 'washing',
+                  'image': 'image',
+                  'coo': 'coo'
+                };
+
+                const displayText = typeLabels[content.type] || content.type.replace('-', ' ');
+                const textX = regionX + (region.width / 2);
+                const textY = regionY + (region.height / 2) + 2;
+                const fontSize = Math.max(4, Math.min(7, Math.min(region.width / 12, region.height / 8)));
+
+                pdf.setFontSize(fontSize);
+                pdf.setTextColor(25, 118, 210);
+                pdf.text(displayText, textX, textY, { align: 'center' });
+              }
+            }
           }
         });
       });
@@ -3891,6 +3988,10 @@ function App() {
       pdf.save(fileName);
 
       console.log(`✅ Generated PDF: ${fileName}`);
+
+      // Simple success dialog
+      alert(`✅ PDF Generated Successfully!\n\nFile: ${fileName}\nPaper: ${paperSize}\nMothers: ${mothers.length}\n\nPDF includes:\n• Mother outlines\n• Regions and slices\n• Content types\n\nSaved to Downloads folder`);
+
       const notificationText = isProjectMode
         ? `✅ Generated PDF with everything on canvas (${mothers.length} mothers) on ${paperSize}`
         : `✅ Generated single PDF with ${mothers.length} mothers on ${paperSize}`;
@@ -4530,8 +4631,9 @@ function App() {
                           </button>
                         )}
 
-                        {/* Trash All Slices Button - Both Master File and Project Mode */}
-                        <button
+                        {/* Trash All Slices Button - Master File Mode only */}
+                        {isMasterFileMode && (
+                          <button
                           onClick={() => trashAllSlices(mother.object)}
                           style={{
                             padding: '4px 8px',
@@ -4557,6 +4659,7 @@ function App() {
                         >
                           🗑️ Trash All Slices
                         </button>
+                        )}
                       </div>
                     )}
 
@@ -4699,8 +4802,8 @@ function App() {
                             </button>
                           )}
 
-                          {/* If region has slices - show trash all slices button */}
-                          {region.children && region.children.length > 0 && (
+                          {/* If region has slices - show trash all slices button (Master File Mode only) */}
+                          {isMasterFileMode && region.children && region.children.length > 0 && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -4995,25 +5098,27 @@ function App() {
                                       ✂️
                                     </button>
 
-                                    {/* Delete button - removes this specific slice */}
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        deleteIndividualSlice(mother.object, region, childRegion);
-                                      }}
-                                      style={{
-                                        background: '#f44336',
-                                        border: 'none',
-                                        color: 'white',
-                                        fontSize: '8px',
-                                        padding: '1px 4px',
-                                        borderRadius: '2px',
-                                        cursor: 'pointer'
-                                      }}
-                                      title="Delete this slice"
-                                    >
-                                      🗑️
-                                    </button>
+                                    {/* Delete button - Master File Mode only */}
+                                    {isMasterFileMode && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          deleteIndividualSlice(mother.object, region, childRegion);
+                                        }}
+                                        style={{
+                                          background: '#f44336',
+                                          border: 'none',
+                                          color: 'white',
+                                          fontSize: '8px',
+                                          padding: '1px 4px',
+                                          borderRadius: '2px',
+                                          cursor: 'pointer'
+                                        }}
+                                        title="Delete this slice"
+                                      >
+                                        🗑️
+                                      </button>
+                                    )}
                                   </div>
                                 )}
                               </div>
