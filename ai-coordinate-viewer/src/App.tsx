@@ -2228,8 +2228,6 @@ function App() {
 
       console.log('✅ 1:1 scale layout PDF saved:', fileName);
 
-      alert(`✅ 1:1 Scale Layout PDF Generated!\n\nFile: ${fileName}\nSize: ${canvasWidthMM}×${canvasHeightMM}mm (TRUE 1:1 SCALE)\n\nPDF Contents:\n• Mother outline and margins\n• Regions and slices\n• Mid fold lines and padding\n• 10mm reference line\n\n🖨️ PRINT INSTRUCTIONS:\n• Print at 100% scale (NO scaling/fitting)\n• Measure 10mm reference line to verify scale`);
-
     } catch (error) {
       console.error('❌ PDF generation failed:', error);
       console.error('❌ Error details:', error);
@@ -3375,12 +3373,16 @@ function App() {
         return;
       }
 
-      // User confirmed replacement - clear existing content
-      const updatedContents = new Map(regionContents);
-      updatedContents.delete(regionId);
-      setRegionContents(updatedContents);
-
+      // User confirmed replacement - clear existing content immediately
       console.log(`🔄 Replacing ${existingTypeName} with ${newTypeName} in region ${regionId}`);
+
+      // Use functional update to ensure immediate clearing
+      setRegionContents(prevContents => {
+        const updatedContents = new Map(prevContents);
+        updatedContents.delete(regionId);
+        console.log(`✅ Cleared existing content from region ${regionId}`);
+        return updatedContents;
+      });
     }
 
     // Check region occupation before allowing drop
@@ -3448,9 +3450,6 @@ function App() {
   };
 
   const handleUniversalContentSave = (data: UniversalContentData) => {
-    const currentContents = regionContents.get(data.regionId) || [];
-    const updatedContents = new Map(regionContents);
-
     // In Project Mode, ensure content occupies the whole region
     let contentData = data;
     if (isProjectMode) {
@@ -3467,27 +3466,51 @@ function App() {
       console.log('🎯 Project Mode: Setting content to occupy full region', contentData);
     }
 
-    if (universalDialog.editingContent) {
-      // Editing existing content - replace it
-      const newContents = currentContents.map(content =>
-        content.id === universalDialog.editingContent.id ? contentData : content
-      );
-      updatedContents.set(data.regionId, newContents);
+    // Use functional update to prevent race conditions and ensure proper content management
+    setRegionContents(prevContents => {
+      const currentContents = prevContents.get(data.regionId) || [];
+      const updatedContents = new Map(prevContents);
 
-      // Show notification for edit
-      const contentTypeName = universalDialog.contentType?.name || 'Content';
-      setNotification(`${contentTypeName} updated in region ${data.regionId}`);
-    } else {
-      // Adding new content
-      const newContents = [...currentContents, contentData];
-      updatedContents.set(data.regionId, newContents);
+      if (universalDialog.editingContent) {
+        // Editing existing content - replace it
+        const newContents = currentContents.map(content =>
+          content.id === universalDialog.editingContent.id ? contentData : content
+        );
+        updatedContents.set(data.regionId, newContents);
+        console.log(`✅ Updated existing content in region ${data.regionId}`);
+      } else {
+        // Adding new content - handle Project Mode vs Master File Mode differently
+        if (isProjectMode) {
+          // Project Mode: Only one content type per region, replace ALL existing content
+          updatedContents.set(data.regionId, [contentData]);
+          console.log(`✅ Project Mode: Replaced all content in region ${data.regionId} with single content type: ${contentData.type}`);
+        } else {
+          // Master File Mode: Check for duplicates of same type only
+          const existingContentTypes = currentContents.map(c => c.type);
+          const newContentType = contentData.type;
 
-      // Show notification for add
-      const contentTypeName = universalDialog.contentType?.name || 'Content';
-      setNotification(`${contentTypeName} added to region ${data.regionId}`);
-    }
+          if (existingContentTypes.includes(newContentType)) {
+            console.warn(`⚠️ Content type ${newContentType} already exists in region ${data.regionId}, replacing...`);
+            // Replace existing content of same type
+            const newContents = currentContents.filter(c => c.type !== newContentType);
+            newContents.push(contentData);
+            updatedContents.set(data.regionId, newContents);
+          } else {
+            // Add new content
+            const newContents = [...currentContents, contentData];
+            updatedContents.set(data.regionId, newContents);
+          }
+          console.log(`✅ Master File Mode: Added content to region ${data.regionId}, total contents: ${(updatedContents.get(data.regionId) || []).length}`);
+        }
+      }
 
-    setRegionContents(updatedContents);
+      return updatedContents;
+    });
+
+    // Show notification
+    const contentTypeName = universalDialog.contentType?.name || 'Content';
+    const action = universalDialog.editingContent ? 'updated' : (isProjectMode ? 'set as' : 'added');
+    setNotification(`${contentTypeName} ${action} in region ${data.regionId}`);
 
     // Close dialog
     setUniversalDialog({ isOpen: false, regionId: '', contentType: null, editingContent: null });
@@ -4251,9 +4274,6 @@ function App() {
       pdf.save(fileName);
 
       console.log(`✅ Generated PDF: ${fileName}`);
-
-      // Simple success dialog
-      alert(`✅ PDF Generated Successfully!\n\nFile: ${fileName}\nPaper: ${paperSize}\nMothers: ${mothers.length}\n\nPDF includes:\n• Mother outlines and margins\n• Regions and slices\n• Content types\n• Mid fold lines and padding\n\nSaved to Downloads folder`);
 
       const notificationText = isProjectMode
         ? `✅ Generated PDF with everything on canvas (${mothers.length} mothers) on ${paperSize}`
@@ -6481,80 +6501,7 @@ function App() {
                             ry={3}
                           />
 
-                          {/* Content type label display - always centered */}
-                          {(() => {
-                            // Show content type labels (no actual text content) - Project Mode
-                            const typeLabels: { [key: string]: string } = {
-                              'line-text': 'line text',
-                              'pure-english-paragraph': 'Pure English Paragraph',
-                              'translation-paragraph': 'translation paragraph',
-                              'washing-symbol': 'washing symbol',
-                              'image': 'Image',
-                              'coo': 'COO'
-                            };
-
-                            const displayText = typeLabels[content.type] || content.type.replace('-', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
-
-                            // Calculate font size based on overlay size - Make text more visible
-                            const baseFontSize = Math.max(10, Math.min(16, overlayHeight / 3));
-                            const fontSize = Math.max(8, Math.min(baseFontSize, overlayWidth / displayText.length * 1.5));
-
-                            // Always center the content type text (ignore alignment settings for content type display)
-                            const textX = overlayX + (overlayWidth / 2);
-                            const textY = overlayY + (overlayHeight / 2);
-                            const textAnchor: 'start' | 'middle' | 'end' = 'middle';
-                            const dominantBaseline: 'hanging' | 'middle' | 'baseline' = 'middle';
-
-                            console.log('🎯 Text positioning:', {
-                              overlayX,
-                              overlayY,
-                              overlayWidth,
-                              overlayHeight,
-                              textX,
-                              textY,
-                              displayText,
-                              isProjectMode,
-                              regionWidth: region.width,
-                              regionHeight: region.height
-                            });
-
-                            // Calculate background rectangle dimensions for centered text
-                            const textWidth = displayText.length * fontSize * 0.6;
-                            const textHeight = fontSize + 4;
-                            const bgX = textX - (textWidth / 2);
-                            const bgY = textY - (textHeight / 2);
-
-                            return (
-                              <>
-                                {/* Text background for better visibility - centered */}
-                                <rect
-                                  x={bgX}
-                                  y={bgY}
-                                  width={textWidth}
-                                  height={textHeight}
-                                  fill="rgba(255,255,255,0.95)"
-                                  rx={3}
-                                  ry={3}
-                                  stroke="#1976d2"
-                                  strokeWidth={1}
-                                  opacity={0.9}
-                                />
-                                {/* Centered text */}
-                                <text
-                                  x={textX}
-                                  y={textY}
-                                  fill="#1976d2"
-                                  fontSize={fontSize}
-                                  fontWeight="bold"
-                                  textAnchor={textAnchor}
-                                  dominantBaseline={dominantBaseline}
-                                  opacity={1}
-                                >
-                                  {displayText}
-                                </text>
-                              </>
-                            );
-                          })()}
+                          {/* Content overlay visual indicator only - text removed to prevent duplication with region content text */}
                         </g>
                       );
                     });
@@ -6603,7 +6550,7 @@ function App() {
                         x={baseX + (region.x * scale) + (region.width * scale) / 2}
                         y={baseY + (region.y * scale) + (region.height * scale) / 2}
                         fill="#333"
-                        fontSize="12"
+                        fontSize="10"
                         fontWeight="bold"
                         textAnchor="middle"
                         dominantBaseline="middle"
