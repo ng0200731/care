@@ -4180,10 +4180,11 @@ function App() {
             pdf.setLineWidth(0.3); // Standard thickness
             pdf.rect(regionX, regionY, region.width, region.height);
 
-            // Add parent region label
-            pdf.setFontSize(8); // Standard font size
+            // Add parent region label - top-left, bold
+            pdf.setFontSize(8);
+            pdf.setFont('helvetica', 'bold'); // Bold font for region labels
             pdf.setTextColor(0, 0, 0); // Black text
-            pdf.text(`P${regionIndex + 1}`, regionX + 1, regionY + 3);
+            pdf.text(`R${regionIndex + 1}`, regionX + 1, regionY + 4);
 
             // Draw child slices (slices have absolute coordinates within mother, need to make relative to region)
             region.children.forEach((childRegion: any, childIndex: number) => {
@@ -4199,10 +4200,13 @@ function App() {
               pdf.setLineWidth(0.3); // Standard thickness
               pdf.rect(childX, childY, childRegion.width, childRegion.height);
 
-              // Add slice label
-              pdf.setFontSize(8); // Standard font size
+              // Add slice label - top-right, regular font
+              pdf.setFontSize(8);
+              pdf.setFont('helvetica', 'normal'); // Regular font for slice labels
               pdf.setTextColor(0, 0, 0); // Black text
-              pdf.text(`S${childIndex + 1}`, childX + 1, childY + 3);
+              // Position at top-right corner of slice
+              const sliceLabelX = childX + childRegion.width - 1; // Right edge minus small margin
+              pdf.text(`S${childIndex + 1}`, sliceLabelX, childY + 4, { align: 'right' });
 
               // Add content type for slice - intelligent text sizing based on available space
               if (isProjectMode && childRegion.width > 3 && childRegion.height > 2) {
@@ -4264,7 +4268,8 @@ function App() {
                     const textX = childX + (childRegion.width / 2);
                     const textY = childY + (childRegion.height / 2) + 1;
 
-                    pdf.setFontSize(8); // Standard font size
+                    pdf.setFontSize(8);
+                    pdf.setFont('helvetica', 'italic'); // Italic font for content text
                     pdf.setTextColor(0, 0, 0); // Black text
                     pdf.text(displayText, textX, textY, { align: 'center' });
                   }
@@ -4277,8 +4282,9 @@ function App() {
             pdf.setLineWidth(0.3); // Standard thickness
             pdf.rect(regionX, regionY, region.width, region.height);
 
-            // Add region label
-            pdf.setFontSize(8); // Standard font size
+            // Add region label - top-left, bold
+            pdf.setFontSize(8);
+            pdf.setFont('helvetica', 'bold'); // Bold font for region labels
             pdf.setTextColor(0, 0, 0); // Black text
             pdf.text(`R${regionIndex + 1}`, regionX + 1, regionY + 4);
 
@@ -4326,7 +4332,8 @@ function App() {
                 const textX = regionX + (region.width / 2);
                 const textY = regionY + (region.height / 2) + 2;
 
-                pdf.setFontSize(8); // Standard font size
+                pdf.setFontSize(8);
+                pdf.setFont('helvetica', 'italic'); // Italic font for content text
                 pdf.setTextColor(0, 0, 0); // Black text
                 pdf.text(displayText, textX, textY, { align: 'center' });
               }
