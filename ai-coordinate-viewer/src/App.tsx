@@ -33,6 +33,9 @@ interface Region {
   backgroundColor: string;
   allowOverflow: boolean;
   flowToNext?: string; // ID of next region for overflow
+  children?: Region[]; // Child regions for sliced regions
+  parentId?: string; // ID of parent region if this is a slice
+  isSliced?: boolean; // Whether this region has been sliced
 }
 
 interface AIObject {
@@ -368,23 +371,45 @@ function App() {
   const [isSliceDragging, setIsSliceDragging] = useState(false);
   const [sliceDragOffset, setSliceDragOffset] = useState({ x: 0, y: 0 });
 
-  // Function to trash all regions with confirmation
-  const trashAllRegions = (motherObject: AIObject) => {
+  // Function to trash all slices (child regions) while keeping parent regions
+  const trashAllSlices = (motherObject: AIObject) => {
     const regions = (motherObject as any).regions || [];
     if (regions.length === 0) {
-      alert('No regions to delete.');
+      alert('No regions found.');
       return;
     }
 
-    // Red background, yellow text confirmation
-    const confirmed = window.confirm(`🗑️ DELETE ALL REGIONS?\n\nThis will permanently delete all ${regions.length} regions from "${motherObject.name}".\n\nThis action cannot be undone!`);
+    // Count total slices across all regions
+    let totalSlices = 0;
+    regions.forEach((region: Region) => {
+      if (region.children && region.children.length > 0) {
+        totalSlices += region.children.length;
+      }
+    });
+
+    if (totalSlices === 0) {
+      alert('No slices found to delete.');
+      return;
+    }
+
+    // Confirmation dialog
+    const confirmed = window.confirm(`🗑️ DELETE ALL SLICES?\n\nThis will permanently delete all ${totalSlices} slices from "${motherObject.name}".\n\nParent regions will be preserved.\n\nThis action cannot be undone!`);
 
     if (confirmed) {
       if (!data) return;
 
       const updatedObjects = data.objects.map(obj => {
         if (obj.name === motherObject.name) {
-          return { ...obj, regions: [] };
+          // Remove children from all regions and reset slice state
+          const updatedRegions = regions.map((region: Region) => ({
+            ...region,
+            children: undefined, // Remove children
+            isSliced: false, // Reset slice state
+            borderColor: '#2196f3', // Reset to default blue border
+            backgroundColor: 'rgba(33, 150, 243, 0.1)' // Reset to default blue background
+          }));
+
+          return { ...obj, regions: updatedRegions };
         }
         return obj;
       });
@@ -392,14 +417,20 @@ function App() {
       const updatedData = { ...data, objects: updatedObjects };
       setData(updatedData);
 
-      // Clear all region contents
+      // Clear region contents for all child regions (slices)
       const updatedContents = new Map(regionContents);
       regions.forEach((region: Region) => {
-        updatedContents.delete(region.id);
+        if (region.children && region.children.length > 0) {
+          region.children.forEach((childRegion: Region) => {
+            updatedContents.delete(childRegion.id);
+          });
+        }
       });
       setRegionContents(updatedContents);
 
-      console.log(`🗑️ Deleted all ${regions.length} regions from mother: ${motherObject.name}`);
+      console.log(`🗑️ Deleted all ${totalSlices} slices from mother: ${motherObject.name}, preserved ${regions.length} parent regions`);
+      setNotification(`✅ Deleted ${totalSlices} slices, preserved ${regions.length} parent regions`);
+      setTimeout(() => setNotification(null), 3000);
     }
   };
 
@@ -1106,9 +1137,9 @@ function App() {
     return [];
   };
 
-  // Function to slice a region into multiple smaller regions
+  // Function to slice a region into hierarchical child regions
   const sliceRegion = (regionToSlice: Region, horizontalCuts: number[], verticalCuts: number[]) => {
-    console.log('🔪 Slicing region:', regionToSlice.name, 'with cuts:', { horizontalCuts, verticalCuts });
+    console.log('🔪 Slicing region into hierarchy:', regionToSlice.name, 'with cuts:', { horizontalCuts, verticalCuts });
 
     // Validate cuts are within region bounds
     const validHorizontalCuts = horizontalCuts.filter(cut => cut > 0 && cut < regionToSlice.height);
@@ -1122,15 +1153,15 @@ function App() {
 
     console.log('📏 Cut boundaries:', { hCuts, vCuts });
 
-    // Generate new regions
-    const newRegions: Region[] = [];
+    // Generate child regions
+    const childRegions: Region[] = [];
     let regionIndex = 0;
 
     for (let i = 0; i < hCuts.length - 1; i++) {
       for (let j = 0; j < vCuts.length - 1; j++) {
-        const newRegion: Region = {
-          id: `region_${Date.now()}_slice_${regionIndex}`,
-          name: '', // Empty name as requested
+        const childRegion: Region = {
+          id: `${regionToSlice.id}_slice_${regionIndex}`,
+          name: `Slice ${regionIndex + 1}`, // Give slices meaningful names
           x: regionToSlice.x + vCuts[j],
           y: regionToSlice.y + hCuts[i],
           width: vCuts[j + 1] - vCuts[j],
@@ -1138,21 +1169,32 @@ function App() {
           margins: { top: 2, bottom: 2, left: 2, right: 2 },
           borderColor: '#4caf50',
           backgroundColor: 'rgba(76, 175, 80, 0.1)',
-          allowOverflow: false
+          allowOverflow: false,
+          parentId: regionToSlice.id // Set parent relationship
         };
 
         // Validate minimum size (10mm)
-        if (newRegion.width >= 10 && newRegion.height >= 10) {
-          newRegions.push(newRegion);
+        if (childRegion.width >= 10 && childRegion.height >= 10) {
+          childRegions.push(childRegion);
           regionIndex++;
         } else {
-          console.warn('⚠️ Skipping region too small:', newRegion.width, 'x', newRegion.height);
+          console.warn('⚠️ Skipping region too small:', childRegion.width, 'x', childRegion.height);
         }
       }
     }
 
-    console.log('✂️ Created', newRegions.length, 'new regions:', newRegions);
-    return newRegions;
+    // Create the updated parent region with children
+    const updatedParentRegion: Region = {
+      ...regionToSlice,
+      children: childRegions,
+      isSliced: true,
+      // Keep original visual properties but mark as sliced
+      borderColor: '#ff9800', // Orange border to indicate it's sliced
+      backgroundColor: 'rgba(255, 152, 0, 0.05)' // Light orange background
+    };
+
+    console.log('🎯 Generated hierarchy:', childRegions.length, 'child regions under parent:', updatedParentRegion.name);
+    return { parentRegion: updatedParentRegion, childRegions };
   };
 
   // Function to automatically update existing regions when mid-fold line properties change
@@ -4165,11 +4207,11 @@ function App() {
 
                 return (
                   <>
-                    {/* Trash All Regions Button - appears above first region */}
+                    {/* Trash All Slices Button - appears above first region */}
                     {motherRegions.length > 0 && (
                       <div style={{ margin: '4px 0 8px 20px' }}>
                         <button
-                          onClick={() => trashAllRegions(mother.object)}
+                          onClick={() => trashAllSlices(mother.object)}
                           style={{
                             padding: '4px 8px',
                             border: 'none',
@@ -4190,8 +4232,9 @@ function App() {
                             e.currentTarget.style.background = 'linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%)';
                             e.currentTarget.style.transform = 'scale(1)';
                           }}
+                          title="Delete all slices while preserving parent regions"
                         >
-                          🗑️ Trash All Regions ({motherRegions.length})
+                          🗑️ Trash All Slices
                         </button>
                       </div>
                     )}
@@ -4305,9 +4348,10 @@ function App() {
                         </div>
                       </div>
 
-                      {/* Slice/Delete buttons - Only show in Master File Mode */}
-                      {isMasterFileMode && (
+                      {/* Slice/Delete buttons - Show in both Master File Mode and Project Mode */}
+                      {(isMasterFileMode || isProjectMode) && (
                         <div style={{ display: 'flex', gap: '4px' }}>
+                          {/* Slice button - Available in both modes */}
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -4316,6 +4360,7 @@ function App() {
                               setSliceLines({ horizontal: [], vertical: [] }); // Reset slice lines
                               setSliceMode('visual'); // Default to visual mode
                               setShowSliceDialog(true);
+                              setSlicePopupPosition({ x: 100, y: 100 }); // Reset popup position
                             }}
                             style={{
                               background: '#ff9800',
@@ -4330,25 +4375,29 @@ function App() {
                           >
                             ✂️
                           </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              // Use confirmation function for single region deletion
-                              trashSingleRegion(mother.object, region);
-                            }}
-                            style={{
-                              background: '#f44336',
-                              border: 'none',
-                              color: 'white',
-                              fontSize: '10px',
-                              padding: '2px 6px',
-                              borderRadius: '3px',
-                              cursor: 'pointer'
-                            }}
-                            title="Delete region"
-                          >
-                            🗑️
-                          </button>
+
+                          {/* Delete button - Only in Master File Mode */}
+                          {isMasterFileMode && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                // Use confirmation function for single region deletion
+                                trashSingleRegion(mother.object, region);
+                              }}
+                              style={{
+                                background: '#f44336',
+                                border: 'none',
+                                color: 'white',
+                                fontSize: '10px',
+                                padding: '2px 6px',
+                                borderRadius: '3px',
+                                cursor: 'pointer'
+                              }}
+                              title="Delete region"
+                            >
+                              🗑️
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>
@@ -4458,6 +4507,188 @@ function App() {
                         </div>
                       ));
                     })()}
+
+                    {/* Child Regions (Slices) - Show if region has been sliced */}
+                    {region.children && region.children.length > 0 && (
+                      <div style={{ marginLeft: '20px', marginTop: '4px' }}>
+                        {region.children.map((childRegion: Region, childIndex: number) => {
+                          const isChildHighlighted = highlightedRegion === childRegion.id;
+                          const isChildDraggedOver = dragOverRegion === childRegion.id;
+
+                          let childBackgroundColor = '#f0f8f0'; // Light green for child
+                          let childBorderColor = '#4caf50'; // Green border
+                          let childTextColor = '#2e7d32'; // Dark green text
+
+                          if (isChildDraggedOver) {
+                            childBackgroundColor = '#c8e6c9'; // Brighter green for drag over
+                            childBorderColor = '#4caf50';
+                          } else if (isChildHighlighted) {
+                            childBackgroundColor = '#fff3e0'; // Orange tint for hover
+                            childBorderColor = '#ff6b35';
+                            childTextColor = '#e65100';
+                          }
+
+                          return (
+                            <div
+                              key={childRegion.id}
+                              style={{
+                                margin: '2px 0',
+                                background: childBackgroundColor,
+                                color: childTextColor,
+                                borderRadius: '4px',
+                                borderLeft: `2px solid ${childBorderColor}`,
+                                overflow: 'hidden',
+                                transition: 'all 0.2s ease',
+                                cursor: 'pointer'
+                              }}
+                              onDragOver={isProjectMode ? (e) => handleContentDragOver(e, childRegion.id) : undefined}
+                              onDragLeave={isProjectMode ? handleContentDragLeave : undefined}
+                              onDrop={isProjectMode ? (e) => handleContentDrop(e, childRegion.id) : undefined}
+                              onDoubleClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                // Child regions can also be sliced
+                                setSlicingRegion(childRegion);
+                                setHighlightedRegion(childRegion.id);
+                                setSliceLines({ horizontal: [], vertical: [] });
+                                setSliceMode('visual');
+                                setShowSliceDialog(true);
+                                setSlicePopupPosition({ x: 100, y: 100 });
+                              }}
+                            >
+                              <div
+                                style={{
+                                  padding: '6px 10px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  fontSize: '11px'
+                                }}
+                                onClick={(e) => {
+                                  if (e.detail === 1) {
+                                    setTimeout(() => {
+                                      if (e.detail === 1) {
+                                        setHighlightedRegion(childRegion.id);
+                                      }
+                                    }, 200);
+                                  }
+                                }}
+                                onMouseEnter={() => setHighlightedRegion(childRegion.id)}
+                                onMouseLeave={() => setHighlightedRegion(null)}
+                              >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span style={{ fontSize: '10px' }}>↳</span>
+                                  <div>
+                                    <div style={{ fontWeight: 'bold' }}>
+                                      {childRegion.name || `Slice ${childIndex + 1}`}
+                                    </div>
+                                    <div style={{ fontSize: '9px', opacity: 0.7 }}>
+                                      {childRegion.width}×{childRegion.height}mm
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Slice button for child regions */}
+                                {(isMasterFileMode || isProjectMode) && (
+                                  <div style={{ display: 'flex', gap: '2px' }}>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSlicingRegion(childRegion);
+                                        setHighlightedRegion(childRegion.id);
+                                        setSliceLines({ horizontal: [], vertical: [] });
+                                        setSliceMode('visual');
+                                        setShowSliceDialog(true);
+                                        setSlicePopupPosition({ x: 100, y: 100 });
+                                      }}
+                                      style={{
+                                        background: '#ff9800',
+                                        border: 'none',
+                                        color: 'white',
+                                        fontSize: '8px',
+                                        padding: '1px 4px',
+                                        borderRadius: '2px',
+                                        cursor: 'pointer'
+                                      }}
+                                      title="Slice child region"
+                                    >
+                                      ✂️
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Content items for child regions */}
+                              {(() => {
+                                const childContentItems = regionContents.get(childRegion.id) || [];
+                                return childContentItems.map((contentItem: any, contentIndex: number) => (
+                                  <div
+                                    key={`${childRegion.id}-content-${contentIndex}`}
+                                    style={{
+                                      margin: '2px 0 2px 20px',
+                                      background: '#f9f9f9',
+                                      color: '#666',
+                                      borderRadius: '3px',
+                                      borderLeft: '1px solid #ccc',
+                                      overflow: 'hidden',
+                                      fontSize: '10px'
+                                    }}
+                                  >
+                                    <div style={{ padding: '4px 6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <span style={{ fontSize: '10px' }}>
+                                          {contentItem.type === 'translation-paragraph' ? '🌐' :
+                                           contentItem.type === 'pure-english-paragraph' ? '📄' :
+                                           contentItem.type === 'line-text' ? '📝' :
+                                           contentItem.type === 'washing-symbol' ? '🧺' :
+                                           contentItem.type === 'image' ? '🖼️' :
+                                           contentItem.type === 'coo' ? '🏷️' : '📄'}
+                                        </span>
+                                        <div style={{ fontSize: '9px' }}>
+                                          {contentItem.type === 'translation-paragraph' ? 'Translation' :
+                                           contentItem.type === 'pure-english-paragraph' ? 'English' :
+                                           contentItem.type === 'line-text' ? 'Text' :
+                                           contentItem.type === 'washing-symbol' ? 'Symbol' :
+                                           contentItem.type === 'image' ? 'Image' :
+                                           contentItem.type === 'coo' ? 'COO' : contentItem.type}
+                                        </div>
+                                      </div>
+                                      <button
+                                        onClick={() => {
+                                          const currentContents = regionContents.get(childRegion.id) || [];
+                                          const newContents = currentContents.filter((_, index) => index !== contentIndex);
+                                          const updatedContents = new Map(regionContents);
+                                          if (newContents.length === 0) {
+                                            updatedContents.delete(childRegion.id);
+                                          } else {
+                                            updatedContents.set(childRegion.id, newContents);
+                                          }
+                                          setRegionContents(updatedContents);
+                                          setNotification(`Content deleted from ${childRegion.name}`);
+                                          setTimeout(() => setNotification(null), 3000);
+                                        }}
+                                        style={{
+                                          background: '#f44336',
+                                          border: 'none',
+                                          color: 'white',
+                                          fontSize: '7px',
+                                          padding: '1px 3px',
+                                          borderRadius: '1px',
+                                          cursor: 'pointer'
+                                        }}
+                                        title="Delete content"
+                                      >
+                                        🗑️
+                                      </button>
+                                    </div>
+                                  </div>
+                                ));
+                              })()}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 );
                     })}
@@ -5193,8 +5424,11 @@ function App() {
               const mmToPx = 3.78;
               const scale = zoom * mmToPx;
 
-              return objectRegions.map((region: Region) => {
-                // Determine highlighting style
+              // Helper function to render a region and its children
+              const renderRegionWithChildren = (region: Region): React.ReactElement[] => {
+                const elements: React.ReactElement[] = [];
+
+                // Determine highlighting style for parent region
                 const isEditing = editingRegion && editingRegion.id === region.id;
                 const isHighlighted = highlightedRegion === region.id;
 
@@ -5210,7 +5444,8 @@ function App() {
                   strokeWidth = 3;
                 }
 
-                return (
+                // Render parent region
+                elements.push(
                 <g key={region.id}>
                   {/* Region Rectangle */}
                   <rect
@@ -5578,8 +5813,99 @@ function App() {
 
                   {/* Content Placeholders removed - only show centered content type labels in overlays above */}
                 </g>
-              );
-              });
+                );
+
+                // Render child regions if they exist
+                if (region.children && region.children.length > 0) {
+                  region.children.forEach((childRegion: Region) => {
+                    const isChildEditing = editingRegion && editingRegion.id === childRegion.id;
+                    const isChildHighlighted = highlightedRegion === childRegion.id;
+
+                    let childStrokeColor = childRegion.borderColor;
+                    let childStrokeWidth = 1;
+
+                    if (isChildEditing) {
+                      childStrokeColor = '#007bff';
+                      childStrokeWidth = 3;
+                    } else if (isChildHighlighted) {
+                      childStrokeColor = '#ff6b35';
+                      childStrokeWidth = 2;
+                    }
+
+                    elements.push(
+                      <g key={childRegion.id}>
+                        {/* Child Region Rectangle */}
+                        <rect
+                          x={baseX + (childRegion.x * scale)}
+                          y={baseY + (childRegion.y * scale)}
+                          width={childRegion.width * scale}
+                          height={childRegion.height * scale}
+                          fill={dragOverRegion === childRegion.id ? '#e8f5e8' : childRegion.backgroundColor}
+                          stroke={dragOverRegion === childRegion.id ? '#4caf50' : childStrokeColor}
+                          strokeWidth={dragOverRegion === childRegion.id ? 3 : childStrokeWidth}
+                          strokeDasharray="3,3"
+                          opacity={dragOverRegion === childRegion.id ? 0.9 : 0.8}
+                          style={{ cursor: isProjectMode ? 'copy' : 'pointer' }}
+                          onDragOver={isProjectMode ? (e) => handleContentDragOver(e, childRegion.id) : undefined}
+                          onDragLeave={isProjectMode ? handleContentDragLeave : undefined}
+                          onDrop={isProjectMode ? (e) => handleContentDrop(e, childRegion.id) : undefined}
+                          onMouseEnter={() => {
+                            if (!editingRegion || editingRegion.id !== childRegion.id) {
+                              setHighlightedRegion(childRegion.id);
+                            }
+                          }}
+                          onMouseLeave={() => {
+                            if (!editingRegion || editingRegion.id !== childRegion.id) {
+                              setHighlightedRegion(null);
+                            }
+                          }}
+                          onDoubleClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setSlicingRegion(childRegion);
+                            setHighlightedRegion(childRegion.id);
+                            setSliceLines({ horizontal: [], vertical: [] });
+                            setSliceMode('visual');
+                            setShowSliceDialog(true);
+                            setSlicePopupPosition({ x: 100, y: 100 });
+                          }}
+                        />
+
+                        {/* Child Region Label */}
+                        <text
+                          x={baseX + (childRegion.x * scale) + (childRegion.width * scale) / 2}
+                          y={baseY + (childRegion.y * scale) + 12}
+                          fill={childRegion.borderColor}
+                          fontSize="8"
+                          fontWeight="bold"
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          opacity="0.9"
+                        >
+                          {childRegion.name}
+                        </text>
+
+                        {/* Child Region Dimensions */}
+                        <text
+                          x={baseX + (childRegion.x * scale) + (childRegion.width * scale) / 2}
+                          y={baseY + (childRegion.y * scale) + (childRegion.height * scale) - 3}
+                          fill={childRegion.borderColor}
+                          fontSize="6"
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          opacity="0.7"
+                        >
+                          {childRegion.width}×{childRegion.height}mm
+                        </text>
+                      </g>
+                    );
+                  });
+                }
+
+                return elements;
+              };
+
+              return objectRegions.flatMap(renderRegionWithChildren);
             })()}
 
             {/* Sewing Lines with Dimensions */}
@@ -8890,10 +9216,10 @@ function App() {
 
                   if (!slicingRegion) return;
 
-                  // Perform the slice operation
-                  const newRegions = sliceRegion(slicingRegion, sliceLines.horizontal, sliceLines.vertical);
+                  // Perform the slice operation (now returns hierarchical structure)
+                  const sliceResult = sliceRegion(slicingRegion, sliceLines.horizontal, sliceLines.vertical);
 
-                  if (newRegions.length === 0) {
+                  if (sliceResult.childRegions.length === 0) {
                     alert('❌ No valid regions could be created. Check that cuts create regions larger than 10mm.');
                     return;
                   }
@@ -8908,14 +9234,18 @@ function App() {
                       const regionIndex = motherRegions.findIndex((r: Region) => r.id === slicingRegion.id);
 
                       if (regionIndex !== -1) {
-                        // Remove the original region and add the new sliced regions
+                        // Replace the original region with the updated parent region (containing children)
                         const updatedRegions = [
                           ...motherRegions.slice(0, regionIndex),
-                          ...newRegions,
+                          sliceResult.parentRegion, // Replace with parent that has children
                           ...motherRegions.slice(regionIndex + 1)
                         ];
 
-                        console.log('🔄 Updating mother regions:', updatedRegions.length, 'total regions');
+                        console.log('🔄 Updating mother regions with hierarchy:', {
+                          totalRegions: updatedRegions.length,
+                          parentRegion: sliceResult.parentRegion.name,
+                          childCount: sliceResult.childRegions.length
+                        });
 
                         return {
                           ...obj,
@@ -8947,7 +9277,7 @@ function App() {
                   setSliceLines({ horizontal: [], vertical: [] });
 
                   // Show success message
-                  setNotification(`✂️ Region sliced into ${newRegions.length} new regions`);
+                  setNotification(`✂️ Region "${slicingRegion.name}" sliced into ${sliceResult.childRegions.length} child regions`);
                   setTimeout(() => setNotification(null), 3000);
 
                   console.log('✅ Slice operation completed successfully');
