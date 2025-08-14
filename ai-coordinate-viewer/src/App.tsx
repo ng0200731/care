@@ -100,6 +100,7 @@ interface AIData {
   document: string;
   totalObjects: number;
   objects: AIObject[];
+  layoutName?: string; // Optional layout name for project mode
 }
 
 function App() {
@@ -2602,9 +2603,14 @@ function App() {
 
       // Restore canvas data
       if (projectState.canvasData) {
-        setData(projectState.canvasData);
-        setWebCreationData(projectState.canvasData);
-        console.log('✅ Canvas data restored:', projectState.canvasData);
+        // Add layout name to canvas data for header display
+        const canvasDataWithLayoutName = {
+          ...projectState.canvasData,
+          layoutName: projectState.name || 'Unnamed Layout'
+        };
+        setData(canvasDataWithLayoutName);
+        setWebCreationData(canvasDataWithLayoutName);
+        console.log('✅ Canvas data restored with layout name:', canvasDataWithLayoutName);
       }
 
       // Restore region contents (content objects)
@@ -3145,17 +3151,27 @@ function App() {
   const handleContentDragOver = (e: React.DragEvent, regionId: string) => {
     e.preventDefault();
 
-    // Check region occupation
+    // Check if region already has content (1 content type per slice limit)
+    const currentContents = regionContents.get(regionId) || [];
+    const hasContent = currentContents.length > 0;
+
+    if (hasContent) {
+      // Region already has content - show warning visual feedback
+      e.dataTransfer.dropEffect = 'copy'; // Still allow drop for replacement
+      setDragOverRegion(regionId); // Use same visual state but will be styled differently
+      return;
+    }
+
+    // Check region occupation for space-based validation
     const occupation = calculateRegionOccupation(regionId);
 
     if (occupation.isFull) {
       // Region is full - no visual feedback, set drop effect to none
       e.dataTransfer.dropEffect = 'none';
-      // Don't use alert here as it breaks drag flow - handle in drop instead
       return;
     }
 
-    // Region has space - allow drop and show visual feedback
+    // Region is empty and has space - allow drop and show positive visual feedback
     e.dataTransfer.dropEffect = 'copy';
     setDragOverRegion(regionId);
   };
@@ -3174,9 +3190,32 @@ function App() {
     if (currentContents.length > 0) {
       const existingContentType = currentContents[0].type;
       const existingTypeName = existingContentType.replace('-', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
-      setNotification(`❌ Region already contains ${existingTypeName} - only 1 content type per region allowed`);
-      setTimeout(() => setNotification(null), 3000);
-      return;
+
+      // Get the new content type being dropped
+      const contentTypeData = JSON.parse(e.dataTransfer.getData('application/json')) as ContentType;
+      const newTypeName = contentTypeData.name.replace('-', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
+
+      // Ask user if they want to replace existing content
+      const confirmed = window.confirm(
+        `⚠️ SLICE ALREADY OCCUPIED\n\n` +
+        `This slice already contains: ${existingTypeName}\n` +
+        `You are trying to add: ${newTypeName}\n\n` +
+        `Each slice can only contain ONE content type.\n\n` +
+        `Do you want to REPLACE the existing ${existingTypeName} with ${newTypeName}?`
+      );
+
+      if (!confirmed) {
+        setNotification(`❌ Drop cancelled - slice keeps existing ${existingTypeName}`);
+        setTimeout(() => setNotification(null), 3000);
+        return;
+      }
+
+      // User confirmed replacement - clear existing content
+      const updatedContents = new Map(regionContents);
+      updatedContents.delete(regionId);
+      setRegionContents(updatedContents);
+
+      console.log(`🔄 Replacing ${existingTypeName} with ${newTypeName} in region ${regionId}`);
     }
 
     // Check region occupation before allowing drop
@@ -5814,8 +5853,16 @@ function App() {
                     y={baseY + (region.y * scale)}
                     width={region.width * scale}
                     height={region.height * scale}
-                    fill={dragOverRegion === region.id ? '#e3f2fd' : region.backgroundColor}
-                    stroke={dragOverRegion === region.id ? '#2196f3' : strokeColor}
+                    fill={dragOverRegion === region.id ?
+                      (() => {
+                        const hasContent = (regionContents.get(region.id) || []).length > 0;
+                        return hasContent ? '#ffebee' : '#e3f2fd'; // Red tint for occupied, blue for empty
+                      })() : region.backgroundColor}
+                    stroke={dragOverRegion === region.id ?
+                      (() => {
+                        const hasContent = (regionContents.get(region.id) || []).length > 0;
+                        return hasContent ? '#f44336' : '#2196f3'; // Red border for occupied, blue for empty
+                      })() : strokeColor}
                     strokeWidth={dragOverRegion === region.id ? 4 : strokeWidth}
                     strokeDasharray="5,5"
                     opacity={dragOverRegion === region.id ? 0.9 : 0.7}
@@ -6172,6 +6219,36 @@ function App() {
                     {region.width}×{region.height}mm
                   </text>
 
+                  {/* Content Type Name Overlay - Center of parent region (only if no children) */}
+                  {(() => {
+                    // Only show content type for parent regions without children (slices)
+                    if (region.children && region.children.length > 0) return null;
+
+                    const regionContentsArray = regionContents.get(region.id) || [];
+                    if (regionContentsArray.length === 0) return null;
+
+                    // Get the first content type name
+                    const contentType = regionContentsArray[0]?.type || 'content';
+
+                    return (
+                      <text
+                        x={baseX + (region.x * scale) + (region.width * scale) / 2}
+                        y={baseY + (region.y * scale) + (region.height * scale) / 2}
+                        fill="#333"
+                        fontSize="12"
+                        fontWeight="bold"
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        opacity="0.8"
+                        style={{
+                          textShadow: '1px 1px 2px rgba(255,255,255,0.8)'
+                        }}
+                      >
+                        {contentType}
+                      </text>
+                    );
+                  })()}
+
                   {/* Content Placeholders removed - only show centered content type labels in overlays above */}
                 </g>
                 );
@@ -6201,8 +6278,16 @@ function App() {
                           y={baseY + (childRegion.y * scale)}
                           width={childRegion.width * scale}
                           height={childRegion.height * scale}
-                          fill={dragOverRegion === childRegion.id ? '#e8f5e8' : childRegion.backgroundColor}
-                          stroke={dragOverRegion === childRegion.id ? '#4caf50' : childStrokeColor}
+                          fill={dragOverRegion === childRegion.id ?
+                            (() => {
+                              const hasContent = (regionContents.get(childRegion.id) || []).length > 0;
+                              return hasContent ? '#ffebee' : '#e8f5e8'; // Red tint for occupied, green for empty
+                            })() : childRegion.backgroundColor}
+                          stroke={dragOverRegion === childRegion.id ?
+                            (() => {
+                              const hasContent = (regionContents.get(childRegion.id) || []).length > 0;
+                              return hasContent ? '#f44336' : '#4caf50'; // Red border for occupied, green for empty
+                            })() : childStrokeColor}
                           strokeWidth={dragOverRegion === childRegion.id ? 3 : childStrokeWidth}
                           strokeDasharray="3,3"
                           opacity={dragOverRegion === childRegion.id ? 0.9 : 0.8}
@@ -6258,6 +6343,33 @@ function App() {
                         >
                           {childRegion.width}×{childRegion.height}mm
                         </text>
+
+                        {/* Content Type Name Overlay - Center of slice */}
+                        {(() => {
+                          const sliceContents = regionContents.get(childRegion.id) || [];
+                          if (sliceContents.length === 0) return null;
+
+                          // Get the first content type name
+                          const contentType = sliceContents[0]?.type || 'content';
+
+                          return (
+                            <text
+                              x={baseX + (childRegion.x * scale) + (childRegion.width * scale) / 2}
+                              y={baseY + (childRegion.y * scale) + (childRegion.height * scale) / 2}
+                              fill="#333"
+                              fontSize="10"
+                              fontWeight="bold"
+                              textAnchor="middle"
+                              dominantBaseline="middle"
+                              opacity="0.8"
+                              style={{
+                                textShadow: '1px 1px 2px rgba(255,255,255,0.8)'
+                              }}
+                            >
+                              {contentType}
+                            </text>
+                          );
+                        })()}
                       </g>
                     );
                   });
@@ -6801,7 +6913,58 @@ function App() {
                         return lastPart.toUpperCase();
                       }
                       return 'Loading Customer';
-                    })()} - {decodeURIComponent(projectName || projectSlug || 'Unknown Project')} - {originalMasterFile?.name || (isLoadingMasterFile ? 'Loading...' : 'Master File')}
+                    })()} - {decodeURIComponent(projectName || projectSlug || 'Unknown Project')} - {(() => {
+                      // Get master file name (3rd component)
+                      const currentData = data || webCreationData;
+
+                      // First try to get from originalMasterFile
+                      if (originalMasterFile?.name) {
+                        return originalMasterFile.name;
+                      }
+
+                      // If not available, try to extract from document field
+                      if (currentData?.document) {
+                        const docName = currentData.document;
+                        if (docName.startsWith('Project: ')) {
+                          // Extract master file name from "Project: {masterFileName}" format
+                          return docName.replace('Project: ', '');
+                        }
+                      }
+
+                      // Check URL parameters for master file info
+                      const urlParams = new URLSearchParams(window.location.search);
+                      const masterFileId = urlParams.get('masterFileId');
+                      if (masterFileId) {
+                        return `MasterFile-${masterFileId.split('_')[1] || masterFileId}`;
+                      }
+
+                      return isLoadingMasterFile ? 'Loading...' : 'Master File';
+                    })()} - {(() => {
+                      // Determine if editing existing layout or creating new one
+                      const urlParams = new URLSearchParams(window.location.search);
+                      const layoutId = urlParams.get('layoutId');
+
+                      if (layoutId) {
+                        // Editing existing layout - try to get the actual layout name
+                        // First check if we have loaded project state with layout name
+                        const currentData = data || webCreationData;
+                        if (currentData && currentData.layoutName) {
+                          return currentData.layoutName;
+                        }
+
+                        // Check URL parameter for layout name
+                        const layoutName = urlParams.get('layoutName');
+                        if (layoutName) {
+                          return decodeURIComponent(layoutName);
+                        }
+
+                        // Fallback: show that we're editing an existing layout
+                        return `Layout ${layoutId.replace('layout_', '')}`;
+                      } else {
+                        // Creating new layout (no layoutId means "Add Master File" was clicked)
+                        return 'creating new layout';
+                      }
+                    })()}
                   </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
