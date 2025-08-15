@@ -199,16 +199,41 @@ function App() {
     onCancel: () => void;
   } | null>(null);
 
-  // Drag and drop state - Show content menu only in project mode
-  const [showContentMenu, setShowContentMenu] = useState(isProjectMode);
+  // Drag and drop state - Auto-hide content menu in project mode
+  const [showContentMenu, setShowContentMenu] = useState(false);
+  const [menuHideTimeout, setMenuHideTimeout] = useState<NodeJS.Timeout | null>(null);
 
   // Debug state for leftover space calculations
   const [debugInfo, setDebugInfo] = useState<string[]>([]);
 
-  // Update showContentMenu when project mode changes
+  // Auto-hide menu handlers
+  const handleMenuTriggerEnter = () => {
+    if (isProjectMode) {
+      if (menuHideTimeout) {
+        clearTimeout(menuHideTimeout);
+        setMenuHideTimeout(null);
+      }
+      setShowContentMenu(true);
+    }
+  };
+
+  const handleMenuLeave = () => {
+    if (isProjectMode) {
+      const timeout = setTimeout(() => {
+        setShowContentMenu(false);
+      }, 500); // 500ms delay before hiding
+      setMenuHideTimeout(timeout);
+    }
+  };
+
+  // Cleanup timeout on unmount
   React.useEffect(() => {
-    setShowContentMenu(isProjectMode);
-  }, [isProjectMode]);
+    return () => {
+      if (menuHideTimeout) {
+        clearTimeout(menuHideTimeout);
+      }
+    };
+  }, [menuHideTimeout]);
   const [dragOverRegion, setDragOverRegion] = useState<string | null>(null);
   const [universalDialog, setUniversalDialog] = useState<{
     isOpen: boolean;
@@ -9721,12 +9746,54 @@ function App() {
         </div>
       )}
 
-      {/* Content Menu - Only show in project mode */}
+      {/* Hover Trigger Zone for Content Menu - Only in project mode */}
+      {isProjectMode && !showContentMenu && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            right: 0,
+            width: '50px',
+            height: '100vh',
+            zIndex: 1000,
+            pointerEvents: 'auto'
+          }}
+          onMouseEnter={handleMenuTriggerEnter}
+        >
+          {/* Visual hint tab */}
+          <div
+            style={{
+              position: 'absolute',
+              top: '50%',
+              left: '10px',
+              transform: 'translateY(-50%)',
+              width: '30px',
+              height: '60px',
+              backgroundColor: '#3182ce',
+              borderRadius: '8px 0 0 8px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'white',
+              fontSize: '16px',
+              cursor: 'pointer',
+              boxShadow: '-2px 0 8px rgba(0,0,0,0.1)',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            📝
+          </div>
+        </div>
+      )}
+
+      {/* Content Menu - Auto-hide in project mode */}
       <ContentMenu
-        isVisible={showContentMenu}
+        isVisible={showContentMenu && isProjectMode}
         regionContents={regionContents}
         onEditContent={handleEditContent}
         onDeleteContent={handleDeleteContent}
+        onMouseEnter={handleMenuTriggerEnter}
+        onMouseLeave={handleMenuLeave}
       />
 
       {/* Region Occupation Dialog */}

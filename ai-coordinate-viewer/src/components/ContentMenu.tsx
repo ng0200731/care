@@ -51,13 +51,17 @@ interface ContentMenuProps {
   regionContents?: Map<string, any[]>;
   onEditContent?: (content: any, regionId: string) => void;
   onDeleteContent?: (content: any, regionId: string) => void;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
 }
 
 const ContentMenu: React.FC<ContentMenuProps> = ({
   isVisible,
   regionContents = new Map(),
   onEditContent,
-  onDeleteContent
+  onDeleteContent,
+  onMouseEnter,
+  onMouseLeave
 }) => {
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, contentType: ContentType) => {
     console.log('🚀 DRAG START:', contentType.name, 'ID:', contentType.id);
@@ -89,21 +93,26 @@ const ContentMenu: React.FC<ContentMenuProps> = ({
   if (!isVisible) return null;
 
   return (
-    <div style={{
-      width: '300px',
-      height: '100vh',
-      backgroundColor: '#f8f9fa',
-      borderLeft: '1px solid #e2e8f0',
-      padding: '20px',
-      paddingLeft: '50px', // Extra left padding to accommodate offset content
-      boxSizing: 'border-box',
-      position: 'fixed',
-      right: 0,
-      top: 0,
-      zIndex: 1000,
-      overflowY: 'auto',
-      overflowX: 'visible' // Allow horizontal overflow for offset content
-    }}>
+    <div
+      style={{
+        width: '300px',
+        height: '100vh',
+        backgroundColor: '#f8f9fa',
+        borderLeft: '1px solid #e2e8f0',
+        padding: '20px',
+        paddingLeft: '50px', // Extra left padding to accommodate offset content
+        boxSizing: 'border-box',
+        position: 'fixed',
+        right: isVisible ? 0 : '-300px', // Slide animation
+        top: 0,
+        zIndex: 1000,
+        overflowY: 'auto',
+        overflowX: 'visible', // Allow horizontal overflow for offset content
+        transition: 'right 0.3s ease-in-out' // Smooth slide animation
+      }}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
       {/* Header */}
       <div style={{
         marginBottom: '20px',
