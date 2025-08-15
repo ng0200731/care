@@ -199,41 +199,66 @@ function App() {
     onCancel: () => void;
   } | null>(null);
 
-  // Drag and drop state - Auto-hide content menu in project mode
+  // Auto-hide menus in project mode
   const [showContentMenu, setShowContentMenu] = useState(false);
-  const [menuHideTimeout, setMenuHideTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [showProjectMenu, setShowProjectMenu] = useState(false);
+  const [contentMenuHideTimeout, setContentMenuHideTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [projectMenuHideTimeout, setProjectMenuHideTimeout] = useState<NodeJS.Timeout | null>(null);
 
   // Debug state for leftover space calculations
   const [debugInfo, setDebugInfo] = useState<string[]>([]);
 
-  // Auto-hide menu handlers
-  const handleMenuTriggerEnter = () => {
+  // Auto-hide menu handlers for content menu (right)
+  const handleContentMenuTriggerEnter = () => {
     if (isProjectMode) {
-      if (menuHideTimeout) {
-        clearTimeout(menuHideTimeout);
-        setMenuHideTimeout(null);
+      if (contentMenuHideTimeout) {
+        clearTimeout(contentMenuHideTimeout);
+        setContentMenuHideTimeout(null);
       }
       setShowContentMenu(true);
     }
   };
 
-  const handleMenuLeave = () => {
+  const handleContentMenuLeave = () => {
     if (isProjectMode) {
       const timeout = setTimeout(() => {
         setShowContentMenu(false);
-      }, 500); // 500ms delay before hiding
-      setMenuHideTimeout(timeout);
+      }, 500);
+      setContentMenuHideTimeout(timeout);
     }
   };
 
-  // Cleanup timeout on unmount
+  // Auto-hide menu handlers for project menu (left)
+  const handleProjectMenuTriggerEnter = () => {
+    if (isProjectMode) {
+      if (projectMenuHideTimeout) {
+        clearTimeout(projectMenuHideTimeout);
+        setProjectMenuHideTimeout(null);
+      }
+      setShowProjectMenu(true);
+    }
+  };
+
+  const handleProjectMenuLeave = () => {
+    if (isProjectMode) {
+      const timeout = setTimeout(() => {
+        setShowProjectMenu(false);
+      }, 500);
+      setProjectMenuHideTimeout(timeout);
+    }
+  };
+
+  // Cleanup timeouts on unmount
   React.useEffect(() => {
     return () => {
-      if (menuHideTimeout) {
-        clearTimeout(menuHideTimeout);
+      if (contentMenuHideTimeout) {
+        clearTimeout(contentMenuHideTimeout);
+      }
+      if (projectMenuHideTimeout) {
+        clearTimeout(projectMenuHideTimeout);
       }
     };
-  }, [menuHideTimeout]);
+  }, [contentMenuHideTimeout, projectMenuHideTimeout]);
   const [dragOverRegion, setDragOverRegion] = useState<string | null>(null);
   const [universalDialog, setUniversalDialog] = useState<{
     isOpen: boolean;
@@ -7327,10 +7352,11 @@ function App() {
       display: 'flex',
       flexDirection: 'column',
       background: '#f5f5f5',
+      marginLeft: showProjectMenu ? '300px' : '0',
       marginRight: showContentMenu ? '300px' : '0',
       pointerEvents: isLoadingMasterFile ? 'none' : 'auto',
       opacity: isLoadingMasterFile ? 0.6 : 1,
-      transition: 'margin-right 0.3s ease, opacity 0.3s ease'
+      transition: 'margin-left 0.3s ease, margin-right 0.3s ease, opacity 0.3s ease'
     }}
       onDrop={handleDrop}
       onDragOver={handleDragOver}
@@ -7917,15 +7943,65 @@ function App() {
           )}
         </div>
 
-        {/* Hierarchy Panel - 30% - Show in web creation mode or project context */}
+        {/* Left Hover Trigger Zone for Project Menu - Only in project mode */}
+        {isProjectMode && !showProjectMenu && (
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              width: '50px',
+              height: '100vh',
+              zIndex: 1000,
+              pointerEvents: 'auto'
+            }}
+            onMouseEnter={handleProjectMenuTriggerEnter}
+          >
+            {/* Visual hint tab */}
+            <div
+              style={{
+                position: 'absolute',
+                top: '50%',
+                right: '10px',
+                transform: 'translateY(-50%)',
+                width: '30px',
+                height: '60px',
+                backgroundColor: '#3182ce',
+                borderRadius: '0 8px 8px 0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'white',
+                fontSize: '16px',
+                cursor: 'pointer',
+                boxShadow: '2px 0 8px rgba(0,0,0,0.1)',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              🏗️
+            </div>
+          </div>
+        )}
+
+        {/* Hierarchy Panel - Auto-hide in project mode */}
         {(isWebCreationMode || context === 'projects') && (
-          <div style={{
-            width: '30%',
-            background: 'white',
-            padding: '20px',
-            overflowY: 'auto',
-            position: 'relative'
-          }}>
+          <div
+            style={{
+              width: '300px',
+              background: 'white',
+              padding: '20px',
+              overflowY: 'auto',
+              position: isProjectMode ? 'fixed' : 'relative',
+              left: isProjectMode ? (showProjectMenu ? 0 : '-300px') : 'auto',
+              top: isProjectMode ? 0 : 'auto',
+              height: isProjectMode ? '100vh' : 'auto',
+              zIndex: isProjectMode ? 1000 : 'auto',
+              transition: isProjectMode ? 'left 0.3s ease-in-out' : 'none',
+              boxShadow: isProjectMode ? '2px 0 8px rgba(0,0,0,0.1)' : 'none'
+            }}
+            onMouseEnter={isProjectMode ? handleProjectMenuTriggerEnter : undefined}
+            onMouseLeave={isProjectMode ? handleProjectMenuLeave : undefined}
+          >
             {/* Disabled Overlay when dialogs are open - but not in master file mode */}
             {(showRegionDialog || showAddRegionDialog || isAnyDialogOpen) && !isMasterFileMode && (
               <div style={{
@@ -9758,7 +9834,7 @@ function App() {
             zIndex: 1000,
             pointerEvents: 'auto'
           }}
-          onMouseEnter={handleMenuTriggerEnter}
+          onMouseEnter={handleContentMenuTriggerEnter}
         >
           {/* Visual hint tab */}
           <div
@@ -9792,8 +9868,8 @@ function App() {
         regionContents={regionContents}
         onEditContent={handleEditContent}
         onDeleteContent={handleDeleteContent}
-        onMouseEnter={handleMenuTriggerEnter}
-        onMouseLeave={handleMenuLeave}
+        onMouseEnter={handleContentMenuTriggerEnter}
+        onMouseLeave={handleContentMenuLeave}
       />
 
       {/* Region Occupation Dialog */}
