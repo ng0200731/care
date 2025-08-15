@@ -3323,9 +3323,7 @@ function App() {
   // Content Drag and Drop Handlers
   const handleContentDragOver = (e: React.DragEvent, regionId: string) => {
     e.preventDefault();
-    // Use notification instead of console for clearer testing
-    setNotification(`🎯 DRAG OVER: ${regionId}`);
-    setTimeout(() => setNotification(null), 1000);
+    setDragOverRegion(regionId);
 
     // Check if region already has content (1 content type per slice limit)
     const currentContents = regionContents.get(regionId) || [];
@@ -3383,10 +3381,8 @@ function App() {
     e.preventDefault();
     setDragOverRegion(null);
 
-    // Use notification for clearer testing
-    setNotification(`🎯 DROP EVENT: ${regionId}`);
-    setTimeout(() => setNotification(null), 2000);
-    alert(`🎯 DROP EVENT REACHED: ${regionId}`);
+    // Clear any drag over state
+    setDragOverRegion(null);
 
     // Find the region to check if it has slices
     const currentData = data || webCreationData;
@@ -5099,14 +5095,29 @@ function App() {
                     onDoubleClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      console.log('🖱️ Double-clicked region:', region.name);
-                      // Double click opens slice popup (same as slice button)
-                      setSlicingRegion(region);
-                      setHighlightedRegion(region.id);
-                      setSliceLines({ horizontal: [], vertical: [] });
-                      setSliceMode('visual');
-                      setShowSliceDialog(true);
-                      setSlicePopupPosition({ x: 100, y: 100 }); // Reset to default position
+
+                      // Check if region or any of its slices have content
+                      const regionContentItems = regionContents.get(region.id) || [];
+                      const hasRegionContent = regionContentItems.length > 0;
+
+                      let hasSliceContent = false;
+                      if (region.children && region.children.length > 0) {
+                        hasSliceContent = region.children.some((slice: any) => {
+                          const sliceContentItems = regionContents.get(slice.id) || [];
+                          return sliceContentItems.length > 0;
+                        });
+                      }
+
+                      // Only open slice popup if no content exists
+                      if (!hasRegionContent && !hasSliceContent) {
+                        console.log('🖱️ Double-clicked region:', region.name);
+                        setSlicingRegion(region);
+                        setHighlightedRegion(region.id);
+                        setSliceLines({ horizontal: [], vertical: [] });
+                        setSliceMode('visual');
+                        setShowSliceDialog(true);
+                        setSlicePopupPosition({ x: 100, y: 100 }); // Reset to default position
+                      }
                     }}
                   >
                     <div
@@ -5132,14 +5143,29 @@ function App() {
                       onDoubleClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        console.log('🖱️ Double-clicked region (inner):', region.name);
-                        // Double click opens slice popup (same as slice button)
-                        setSlicingRegion(region);
-                        setHighlightedRegion(region.id);
-                        setSliceLines({ horizontal: [], vertical: [] });
-                        setSliceMode('visual');
-                        setShowSliceDialog(true);
-                        setSlicePopupPosition({ x: 100, y: 100 }); // Reset to default position
+
+                        // Check if region or any of its slices have content
+                        const regionContentItems = regionContents.get(region.id) || [];
+                        const hasRegionContent = regionContentItems.length > 0;
+
+                        let hasSliceContent = false;
+                        if (region.children && region.children.length > 0) {
+                          hasSliceContent = region.children.some((slice: any) => {
+                            const sliceContentItems = regionContents.get(slice.id) || [];
+                            return sliceContentItems.length > 0;
+                          });
+                        }
+
+                        // Only open slice popup if no content exists
+                        if (!hasRegionContent && !hasSliceContent) {
+                          console.log('🖱️ Double-clicked region (inner):', region.name);
+                          setSlicingRegion(region);
+                          setHighlightedRegion(region.id);
+                          setSliceLines({ horizontal: [], vertical: [] });
+                          setSliceMode('visual');
+                          setShowSliceDialog(true);
+                          setSlicePopupPosition({ x: 100, y: 100 }); // Reset to default position
+                        }
                       }}
                       onMouseEnter={() => {
                         // Only highlight on hover if not currently editing
@@ -5172,8 +5198,18 @@ function App() {
                           {/* If region has no slices - show slice button */}
                           {(!region.children || region.children.length === 0) && (() => {
                             const regionContentItems = regionContents.get(region.id) || [];
-                            const hasContent = regionContentItems.length > 0;
-                            const isDisabled = hasContent;
+                            const hasRegionContent = regionContentItems.length > 0;
+
+                            // Check if any slices have content (though this region has no slices currently)
+                            let hasSliceContent = false;
+                            if (region.children && region.children.length > 0) {
+                              hasSliceContent = region.children.some((slice: any) => {
+                                const sliceContentItems = regionContents.get(slice.id) || [];
+                                return sliceContentItems.length > 0;
+                              });
+                            }
+
+                            const isDisabled = hasRegionContent || hasSliceContent;
 
                             return (
                               <button
@@ -5434,13 +5470,20 @@ function App() {
                               onDoubleClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                // Child regions can also be sliced
-                                setSlicingRegion(childRegion);
-                                setHighlightedRegion(childRegion.id);
-                                setSliceLines({ horizontal: [], vertical: [] });
-                                setSliceMode('visual');
-                                setShowSliceDialog(true);
-                                setSlicePopupPosition({ x: 100, y: 100 });
+
+                                // Check if this slice has content
+                                const sliceContentItems = regionContents.get(childRegion.id) || [];
+                                const hasContent = sliceContentItems.length > 0;
+
+                                // Only open slice popup if no content exists
+                                if (!hasContent) {
+                                  setSlicingRegion(childRegion);
+                                  setHighlightedRegion(childRegion.id);
+                                  setSliceLines({ horizontal: [], vertical: [] });
+                                  setSliceMode('visual');
+                                  setShowSliceDialog(true);
+                                  setSlicePopupPosition({ x: 100, y: 100 });
+                                }
                               }}
                             >
                               <div
@@ -6351,7 +6394,7 @@ function App() {
               const objectRegions = (obj as any).regions || [];
               if (objectRegions.length === 0) return null;
 
-              // Debug removed for cleaner testing
+
 
               const mmToPx = 3.78;
               const scale = zoom * mmToPx;
@@ -6391,20 +6434,27 @@ function App() {
                     y={rectY}
                     width={rectW}
                     height={rectH}
-                    fill="red"
-                    stroke="black"
-                    strokeWidth="10"
-                    strokeDasharray="none"
-                    opacity="1"
-                    style={{
-                      cursor: isProjectMode ? 'copy' : 'pointer',
-                      pointerEvents: 'all',
-                      zIndex: 9999
+                    fill={dragOverRegion === region.id ?
+                      (() => {
+                        const hasContent = (regionContents.get(region.id) || []).length > 0;
+                        return hasContent ? '#ffebee' : '#e3f2fd'; // Red tint for occupied, blue for empty
+                      })() : region.backgroundColor}
+                    stroke={dragOverRegion === region.id ?
+                      (() => {
+                        const hasContent = (regionContents.get(region.id) || []).length > 0;
+                        return hasContent ? '#f44336' : '#2196f3'; // Red border for occupied, blue for empty
+                      })() : strokeColor}
+                    strokeWidth={dragOverRegion === region.id ? 4 : strokeWidth}
+                    strokeDasharray="5,5"
+                    opacity={dragOverRegion === region.id ? 0.9 : 0.7}
+                    style={{ cursor: isProjectMode ? 'copy' : 'pointer' }}
+                    onDragOver={isProjectMode ? (e) => handleContentDragOver(e, region.id) : undefined}
+                    onDragLeave={isProjectMode ? handleContentDragLeave : undefined}
+                    onDrop={isProjectMode ? (e) => handleContentDrop(e, region.id) : undefined}
+                    onClick={() => {
+                      if (isProjectMode) return; // No click action in project mode
+                      // Handle region selection/editing in master file mode
                     }}
-                    onDragOver={(e) => handleContentDragOver(e, region.id)}
-                    onDragLeave={handleContentDragLeave}
-                    onDrop={(e) => handleContentDrop(e, region.id)}
-                    onClick={() => alert(`🖱️ CLICKED: ${region.name} (ID: ${region.id}) | isProjectMode: ${isProjectMode} | children: ${region.children?.length || 0}`)}
                     onMouseEnter={() => {
                       // Synchronized hover: highlight both SVG region and corresponding region in list
                       if (!editingRegion || editingRegion.id !== region.id) {
@@ -6420,14 +6470,29 @@ function App() {
                     onDoubleClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      console.log('🖱️ Double-clicked region in canvas:', region.name);
-                      // Double click opens slice popup
-                      setSlicingRegion(region);
-                      setHighlightedRegion(region.id);
-                      setSliceLines({ horizontal: [], vertical: [] });
-                      setSliceMode('visual');
-                      setShowSliceDialog(true);
-                      setSlicePopupPosition({ x: 100, y: 100 }); // Reset to default position
+
+                      // Check if region or any of its slices have content
+                      const regionContentItems = regionContents.get(region.id) || [];
+                      const hasRegionContent = regionContentItems.length > 0;
+
+                      let hasSliceContent = false;
+                      if (region.children && region.children.length > 0) {
+                        hasSliceContent = region.children.some((slice: any) => {
+                          const sliceContentItems = regionContents.get(slice.id) || [];
+                          return sliceContentItems.length > 0;
+                        });
+                      }
+
+                      // Only open slice popup if no content exists
+                      if (!hasRegionContent && !hasSliceContent) {
+                        console.log('🖱️ Double-clicked region in canvas:', region.name);
+                        setSlicingRegion(region);
+                        setHighlightedRegion(region.id);
+                        setSliceLines({ horizontal: [], vertical: [] });
+                        setSliceMode('visual');
+                        setShowSliceDialog(true);
+                        setSlicePopupPosition({ x: 100, y: 100 }); // Reset to default position
+                      }
                     }}
                   />
 
@@ -6774,12 +6839,20 @@ function App() {
                           onDoubleClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
-                            setSlicingRegion(childRegion);
-                            setHighlightedRegion(childRegion.id);
-                            setSliceLines({ horizontal: [], vertical: [] });
-                            setSliceMode('visual');
-                            setShowSliceDialog(true);
-                            setSlicePopupPosition({ x: 100, y: 100 });
+
+                            // Check if this slice has content
+                            const sliceContentItems = regionContents.get(childRegion.id) || [];
+                            const hasContent = sliceContentItems.length > 0;
+
+                            // Only open slice popup if no content exists
+                            if (!hasContent) {
+                              setSlicingRegion(childRegion);
+                              setHighlightedRegion(childRegion.id);
+                              setSliceLines({ horizontal: [], vertical: [] });
+                              setSliceMode('visual');
+                              setShowSliceDialog(true);
+                              setSlicePopupPosition({ x: 100, y: 100 });
+                            }
                           }}
                         />
 
