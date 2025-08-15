@@ -189,6 +189,16 @@ function App() {
   // Notification state
   const [notification, setNotification] = useState<string | null>(null);
 
+  // Custom warning dialog state for content replacement
+  const [contentWarningDialog, setContentWarningDialog] = useState<{
+    isOpen: boolean;
+    areaType: string;
+    existingContent: string;
+    newContent: string;
+    onConfirm: () => void;
+    onCancel: () => void;
+  } | null>(null);
+
   // Drag and drop state - Show content menu only in project mode
   const [showContentMenu, setShowContentMenu] = useState(isProjectMode);
 
@@ -3313,6 +3323,9 @@ function App() {
   // Content Drag and Drop Handlers
   const handleContentDragOver = (e: React.DragEvent, regionId: string) => {
     e.preventDefault();
+    // Use notification instead of console for clearer testing
+    setNotification(`🎯 DRAG OVER: ${regionId}`);
+    setTimeout(() => setNotification(null), 1000);
 
     // Check if region already has content (1 content type per slice limit)
     const currentContents = regionContents.get(regionId) || [];
@@ -3344,47 +3357,8 @@ function App() {
     setDragOverRegion(null);
   };
 
-  const handleContentDrop = (e: React.DragEvent, regionId: string) => {
-    e.preventDefault();
-    setDragOverRegion(null);
-
-    // Check if region already has content (1 content type per region limit)
-    const currentContents = regionContents.get(regionId) || [];
-    if (currentContents.length > 0) {
-      const existingContentType = currentContents[0].type;
-      const existingTypeName = existingContentType.replace('-', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
-
-      // Get the new content type being dropped
-      const contentTypeData = JSON.parse(e.dataTransfer.getData('application/json')) as ContentType;
-      const newTypeName = contentTypeData.name.replace('-', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
-
-      // Ask user if they want to replace existing content
-      const confirmed = window.confirm(
-        `⚠️ SLICE ALREADY OCCUPIED\n\n` +
-        `This slice already contains: ${existingTypeName}\n` +
-        `You are trying to add: ${newTypeName}\n\n` +
-        `Each slice can only contain ONE content type.\n\n` +
-        `Do you want to REPLACE the existing ${existingTypeName} with ${newTypeName}?`
-      );
-
-      if (!confirmed) {
-        setNotification(`❌ Drop cancelled - slice keeps existing ${existingTypeName}`);
-        setTimeout(() => setNotification(null), 3000);
-        return;
-      }
-
-      // User confirmed replacement - clear existing content immediately
-      console.log(`🔄 Replacing ${existingTypeName} with ${newTypeName} in region ${regionId}`);
-
-      // Use functional update to ensure immediate clearing
-      setRegionContents(prevContents => {
-        const updatedContents = new Map(prevContents);
-        updatedContents.delete(regionId);
-        console.log(`✅ Cleared existing content from region ${regionId}`);
-        return updatedContents;
-      });
-    }
-
+  // Helper function to proceed with content drop after confirmation
+  const proceedWithContentDrop = (contentTypeData: ContentType, regionId: string) => {
     // Check region occupation before allowing drop
     const occupation = calculateRegionOccupation(regionId);
 
@@ -3394,56 +3368,121 @@ function App() {
       return;
     }
 
-    try {
-      const contentTypeData = JSON.parse(e.dataTransfer.getData('application/json')) as ContentType;
-      console.log('🎯 Dropped content type:', contentTypeData.name, 'on region:', regionId);
+    console.log('🎯 Proceeding with content drop:', contentTypeData.name, 'on region:', regionId);
 
-      // Find the region to get its height
-      const currentData = data || webCreationData;
-      let regionHeight = 50; // Default fallback
+    // Open universal content dialog for all content types (new content, not editing)
+    setUniversalDialog({
+      isOpen: true,
+      regionId: regionId,
+      contentType: contentTypeData,
+      editingContent: null // Ensure we're creating new content, not editing
+    });
+  };
 
-      if (currentData) {
-        // Find the region in the current data
-        for (const obj of currentData.objects) {
-          if (obj.type?.includes('mother')) {
-            const regions = (obj as any).regions || [];
-            const targetRegion = regions.find((r: any) => r.id === regionId);
-            if (targetRegion) {
-              regionHeight = targetRegion.height;
-              break;
+  const handleContentDrop = (e: React.DragEvent, regionId: string) => {
+    e.preventDefault();
+    setDragOverRegion(null);
+
+    // Use notification for clearer testing
+    setNotification(`🎯 DROP EVENT: ${regionId}`);
+    setTimeout(() => setNotification(null), 2000);
+    alert(`🎯 DROP EVENT REACHED: ${regionId}`);
+
+    // Find the region to check if it has slices
+    const currentData = data || webCreationData;
+    let targetRegion: any = null;
+    let isSlice = false;
+
+    if (currentData) {
+      // Find the region in the current data
+      for (const obj of currentData.objects) {
+        if (obj.type?.includes('mother')) {
+          const regions = (obj as any).regions || [];
+
+          // Check if it's a parent region
+          targetRegion = regions.find((r: any) => r.id === regionId);
+          if (targetRegion) {
+            isSlice = false;
+            break;
+          }
+
+          // Check if it's a slice (child region)
+          for (const region of regions) {
+            if (region.children && region.children.length > 0) {
+              const childRegion = region.children.find((child: any) => child.id === regionId);
+              if (childRegion) {
+                targetRegion = childRegion;
+                isSlice = true;
+                break;
+              }
             }
           }
+          if (targetRegion) break;
         }
       }
+    }
 
-      // Show region occupation dialog first - COMMENTED OUT FOR NOW
-      // setRegionOccupationDialog({
-      //   isOpen: true,
-      //   contentType: contentTypeData.name,
-      //   contentIcon: contentTypeData.icon,
-      //   regionId: regionId,
-      //   regionHeight: regionHeight
-      // });
+    // Rule 2: Region with slices - no action (ignore drop)
+    if (targetRegion && !isSlice && targetRegion.children && targetRegion.children.length > 0) {
+      console.log('🚫 Ignoring drop on region with slices');
+      return; // No action, no notification
+    }
 
-      // Store the content type for later use
-      // setPendingContentData({
-      //   contentType: contentTypeData,
-      //   occupationData: {
-      //     occupyFullRegion: true,
-      //     heightValue: 10,
-      //     heightUnit: 'mm',
-      //     position: 'top'
-      //   }
-      // });
+    // Rule 1 & 3: Region without slices OR slice with content - check for existing content
+    const currentContents = regionContents.get(regionId) || [];
+    console.log('🔍 Content check for region:', regionId, 'Contents:', currentContents, 'Length:', currentContents.length);
+    console.log('🔍 Target region detection:', { targetRegion: targetRegion?.name, isSlice, hasChildren: targetRegion?.children?.length || 0 });
+    if (currentContents.length > 0) {
+      const existingContentType = currentContents[0].type;
+      const existingTypeName = existingContentType.replace('-', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
 
-      // Open universal content dialog for all content types (new content, not editing)
-      setUniversalDialog({
+      // Get the new content type being dropped
+      const contentTypeData = JSON.parse(e.dataTransfer.getData('application/json')) as ContentType;
+      const newTypeName = contentTypeData.name.replace('-', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
+
+      // Show custom warning dialog with red background and yellow text
+      const areaType = isSlice ? 'slice' : 'region';
+
+      console.log('🚨 Triggering warning dialog for:', areaType, 'Region ID:', regionId, 'Existing:', existingTypeName, 'New:', newTypeName);
+
+      setContentWarningDialog({
         isOpen: true,
-        regionId: regionId,
-        contentType: contentTypeData,
-        editingContent: null // Ensure we're creating new content, not editing
+        areaType,
+        existingContent: existingTypeName,
+        newContent: newTypeName,
+        onConfirm: () => {
+          // User confirmed replacement - clear existing content immediately
+          console.log(`🔄 Replacing ${existingTypeName} with ${newTypeName} in ${areaType} ${regionId}`);
+
+          // Use functional update to ensure immediate clearing
+          setRegionContents(prevContents => {
+            const updatedContents = new Map(prevContents);
+            updatedContents.delete(regionId);
+            console.log(`✅ Cleared existing content from ${areaType} ${regionId}`);
+            return updatedContents;
+          });
+
+          // Close dialog and continue with drop
+          setContentWarningDialog(null);
+
+          // Continue with the drop process
+          proceedWithContentDrop(contentTypeData, regionId);
+        },
+        onCancel: () => {
+          setNotification(`❌ Drop cancelled - ${areaType} keeps existing ${existingTypeName}`);
+          setTimeout(() => setNotification(null), 3000);
+          setContentWarningDialog(null);
+        }
       });
 
+      return; // Exit here, dialog will handle the rest
+    }
+
+    // If no existing content, proceed with drop directly
+    try {
+      const contentTypeData = JSON.parse(e.dataTransfer.getData('application/json')) as ContentType;
+      console.log('✅ No existing content, proceeding with drop:', contentTypeData.name);
+      proceedWithContentDrop(contentTypeData, regionId);
     } catch (error) {
       console.error('❌ Error parsing dropped data:', error);
     }
@@ -5056,9 +5095,7 @@ function App() {
                       transition: 'all 0.2s ease', // Smooth transition for hover effects
                       cursor: 'pointer'
                     }}
-                    onDragOver={isProjectMode ? (e) => handleContentDragOver(e, region.id) : undefined}
-                    onDragLeave={isProjectMode ? handleContentDragLeave : undefined}
-                    onDrop={isProjectMode ? (e) => handleContentDrop(e, region.id) : undefined}
+
                     onDoubleClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
@@ -5133,31 +5170,44 @@ function App() {
                       {(isMasterFileMode || isProjectMode) && (
                         <div style={{ display: 'flex', gap: '4px' }}>
                           {/* If region has no slices - show slice button */}
-                          {(!region.children || region.children.length === 0) && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSlicingRegion(region);
-                                setHighlightedRegion(region.id);
-                                setSliceLines({ horizontal: [], vertical: [] });
-                                setSliceMode('visual');
-                                setShowSliceDialog(true);
-                                setSlicePopupPosition({ x: 100, y: 100 });
-                              }}
-                              style={{
-                                background: '#ff9800',
-                                border: 'none',
-                                color: 'white',
-                                fontSize: '10px',
-                                padding: '2px 6px',
-                                borderRadius: '3px',
-                                cursor: 'pointer'
-                              }}
-                              title="Slice region into smaller regions"
-                            >
-                              ✂️
-                            </button>
-                          )}
+                          {(!region.children || region.children.length === 0) && (() => {
+                            const regionContentItems = regionContents.get(region.id) || [];
+                            const hasContent = regionContentItems.length > 0;
+                            const isDisabled = hasContent;
+
+                            return (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (isDisabled) {
+                                    setNotification('Cannot slice region with content. Remove content first.');
+                                    setTimeout(() => setNotification(null), 3000);
+                                    return;
+                                  }
+                                  setSlicingRegion(region);
+                                  setHighlightedRegion(region.id);
+                                  setSliceLines({ horizontal: [], vertical: [] });
+                                  setSliceMode('visual');
+                                  setShowSliceDialog(true);
+                                  setSlicePopupPosition({ x: 100, y: 100 });
+                                }}
+                                style={{
+                                  background: isDisabled ? '#ccc' : '#ff9800',
+                                  border: 'none',
+                                  color: isDisabled ? '#666' : 'white',
+                                  fontSize: '10px',
+                                  padding: '2px 6px',
+                                  borderRadius: '3px',
+                                  cursor: isDisabled ? 'not-allowed' : 'pointer',
+                                  opacity: isDisabled ? 0.6 : 1
+                                }}
+                                title={isDisabled ? 'Cannot slice region with content' : 'Slice region into smaller regions'}
+                                disabled={isDisabled}
+                              >
+                                ✂️
+                              </button>
+                            );
+                          })()}
 
                           {/* If region has slices - show trash all slices button (Master File Mode only) */}
                           {isMasterFileMode && region.children && region.children.length > 0 && (
@@ -5380,9 +5430,7 @@ function App() {
                                 transition: 'all 0.2s ease',
                                 cursor: 'pointer'
                               }}
-                              onDragOver={isProjectMode ? (e) => handleContentDragOver(e, childRegion.id) : undefined}
-                              onDragLeave={isProjectMode ? handleContentDragLeave : undefined}
-                              onDrop={isProjectMode ? (e) => handleContentDrop(e, childRegion.id) : undefined}
+
                               onDoubleClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
@@ -5431,29 +5479,44 @@ function App() {
                                 {(isMasterFileMode || isProjectMode) && (
                                   <div style={{ display: 'flex', gap: '2px' }}>
                                     {/* Slice button - creates new slices at same level */}
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setSlicingRegion(childRegion);
-                                        setHighlightedRegion(childRegion.id);
-                                        setSliceLines({ horizontal: [], vertical: [] });
-                                        setSliceMode('visual');
-                                        setShowSliceDialog(true);
-                                        setSlicePopupPosition({ x: 100, y: 100 });
-                                      }}
-                                      style={{
-                                        background: '#ff9800',
-                                        border: 'none',
-                                        color: 'white',
-                                        fontSize: '8px',
-                                        padding: '1px 4px',
-                                        borderRadius: '2px',
-                                        cursor: 'pointer'
-                                      }}
-                                      title="Slice this region (replaces with multiple slices)"
-                                    >
-                                      ✂️
-                                    </button>
+                                    {(() => {
+                                      const sliceContentItems = regionContents.get(childRegion.id) || [];
+                                      const hasContent = sliceContentItems.length > 0;
+                                      const isDisabled = hasContent;
+
+                                      return (
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (isDisabled) {
+                                              setNotification('Cannot slice region with content. Remove content first.');
+                                              setTimeout(() => setNotification(null), 3000);
+                                              return;
+                                            }
+                                            setSlicingRegion(childRegion);
+                                            setHighlightedRegion(childRegion.id);
+                                            setSliceLines({ horizontal: [], vertical: [] });
+                                            setSliceMode('visual');
+                                            setShowSliceDialog(true);
+                                            setSlicePopupPosition({ x: 100, y: 100 });
+                                          }}
+                                          style={{
+                                            background: isDisabled ? '#ccc' : '#ff9800',
+                                            border: 'none',
+                                            color: isDisabled ? '#666' : 'white',
+                                            fontSize: '8px',
+                                            padding: '1px 4px',
+                                            borderRadius: '2px',
+                                            cursor: isDisabled ? 'not-allowed' : 'pointer',
+                                            opacity: isDisabled ? 0.6 : 1
+                                          }}
+                                          title={isDisabled ? 'Cannot slice region with content' : 'Slice this region (replaces with multiple slices)'}
+                                          disabled={isDisabled}
+                                        >
+                                          ✂️
+                                        </button>
+                                      );
+                                    })()}
 
                                     {/* Delete button - Master File Mode only */}
                                     {isMasterFileMode && (
@@ -5801,18 +5864,23 @@ function App() {
   };
 
   const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    
+    // Only handle file drops, let content drops pass through to regions
     const files = Array.from(e.dataTransfer.files);
     if (files.length > 0) {
+      e.preventDefault();
+      setIsDragOver(false);
       handleFileUpload(files[0]);
     }
+    // Don't preventDefault for content drops - let them bubble to region handlers
   }, []);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(true);
+    // Only prevent default for file drops, let content drops pass through
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      e.preventDefault();
+      setIsDragOver(true);
+    }
   }, []);
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
@@ -6283,6 +6351,8 @@ function App() {
               const objectRegions = (obj as any).regions || [];
               if (objectRegions.length === 0) return null;
 
+              // Debug removed for cleaner testing
+
               const mmToPx = 3.78;
               const scale = zoom * mmToPx;
 
@@ -6306,32 +6376,35 @@ function App() {
                   strokeWidth = 3;
                 }
 
+                // Calculate coordinates
+                const rectX = baseX + (region.x * scale);
+                const rectY = baseY + (region.y * scale);
+                const rectW = region.width * scale;
+                const rectH = region.height * scale;
+
                 // Render parent region
                 elements.push(
                 <g key={region.id}>
                   {/* Region Rectangle */}
                   <rect
-                    x={baseX + (region.x * scale)}
-                    y={baseY + (region.y * scale)}
-                    width={region.width * scale}
-                    height={region.height * scale}
-                    fill={dragOverRegion === region.id ?
-                      (() => {
-                        const hasContent = (regionContents.get(region.id) || []).length > 0;
-                        return hasContent ? '#ffebee' : '#e3f2fd'; // Red tint for occupied, blue for empty
-                      })() : region.backgroundColor}
-                    stroke={dragOverRegion === region.id ?
-                      (() => {
-                        const hasContent = (regionContents.get(region.id) || []).length > 0;
-                        return hasContent ? '#f44336' : '#2196f3'; // Red border for occupied, blue for empty
-                      })() : strokeColor}
-                    strokeWidth={dragOverRegion === region.id ? 4 : strokeWidth}
-                    strokeDasharray="5,5"
-                    opacity={dragOverRegion === region.id ? 0.9 : 0.7}
-                    style={{ cursor: isProjectMode ? 'copy' : 'pointer' }}
-                    onDragOver={isProjectMode ? (e) => handleContentDragOver(e, region.id) : undefined}
-                    onDragLeave={isProjectMode ? handleContentDragLeave : undefined}
-                    onDrop={isProjectMode ? (e) => handleContentDrop(e, region.id) : undefined}
+                    x={rectX}
+                    y={rectY}
+                    width={rectW}
+                    height={rectH}
+                    fill="red"
+                    stroke="black"
+                    strokeWidth="10"
+                    strokeDasharray="none"
+                    opacity="1"
+                    style={{
+                      cursor: isProjectMode ? 'copy' : 'pointer',
+                      pointerEvents: 'all',
+                      zIndex: 9999
+                    }}
+                    onDragOver={(e) => handleContentDragOver(e, region.id)}
+                    onDragLeave={handleContentDragLeave}
+                    onDrop={(e) => handleContentDrop(e, region.id)}
+                    onClick={() => alert(`🖱️ CLICKED: ${region.name} (ID: ${region.id}) | isProjectMode: ${isProjectMode} | children: ${region.children?.length || 0}`)}
                     onMouseEnter={() => {
                       // Synchronized hover: highlight both SVG region and corresponding region in list
                       if (!editingRegion || editingRegion.id !== region.id) {
@@ -6573,6 +6646,7 @@ function App() {
                             strokeOpacity={0.9}
                             rx={3}
                             ry={3}
+                            style={{ pointerEvents: 'none' }}
                           />
 
                           {/* Content overlay visual indicator only - text removed to prevent duplication with region content text */}
@@ -6591,6 +6665,7 @@ function App() {
                     textAnchor="middle"
                     dominantBaseline="middle"
                     opacity="0.9"
+                    style={{ pointerEvents: 'none' }}
                   >
                     {region.name}
                   </text>
@@ -6604,6 +6679,7 @@ function App() {
                     textAnchor="middle"
                     dominantBaseline="middle"
                     opacity="0.7"
+                    style={{ pointerEvents: 'none' }}
                   >
                     {region.width}×{region.height}mm
                   </text>
@@ -6630,7 +6706,8 @@ function App() {
                         dominantBaseline="middle"
                         opacity="0.8"
                         style={{
-                          textShadow: '1px 1px 2px rgba(255,255,255,0.8)'
+                          textShadow: '1px 1px 2px rgba(255,255,255,0.8)',
+                          pointerEvents: 'none'
                         }}
                       >
                         {contentType}
@@ -10292,6 +10369,102 @@ function App() {
               </button>
             </div>
               </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Content Warning Dialog */}
+      {contentWarningDialog && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 10000
+        }}>
+          <div style={{
+            backgroundColor: '#f44336', // Red background
+            color: '#ffeb3b', // Yellow text
+            padding: '30px',
+            borderRadius: '8px',
+            maxWidth: '500px',
+            width: '90%',
+            textAlign: 'center',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+            border: '2px solid #ffeb3b'
+          }}>
+            <h3 style={{
+              margin: '0 0 20px 0',
+              fontSize: '18px',
+              fontWeight: 'bold',
+              color: '#ffeb3b'
+            }}>
+              ⚠️ Content Replacement Warning
+            </h3>
+
+            <div style={{
+              fontSize: '14px',
+              lineHeight: '1.5',
+              marginBottom: '25px',
+              color: '#ffeb3b'
+            }}>
+              <p style={{ margin: '0 0 10px 0' }}>
+                This <strong>{contentWarningDialog.areaType}</strong> already contains content:
+              </p>
+              <p style={{ margin: '0 0 10px 0', fontWeight: 'bold' }}>
+                📦 Current: {contentWarningDialog.existingContent}
+              </p>
+              <p style={{ margin: '0 0 15px 0', fontWeight: 'bold' }}>
+                🆕 New: {contentWarningDialog.newContent}
+              </p>
+              <p style={{ margin: '0' }}>
+                Do you want to replace the existing content?
+              </p>
+            </div>
+
+            <div style={{
+              display: 'flex',
+              gap: '15px',
+              justifyContent: 'center'
+            }}>
+              <button
+                onClick={contentWarningDialog.onConfirm}
+                style={{
+                  backgroundColor: '#ffeb3b',
+                  color: '#f44336',
+                  border: 'none',
+                  padding: '10px 20px',
+                  borderRadius: '5px',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  minWidth: '100px'
+                }}
+              >
+                Replace
+              </button>
+              <button
+                onClick={contentWarningDialog.onCancel}
+                style={{
+                  backgroundColor: 'transparent',
+                  color: '#ffeb3b',
+                  border: '2px solid #ffeb3b',
+                  padding: '10px 20px',
+                  borderRadius: '5px',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  minWidth: '100px'
+                }}
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

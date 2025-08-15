@@ -60,9 +60,10 @@ const ContentMenu: React.FC<ContentMenuProps> = ({
   onDeleteContent
 }) => {
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, contentType: ContentType) => {
+    console.log('🚀 DRAG START:', contentType.name, 'ID:', contentType.id);
     e.dataTransfer.setData('application/json', JSON.stringify(contentType));
     e.dataTransfer.effectAllowed = 'copy';
-    
+
     // Add visual feedback
     e.currentTarget.style.opacity = '0.5';
   };
