@@ -7440,116 +7440,32 @@ function App() {
       {/* Header and Navigation - Show for both master file and project modes */}
       {(selectedCustomer || context === 'projects') && (
         <>
-          {/* Navigation Buttons */}
-          <NavigationButtons
-            previousPagePath={
-              context === 'projects' && projectSlug
-                ? `/projects/${projectSlug}`
-                : isEditMode
+          {/* Navigation Buttons - Completely hidden in project mode */}
+          {context !== 'projects' && (
+            <NavigationButtons
+              previousPagePath={
+                isEditMode
                   ? "/master-files-management"
                   : "/coordinate-viewer"
-            }
-            previousPageLabel={
-              context === 'projects' && projectSlug
-                ? `Project: ${projectSlug}`
-                : isEditMode
+              }
+              previousPageLabel={
+                isEditMode
                   ? "Master Files Management"
                   : "Create Method"
-            }
-            showMasterFilesButton={context !== 'projects'}
-            showPreviousButton={context !== 'projects'}
-          />
+              }
+              showMasterFilesButton={true}
+              showPreviousButton={true}
+            />
+          )}
+
+          {/* Debug: Log context to verify project mode detection */}
+          {console.log('🔍 Context:', context, 'Project Mode:', context === 'projects')}
 
           {/* Header - Different for Project Mode vs Master File Mode */}
           {context === 'projects' ? (
             // Project Mode Header
             <>
-              {/* System Title and Project Button Row */}
-              <div style={{
-                background: '#f7fafc',
-                padding: '12px 20px',
-                borderBottom: '1px solid #e2e8f0',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                  <h2 style={{
-                    fontSize: '28px',
-                    fontWeight: 'bold',
-                    color: '#2d3748',
-                    margin: 0
-                  }}>
-                    🏷️ Care Label Layout System
-                  </h2>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{
-                      fontSize: '12px',
-                      color: '#38a169',
-                      background: '#f0fff4',
-                      padding: '2px 6px',
-                      borderRadius: '12px',
-                      border: '1px solid #9ae6b4',
-                      fontWeight: '500'
-                    }}>
-                      🟢 System Online
-                    </span>
-                    <span style={{
-                      fontSize: '12px',
-                      color: '#4a5568',
-                      fontFamily: 'monospace'
-                    }}>
-                      {new Date().toLocaleDateString('en-CA')}
-                    </span>
-                    <span style={{
-                      fontSize: '14px',
-                      background: '#2d3748',
-                      color: 'white',
-                      padding: '4px 8px',
-                      borderRadius: '4px',
-                      fontFamily: 'monospace',
-                      fontWeight: '500'
-                    }}>
-                      v{packageJson.version}
-                    </span>
-                  </div>
-                </div>
 
-                {/* Project Button moved here */}
-                <button
-                  onClick={() => {
-                    if (projectSlug) {
-                      navigate(`/projects/${projectSlug}`);
-                    }
-                  }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '10px 16px',
-                    background: '#f7fafc',
-                    color: '#2d3748',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    cursor: 'pointer',
-                    transition: 'all 0.3s ease'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = '#edf2f7';
-                    e.currentTarget.style.borderColor = '#2d3748';
-                    e.currentTarget.style.transform = 'translateY(-1px)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = '#f7fafc';
-                    e.currentTarget.style.borderColor = '#e2e8f0';
-                    e.currentTarget.style.transform = 'translateY(0)';
-                  }}
-                >
-                  ← Project: {projectSlug}
-                </button>
-              </div>
 
               {/* Project Details Row */}
               <div style={{
@@ -7558,9 +7474,9 @@ function App() {
                 padding: '12px 20px',
                 borderBottom: '1px solid #4a5568'
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span style={{ fontSize: '14px', color: '#a0aec0' }}>
-                    ← Project: {selectedCustomer?.customerName || (() => {
+                    {selectedCustomer?.customerName || (() => {
                       // Extract customer name from project slug (e.g., "fall2025-ttt" -> "TTT")
                       if (projectSlug) {
                         const parts = projectSlug.split('-');
@@ -7630,6 +7546,41 @@ function App() {
                       }
                     })()}
                   </span>
+
+                  {/* Project Button */}
+                  <button
+                    onClick={() => {
+                      if (projectSlug) {
+                        navigate(`/projects/${projectSlug}`);
+                      }
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '10px 16px',
+                      background: '#f7fafc',
+                      color: '#2d3748',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      cursor: 'pointer',
+                      transition: 'all 0.3s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = '#edf2f7';
+                      e.currentTarget.style.borderColor = '#2d3748';
+                      e.currentTarget.style.transform = 'translateY(-1px)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = '#f7fafc';
+                      e.currentTarget.style.borderColor = '#e2e8f0';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                    }}
+                  >
+                    ← Project: {projectSlug}
+                  </button>
                 </div>
               </div>
             </>
@@ -7674,13 +7625,13 @@ function App() {
         marginRight: isProjectMode && showHierarchyMenu ? '30%' : '0',
         transition: 'margin-right 0.3s ease'
       }}>
-        {/* Canvas Area - Dynamic width based on web creation mode */}
+        {/* Canvas Area - Full width */}
         <div style={{
-          width: isWebCreationMode ? '70%' : '100%',
+          width: '100%',
           background: 'white',
           alignItems: 'center',
           justifyContent: 'center',
-          borderRight: isWebCreationMode ? '1px solid #ddd' : 'none'
+          borderRight: 'none'
         }}>
           {data || isWebCreationMode ? (
             <div style={{ position: 'relative', width: '100%', height: '100%' }}>
@@ -7876,6 +7827,45 @@ function App() {
                     v{packageJson.version}
                   </span>
                 </div>
+
+                {/* Project Button - Only show in project mode */}
+                {context === 'projects' && projectSlug && (
+                  <div style={{ marginTop: '15px', display: 'flex', justifyContent: 'center' }}>
+                    <button
+                      onClick={() => {
+                        if (projectSlug) {
+                          navigate(`/projects/${projectSlug}`);
+                        }
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '10px 16px',
+                        background: '#f7fafc',
+                        color: '#2d3748',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '6px',
+                        fontSize: '14px',
+                        fontWeight: '500',
+                        cursor: 'pointer',
+                        transition: 'all 0.3s ease'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = '#edf2f7';
+                        e.currentTarget.style.borderColor = '#2d3748';
+                        e.currentTarget.style.transform = 'translateY(-1px)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = '#f7fafc';
+                        e.currentTarget.style.borderColor = '#e2e8f0';
+                        e.currentTarget.style.transform = 'translateY(0)';
+                      }}
+                    >
+                      ← Project: {projectSlug}
+                    </button>
+                  </div>
+                )}
                 <p style={{
                   fontSize: '16px',
                   color: '#718096',
