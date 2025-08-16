@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import SonDetailsPanel from './SonDetailsPanel';
 import NavigationButtons from './components/NavigationButtons';
 import SonObjectManager, { SonObject } from './components/content-editors/SonObjectManager';
@@ -105,6 +105,7 @@ interface AIData {
 
 function App() {
   const location = useLocation();
+  const navigate = useNavigate();
 
   // Get URL parameters to determine context and mode
   const urlParams = new URLSearchParams(location.search);
@@ -203,6 +204,10 @@ function App() {
   const [showContentMenu, setShowContentMenu] = useState(false);
   const [menuHideTimeout, setMenuHideTimeout] = useState<NodeJS.Timeout | null>(null);
 
+  // Auto-hide hierarchy menu state - Project mode only
+  const [showHierarchyMenu, setShowHierarchyMenu] = useState(true); // Default visible in non-project mode
+  const [hierarchyHideTimeout, setHierarchyHideTimeout] = useState<NodeJS.Timeout | null>(null);
+
   // Debug state for leftover space calculations
   const [debugInfo, setDebugInfo] = useState<string[]>([]);
 
@@ -226,14 +231,46 @@ function App() {
     }
   };
 
-  // Cleanup timeout on unmount
+  // Auto-hide hierarchy menu handlers
+  const handleHierarchyTriggerEnter = () => {
+    if (isProjectMode) {
+      if (hierarchyHideTimeout) {
+        clearTimeout(hierarchyHideTimeout);
+        setHierarchyHideTimeout(null);
+      }
+      setShowHierarchyMenu(true);
+    }
+  };
+
+  const handleHierarchyLeave = () => {
+    if (isProjectMode) {
+      const timeout = setTimeout(() => {
+        setShowHierarchyMenu(false);
+      }, 200); // 200ms delay before hiding
+      setHierarchyHideTimeout(timeout);
+    }
+  };
+
+  // Cleanup timeouts on unmount
   React.useEffect(() => {
     return () => {
       if (menuHideTimeout) {
         clearTimeout(menuHideTimeout);
       }
+      if (hierarchyHideTimeout) {
+        clearTimeout(hierarchyHideTimeout);
+      }
     };
-  }, [menuHideTimeout]);
+  }, [menuHideTimeout, hierarchyHideTimeout]);
+
+  // Set hierarchy menu visibility based on project mode
+  React.useEffect(() => {
+    if (isProjectMode) {
+      setShowHierarchyMenu(false); // Auto-hide in project mode
+    } else {
+      setShowHierarchyMenu(true); // Always visible in non-project mode
+    }
+  }, [isProjectMode]);
   const [dragOverRegion, setDragOverRegion] = useState<string | null>(null);
   const [universalDialog, setUniversalDialog] = useState<{
     isOpen: boolean;
@@ -7420,54 +7457,108 @@ function App() {
                   : "Create Method"
             }
             showMasterFilesButton={context !== 'projects'}
-            showPreviousButton={true}
+            showPreviousButton={context !== 'projects'}
           />
 
           {/* Header - Different for Project Mode vs Master File Mode */}
-          <div style={{
-            background: '#2d3748',
-            color: 'white',
-            padding: '12px 20px',
-            borderBottom: '1px solid #4a5568'
-          }}>
-            {/* System Title and Status */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 'bold' }}>
-                  🏷️ Care Label Layout System
-                </h2>
-                <span style={{
-                  fontSize: '12px',
-                  color: '#68d391',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px'
-                }}>
-                  🟢 System Online
-                </span>
-                <span style={{ fontSize: '12px', color: '#a0aec0' }}>
-                  {new Date().toLocaleDateString()}
-                </span>
-              </div>
-              <span style={{
-                fontSize: '12px',
-                color: '#a0aec0',
-                background: 'rgba(255,255,255,0.1)',
-                padding: '3px 6px',
-                borderRadius: '3px',
-                border: '1px solid rgba(255,255,255,0.2)',
-                fontFamily: 'monospace',
-                fontWeight: '500'
+          {context === 'projects' ? (
+            // Project Mode Header
+            <>
+              {/* System Title and Project Button Row */}
+              <div style={{
+                background: '#f7fafc',
+                padding: '12px 20px',
+                borderBottom: '1px solid #e2e8f0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
               }}>
-                v{packageJson.version}
-              </span>
-            </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                  <h2 style={{
+                    fontSize: '28px',
+                    fontWeight: 'bold',
+                    color: '#2d3748',
+                    margin: 0
+                  }}>
+                    🏷️ Care Label Layout System
+                  </h2>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{
+                      fontSize: '12px',
+                      color: '#38a169',
+                      background: '#f0fff4',
+                      padding: '2px 6px',
+                      borderRadius: '12px',
+                      border: '1px solid #9ae6b4',
+                      fontWeight: '500'
+                    }}>
+                      🟢 System Online
+                    </span>
+                    <span style={{
+                      fontSize: '12px',
+                      color: '#4a5568',
+                      fontFamily: 'monospace'
+                    }}>
+                      {new Date().toLocaleDateString('en-CA')}
+                    </span>
+                    <span style={{
+                      fontSize: '14px',
+                      background: '#2d3748',
+                      color: 'white',
+                      padding: '4px 8px',
+                      borderRadius: '4px',
+                      fontFamily: 'monospace',
+                      fontWeight: '500'
+                    }}>
+                      v{packageJson.version}
+                    </span>
+                  </div>
+                </div>
 
-            {/* Mode-specific content */}
-            {context === 'projects' ? (
-              // Project Mode Header
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+                {/* Project Button moved here */}
+                <button
+                  onClick={() => {
+                    if (projectSlug) {
+                      navigate(`/projects/${projectSlug}`);
+                    }
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '10px 16px',
+                    background: '#f7fafc',
+                    color: '#2d3748',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#edf2f7';
+                    e.currentTarget.style.borderColor = '#2d3748';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = '#f7fafc';
+                    e.currentTarget.style.borderColor = '#e2e8f0';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }}
+                >
+                  ← Project: {projectSlug}
+                </button>
+              </div>
+
+              {/* Project Details Row */}
+              <div style={{
+                background: '#2d3748',
+                color: 'white',
+                padding: '12px 20px',
+                borderBottom: '1px solid #4a5568'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <span style={{ fontSize: '14px', color: '#a0aec0' }}>
                     ← Project: {selectedCustomer?.customerName || (() => {
                       // Extract customer name from project slug (e.g., "fall2025-ttt" -> "TTT")
@@ -7509,7 +7600,7 @@ function App() {
                       const layoutId = urlParams.get('layoutId');
 
                       if (layoutId) {
-                        // Editing existing layout - try to get the actual layout name
+                        // Editing existing layout - show layout with update timestamp
                         // First check if we have loaded project state with layout name
                         const currentData = data || webCreationData;
                         if (currentData && currentData.layoutName) {
@@ -7522,8 +7613,17 @@ function App() {
                           return decodeURIComponent(layoutName);
                         }
 
-                        // Fallback: show that we're editing an existing layout
-                        return `Layout ${layoutId.replace('layout_', '')}`;
+                        // Fallback: show layout with update timestamp format
+                        return `Layout ${layoutId.replace('layout_', '')} (Updated ${new Date().toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: '2-digit',
+                          day: '2-digit'
+                        }).replace(/\//g, '/')} ${new Date().toLocaleTimeString('en-US', {
+                          hour12: false,
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit'
+                        })})`;
                       } else {
                         // Creating new layout (no layoutId means "Add Master File" was clicked)
                         return 'creating new layout';
@@ -7531,26 +7631,16 @@ function App() {
                     })()}
                   </span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#81c784' }}>
-                    🏷️ Care Label Designer - Project Mode
-                  </h3>
-                </div>
-                <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#a0aec0' }}>
-                  Contact: {selectedCustomer?.person || 'Loading'} • {selectedCustomer?.email || 'Loading'}
-                  {(() => {
-                    const urlParams = new URLSearchParams(window.location.search);
-                    const layoutId = urlParams.get('layoutId');
-                    return layoutId ? (
-                      <span style={{ marginLeft: '10px', color: '#90caf9' }}>
-                        • Layout ID: {layoutId}
-                      </span>
-                    ) : null;
-                  })()}
-                </p>
               </div>
-            ) : (
-              // Master File Mode Header (original)
+            </>
+          ) : (
+            <div style={{
+              background: '#2d3748',
+              color: 'white',
+              padding: '12px 20px',
+              borderBottom: '1px solid #4a5568'
+            }}>
+              {/* Master File Mode Header (original) */}
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600' }}>
@@ -7571,16 +7661,18 @@ function App() {
                   )}
                 </p>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </>
       )}
 
-      {/* Main Content - 70% Canvas / 30% Hierarchy Panel (v1.1.0) */}
+      {/* Main Content - Dynamic Canvas / Auto-hide Hierarchy Panel */}
       <div style={{
         flex: 1,
         display: 'flex',
-        height: '100vh'
+        height: '100vh',
+        marginRight: isProjectMode && showHierarchyMenu ? '30%' : '0',
+        transition: 'margin-right 0.3s ease'
       }}>
         {/* Canvas Area - Dynamic width based on web creation mode */}
         <div style={{
@@ -7917,15 +8009,23 @@ function App() {
           )}
         </div>
 
-        {/* Hierarchy Panel - 30% - Show in web creation mode or project context */}
+        {/* Hierarchy Panel - Auto-hide in project mode, fixed in other modes */}
         {(isWebCreationMode || context === 'projects') && (
           <div style={{
+            position: isProjectMode ? 'fixed' : 'relative',
+            top: isProjectMode ? '0' : 'auto',
+            right: isProjectMode ? (showHierarchyMenu ? '0' : '-30%') : 'auto',
             width: '30%',
+            height: isProjectMode ? '100vh' : 'auto',
             background: 'white',
             padding: '20px',
             overflowY: 'auto',
-            position: 'relative'
-          }}>
+            zIndex: isProjectMode ? 1001 : 'auto',
+            transition: isProjectMode ? 'right 0.3s ease' : 'none',
+            boxShadow: isProjectMode ? '-2px 0 10px rgba(0,0,0,0.1)' : 'none'
+          }}
+          onMouseEnter={isProjectMode ? handleHierarchyTriggerEnter : undefined}
+          onMouseLeave={isProjectMode ? handleHierarchyLeave : undefined}>
             {/* Disabled Overlay when dialogs are open - but not in master file mode */}
             {(showRegionDialog || showAddRegionDialog || isAnyDialogOpen) && !isMasterFileMode && (
               <div style={{
@@ -9746,8 +9846,8 @@ function App() {
         </div>
       )}
 
-      {/* Hover Trigger Zone for Content Menu - Only in project mode */}
-      {isProjectMode && !showContentMenu && (
+      {/* Hover Trigger Zone for Hierarchy Menu - Only in project mode */}
+      {isProjectMode && !showHierarchyMenu && (
         <div
           style={{
             position: 'fixed',
@@ -9755,8 +9855,49 @@ function App() {
             right: 0,
             width: '50px',
             height: '100vh',
-            zIndex: 1000,
+            zIndex: 999,
             pointerEvents: 'auto'
+          }}
+          onMouseEnter={handleHierarchyTriggerEnter}
+        >
+          {/* Visual hint tab */}
+          <div
+            style={{
+              position: 'absolute',
+              top: '40%',
+              left: '10px',
+              transform: 'translateY(-50%)',
+              width: '30px',
+              height: '60px',
+              backgroundColor: '#2d3748',
+              borderRadius: '8px 0 0 8px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'white',
+              fontSize: '16px',
+              cursor: 'pointer',
+              boxShadow: '-2px 0 8px rgba(0,0,0,0.1)',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            📋
+          </div>
+        </div>
+      )}
+
+      {/* Hover Trigger Zone for Content Menu - Only in project mode */}
+      {isProjectMode && !showContentMenu && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            right: showHierarchyMenu ? '30%' : '0',
+            width: '50px',
+            height: '100vh',
+            zIndex: 1000,
+            pointerEvents: 'auto',
+            transition: 'right 0.3s ease'
           }}
           onMouseEnter={handleMenuTriggerEnter}
         >
@@ -9764,7 +9905,7 @@ function App() {
           <div
             style={{
               position: 'absolute',
-              top: '50%',
+              top: '60%',
               left: '10px',
               transform: 'translateY(-50%)',
               width: '30px',
@@ -9873,7 +10014,7 @@ function App() {
         <div style={{
           position: 'fixed',
           bottom: '50px',
-          right: showContentMenu ? '320px' : '10px',
+          right: showContentMenu ? '320px' : (isProjectMode && showHierarchyMenu ? 'calc(30% + 10px)' : '10px'),
           background: 'rgba(255,255,255,0.95)',
           color: '#333',
           padding: '10px',
@@ -10613,7 +10754,7 @@ function App() {
       <div style={{
         position: 'fixed',
         bottom: '10px',
-        right: showContentMenu ? '320px' : '10px',
+        right: showContentMenu ? '320px' : (isProjectMode && showHierarchyMenu ? 'calc(30% + 10px)' : '10px'),
         background: 'rgba(0,0,0,0.7)',
         color: 'white',
         padding: '4px 8px',
