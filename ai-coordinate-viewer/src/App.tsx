@@ -4010,6 +4010,110 @@ function App() {
     await saveProjectWithOption('new', null);
   };
 
+  // Function to add master file - loads original clean master file from project as new mother
+  const addMasterFile = async () => {
+    console.log('🔍 Add Master File button clicked');
+
+    if (!isProjectMode) {
+      alert('❌ Add Master File is only available in Project Mode');
+      return;
+    }
+
+    try {
+      // Get current project data
+      const currentData = data || webCreationData;
+      if (!currentData) {
+        alert('❌ No project data available');
+        return;
+      }
+
+      // Use the current project's master file template (first mother as clean template)
+      const currentMotherObjects = currentData.objects.filter(obj => obj.type?.includes('mother'));
+      if (currentMotherObjects.length === 0) {
+        alert('❌ No mother objects found in current project');
+        return;
+      }
+
+      // Use the first mother as the master template (this is the original design)
+      const masterTemplate = currentMotherObjects[0];
+      console.log('🎯 Using current project master template:', masterTemplate.name);
+
+      // Find next mother number for current canvas
+      const nextMotherNumber = currentMotherObjects.length + 1;
+
+      // Create clean regions from original master file (no slits, original design)
+      const originalRegions = (masterTemplate as any).regions || [];
+      const cleanRegions = originalRegions.map((region: any) => ({
+        ...region,
+        id: `${region.id}_master_${nextMotherNumber}`, // Unique ID for master file region
+        content: region.content || [], // Keep original content structure but empty
+        children: [] // No slits - clean master file
+      }));
+
+      console.log('🧹 Created clean master regions:', cleanRegions.length);
+
+      // Calculate position for new mother next to latest mother
+      const spacing = 20;
+      let maxRightX = 0;
+      currentMotherObjects.forEach(mother => {
+        const rightEdge = mother.x + mother.width;
+        if (rightEdge > maxRightX) {
+          maxRightX = rightEdge;
+        }
+      });
+
+      const newX = maxRightX + spacing;
+      const newY = masterTemplate.y;
+
+      // Create new mother from original master file template
+      const masterFileMother: AIObject = {
+        name: `Mother_${nextMotherNumber}`,
+        type: 'mother',
+        x: newX,
+        y: newY,
+        width: masterTemplate.width,
+        height: masterTemplate.height,
+        typename: 'mother',
+        // Use original master file properties
+        margins: (masterTemplate as any).margins,
+        sewingPosition: (masterTemplate as any).sewingPosition,
+        sewingOffset: (masterTemplate as any).sewingOffset,
+        midFoldLine: (masterTemplate as any).midFoldLine,
+        regions: cleanRegions // Original clean regions from master file
+      } as any;
+
+      console.log('📁 New master file mother created:', masterFileMother);
+
+      // Add to current canvas objects (keep existing content)
+      const updatedObjects = [...currentData.objects, masterFileMother];
+
+      // Create new data structure
+      const updatedData = {
+        ...currentData,
+        objects: updatedObjects,
+        totalObjects: updatedObjects.length
+      };
+
+      // Update state
+      setData(updatedData);
+      if (webCreationData) {
+        setWebCreationData(updatedData);
+      }
+
+      // Select the new master file mother
+      setSelectedObject(masterFileMother);
+
+      // Show success notification
+      setNotification(`✅ Original master file added as ${masterFileMother.name} (${cleanRegions.length} clean regions)`);
+
+      console.log('✅ Original master file added successfully');
+
+    } catch (error) {
+      console.error('❌ Error adding master file:', error);
+      alert('❌ Error adding master file. Please try again.');
+    }
+  };
+
   // Function to generate PDF with all mothers
   const generatePDFAllMothers = () => {
     const currentData = data || webCreationData;
@@ -4796,6 +4900,45 @@ function App() {
             🖨️ PRINT AS PDF
           </button>
         </div>
+
+        {/* Add Master File Button - Below action buttons, above mothers */}
+        {isProjectMode && (
+          <div style={{
+            marginBottom: '20px',
+            padding: '10px',
+            background: 'linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%)',
+            borderRadius: '8px',
+            border: '2px solid #ff9800'
+          }}>
+            <button
+              onClick={addMasterFile}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'linear-gradient(135deg, #f57c00 0%, #ff9800 100%)';
+                e.currentTarget.style.transform = 'scale(1.05)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)';
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
+              style={{
+                background: 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)',
+                border: '2px solid #ff9800',
+                color: 'white',
+                fontSize: '14px',
+                padding: '12px 20px',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                transition: 'all 0.2s ease',
+                boxShadow: '0 3px 6px rgba(255, 152, 0, 0.3)',
+                width: '100%'
+              }}
+              title="Duplicate the selected master file from project and show clean version in canvas"
+            >
+              Add Master File
+            </button>
+          </div>
+        )}
 
         {/* Mothers with their sons */}
         {mothers.map((mother, index) => {
