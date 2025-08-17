@@ -4105,6 +4105,7 @@ function App() {
 
       // Show success notification
       setNotification(`✅ Original master file added as ${masterFileMother.name} (${cleanRegions.length} clean regions)`);
+      setTimeout(() => setNotification(null), 3000);
 
       console.log('✅ Original master file added successfully');
 
