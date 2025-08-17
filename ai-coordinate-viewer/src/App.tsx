@@ -232,24 +232,7 @@ function App() {
   };
 
   // Auto-hide hierarchy menu handlers
-  const handleHierarchyTriggerEnter = () => {
-    if (isProjectMode) {
-      if (hierarchyHideTimeout) {
-        clearTimeout(hierarchyHideTimeout);
-        setHierarchyHideTimeout(null);
-      }
-      setShowHierarchyMenu(true);
-    }
-  };
-
-  const handleHierarchyLeave = () => {
-    if (isProjectMode) {
-      const timeout = setTimeout(() => {
-        setShowHierarchyMenu(false);
-      }, 200); // 200ms delay before hiding
-      setHierarchyHideTimeout(timeout);
-    }
-  };
+  // Hierarchy menu handlers removed - now using click toggle instead of hover
 
   // Cleanup timeouts on unmount
   React.useEffect(() => {
@@ -266,7 +249,7 @@ function App() {
   // Set hierarchy menu visibility based on project mode
   React.useEffect(() => {
     if (isProjectMode) {
-      setShowHierarchyMenu(false); // Auto-hide in project mode
+      setShowHierarchyMenu(false); // Start hidden in project mode, but can be toggled via tab
     } else {
       setShowHierarchyMenu(true); // Always visible in non-project mode
     }
@@ -7635,11 +7618,11 @@ function App() {
         }}>
           {data || isWebCreationMode ? (
             <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-              {/* Canvas Controls - FIXED: Moved to top-right corner (v1.2.0) */}
+              {/* Canvas Controls - Moved to top-left corner */}
               <div style={{
                 position: 'absolute',
                 top: '10px',
-                right: '10px',
+                left: '10px',
                 zIndex: 1000,
                 background: 'rgba(255,255,255,0.9)',
                 padding: '12px',
@@ -8004,7 +7987,7 @@ function App() {
           <div style={{
             position: isProjectMode ? 'fixed' : 'relative',
             top: isProjectMode ? '0' : 'auto',
-            right: isProjectMode ? (showHierarchyMenu ? '0' : '-30%') : 'auto',
+            right: isProjectMode ? (showHierarchyMenu ? '0' : '-100%') : 'auto',
             width: '30%',
             height: isProjectMode ? '100vh' : 'auto',
             background: 'white',
@@ -8014,8 +7997,9 @@ function App() {
             transition: isProjectMode ? 'right 0.3s ease' : 'none',
             boxShadow: isProjectMode ? '-2px 0 10px rgba(0,0,0,0.1)' : 'none'
           }}
-          onMouseEnter={isProjectMode ? handleHierarchyTriggerEnter : undefined}
-          onMouseLeave={isProjectMode ? handleHierarchyLeave : undefined}>
+          onMouseEnter={() => setShowHierarchyMenu(true)}
+          onMouseLeave={() => setShowHierarchyMenu(false)}
+>
             {/* Disabled Overlay when dialogs are open - but not in master file mode */}
             {(showRegionDialog || showAddRegionDialog || isAnyDialogOpen) && !isMasterFileMode && (
               <div style={{
@@ -8060,16 +8044,8 @@ function App() {
             )}
           <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', borderBottom: '1px solid #eee', paddingBottom: '10px'}}>
             <h3 style={{margin: 0}}>
-              {isMasterFileMode ? '📋 Master File Template' : isProjectMode ? '🏗️ Project Mode' : '📋 Layer Objects'} {(data || webCreationData) ? (() => {
-                const currentData = data || webCreationData;
-                if (currentData) {
-                  const { mothers } = buildHierarchy(currentData.objects);
-                  return `(${mothers.length} Mothers, ${currentData.totalObjects} Objects)`;
-                }
-                return '';
-              })() : ''}
+              {isMasterFileMode ? '📋 Master File Template' : isProjectMode ? '🏗️ Project Mode' : '📋 Layer Objects'}
             </h3>
-
 
             {data && sonMetadata.size > 0 && (
               <button
@@ -8166,96 +8142,6 @@ function App() {
                 >
                   {isMasterFileMode ? '📋 Create Mother Template' : '👩 Create Mother'}
                 </button>
-
-
-              </div>
-
-              {/* Debug Panel - Remove this after testing */}
-              <div style={{
-                marginTop: '10px',
-                padding: '10px',
-                background: '#f0f0f0',
-                borderRadius: '5px',
-                fontSize: '12px',
-                fontFamily: 'monospace'
-              }}>
-                <strong>🔍 Debug Info:</strong><br/>
-                Objects: {data?.objects?.length || 0}<br/>
-                Has Mother: {hasMotherObjects() ? 'YES' : 'NO'}<br/>
-                Types: {data?.objects?.map(obj => obj.type).join(', ') || 'none'}
-              </div>
-
-
-
-              {/* Save and Close Button - Show when there are objects, green when mother exists */}
-              {data && data.objects.length > 0 && (
-                <div style={{
-                  marginTop: '20px',
-                  padding: '15px',
-                  background: hasMotherObjects()
-                    ? 'linear-gradient(135deg, #e8f5e8 0%, #f0f8f0 100%)'
-                    : 'linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%)',
-                  borderRadius: '10px',
-                  border: hasMotherObjects()
-                    ? '2px solid #4CAF50'
-                    : '2px solid #f39c12',
-                  textAlign: 'center',
-                  animation: hasMotherObjects() ? 'pulse 2s infinite' : 'none'
-                }}>
-                  <div style={{fontSize: '1.5rem', marginBottom: '10px'}}>💾</div>
-                  <h4 style={{
-                    margin: '0 0 10px 0',
-                    color: hasMotherObjects() ? '#2e7d32' : '#d68910'
-                  }}>
-                    {hasMotherObjects() ? 'Ready to Save & Close!' : 'Ready to Save?'}
-                  </h4>
-                  <p style={{color: '#666', fontSize: '14px', margin: '0 0 15px 0'}}>
-                    {hasMotherObjects()
-                      ? 'Your mother container is ready - save and close to finish'
-                      : 'Save your current design as a master file'
-                    }
-                  </p>
-                  <button
-                    onClick={() => saveDirectly()}
-                    style={{
-                      background: hasMotherObjects()
-                        ? 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)'
-                        : 'linear-gradient(135deg, #f39c12 0%, #e67e22 100%)',
-                      color: 'white',
-                      border: 'none',
-                      padding: '12px 24px',
-                      borderRadius: '6px',
-                      fontSize: '14px',
-                      fontWeight: 'bold',
-                      cursor: 'pointer',
-                      boxShadow: hasMotherObjects()
-                        ? '0 3px 10px rgba(76, 175, 80, 0.3)'
-                        : '0 3px 10px rgba(243, 156, 18, 0.3)',
-                      transition: 'all 0.3s ease'
-                    }}
-                    onMouseOver={(e) => {
-                      e.currentTarget.style.transform = 'translateY(-1px)';
-                      e.currentTarget.style.boxShadow = hasMotherObjects()
-                        ? '0 4px 15px rgba(76, 175, 80, 0.4)'
-                        : '0 4px 15px rgba(243, 156, 18, 0.4)';
-                    }}
-                    onMouseOut={(e) => {
-                      e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.boxShadow = hasMotherObjects()
-                        ? '0 3px 10px rgba(76, 175, 80, 0.3)'
-                        : '0 3px 10px rgba(243, 156, 18, 0.3)';
-                    }}
-                  >
-                    {hasMotherObjects() ? '💾 Save and Close' : '💾 Save as Master File'}
-                  </button>
-                </div>
-              )}
-
-              <div style={{fontSize: '12px', color: '#999', textAlign: 'left'}}>
-                <p><strong>Next Steps:</strong></p>
-                <p>1. Create a mother object (container)</p>
-                <p>2. Add son objects (text, images, etc.)</p>
-                <p>3. Configure properties and layout</p>
               </div>
             </div>
           ) : (
@@ -8277,6 +8163,11 @@ function App() {
           </div>
           </div>
         )}
+
+
+
+
+
 
       </div>
 
@@ -9836,83 +9727,97 @@ function App() {
         </div>
       )}
 
-      {/* Hover Trigger Zone for Hierarchy Menu - Only in project mode */}
-      {isProjectMode && !showHierarchyMenu && (
+      {/* Project Mode Tab - Always visible in project mode */}
+      {isProjectMode && (
         <div
           style={{
             position: 'fixed',
-            top: 0,
+            top: '20%',
             right: 0,
-            width: '50px',
-            height: '100vh',
+            width: '120px',
+            height: 'auto',
             zIndex: 999,
             pointerEvents: 'auto'
           }}
-          onMouseEnter={handleHierarchyTriggerEnter}
+          onMouseEnter={() => setShowHierarchyMenu(true)}
+          onMouseLeave={() => setShowHierarchyMenu(false)}
         >
-          {/* Visual hint tab */}
+          {/* Project Mode Tab */}
           <div
             style={{
               position: 'absolute',
-              top: '40%',
-              left: '10px',
-              transform: 'translateY(-50%)',
-              width: '30px',
-              height: '60px',
+              top: 0,
+              left: '0',
+              width: '110px',
+              height: '80px',
               backgroundColor: '#2d3748',
               borderRadius: '8px 0 0 8px',
               display: 'flex',
+              flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
               color: 'white',
-              fontSize: '16px',
+              fontSize: '12px',
               cursor: 'pointer',
-              boxShadow: '-2px 0 8px rgba(0,0,0,0.1)',
-              transition: 'all 0.2s ease'
+              boxShadow: '-4px 0 12px rgba(0,0,0,0.2)',
+              transition: 'all 0.2s ease',
+              padding: '8px'
             }}
           >
-            📋
+            <div style={{ fontSize: '16px', marginBottom: '4px' }}>📋</div>
+            <div style={{ textAlign: 'center', lineHeight: '1.2', fontWeight: '500' }}>
+              PROJECT MODE
+            </div>
+            <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '2px' }}>
+              ({(data?.objects || webCreationData?.objects || []).filter(obj => obj.type === 'mother').length} Mothers, {(data?.objects || webCreationData?.objects || []).length} Objects)
+            </div>
           </div>
         </div>
       )}
 
-      {/* Hover Trigger Zone for Content Menu - Only in project mode */}
-      {isProjectMode && !showContentMenu && (
+      {/* Content Types Tab - Always visible in project mode */}
+      {isProjectMode && (
         <div
           style={{
             position: 'fixed',
-            top: 0,
-            right: showHierarchyMenu ? '30%' : '0',
-            width: '50px',
-            height: '100vh',
+            top: 'calc(20% + 100px)', // Position below Project Mode tab
+            right: 0,
+            width: '120px',
+            height: 'auto',
             zIndex: 1000,
-            pointerEvents: 'auto',
-            transition: 'right 0.3s ease'
+            pointerEvents: 'auto'
           }}
           onMouseEnter={handleMenuTriggerEnter}
         >
-          {/* Visual hint tab */}
+          {/* Content Types Tab */}
           <div
             style={{
               position: 'absolute',
-              top: '60%',
-              left: '10px',
-              transform: 'translateY(-50%)',
-              width: '30px',
-              height: '60px',
-              backgroundColor: '#3182ce',
+              top: 0,
+              left: '0',
+              width: '110px',
+              height: '80px',
+              backgroundColor: '#4a5568',
               borderRadius: '8px 0 0 8px',
               display: 'flex',
+              flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
               color: 'white',
-              fontSize: '16px',
+              fontSize: '12px',
               cursor: 'pointer',
-              boxShadow: '-2px 0 8px rgba(0,0,0,0.1)',
-              transition: 'all 0.2s ease'
+              boxShadow: '-4px 0 12px rgba(0,0,0,0.2)',
+              transition: 'all 0.2s ease',
+              padding: '8px'
             }}
           >
-            📝
+            <div style={{ fontSize: '16px', marginBottom: '4px' }}>📝</div>
+            <div style={{ textAlign: 'center', lineHeight: '1.2', fontWeight: '500' }}>
+              CONTENT TYPES
+            </div>
+            <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '2px' }}>
+              Drag to regions
+            </div>
           </div>
         </div>
       )}

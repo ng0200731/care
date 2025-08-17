@@ -288,38 +288,7 @@ const ProjectDetail: React.FC = () => {
       backgroundColor: 'white',
       minHeight: '100vh'
     }}>
-      {/* System Header */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '20px',
-        padding: '15px 0',
-        borderBottom: '2px solid #e9ecef'
-      }}>
-        <div>
-          <h1 style={{
-            margin: 0,
-            fontSize: '24px',
-            fontWeight: 'bold',
-            color: '#2c3e50'
-          }}>
-            🏷️ Care Label Layout System
-          </h1>
-        </div>
-        <div style={{
-          textAlign: 'right',
-          fontSize: '14px',
-          color: '#6c757d'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-            <span style={{ color: '#28a745', fontSize: '12px' }}>🟢</span>
-            <span style={{ fontWeight: '600' }}>System Online</span>
-          </div>
-          <div>2025/8/14</div>
-          <div style={{ fontWeight: 'bold', color: '#007bff' }}>v2.2.3</div>
-        </div>
-      </div>
+
 
       {/* Project Navigation */}
       <div style={{
