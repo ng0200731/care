@@ -2598,13 +2598,17 @@ function App() {
       console.log('🔄 Loading for editing:', { masterFileId, isProjectMode });
       setIsLoadingMasterFile(true);
 
-      // In Project Mode, try to load project state first
+      // In Project Mode, try to load project state first (unless forceClean is specified)
       if (isProjectMode) {
         const urlParams = new URLSearchParams(window.location.search);
         const projectSlug = urlParams.get('projectSlug');
         const layoutId = urlParams.get('layoutId');
+        const forceClean = urlParams.get('forceClean');
 
-        if (projectSlug) {
+        // If forceClean is true, skip loading existing project state and go directly to clean master file
+        if (forceClean === 'true') {
+          console.log('🧹 Force clean mode: Skipping existing project state, loading clean master file');
+        } else if (projectSlug) {
           console.log('🔄 Project Mode: Attempting to load project state:', { projectSlug, layoutId });
 
           try {
@@ -4936,7 +4940,7 @@ function App() {
               }}
               title="Duplicate the selected master file from project and show clean version in canvas"
             >
-              Add Master File
+              Add Master Layout
             </button>
           </div>
         )}

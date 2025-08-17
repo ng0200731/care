@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { projectService } from '../services/projectService';
 import { mockDatabase } from '../database/mockDatabase';
+import App from '../App';
 
 interface ProjectPage {
   id: string;
@@ -29,6 +30,7 @@ interface ProjectDetail {
 const ProjectDetail: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const [project, setProject] = useState<ProjectDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAddPage, setShowAddPage] = useState(false);
@@ -37,9 +39,17 @@ const ProjectDetail: React.FC = () => {
     masterFileId: ''
   });
 
+  // Check if we should show canvas based on URL parameters
+  const urlParams = new URLSearchParams(location.search);
+  const context = urlParams.get('context');
+  const masterFileId = urlParams.get('masterFileId');
+  const shouldShowCanvas = context === 'projects' && masterFileId;
+
   // Master files for the project's customer
   const [masterFiles, setMasterFiles] = useState<any[]>([]);
   const [loadingMasterFiles, setLoadingMasterFiles] = useState(false);
+
+
 
   // Load project data
   useEffect(() => {
@@ -198,8 +208,19 @@ const ProjectDetail: React.FC = () => {
     const selectedMasterFile = masterFiles.find(mf => mf.id === newPage.masterFileId);
     if (!selectedMasterFile) return;
 
-    // Navigate directly to canvas with project context (no popup needed)
-    navigate(`/create_zero?context=projects&projectSlug=${slug}&masterFileId=${selectedMasterFile.id}&projectName=${encodeURIComponent(project?.name || '')}`);
+    console.log('🎯 ProjectDetail: Navigating with master file:', {
+      masterFileId: selectedMasterFile.id,
+      masterFileName: selectedMasterFile.name,
+      projectSlug: slug,
+      projectName: project?.name
+    });
+
+    // Navigate to the project URL with context parameters (same as new project workflow)
+    // Add forceClean=true to indicate we want the raw master file, not existing project state
+    const targetUrl = `/projects/${slug}?context=projects&projectSlug=${slug}&masterFileId=${selectedMasterFile.id}&projectName=${encodeURIComponent(project?.name || '')}&forceClean=true`;
+    console.log('🎯 ProjectDetail: Target URL:', targetUrl);
+
+    navigate(targetUrl);
   };
 
   const handleEditPage = (pageId: string) => {
@@ -239,6 +260,12 @@ const ProjectDetail: React.FC = () => {
   };
 
 
+
+  // If we should show canvas, render the App component directly
+  if (shouldShowCanvas) {
+    console.log('🎨 ProjectDetail: Showing canvas with masterFileId:', masterFileId);
+    return <App />;
+  }
 
   if (loading) {
     return (
@@ -288,7 +315,6 @@ const ProjectDetail: React.FC = () => {
       backgroundColor: 'white',
       minHeight: '100vh'
     }}>
-
 
       {/* Project Navigation */}
       <div style={{
