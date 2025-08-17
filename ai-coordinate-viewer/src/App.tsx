@@ -9732,7 +9732,7 @@ function App() {
         <div
           style={{
             position: 'fixed',
-            top: '20%',
+            top: '45%',
             right: 0,
             width: '120px',
             height: 'auto',
@@ -9780,7 +9780,7 @@ function App() {
         <div
           style={{
             position: 'fixed',
-            top: 'calc(20% + 100px)', // Position below Project Mode tab
+            top: 'calc(45% + 100px)', // Position below Project Mode tab as a group
             right: 0,
             width: '120px',
             height: 'auto',
