@@ -565,6 +565,9 @@ function App() {
   // Overflow sequence numbers toggle
   const [showOverflowNumbers, setShowOverflowNumbers] = useState(false);
 
+  // Hierarchy hover state - track which region/slice is being hovered
+  const [hoveredRegionId, setHoveredRegionId] = useState<string | null>(null);
+
   // Region slicing state
   const [showSliceDialog, setShowSliceDialog] = useState(false);
   const [slicingRegion, setSlicingRegion] = useState<Region | null>(null);
@@ -5450,6 +5453,9 @@ function App() {
                       cursor: 'pointer'
                     }}
 
+                    onMouseEnter={() => setHoveredRegionId(region.id)}
+                    onMouseLeave={() => setHoveredRegionId(null)}
+
                     onDoubleClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
@@ -5824,6 +5830,9 @@ function App() {
                                 transition: 'all 0.2s ease',
                                 cursor: 'pointer'
                               }}
+
+                              onMouseEnter={() => setHoveredRegionId(childRegion.id)}
+                              onMouseLeave={() => setHoveredRegionId(null)}
 
                               onDoubleClick={(e) => {
                                 e.preventDefault();
@@ -6792,19 +6801,23 @@ function App() {
                     y={rectY}
                     width={rectW}
                     height={rectH}
-                    fill={dragOverRegion === region.id ?
-                      (() => {
-                        const hasContent = (regionContents.get(region.id) || []).length > 0;
-                        return hasContent ? '#ffebee' : '#e3f2fd'; // Red tint for occupied, blue for empty
-                      })() : region.backgroundColor}
-                    stroke={dragOverRegion === region.id ?
-                      (() => {
-                        const hasContent = (regionContents.get(region.id) || []).length > 0;
-                        return hasContent ? '#f44336' : '#2196f3'; // Red border for occupied, blue for empty
-                      })() : strokeColor}
-                    strokeWidth={dragOverRegion === region.id ? 4 : strokeWidth}
+                    fill={hoveredRegionId === region.id ? '#fff3e0' : // Orange highlight on hover
+                          dragOverRegion === region.id ?
+                          (() => {
+                            const hasContent = (regionContents.get(region.id) || []).length > 0;
+                            return hasContent ? '#ffebee' : '#e3f2fd'; // Red tint for occupied, blue for empty
+                          })() : region.backgroundColor}
+                    stroke={hoveredRegionId === region.id ? '#ff6b35' : // Orange border on hover
+                            dragOverRegion === region.id ?
+                            (() => {
+                              const hasContent = (regionContents.get(region.id) || []).length > 0;
+                              return hasContent ? '#f44336' : '#2196f3'; // Red border for occupied, blue for empty
+                            })() : strokeColor}
+                    strokeWidth={hoveredRegionId === region.id ? 5 : // Thicker border on hover
+                                dragOverRegion === region.id ? 4 : strokeWidth}
                     strokeDasharray="5,5"
-                    opacity={dragOverRegion === region.id ? 0.9 : 0.7}
+                    opacity={hoveredRegionId === region.id ? 1.0 : // Full opacity on hover
+                            dragOverRegion === region.id ? 0.9 : 0.7}
                     style={{ cursor: isProjectMode ? 'copy' : 'pointer' }}
                     onDragOver={isProjectMode ? (e) => handleContentDragOver(e, region.id) : undefined}
                     onDragLeave={isProjectMode ? handleContentDragLeave : undefined}
@@ -7251,19 +7264,23 @@ function App() {
                           y={baseY + (childRegion.y * scale)}
                           width={childRegion.width * scale}
                           height={childRegion.height * scale}
-                          fill={dragOverRegion === childRegion.id ?
-                            (() => {
-                              const hasContent = (regionContents.get(childRegion.id) || []).length > 0;
-                              return hasContent ? '#ffebee' : '#e8f5e8'; // Red tint for occupied, green for empty
-                            })() : childRegion.backgroundColor}
-                          stroke={dragOverRegion === childRegion.id ?
-                            (() => {
-                              const hasContent = (regionContents.get(childRegion.id) || []).length > 0;
-                              return hasContent ? '#f44336' : '#4caf50'; // Red border for occupied, green for empty
-                            })() : childStrokeColor}
-                          strokeWidth={dragOverRegion === childRegion.id ? 3 : childStrokeWidth}
+                          fill={hoveredRegionId === childRegion.id ? '#fff3e0' : // Orange highlight on hover
+                                dragOverRegion === childRegion.id ?
+                                (() => {
+                                  const hasContent = (regionContents.get(childRegion.id) || []).length > 0;
+                                  return hasContent ? '#ffebee' : '#e8f5e8'; // Red tint for occupied, green for empty
+                                })() : childRegion.backgroundColor}
+                          stroke={hoveredRegionId === childRegion.id ? '#ff6b35' : // Orange border on hover
+                                  dragOverRegion === childRegion.id ?
+                                  (() => {
+                                    const hasContent = (regionContents.get(childRegion.id) || []).length > 0;
+                                    return hasContent ? '#f44336' : '#4caf50'; // Red border for occupied, green for empty
+                                  })() : childStrokeColor}
+                          strokeWidth={hoveredRegionId === childRegion.id ? 4 : // Thicker border on hover
+                                      dragOverRegion === childRegion.id ? 3 : childStrokeWidth}
                           strokeDasharray="3,3"
-                          opacity={dragOverRegion === childRegion.id ? 0.9 : 0.8}
+                          opacity={hoveredRegionId === childRegion.id ? 1.0 : // Full opacity on hover
+                                  dragOverRegion === childRegion.id ? 0.9 : 0.8}
                           style={{ cursor: isProjectMode ? 'copy' : 'pointer' }}
                           onDragOver={isProjectMode ? (e) => handleContentDragOver(e, childRegion.id) : undefined}
                           onDragLeave={isProjectMode ? handleContentDragLeave : undefined}
@@ -8033,7 +8050,7 @@ function App() {
                   <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600' }}>
                     🏷️ Care Label Designer - {selectedCustomer?.customerName || 'Loading Customer'}
                     <span style={{ color: '#90caf9', marginLeft: '10px', fontSize: '14px' }}>
-                      v2.5.5
+                      v2.5.6
                     </span>
                     {originalMasterFile && (
                       <span style={{ color: '#81c784', marginLeft: '10px' }}>
