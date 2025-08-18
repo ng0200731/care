@@ -231,8 +231,25 @@ function App() {
     }
   };
 
-  // Auto-hide hierarchy menu handlers
-  // Hierarchy menu handlers removed - now using click toggle instead of hover
+  // Auto-hide hierarchy menu handlers - following same pattern as content menu
+  const handleHierarchyTriggerEnter = () => {
+    if (isProjectMode) {
+      if (hierarchyHideTimeout) {
+        clearTimeout(hierarchyHideTimeout);
+        setHierarchyHideTimeout(null);
+      }
+      setShowHierarchyMenu(true);
+    }
+  };
+
+  const handleHierarchyLeave = () => {
+    if (isProjectMode) {
+      const timeout = setTimeout(() => {
+        setShowHierarchyMenu(false);
+      }, 500); // 500ms delay before hiding
+      setHierarchyHideTimeout(timeout);
+    }
+  };
 
   // Cleanup timeouts on unmount
   React.useEffect(() => {
@@ -7817,7 +7834,7 @@ function App() {
       display: 'flex',
       flexDirection: 'column',
       background: '#f5f5f5',
-      marginRight: showContentMenu ? '300px' : '0',
+      marginRight: (showContentMenu || showHierarchyMenu) ? '300px' : '0',
       pointerEvents: isLoadingMasterFile ? 'none' : 'auto',
       opacity: isLoadingMasterFile ? 0.6 : 1,
       transition: 'margin-right 0.3s ease, opacity 0.3s ease'
@@ -8050,7 +8067,7 @@ function App() {
                   <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600' }}>
                     🏷️ Care Label Designer - {selectedCustomer?.customerName || 'Loading Customer'}
                     <span style={{ color: '#90caf9', marginLeft: '10px', fontSize: '14px' }}>
-                      v2.5.6
+                      v2.5.7
                     </span>
                     {originalMasterFile && (
                       <span style={{ color: '#81c784', marginLeft: '10px' }}>
@@ -8078,7 +8095,7 @@ function App() {
         flex: 1,
         display: 'flex',
         height: '100vh',
-        marginRight: isProjectMode && showHierarchyMenu ? '30%' : '0',
+        marginRight: '0',
         transition: 'margin-right 0.3s ease'
       }}>
         {/* Canvas Area - Full width */}
@@ -8478,7 +8495,7 @@ function App() {
             position: isProjectMode ? 'fixed' : 'relative',
             top: isProjectMode ? '0' : 'auto',
             right: isProjectMode ? (showHierarchyMenu ? '0' : '-100%') : 'auto',
-            width: '30%',
+            width: '300px',
             height: isProjectMode ? '100vh' : 'auto',
             background: 'white',
             padding: '20px',
@@ -8487,8 +8504,8 @@ function App() {
             transition: isProjectMode ? 'right 0.3s ease' : 'none',
             boxShadow: isProjectMode ? '-2px 0 10px rgba(0,0,0,0.1)' : 'none'
           }}
-          onMouseEnter={() => setShowHierarchyMenu(true)}
-          onMouseLeave={() => setShowHierarchyMenu(false)}
+          onMouseEnter={handleHierarchyTriggerEnter}
+          onMouseLeave={handleHierarchyLeave}
 >
             {/* Disabled Overlay when dialogs are open - but not in master file mode */}
             {(showRegionDialog || showAddRegionDialog || isAnyDialogOpen) && !isMasterFileMode && (
@@ -10229,8 +10246,7 @@ function App() {
             zIndex: 999,
             pointerEvents: 'auto'
           }}
-          onMouseEnter={() => setShowHierarchyMenu(true)}
-          onMouseLeave={() => setShowHierarchyMenu(false)}
+          onMouseEnter={handleHierarchyTriggerEnter}
         >
           {/* Project Mode Tab */}
           <div
@@ -10403,7 +10419,7 @@ function App() {
         <div style={{
           position: 'fixed',
           bottom: '50px',
-          right: showContentMenu ? '320px' : (isProjectMode && showHierarchyMenu ? 'calc(30% + 10px)' : '10px'),
+          right: (showContentMenu || showHierarchyMenu) ? '320px' : '10px',
           background: 'rgba(255,255,255,0.95)',
           color: '#333',
           padding: '10px',
@@ -11143,7 +11159,7 @@ function App() {
       <div style={{
         position: 'fixed',
         bottom: '10px',
-        right: showContentMenu ? '320px' : (isProjectMode && showHierarchyMenu ? 'calc(30% + 10px)' : '10px'),
+        right: (showContentMenu || showHierarchyMenu) ? '320px' : '10px',
         background: 'rgba(0,0,0,0.7)',
         color: 'white',
         padding: '4px 8px',
