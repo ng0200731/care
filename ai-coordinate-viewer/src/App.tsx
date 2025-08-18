@@ -268,6 +268,148 @@ function App() {
   });
   const [regionContents, setRegionContents] = useState<Map<string, any[]>>(new Map());
 
+  // Line-text overflow connection functions
+  const handleOverflowToggle = (contentId: string, regionId: string, enabled: boolean) => {
+    // Update overflow settings
+    const newOverflowSettings = new Map(overflowSettings);
+    newOverflowSettings.set(contentId, enabled);
+    setOverflowSettings(newOverflowSettings);
+
+    if (enabled) {
+      // Add to chain and auto-connect
+      addToOverflowChain(contentId, regionId);
+    } else {
+      // Remove from chain
+      removeFromOverflowChain(contentId);
+    }
+  };
+
+  const addToOverflowChain = (contentId: string, regionId: string) => {
+    const newChain = [...lineTextOverflowChain];
+
+    if (!newChain.includes(contentId)) {
+      newChain.push(contentId);
+      setLineTextOverflowChain(newChain);
+
+      console.log('✅ Added to overflow chain:', contentId);
+      console.log('📋 Current chain:', newChain);
+
+      // Show notification
+      const role = newChain.length === 1 ? 'Initiator' : `Connector ${newChain.length - 1}`;
+      setNotification(`✅ Line-text overflow ${role} created`);
+      setTimeout(() => setNotification(null), 3000);
+    }
+  };
+
+  const removeFromOverflowChain = (contentId: string) => {
+    const newChain = lineTextOverflowChain.filter(id => id !== contentId);
+    setLineTextOverflowChain(newChain);
+
+    console.log('❌ Removed from overflow chain:', contentId);
+    console.log('📋 Updated chain:', newChain);
+
+    setNotification(`❌ Removed from overflow chain`);
+    setTimeout(() => setNotification(null), 3000);
+  };
+
+  const getOverflowRole = (contentId: string): 'initiator' | 'connector' | 'none' => {
+    const chainIndex = lineTextOverflowChain.indexOf(contentId);
+    if (chainIndex === -1) return 'none';
+    if (chainIndex === 0) return 'initiator';
+    return 'connector';
+  };
+
+  const isOverflowEnabled = (contentId: string): boolean => {
+    return overflowSettings.get(contentId) || false;
+  };
+
+  const handleContentDoubleClick = (content: any, regionId: string) => {
+    console.log('🖱️ Double-clicked content:', content.type, content.id);
+
+    // Find the content type from available content types
+    const contentTypes = [
+      { id: 'line-text', name: 'Line Text', icon: '📝', description: 'Single line text content' },
+      { id: 'translation-paragraph', name: 'Translation Paragraph', icon: '🌐', description: 'Multi-language paragraph content' },
+      { id: 'pure-english-paragraph', name: 'Pure English Paragraph', icon: '📄', description: 'English-only paragraph content' },
+      { id: 'washing-symbol', name: 'Washing Symbol', icon: '🧺', description: 'Care instruction symbols' },
+      { id: 'image', name: 'Image', icon: '🖼️', description: 'Image content' },
+      { id: 'coo', name: 'COO', icon: '🏷️', description: 'Country of origin information' }
+    ];
+
+    const contentType = contentTypes.find(ct => ct.id === content.type);
+    if (contentType) {
+      // Open the universal content dialog for editing
+      setUniversalDialog({
+        isOpen: true,
+        regionId: regionId,
+        contentType: contentType,
+        editingContent: content
+      });
+    }
+  };
+
+  const handleLineTextOverflow = (regionId: string, newContent: any) => {
+    // Check if region is getting full and if there are overflow connections
+    if (lineTextOverflowChain.length < 2) {
+      // No overflow chain exists, nothing to do
+      return;
+    }
+
+    // Find if any content in this region is part of the overflow chain
+    const regionContentsArray = regionContents.get(regionId) || [];
+    const chainContentInRegion = regionContentsArray.find((content: any) =>
+      lineTextOverflowChain.includes(content.id)
+    );
+
+    if (!chainContentInRegion) {
+      // This region doesn't have overflow-enabled content
+      return;
+    }
+
+    // Simple overflow logic: if region has more than 1 line-text content, trigger overflow
+    const lineTextCount = regionContentsArray.filter((content: any) => content.type === 'line-text').length;
+
+    if (lineTextCount > 1) {
+      console.log('🌊 Line-text overflow detected in region:', regionId);
+
+      // Find the next region in the overflow chain
+      const currentIndex = lineTextOverflowChain.indexOf(chainContentInRegion.id);
+      if (currentIndex >= 0 && currentIndex < lineTextOverflowChain.length - 1) {
+        const nextContentId = lineTextOverflowChain[currentIndex + 1];
+
+        // Find the region containing the next content
+        let targetRegionId: string | null = null;
+        regionContents.forEach((contents, rId) => {
+          if (contents.some((content: any) => content.id === nextContentId)) {
+            targetRegionId = rId;
+          }
+        });
+
+        if (targetRegionId) {
+          // Move the new content to the target region
+          setRegionContents(prevContents => {
+            const updatedContents = new Map(prevContents);
+
+            // Remove from source region
+            const sourceContents = updatedContents.get(regionId) || [];
+            const filteredSource = sourceContents.filter((content: any) => content.id !== newContent.id);
+            updatedContents.set(regionId, filteredSource);
+
+            // Add to target region
+            const targetContents = updatedContents.get(targetRegionId!) || [];
+            updatedContents.set(targetRegionId!, [...targetContents, newContent]);
+
+            return updatedContents;
+          });
+
+          console.log('✅ Content flowed from', regionId, 'to', targetRegionId);
+          setNotification(`🌊 Content overflowed to next region`);
+          setTimeout(() => setNotification(null), 3000);
+        }
+      }
+    }
+  };
+
   // Simple region occupation calculation
   // Generate colors for content objects
   const getContentObjectColor = (contentType: string, index: number) => {
@@ -413,6 +555,13 @@ function App() {
   const [showAddRegionDialog, setShowAddRegionDialog] = useState(false);
   const [selectedMotherForRegion, setSelectedMotherForRegion] = useState<AIObject | null>(null);
 
+  // Line-text overflow connection state
+  const [lineTextOverflowChain, setLineTextOverflowChain] = useState<string[]>([]); // Array of content IDs in chain order
+  const [overflowSettings, setOverflowSettings] = useState<Map<string, boolean>>(new Map()); // contentId -> overflow enabled
+
+  // Chain connection rendering state - calculated once, rendered many times
+  const [chainConnections, setChainConnections] = useState<React.ReactElement[]>([]);
+
   // Region slicing state
   const [showSliceDialog, setShowSliceDialog] = useState(false);
   const [slicingRegion, setSlicingRegion] = useState<Region | null>(null);
@@ -427,6 +576,13 @@ function App() {
   const [isSliceDragging, setIsSliceDragging] = useState(false);
   const [sliceDragOffset, setSliceDragOffset] = useState({ x: 0, y: 0 });
   const [sliceMinSize, setSliceMinSize] = useState(2); // Dynamic minimum size for slicing
+
+  // ============================================================================
+  // CHAIN CONNECTIONS - SIMPLIFIED APPROACH
+  // ============================================================================
+  // Note: Complex useEffect approach had scope issues with obj, baseX, baseY, scale
+  // These variables are only available inside the renderObject function
+  // For now, keeping the chain connections disabled until we can restructure properly
 
   // Function to trash all regions completely (Master File Management only)
   const trashAllRegions = (motherObject: AIObject) => {
@@ -3590,6 +3746,12 @@ function App() {
 
       return updatedContents;
     });
+
+    // Handle overflow for line-text content
+    if (contentData.type === 'line-text' && !universalDialog.editingContent) {
+      // Only check overflow for new content, not edited content
+      handleLineTextOverflow(data.regionId, contentData);
+    }
 
     // Show notification
     const contentTypeName = universalDialog.contentType?.name || 'Content';
@@ -6904,8 +7066,58 @@ function App() {
                             strokeOpacity={0.9}
                             rx={3}
                             ry={3}
-                            style={{ pointerEvents: 'none' }}
+                            style={{
+                              cursor: 'pointer',
+                              pointerEvents: 'all'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.setAttribute('opacity', '1.0');
+                              e.currentTarget.setAttribute('stroke-width', '3');
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.setAttribute('opacity', '0.8');
+                              e.currentTarget.setAttribute('stroke-width', '2');
+                            }}
+                            onDoubleClick={(e) => {
+                              e.stopPropagation();
+                              handleContentDoubleClick(content, region.id);
+                            }}
                           />
+
+                          {/* Overflow dots for line-text content */}
+                          {content.type === 'line-text' && isOverflowEnabled(content.id) && (() => {
+                            const role = getOverflowRole(content.id);
+                            const dotRadius = 4;
+                            const centerX = overlayX + overlayWidth / 2;
+
+                            return (
+                              <g>
+                                {/* Red dot (connector input) - top edge */}
+                                {role === 'connector' && (
+                                  <circle
+                                    cx={centerX}
+                                    cy={overlayY - dotRadius}
+                                    r={dotRadius}
+                                    fill="#f44336"
+                                    stroke="white"
+                                    strokeWidth="1"
+                                    style={{ pointerEvents: 'none' }}
+                                  />
+                                )}
+
+                                {/* Green dot (output) - bottom edge */}
+                                <circle
+                                  cx={centerX}
+                                  cy={overlayY + overlayHeight + dotRadius}
+                                  r={dotRadius}
+                                  fill="#4caf50"
+                                  stroke="white"
+                                  strokeWidth="1"
+                                  style={{ pointerEvents: 'none' }}
+                                />
+                              </g>
+                            );
+                          })()}
 
                           {/* Content overlay visual indicator only - text removed to prevent duplication with region content text */}
                         </g>
@@ -7112,6 +7324,27 @@ function App() {
 
               return objectRegions.flatMap(renderRegionWithChildren);
             })()}
+
+            {/* Chain connections moved to SVG level - see after all objects rendered */}
+
+
+
+            {/* Arrow marker for overflow connections */}
+            <defs>
+              <marker
+                id="overflowArrow"
+                markerWidth="8"
+                markerHeight="6"
+                refX="7"
+                refY="3"
+                orient="auto"
+              >
+                <polygon
+                  points="0 0, 8 3, 0 6"
+                  fill="#ff9800"
+                />
+              </marker>
+            </defs>
 
             {/* Sewing Lines with Dimensions */}
             {showSewingLines && (() => {
@@ -7925,6 +8158,133 @@ function App() {
                 )}
 
                 {(data || webCreationData)?.objects.map((obj, index) => renderObject(obj, index))}
+
+                {/* Chain connections across ALL mothers - rendered after all objects */}
+                {(() => {
+                  // Only draw connections if we have a chain
+                  if (lineTextOverflowChain.length <= 1) return null;
+
+                  console.log('🔗 Cross-Mother Chain: Processing chain across all mothers:', lineTextOverflowChain);
+
+                  const connectionLines: React.ReactElement[] = [];
+                  const positions = new Map<string, any>();
+
+                  // Step 1: Collect positions from ALL mother objects
+                  const allObjects = (data || webCreationData)?.objects || [];
+
+                  allObjects.forEach(motherObj => {
+                    // Calculate this mother's base position and scale
+                    const mmToPx = 3.78;
+                    const motherScale = zoom * mmToPx;
+                    const motherBaseX = (motherObj.x * motherScale) + panX;
+                    const motherBaseY = (motherObj.y * motherScale) + panY;
+
+                    // Get all regions from this mother
+                    const motherRegions = (motherObj as any).regions || [];
+                    const getAllRegionsFlat = (regions: Region[]): Region[] => {
+                      const allRegions: Region[] = [];
+                      for (const region of regions) {
+                        allRegions.push(region);
+                        if (region.children) {
+                          allRegions.push(...region.children);
+                        }
+                      }
+                      return allRegions;
+                    };
+
+                    const allRegions = getAllRegionsFlat(motherRegions);
+
+                    // Find chain items in this mother
+                    lineTextOverflowChain.forEach(contentId => {
+                      regionContents.forEach((contents: any[], regionId: string) => {
+                        const region = allRegions.find(r => r.id === regionId);
+                        if (!region) return;
+
+                        const content = contents.find((c: any) => c.id === contentId);
+                        if (content && !positions.has(contentId) && region.x !== undefined && region.y !== undefined) {
+                          positions.set(contentId, {
+                            x: motherBaseX + (region.x * motherScale),
+                            y: motherBaseY + (region.y * motherScale),
+                            width: region.width * motherScale,
+                            height: region.height * motherScale
+                          });
+                        }
+                      });
+                    });
+                  });
+
+                  console.log('🔗 Cross-Mother Chain: Found positions for:', Array.from(positions.keys()));
+                  console.log('🔗 Cross-Mother Chain: Missing positions for:', lineTextOverflowChain.filter(id => !positions.has(id)));
+
+                  // Step 2: Draw debug dots for found positions
+                  positions.forEach((pos, contentId) => {
+                    const isInitiator = lineTextOverflowChain.indexOf(contentId) === 0;
+                    connectionLines.push(
+                      <circle
+                        key={`cross-chain-dot-${contentId}`}
+                        cx={pos.x + pos.width / 2}
+                        cy={pos.y + pos.height / 2}
+                        r="8"
+                        fill={isInitiator ? "#ff0000" : "#00ff00"}
+                        stroke="white"
+                        strokeWidth="3"
+                        opacity="0.9"
+                      />
+                    );
+                  });
+
+                  // Step 3: Draw lines connecting consecutive items across mothers
+                  for (let i = 0; i < lineTextOverflowChain.length - 1; i++) {
+                    const sourceId = lineTextOverflowChain[i];
+                    const targetId = lineTextOverflowChain[i + 1];
+
+                    const sourcePos = positions.get(sourceId);
+                    const targetPos = positions.get(targetId);
+
+                    if (sourcePos && targetPos) {
+                      const sourceX = sourcePos.x + sourcePos.width / 2;
+                      const sourceY = sourcePos.y + sourcePos.height + 6;
+                      const targetX = targetPos.x + targetPos.width / 2;
+                      const targetY = targetPos.y - 6;
+
+                      console.log(`🔗 Cross-Mother Chain: Drawing line ${i}: ${sourceId} → ${targetId}`);
+                      console.log(`🔗 Cross-Mother Chain: Coords: (${sourceX},${sourceY}) → (${targetX},${targetY})`);
+
+                      connectionLines.push(
+                        <g key={`cross-chain-line-${i}`}>
+                          {/* Connection line */}
+                          <line
+                            x1={sourceX}
+                            y1={sourceY}
+                            x2={targetX}
+                            y2={targetY}
+                            stroke="#ff9800"
+                            strokeWidth="4"
+                            strokeDasharray="10,5"
+                            markerEnd="url(#overflowArrow)"
+                          />
+                          {/* Connection label */}
+                          <text
+                            x={(sourceX + targetX) / 2}
+                            y={(sourceY + targetY) / 2 - 10}
+                            fill="#ff9800"
+                            fontSize="12"
+                            textAnchor="middle"
+                            fontWeight="bold"
+                            style={{
+                              textShadow: '2px 2px 4px rgba(0,0,0,0.7)'
+                            }}
+                          >
+                            OVERFLOW
+                          </text>
+                        </g>
+                      );
+                    }
+                  }
+
+                  console.log(`🔗 Cross-Mother Chain: Generated ${connectionLines.length} elements`);
+                  return connectionLines;
+                })()}
               </svg>
             </div>
           ) : (
@@ -10024,6 +10384,10 @@ function App() {
             regionHeight={regionHeight}
             regionContents={currentRegionContents}
             editingContent={universalDialog.editingContent} // Pass editing content
+            // Overflow props
+            isOverflowEnabled={isOverflowEnabled}
+            getOverflowRole={getOverflowRole}
+            onOverflowToggle={handleOverflowToggle}
             onSave={handleUniversalContentSave}
             onCancel={handleUniversalContentCancel}
           />
