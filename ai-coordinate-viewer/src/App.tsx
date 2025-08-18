@@ -562,6 +562,9 @@ function App() {
   // Chain connection rendering state - calculated once, rendered many times
   const [chainConnections, setChainConnections] = useState<React.ReactElement[]>([]);
 
+  // Overflow sequence numbers toggle
+  const [showOverflowNumbers, setShowOverflowNumbers] = useState(false);
+
   // Region slicing state
   const [showSliceDialog, setShowSliceDialog] = useState(false);
   const [slicingRegion, setSlicingRegion] = useState<Region | null>(null);
@@ -7154,6 +7157,40 @@ function App() {
                     {region.width}×{region.height}mm
                   </text>
 
+                  {/* Overflow Sequence Number - Large overlay when toggle is ON */}
+                  {showOverflowNumbers && (() => {
+                    // Find if this region contains content that's part of the overflow chain
+                    const regionContentList = regionContents.get(region.id) || [];
+                    const chainContent = regionContentList.find((content: any) =>
+                      lineTextOverflowChain.includes(content.id)
+                    );
+
+                    if (chainContent) {
+                      const sequenceNumber = lineTextOverflowChain.indexOf(chainContent.id) + 1;
+                      const fontSize = Math.min(region.width * scale * 0.6, region.height * scale * 0.6);
+
+                      return (
+                        <text
+                          x={baseX + (region.x * scale) + (region.width * scale) / 2}
+                          y={baseY + (region.y * scale) + (region.height * scale) / 2}
+                          fill="#000000"
+                          fontSize={fontSize}
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          fontWeight="bold"
+                          opacity="0.8"
+                          style={{
+                            pointerEvents: 'none',
+                            fontFamily: 'system-ui, -apple-system, sans-serif'
+                          }}
+                        >
+                          {sequenceNumber}
+                        </text>
+                      );
+                    }
+                    return null;
+                  })()}
+
                   {/* Content Type Name Overlay - Center of parent region (only if no children) */}
                   {(() => {
                     // Only show content type for parent regions without children (slices)
@@ -7288,6 +7325,40 @@ function App() {
                           {childRegion.width}×{childRegion.height}mm
                         </text>
 
+                        {/* Child Region Overflow Sequence Number - Large overlay when toggle is ON */}
+                        {showOverflowNumbers && (() => {
+                          // Find if this child region contains content that's part of the overflow chain
+                          const regionContentList = regionContents.get(childRegion.id) || [];
+                          const chainContent = regionContentList.find((content: any) =>
+                            lineTextOverflowChain.includes(content.id)
+                          );
+
+                          if (chainContent) {
+                            const sequenceNumber = lineTextOverflowChain.indexOf(chainContent.id) + 1;
+                            const fontSize = Math.min(childRegion.width * scale * 0.6, childRegion.height * scale * 0.6);
+
+                            return (
+                              <text
+                                x={baseX + (childRegion.x * scale) + (childRegion.width * scale) / 2}
+                                y={baseY + (childRegion.y * scale) + (childRegion.height * scale) / 2}
+                                fill="#000000"
+                                fontSize={fontSize}
+                                textAnchor="middle"
+                                dominantBaseline="middle"
+                                fontWeight="bold"
+                                opacity="0.8"
+                                style={{
+                                  pointerEvents: 'none',
+                                  fontFamily: 'system-ui, -apple-system, sans-serif'
+                                }}
+                              >
+                                {sequenceNumber}
+                              </text>
+                            );
+                          }
+                          return null;
+                        })()}
+
                         {/* Content Type Name Overlay - Center of slice */}
                         {(() => {
                           const sliceContents = regionContents.get(childRegion.id) || [];
@@ -7329,19 +7400,20 @@ function App() {
 
 
 
-            {/* Arrow marker for overflow connections */}
+            {/* ZOOM-INDEPENDENT arrow marker for overflow connections */}
             <defs>
               <marker
                 id="overflowArrow"
-                markerWidth="8"
-                markerHeight="6"
-                refX="7"
-                refY="3"
+                markerWidth={10 / zoom}
+                markerHeight={8 / zoom}
+                refX={9 / zoom}
+                refY={4 / zoom}
                 orient="auto"
+                markerUnits="userSpaceOnUse"
               >
                 <polygon
-                  points="0 0, 8 3, 0 6"
-                  fill="#ff9800"
+                  points={`0 0, ${10/zoom} ${4/zoom}, 0 ${8/zoom}`}
+                  fill="#000000"
                 />
               </marker>
             </defs>
@@ -7960,6 +8032,9 @@ function App() {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600' }}>
                     🏷️ Care Label Designer - {selectedCustomer?.customerName || 'Loading Customer'}
+                    <span style={{ color: '#90caf9', marginLeft: '10px', fontSize: '14px' }}>
+                      v2.5.5
+                    </span>
                     {originalMasterFile && (
                       <span style={{ color: '#81c784', marginLeft: '10px' }}>
                         • Editing: {originalMasterFile.name}
@@ -8070,6 +8145,19 @@ function App() {
                     📏 Dimensions
                   </button>
 
+                  <button
+                    onClick={() => setShowOverflowNumbers(!showOverflowNumbers)}
+                    style={{
+                      ...buttonStyle,
+                      background: showOverflowNumbers ? '#e3f2fd' : 'white',
+                      color: showOverflowNumbers ? '#1976d2' : '#666',
+                      fontSize: '10px',
+                      padding: '4px 6px'
+                    }}
+                  >
+                    🔢 Overflow #
+                  </button>
+
                   {/* Preview Panel Button - Only show in project mode */}
                   {isProjectMode && (
                     <button
@@ -8159,132 +8247,9 @@ function App() {
 
                 {(data || webCreationData)?.objects.map((obj, index) => renderObject(obj, index))}
 
-                {/* Chain connections across ALL mothers - rendered after all objects */}
-                {(() => {
-                  // Only draw connections if we have a chain
-                  if (lineTextOverflowChain.length <= 1) return null;
+                {/* Removed connection lines - now using overlay numbers inside regions */}
 
-                  console.log('🔗 Cross-Mother Chain: Processing chain across all mothers:', lineTextOverflowChain);
 
-                  const connectionLines: React.ReactElement[] = [];
-                  const positions = new Map<string, any>();
-
-                  // Step 1: Collect positions from ALL mother objects
-                  const allObjects = (data || webCreationData)?.objects || [];
-
-                  allObjects.forEach(motherObj => {
-                    // Calculate this mother's base position and scale
-                    const mmToPx = 3.78;
-                    const motherScale = zoom * mmToPx;
-                    const motherBaseX = (motherObj.x * motherScale) + panX;
-                    const motherBaseY = (motherObj.y * motherScale) + panY;
-
-                    // Get all regions from this mother
-                    const motherRegions = (motherObj as any).regions || [];
-                    const getAllRegionsFlat = (regions: Region[]): Region[] => {
-                      const allRegions: Region[] = [];
-                      for (const region of regions) {
-                        allRegions.push(region);
-                        if (region.children) {
-                          allRegions.push(...region.children);
-                        }
-                      }
-                      return allRegions;
-                    };
-
-                    const allRegions = getAllRegionsFlat(motherRegions);
-
-                    // Find chain items in this mother
-                    lineTextOverflowChain.forEach(contentId => {
-                      regionContents.forEach((contents: any[], regionId: string) => {
-                        const region = allRegions.find(r => r.id === regionId);
-                        if (!region) return;
-
-                        const content = contents.find((c: any) => c.id === contentId);
-                        if (content && !positions.has(contentId) && region.x !== undefined && region.y !== undefined) {
-                          positions.set(contentId, {
-                            x: motherBaseX + (region.x * motherScale),
-                            y: motherBaseY + (region.y * motherScale),
-                            width: region.width * motherScale,
-                            height: region.height * motherScale
-                          });
-                        }
-                      });
-                    });
-                  });
-
-                  console.log('🔗 Cross-Mother Chain: Found positions for:', Array.from(positions.keys()));
-                  console.log('🔗 Cross-Mother Chain: Missing positions for:', lineTextOverflowChain.filter(id => !positions.has(id)));
-
-                  // Step 2: Draw debug dots for found positions
-                  positions.forEach((pos, contentId) => {
-                    const isInitiator = lineTextOverflowChain.indexOf(contentId) === 0;
-                    connectionLines.push(
-                      <circle
-                        key={`cross-chain-dot-${contentId}`}
-                        cx={pos.x + pos.width / 2}
-                        cy={pos.y + pos.height / 2}
-                        r="8"
-                        fill={isInitiator ? "#ff0000" : "#00ff00"}
-                        stroke="white"
-                        strokeWidth="3"
-                        opacity="0.9"
-                      />
-                    );
-                  });
-
-                  // Step 3: Draw lines connecting consecutive items across mothers
-                  for (let i = 0; i < lineTextOverflowChain.length - 1; i++) {
-                    const sourceId = lineTextOverflowChain[i];
-                    const targetId = lineTextOverflowChain[i + 1];
-
-                    const sourcePos = positions.get(sourceId);
-                    const targetPos = positions.get(targetId);
-
-                    if (sourcePos && targetPos) {
-                      const sourceX = sourcePos.x + sourcePos.width / 2;
-                      const sourceY = sourcePos.y + sourcePos.height + 6;
-                      const targetX = targetPos.x + targetPos.width / 2;
-                      const targetY = targetPos.y - 6;
-
-                      console.log(`🔗 Cross-Mother Chain: Drawing line ${i}: ${sourceId} → ${targetId}`);
-                      console.log(`🔗 Cross-Mother Chain: Coords: (${sourceX},${sourceY}) → (${targetX},${targetY})`);
-
-                      connectionLines.push(
-                        <g key={`cross-chain-line-${i}`}>
-                          {/* Connection line */}
-                          <line
-                            x1={sourceX}
-                            y1={sourceY}
-                            x2={targetX}
-                            y2={targetY}
-                            stroke="#ff9800"
-                            strokeWidth="4"
-                            strokeDasharray="10,5"
-                            markerEnd="url(#overflowArrow)"
-                          />
-                          {/* Connection label */}
-                          <text
-                            x={(sourceX + targetX) / 2}
-                            y={(sourceY + targetY) / 2 - 10}
-                            fill="#ff9800"
-                            fontSize="12"
-                            textAnchor="middle"
-                            fontWeight="bold"
-                            style={{
-                              textShadow: '2px 2px 4px rgba(0,0,0,0.7)'
-                            }}
-                          >
-                            OVERFLOW
-                          </text>
-                        </g>
-                      );
-                    }
-                  }
-
-                  console.log(`🔗 Cross-Mother Chain: Generated ${connectionLines.length} elements`);
-                  return connectionLines;
-                })()}
               </svg>
             </div>
           ) : (
