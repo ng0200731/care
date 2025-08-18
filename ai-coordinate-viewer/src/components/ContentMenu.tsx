@@ -53,6 +53,8 @@ interface ContentMenuProps {
   onDeleteContent?: (content: any, regionId: string) => void;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
+  isPinned?: boolean;
+  onTogglePin?: () => void;
 }
 
 const ContentMenu: React.FC<ContentMenuProps> = ({
@@ -61,7 +63,9 @@ const ContentMenu: React.FC<ContentMenuProps> = ({
   onEditContent,
   onDeleteContent,
   onMouseEnter,
-  onMouseLeave
+  onMouseLeave,
+  isPinned = false,
+  onTogglePin
 }) => {
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, contentType: ContentType) => {
     console.log('🚀 DRAG START:', contentType.name, 'ID:', contentType.id);
@@ -119,17 +123,40 @@ const ContentMenu: React.FC<ContentMenuProps> = ({
         paddingBottom: '15px',
         borderBottom: '2px solid #e2e8f0'
       }}>
-        <h3 style={{
-          margin: 0,
-          fontSize: '16px',
-          fontWeight: 'bold',
-          color: '#2d3748',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px'
-        }}>
-          📋 CONTENT TYPES
-        </h3>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
+          <h3 style={{
+            margin: 0,
+            fontSize: '16px',
+            fontWeight: 'bold',
+            color: '#2d3748',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            📋 CONTENT TYPES
+          </h3>
+
+          {/* Pin Button */}
+          {onTogglePin && (
+            <button
+              onClick={onTogglePin}
+              style={{
+                padding: '4px 8px',
+                fontSize: '12px',
+                background: isPinned ? '#FF9800' : '#6c757d',
+                color: 'white',
+                border: 'none',
+                borderRadius: '3px',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+              title={isPinned ? 'Unpin menu (will auto-hide)' : 'Pin menu (stays open)'}
+            >
+              {isPinned ? '📌' : '📍'}
+            </button>
+          )}
+        </div>
+
         <p style={{
           margin: '5px 0 0 0',
           fontSize: '12px',

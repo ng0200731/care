@@ -203,10 +203,12 @@ function App() {
   // Drag and drop state - Auto-hide content menu in project mode
   const [showContentMenu, setShowContentMenu] = useState(false);
   const [menuHideTimeout, setMenuHideTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [pinnedContentMenu, setPinnedContentMenu] = useState(false);
 
   // Auto-hide hierarchy menu state - Project mode only
   const [showHierarchyMenu, setShowHierarchyMenu] = useState(true); // Default visible in non-project mode
   const [hierarchyHideTimeout, setHierarchyHideTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [pinnedHierarchyMenu, setPinnedHierarchyMenu] = useState(false);
 
   // Debug state for leftover space calculations
   const [debugInfo, setDebugInfo] = useState<string[]>([]);
@@ -223,7 +225,7 @@ function App() {
   };
 
   const handleMenuLeave = () => {
-    if (isProjectMode) {
+    if (isProjectMode && !pinnedContentMenu) {
       const timeout = setTimeout(() => {
         setShowContentMenu(false);
       }, 500); // 500ms delay before hiding
@@ -243,7 +245,7 @@ function App() {
   };
 
   const handleHierarchyLeave = () => {
-    if (isProjectMode) {
+    if (isProjectMode && !pinnedHierarchyMenu) {
       const timeout = setTimeout(() => {
         setShowHierarchyMenu(false);
       }, 500); // 500ms delay before hiding
@@ -7834,7 +7836,7 @@ function App() {
       display: 'flex',
       flexDirection: 'column',
       background: '#f5f5f5',
-      marginRight: (showContentMenu || showHierarchyMenu) ? '300px' : '0',
+      marginRight: ((showContentMenu || pinnedContentMenu) || (showHierarchyMenu || pinnedHierarchyMenu)) ? '300px' : '0',
       pointerEvents: isLoadingMasterFile ? 'none' : 'auto',
       opacity: isLoadingMasterFile ? 0.6 : 1,
       transition: 'margin-right 0.3s ease, opacity 0.3s ease'
@@ -8494,7 +8496,7 @@ function App() {
           <div style={{
             position: isProjectMode ? 'fixed' : 'relative',
             top: isProjectMode ? '0' : 'auto',
-            right: isProjectMode ? (showHierarchyMenu ? '0' : '-100%') : 'auto',
+            right: isProjectMode ? ((showHierarchyMenu || pinnedHierarchyMenu) ? '0' : '-100%') : 'auto',
             width: '300px',
             height: isProjectMode ? '100vh' : 'auto',
             background: 'white',
@@ -8554,23 +8556,45 @@ function App() {
               {isMasterFileMode ? '📋 Master File Template' : isProjectMode ? '🏗️ Project Mode' : '📋 Layer Objects'}
             </h3>
 
-            {data && sonMetadata.size > 0 && (
-              <button
-                onClick={exportSonMetadata}
-                style={{
-                  padding: '4px 8px',
-                  fontSize: '10px',
-                  background: '#4CAF50',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '3px',
-                  cursor: 'pointer'
-                }}
-                title="Export son metadata"
-              >
-                💾 Export
-              </button>
-            )}
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              {/* Pin Button for Hierarchy Menu */}
+              {isProjectMode && (
+                <button
+                  onClick={() => setPinnedHierarchyMenu(!pinnedHierarchyMenu)}
+                  style={{
+                    padding: '4px 8px',
+                    fontSize: '12px',
+                    background: pinnedHierarchyMenu ? '#FF9800' : '#6c757d',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '3px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                  title={pinnedHierarchyMenu ? 'Unpin menu (will auto-hide)' : 'Pin menu (stays open)'}
+                >
+                  {pinnedHierarchyMenu ? '📌' : '📍'}
+                </button>
+              )}
+
+              {data && sonMetadata.size > 0 && (
+                <button
+                  onClick={exportSonMetadata}
+                  style={{
+                    padding: '4px 8px',
+                    fontSize: '10px',
+                    background: '#4CAF50',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '3px',
+                    cursor: 'pointer'
+                  }}
+                  title="Export son metadata"
+                >
+                  💾 Export
+                </button>
+              )}
+            </div>
           </div>
 
           {data && data.objects.length > 0 ? (
@@ -10330,12 +10354,14 @@ function App() {
 
       {/* Content Menu - Auto-hide in project mode */}
       <ContentMenu
-        isVisible={showContentMenu && isProjectMode}
+        isVisible={(showContentMenu || pinnedContentMenu) && isProjectMode}
         regionContents={regionContents}
         onEditContent={handleEditContent}
         onDeleteContent={handleDeleteContent}
         onMouseEnter={handleMenuTriggerEnter}
         onMouseLeave={handleMenuLeave}
+        isPinned={pinnedContentMenu}
+        onTogglePin={() => setPinnedContentMenu(!pinnedContentMenu)}
       />
 
       {/* Region Occupation Dialog */}
@@ -10419,7 +10445,7 @@ function App() {
         <div style={{
           position: 'fixed',
           bottom: '50px',
-          right: (showContentMenu || showHierarchyMenu) ? '320px' : '10px',
+          right: ((showContentMenu || pinnedContentMenu) || (showHierarchyMenu || pinnedHierarchyMenu)) ? '320px' : '10px',
           background: 'rgba(255,255,255,0.95)',
           color: '#333',
           padding: '10px',
@@ -11159,7 +11185,7 @@ function App() {
       <div style={{
         position: 'fixed',
         bottom: '10px',
-        right: (showContentMenu || showHierarchyMenu) ? '320px' : '10px',
+        right: ((showContentMenu || pinnedContentMenu) || (showHierarchyMenu || pinnedHierarchyMenu)) ? '320px' : '10px',
         background: 'rgba(0,0,0,0.7)',
         color: 'white',
         padding: '4px 8px',
