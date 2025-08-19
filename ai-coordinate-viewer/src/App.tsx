@@ -402,28 +402,27 @@ function App() {
     return 'connector';
   };
 
-  // Get overflow number for display - simple counting approach
+  // Get overflow number for display - count existing same content type
   const getOverflowNumber = (contentId: string): number => {
+    // If overflow not enabled, return 0 (will show nothing)
     if (!isOverflowEnabled(contentId)) {
       return 0;
     }
 
     const contentType = getContentTypeFromId(contentId);
-    let count = 0;
+    const chain = overflowChains.get(contentType) || [];
 
-    // Go through all regions and count overflow-enabled content of the same type
-    for (const [regionId, contents] of Array.from(regionContents.entries())) {
-      for (const content of contents) {
-        if (content.type === contentType && isOverflowEnabled(content.id)) {
-          count++;
-          if (content.id === contentId) {
-            return count; // Return position when we find our target
-          }
-        }
-      }
+    // Find position in the overflow chain (1-based)
+    const position = chain.indexOf(contentId);
+
+    // If found in chain, return position + 1
+    // If not found but overflow enabled, it means it will be added next, so count existing + 1
+    if (position >= 0) {
+      return position + 1;
+    } else {
+      // Not in chain yet but overflow enabled - will be next number
+      return chain.length + 1;
     }
-
-    return 0;
   };
 
   const isOverflowEnabled = (contentId: string): boolean => {
