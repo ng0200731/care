@@ -304,42 +304,89 @@ function App() {
   };
 
   const addToOverflowChain = (contentId: string, regionId: string) => {
-    const newChain = [...lineTextOverflowChain];
+    const contentType = getContentTypeFromId(contentId);
 
-    if (!newChain.includes(contentId)) {
-      newChain.push(contentId);
-      setLineTextOverflowChain(newChain);
+    setOverflowChains(prevChains => {
+      const newChains = new Map(prevChains);
+      const currentChain = newChains.get(contentType) || [];
 
-      console.log('✅ Added to overflow chain:', contentId);
-      console.log('📋 Current chain:', newChain);
+      if (!currentChain.includes(contentId)) {
+        const newChain = [...currentChain, contentId];
+        newChains.set(contentType, newChain);
 
-      // Show notification
-      const role = newChain.length === 1 ? 'Initiator' : `Connector ${newChain.length - 1}`;
-      setNotification(`✅ Line-text overflow ${role} created`);
-      setTimeout(() => setNotification(null), 3000);
-    }
+        console.log(`✅ Added to ${contentType} overflow chain:`, contentId);
+        console.log(`📋 Current ${contentType} chain:`, newChain);
+
+        // Show notification
+        const role = newChain.length === 1 ? 'Initiator' : `Connector ${newChain.length}`;
+        const contentTypeName = contentType === 'line-text' ? 'Line Text' :
+                               contentType === 'pure-english-paragraph' ? 'Pure English Paragraph' :
+                               contentType === 'translation-paragraph' ? 'Translation Paragraph' : contentType;
+        setNotification(`✅ ${contentTypeName} overflow ${role} created`);
+        setTimeout(() => setNotification(null), 3000);
+      }
+
+      return newChains;
+    });
   };
 
   const removeFromOverflowChain = (contentId: string) => {
-    const newChain = lineTextOverflowChain.filter(id => id !== contentId);
-    setLineTextOverflowChain(newChain);
+    const contentType = getContentTypeFromId(contentId);
 
-    console.log('❌ Removed from overflow chain:', contentId);
-    console.log('📋 Updated chain:', newChain);
+    setOverflowChains(prevChains => {
+      const newChains = new Map(prevChains);
+      const currentChain = newChains.get(contentType) || [];
+      const newChain = currentChain.filter(id => id !== contentId);
 
-    setNotification(`❌ Removed from overflow chain`);
-    setTimeout(() => setNotification(null), 3000);
+      if (newChain.length === 0) {
+        newChains.delete(contentType);
+      } else {
+        newChains.set(contentType, newChain);
+      }
+
+      console.log(`❌ Removed from ${contentType} overflow chain:`, contentId);
+      console.log(`📋 Updated ${contentType} chain:`, newChain);
+
+      setNotification(`❌ Removed from overflow chain`);
+      setTimeout(() => setNotification(null), 3000);
+
+      return newChains;
+    });
   };
 
   const getOverflowRole = (contentId: string): 'initiator' | 'connector' | 'none' => {
-    const chainIndex = lineTextOverflowChain.indexOf(contentId);
+    const contentType = getContentTypeFromId(contentId);
+    const chain = overflowChains.get(contentType) || [];
+    const chainIndex = chain.indexOf(contentId);
+
     if (chainIndex === -1) return 'none';
     if (chainIndex === 0) return 'initiator';
     return 'connector';
   };
 
+  // Get overflow number for display (1-based index within content type chain)
+  const getOverflowNumber = (contentId: string): number => {
+    const contentType = getContentTypeFromId(contentId);
+    const chain = overflowChains.get(contentType) || [];
+    const chainIndex = chain.indexOf(contentId);
+
+    return chainIndex === -1 ? 0 : chainIndex + 1; // 1-based numbering
+  };
+
   const isOverflowEnabled = (contentId: string): boolean => {
     return overflowSettings.get(contentId) || false;
+  };
+
+  // Helper function to get content type from content ID
+  const getContentTypeFromId = (contentId: string): string => {
+    // Find the content in regionContents to get its type
+    for (const [regionId, contents] of Array.from(regionContents.entries())) {
+      const content = contents.find((c: any) => c.id === contentId);
+      if (content) {
+        return content.type;
+      }
+    }
+    return 'unknown';
   };
 
   const handleContentDoubleClick = (content: any, regionId: string) => {
@@ -369,15 +416,17 @@ function App() {
 
   const handleLineTextOverflow = (regionId: string, newContent: any) => {
     // Check if region is getting full and if there are overflow connections
-    if (lineTextOverflowChain.length < 2) {
-      // No overflow chain exists, nothing to do
+    const contentType = newContent.type;
+    const chain = overflowChains.get(contentType) || [];
+    if (chain.length < 2) {
+      // No overflow chain exists for this content type, nothing to do
       return;
     }
 
-    // Find if any content in this region is part of the overflow chain
+    // Find if any content in this region is part of any overflow chain
     const regionContentsArray = regionContents.get(regionId) || [];
     const chainContentInRegion = regionContentsArray.find((content: any) =>
-      lineTextOverflowChain.includes(content.id)
+      isOverflowEnabled(content.id)
     );
 
     if (!chainContentInRegion) {
@@ -385,16 +434,18 @@ function App() {
       return;
     }
 
-    // Simple overflow logic: if region has more than 1 line-text content, trigger overflow
-    const lineTextCount = regionContentsArray.filter((content: any) => content.type === 'line-text').length;
+    // Get the content type and check for overflow
+    const chainContentType = chainContentInRegion.type;
+    const contentTypeCount = regionContentsArray.filter((content: any) => content.type === chainContentType).length;
 
-    if (lineTextCount > 1) {
-      console.log('🌊 Line-text overflow detected in region:', regionId);
+    if (contentTypeCount > 1) {
+      console.log(`🌊 ${chainContentType} overflow detected in region:`, regionId);
 
-      // Find the next region in the overflow chain
-      const currentIndex = lineTextOverflowChain.indexOf(chainContentInRegion.id);
-      if (currentIndex >= 0 && currentIndex < lineTextOverflowChain.length - 1) {
-        const nextContentId = lineTextOverflowChain[currentIndex + 1];
+      // Find the next region in the overflow chain for this content type
+      const chain = overflowChains.get(chainContentType) || [];
+      const currentIndex = chain.indexOf(chainContentInRegion.id);
+      if (currentIndex >= 0 && currentIndex < chain.length - 1) {
+        const nextContentId = chain[currentIndex + 1];
 
         // Find the region containing the next content
         let targetRegionId: string | null = null;
@@ -574,8 +625,8 @@ function App() {
   const [showAddRegionDialog, setShowAddRegionDialog] = useState(false);
   const [selectedMotherForRegion, setSelectedMotherForRegion] = useState<AIObject | null>(null);
 
-  // Line-text overflow connection state
-  const [lineTextOverflowChain, setLineTextOverflowChain] = useState<string[]>([]); // Array of content IDs in chain order
+  // Overflow connection state - separate chains per content type
+  const [overflowChains, setOverflowChains] = useState<Map<string, string[]>>(new Map()); // contentType -> Array of content IDs in chain order
   const [overflowSettings, setOverflowSettings] = useState<Map<string, boolean>>(new Map()); // contentId -> overflow enabled
 
   // Chain connection rendering state - calculated once, rendered many times
@@ -3057,12 +3108,24 @@ function App() {
         setOverflowSettings(new Map());
       }
 
-      // Restore overflow chain
-      if (projectState.lineTextOverflowChain && Array.isArray(projectState.lineTextOverflowChain)) {
-        setLineTextOverflowChain(projectState.lineTextOverflowChain);
-        console.log('✅ Overflow chain restored:', projectState.lineTextOverflowChain);
+      // Restore overflow chains
+      if (projectState.overflowChains) {
+        const restoredOverflowChains = new Map<string, string[]>();
+        Object.entries(projectState.overflowChains).forEach(([contentType, chain]) => {
+          if (Array.isArray(chain)) {
+            restoredOverflowChains.set(contentType, chain);
+          }
+        });
+        setOverflowChains(restoredOverflowChains);
+        console.log('✅ Overflow chains restored:', restoredOverflowChains.size, 'content types');
+      } else if (projectState.lineTextOverflowChain && Array.isArray(projectState.lineTextOverflowChain)) {
+        // Backward compatibility: convert old single chain to new format
+        const legacyChains = new Map<string, string[]>();
+        legacyChains.set('line-text', projectState.lineTextOverflowChain);
+        setOverflowChains(legacyChains);
+        console.log('✅ Legacy overflow chain converted:', projectState.lineTextOverflowChain);
       } else {
-        setLineTextOverflowChain([]);
+        setOverflowChains(new Map());
       }
 
       // Restore expanded mothers state
@@ -4104,7 +4167,7 @@ function App() {
           panY
         },
         // Metadata
-        version: '2.1.89',
+        version: '2.1.91',
         motherCount: motherCount,
         contentObjectCount: regionContents.size,
         // Save metadata
@@ -4193,9 +4256,9 @@ function App() {
 
           // Overflow connection settings
           overflowSettings: Object.fromEntries(overflowSettings),
-          lineTextOverflowChain: lineTextOverflowChain,
+          overflowChains: Object.fromEntries(overflowChains),
           // Metadata
-          version: '2.1.90',
+          version: '2.1.91',
           motherCount: motherCount,
           contentObjectCount: regionContents.size,
           // Save metadata
@@ -4989,7 +5052,7 @@ function App() {
 
         // Overflow connection settings
         overflowSettings: Object.fromEntries(overflowSettings),
-        lineTextOverflowChain: lineTextOverflowChain,
+        overflowChains: Object.fromEntries(overflowChains),
 
         // View settings
         zoom: zoom,
@@ -5054,7 +5117,7 @@ function App() {
 
         // Overflow connection settings
         overflowSettings: Object.fromEntries(overflowSettings),
-        lineTextOverflowChain: lineTextOverflowChain,
+        overflowChains: Object.fromEntries(overflowChains),
 
         // View settings
         zoom: zoom,
@@ -7287,8 +7350,8 @@ function App() {
                             }}
                           />
 
-                          {/* Overflow dots for line-text content */}
-                          {content.type === 'line-text' && isOverflowEnabled(content.id) && (() => {
+                          {/* Overflow dots for text-based content */}
+                          {['line-text', 'pure-english-paragraph', 'translation-paragraph'].includes(content.type) && isOverflowEnabled(content.id) && (() => {
                             const role = getOverflowRole(content.id);
                             const dotRadius = 4;
                             const centerX = overlayX + overlayWidth / 2;
@@ -7362,11 +7425,11 @@ function App() {
                     // Find if this region contains content that's part of the overflow chain
                     const regionContentList = regionContents.get(region.id) || [];
                     const chainContent = regionContentList.find((content: any) =>
-                      lineTextOverflowChain.includes(content.id)
+                      isOverflowEnabled(content.id)
                     );
 
                     if (chainContent) {
-                      const sequenceNumber = lineTextOverflowChain.indexOf(chainContent.id) + 1;
+                      const sequenceNumber = getOverflowNumber(chainContent.id);
                       const fontSize = Math.min(region.width * scale * 0.6, region.height * scale * 0.6);
 
                       return (
@@ -7534,11 +7597,11 @@ function App() {
                           // Find if this child region contains content that's part of the overflow chain
                           const regionContentList = regionContents.get(childRegion.id) || [];
                           const chainContent = regionContentList.find((content: any) =>
-                            lineTextOverflowChain.includes(content.id)
+                            isOverflowEnabled(content.id)
                           );
 
                           if (chainContent) {
-                            const sequenceNumber = lineTextOverflowChain.indexOf(chainContent.id) + 1;
+                            const sequenceNumber = getOverflowNumber(chainContent.id);
                             const fontSize = Math.min(childRegion.width * scale * 0.6, childRegion.height * scale * 0.6);
 
                             return (
@@ -11363,7 +11426,7 @@ function App() {
         zIndex: 1000,
         transition: 'right 0.3s ease'
       }}>
-        v{packageJson.version} | Port: {window.location.port || '80'} | {new Date().toLocaleString()}
+        v{packageJson.version} | Code: V2.1.91 | Port: {window.location.port || '80'} | {new Date().toLocaleString()}
       </div>
     </div>
   );

@@ -501,14 +501,23 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
   };
 
   const handleSave = () => {
-    // Basic validation
+    // Basic validation for text-based content types
     if (contentType.id === 'line-text' && !formData.content.text?.trim()) {
       alert('Please enter text content');
       return;
     }
+    if (contentType.id === 'pure-english-paragraph' && !formData.content.text?.trim()) {
+      alert('Please enter paragraph content');
+      return;
+    }
+    if (contentType.id === 'translation-paragraph' && (!formData.content.primaryContent?.trim() || !formData.content.secondaryContent?.trim())) {
+      alert('Please enter both primary and secondary language content');
+      return;
+    }
 
-    // Handle overflow for line-text content (both new and editing)
-    if (contentType.id === 'line-text' && onOverflowToggle) {
+    // Handle overflow for text-based content types (line-text, paragraphs)
+    const textContentTypes = ['line-text', 'pure-english-paragraph', 'translation-paragraph'];
+    if (textContentTypes.includes(contentType.id) && onOverflowToggle) {
       if (editingContent) {
         // For editing content, apply overflow state immediately
         onOverflowToggle(editingContent.id, regionId, localOverflowEnabled);
@@ -881,6 +890,35 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
                   placeholder="Enter secondary language text..."
                 />
               </div>
+
+              {/* Overflow Toggle for Translation Paragraph */}
+              {onOverflowToggle && isOverflowEnabled && getOverflowRole && (
+                <div style={{ marginTop: '15px', padding: '12px', backgroundColor: '#f8f9fa', borderRadius: '6px', border: '1px solid #e9ecef' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={localOverflowEnabled}
+                      onChange={(e) => {
+                        setLocalOverflowEnabled(e.target.checked);
+                      }}
+                      style={{ width: '16px', height: '16px' }}
+                    />
+                    <span style={{ fontWeight: 'bold', color: '#495057' }}>Enable Overflow</span>
+                    <span style={{
+                      fontSize: '12px',
+                      padding: '2px 6px',
+                      borderRadius: '3px',
+                      backgroundColor: localOverflowEnabled ? '#2196f3' : '#e0e0e0',
+                      color: localOverflowEnabled ? 'white' : '#666'
+                    }}>
+                      {localOverflowEnabled ? (editingContent ? '⚡ Will Enable' : '⚡ Will Auto-Connect') : '⚪ Disabled'}
+                    </span>
+                  </label>
+                  <div style={{ fontSize: '11px', color: '#6c757d', marginTop: '4px', marginLeft: '24px' }}>
+                    When enabled, content will flow to connected regions when this region is full
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -893,6 +931,35 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
                 style={{ ...inputStyle, height: '120px', resize: 'vertical' }}
                 placeholder="Enter your paragraph content here..."
               />
+
+              {/* Overflow Toggle for Pure English Paragraph */}
+              {onOverflowToggle && isOverflowEnabled && getOverflowRole && (
+                <div style={{ marginTop: '15px', padding: '12px', backgroundColor: '#f8f9fa', borderRadius: '6px', border: '1px solid #e9ecef' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={localOverflowEnabled}
+                      onChange={(e) => {
+                        setLocalOverflowEnabled(e.target.checked);
+                      }}
+                      style={{ width: '16px', height: '16px' }}
+                    />
+                    <span style={{ fontWeight: 'bold', color: '#495057' }}>Enable Overflow</span>
+                    <span style={{
+                      fontSize: '12px',
+                      padding: '2px 6px',
+                      borderRadius: '3px',
+                      backgroundColor: localOverflowEnabled ? '#2196f3' : '#e0e0e0',
+                      color: localOverflowEnabled ? 'white' : '#666'
+                    }}>
+                      {localOverflowEnabled ? (editingContent ? '⚡ Will Enable' : '⚡ Will Auto-Connect') : '⚪ Disabled'}
+                    </span>
+                  </label>
+                  <div style={{ fontSize: '11px', color: '#6c757d', marginTop: '4px', marginLeft: '24px' }}>
+                    When enabled, content will flow to connected regions when this region is full
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
