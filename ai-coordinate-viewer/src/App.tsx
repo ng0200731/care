@@ -3039,10 +3039,50 @@ function App() {
         setPanY(0);
       }
 
-      // Reset other states
-      setSelectedObject(null);
+      // Restore canvas settings including overflow state
+      if (projectState.showOverflowNumbers !== undefined) {
+        setShowOverflowNumbers(projectState.showOverflowNumbers);
+        console.log('✅ Overflow numbers state restored:', projectState.showOverflowNumbers);
+      }
+
+      // Restore overflow connection settings
+      if (projectState.overflowSettings) {
+        const restoredOverflowSettings = new Map<string, boolean>();
+        Object.entries(projectState.overflowSettings).forEach(([key, value]) => {
+          restoredOverflowSettings.set(key, Boolean(value));
+        });
+        setOverflowSettings(restoredOverflowSettings);
+        console.log('✅ Overflow settings restored:', restoredOverflowSettings.size, 'content items');
+      } else {
+        setOverflowSettings(new Map());
+      }
+
+      // Restore overflow chain
+      if (projectState.lineTextOverflowChain && Array.isArray(projectState.lineTextOverflowChain)) {
+        setLineTextOverflowChain(projectState.lineTextOverflowChain);
+        console.log('✅ Overflow chain restored:', projectState.lineTextOverflowChain);
+      } else {
+        setLineTextOverflowChain([]);
+      }
+
+      // Restore expanded mothers state
+      if (projectState.expandedMothers && Array.isArray(projectState.expandedMothers)) {
+        setExpandedMothers(new Set(projectState.expandedMothers));
+        console.log('✅ Expanded mothers restored:', projectState.expandedMothers);
+      } else {
+        setExpandedMothers(new Set());
+      }
+
+      // Restore selected object
+      if (projectState.selectedObject) {
+        setSelectedObject(projectState.selectedObject);
+        console.log('✅ Selected object restored:', projectState.selectedObject);
+      } else {
+        setSelectedObject(null);
+      }
+
+      // Reset metadata (will be restored from saved data if available)
       setSonMetadata(new Map());
-      setExpandedMothers(new Set());
 
       // Get project info for display
       const urlParams = new URLSearchParams(window.location.search);
@@ -4146,6 +4186,14 @@ function App() {
             panX,
             panY
           },
+          // Canvas settings - including overflow state
+          showOverflowNumbers: showOverflowNumbers,
+          expandedMothers: Array.from(expandedMothers),
+          selectedObject: selectedObject,
+
+          // Overflow connection settings
+          overflowSettings: Object.fromEntries(overflowSettings),
+          lineTextOverflowChain: lineTextOverflowChain,
           // Metadata
           version: '2.1.90',
           motherCount: motherCount,
@@ -4918,8 +4966,128 @@ function App() {
     setNotification(`✅ Created ${newSon.name} in ${motherObject.name}`);
     setTimeout(() => setNotification(null), 3000); // Hide after 3 seconds
   };
+  // Save project function - saves all canvas details including overflow and sequence numbers
+  const handleSaveProject = async () => {
+    if (!isProjectMode || !data) {
+      alert('❌ Save is only available in Project Mode');
+      return;
+    }
 
+    try {
+      // Collect all project data including canvas state
+      const projectData = {
+        // Core project data
+        data: data,
+        regionContents: Object.fromEntries(regionContents),
+        sonMetadata: Object.fromEntries(sonMetadata),
+        motherMetadata: Object.fromEntries(motherMetadata),
 
+        // Canvas state and settings
+        showOverflowNumbers: showOverflowNumbers,
+        expandedMothers: Array.from(expandedMothers),
+        selectedObject: selectedObject,
+
+        // Overflow connection settings
+        overflowSettings: Object.fromEntries(overflowSettings),
+        lineTextOverflowChain: lineTextOverflowChain,
+
+        // View settings
+        zoom: zoom,
+        panX: panX,
+        panY: panY,
+
+        // Project metadata
+        projectName: data.layoutName || 'Untitled Project',
+        savedAt: new Date().toISOString(),
+        version: packageJson.version,
+
+        // Customer context
+        customerId: selectedCustomer?.id,
+        customerName: selectedCustomer?.customerName
+      };
+
+      // Use existing project name or prompt for new one
+      const projectName = data.layoutName || prompt('Enter project name:');
+      if (!projectName) return;
+
+      // Save to localStorage (you can extend this to save to server)
+      const projectKey = `project_${projectName}_${Date.now()}`;
+      localStorage.setItem(projectKey, JSON.stringify(projectData));
+
+      // Update the data with the project name
+      setData(prev => prev ? { ...prev, layoutName: projectName } : null);
+
+      setNotification(`✅ Project "${projectName}" saved successfully!`);
+      setTimeout(() => setNotification(null), 3000);
+
+      console.log('💾 Project saved:', projectName, projectData);
+
+    } catch (error) {
+      console.error('❌ Error saving project:', error);
+      alert('❌ Failed to save project. Please try again.');
+    }
+  };
+
+  // Save As project function - always prompts for new name
+  const handleSaveAsProject = async () => {
+    if (!isProjectMode || !data) {
+      alert('❌ Save As is only available in Project Mode');
+      return;
+    }
+
+    const newProjectName = prompt('Enter new project name:', data.layoutName || 'Copy of Project');
+    if (!newProjectName) return;
+
+    try {
+      // Collect all project data including canvas state
+      const projectData = {
+        // Core project data
+        data: { ...data, layoutName: newProjectName },
+        regionContents: Object.fromEntries(regionContents),
+        sonMetadata: Object.fromEntries(sonMetadata),
+        motherMetadata: Object.fromEntries(motherMetadata),
+
+        // Canvas state and settings
+        showOverflowNumbers: showOverflowNumbers,
+        expandedMothers: Array.from(expandedMothers),
+        selectedObject: selectedObject,
+
+        // Overflow connection settings
+        overflowSettings: Object.fromEntries(overflowSettings),
+        lineTextOverflowChain: lineTextOverflowChain,
+
+        // View settings
+        zoom: zoom,
+        panX: panX,
+        panY: panY,
+
+        // Project metadata
+        projectName: newProjectName,
+        savedAt: new Date().toISOString(),
+        version: packageJson.version,
+
+        // Customer context
+        customerId: selectedCustomer?.id,
+        customerName: selectedCustomer?.customerName
+      };
+
+      // Save to localStorage with new name
+      const projectKey = `project_${newProjectName}_${Date.now()}`;
+      localStorage.setItem(projectKey, JSON.stringify(projectData));
+
+      // Update current data with new name
+      setData(prev => prev ? { ...prev, layoutName: newProjectName } : null);
+
+      setNotification(`✅ Project saved as "${newProjectName}"!`);
+      setTimeout(() => setNotification(null), 3000);
+
+      console.log('📄 Project saved as:', newProjectName, projectData);
+
+    } catch (error) {
+      console.error('❌ Error saving project as:', error);
+      alert('❌ Failed to save project. Please try again.');
+    }
+  };
 
   const exportSonMetadata = () => {
     const metadataArray = Array.from(sonMetadata.entries()).map(([key, value]) => ({
@@ -8557,6 +8725,44 @@ function App() {
             </h3>
 
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              {/* Save and Save As Buttons for Project Mode */}
+              {isProjectMode && (
+                <>
+                  <button
+                    onClick={handleSaveProject}
+                    style={{
+                      padding: '4px 8px',
+                      fontSize: '11px',
+                      background: '#2196F3',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '3px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease'
+                    }}
+                    title="Save current project"
+                  >
+                    💾 Save
+                  </button>
+                  <button
+                    onClick={handleSaveAsProject}
+                    style={{
+                      padding: '4px 8px',
+                      fontSize: '11px',
+                      background: '#4CAF50',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '3px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease'
+                    }}
+                    title="Save project with new name"
+                  >
+                    📄 Save As
+                  </button>
+                </>
+              )}
+
               {/* Pin Button for Hierarchy Menu */}
               {isProjectMode && (
                 <button
