@@ -852,15 +852,6 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
                       style={{ width: '16px', height: '16px' }}
                     />
                     <span style={{ fontWeight: 'bold', color: '#495057' }}>Enable Overflow</span>
-                    <span style={{
-                      fontSize: '12px',
-                      padding: '2px 6px',
-                      borderRadius: '3px',
-                      backgroundColor: localOverflowEnabled ? '#2196f3' : '#e0e0e0',
-                      color: localOverflowEnabled ? 'white' : '#666'
-                    }}>
-                      {localOverflowEnabled ? (editingContent ? '⚡ Will Enable' : '⚡ Will Auto-Connect') : '⚪ Disabled'}
-                    </span>
                   </label>
                   <div style={{ fontSize: '11px', color: '#6c757d', marginTop: '4px', marginLeft: '24px' }}>
                     When enabled, content will flow to connected regions when this region is full
@@ -904,15 +895,6 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
                       style={{ width: '16px', height: '16px' }}
                     />
                     <span style={{ fontWeight: 'bold', color: '#495057' }}>Enable Overflow</span>
-                    <span style={{
-                      fontSize: '12px',
-                      padding: '2px 6px',
-                      borderRadius: '3px',
-                      backgroundColor: localOverflowEnabled ? '#2196f3' : '#e0e0e0',
-                      color: localOverflowEnabled ? 'white' : '#666'
-                    }}>
-                      {localOverflowEnabled ? (editingContent ? '⚡ Will Enable' : '⚡ Will Auto-Connect') : '⚪ Disabled'}
-                    </span>
                   </label>
                   <div style={{ fontSize: '11px', color: '#6c757d', marginTop: '4px', marginLeft: '24px' }}>
                     When enabled, content will flow to connected regions when this region is full
@@ -945,15 +927,6 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
                       style={{ width: '16px', height: '16px' }}
                     />
                     <span style={{ fontWeight: 'bold', color: '#495057' }}>Enable Overflow</span>
-                    <span style={{
-                      fontSize: '12px',
-                      padding: '2px 6px',
-                      borderRadius: '3px',
-                      backgroundColor: localOverflowEnabled ? '#2196f3' : '#e0e0e0',
-                      color: localOverflowEnabled ? 'white' : '#666'
-                    }}>
-                      {localOverflowEnabled ? (editingContent ? '⚡ Will Enable' : '⚡ Will Auto-Connect') : '⚪ Disabled'}
-                    </span>
                   </label>
                   <div style={{ fontSize: '11px', color: '#6c757d', marginTop: '4px', marginLeft: '24px' }}>
                     When enabled, content will flow to connected regions when this region is full
