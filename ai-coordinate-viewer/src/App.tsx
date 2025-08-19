@@ -7624,20 +7624,25 @@ function App() {
 
                       if (!displayText) return null;
 
-                      // Get content properties with defaults
-                      const fontSize = content.content?.fontSize || 12;
-                      const fontFamily = content.content?.fontFamily || 'Arial';
-                      const textAlign = content.content?.textAlign || 'left';
-                      const padding = content.content?.padding || 2; // mm
+                      // Get content properties from correct locations with defaults
+                      const fontSize = content.typography?.fontSize || 12;
+                      const fontFamily = content.typography?.fontFamily || 'Arial';
+                      const fontColor = content.typography?.fontColor || '#000000';
+                      const textAlign = content.layout?.horizontalAlign || 'left';
+                      const verticalAlign = content.layout?.verticalAlign || 'top';
+                      const padding = content.layout?.padding || { top: 2, right: 2, bottom: 2, left: 2 };
 
                       // Calculate region dimensions and text area
                       const regionWidthPx = region.width * scale;
                       const regionHeightPx = region.height * scale;
-                      const paddingPx = padding * scale;
+                      const paddingTopPx = padding.top * scale;
+                      const paddingRightPx = padding.right * scale;
+                      const paddingBottomPx = padding.bottom * scale;
+                      const paddingLeftPx = padding.left * scale;
 
                       // Text area dimensions (region minus padding)
-                      const textAreaWidth = regionWidthPx - (paddingPx * 2);
-                      const textAreaHeight = regionHeightPx - (paddingPx * 2);
+                      const textAreaWidth = regionWidthPx - paddingLeftPx - paddingRightPx;
+                      const textAreaHeight = regionHeightPx - paddingTopPx - paddingBottomPx;
 
                       // Calculate font size based on zoom
                       const scaledFontSize = fontSize * zoom;
@@ -7750,28 +7755,38 @@ function App() {
                         }
                       }
 
-                      // Calculate text anchor based on alignment
+                      // Calculate text anchor and position based on alignment
                       let textAnchor: 'start' | 'middle' | 'end' = 'start';
-                      let textX = baseX + (region.x * scale) + paddingPx;
+                      let textX = baseX + (region.x * scale) + paddingLeftPx;
 
                       if (textAlign === 'center') {
                         textAnchor = 'middle';
                         textX = baseX + (region.x * scale) + regionWidthPx / 2;
                       } else if (textAlign === 'right') {
                         textAnchor = 'end';
-                        textX = baseX + (region.x * scale) + regionWidthPx - paddingPx;
+                        textX = baseX + (region.x * scale) + regionWidthPx - paddingRightPx;
+                      }
+
+                      // Calculate vertical starting position based on vertical alignment
+                      let startY = baseY + (region.y * scale) + paddingTopPx;
+                      if (verticalAlign === 'center') {
+                        const totalTextHeight = displayLines.length * lineHeight;
+                        startY = baseY + (region.y * scale) + (regionHeightPx - totalTextHeight) / 2;
+                      } else if (verticalAlign === 'bottom') {
+                        const totalTextHeight = displayLines.length * lineHeight;
+                        startY = baseY + (region.y * scale) + regionHeightPx - paddingBottomPx - totalTextHeight;
                       }
 
                       // Render each line
                       return displayLines.map((line, lineIndex) => {
-                        const textY = baseY + (region.y * scale) + paddingPx + (lineIndex + 1) * lineHeight;
+                        const textY = startY + (lineIndex + 1) * lineHeight;
 
                         return (
                           <text
                             key={`${region.id}-preview-${contentIndex}-line-${lineIndex}`}
                             x={textX}
                             y={textY}
-                            fill="#000"
+                            fill={fontColor}
                             fontSize={scaledFontSize}
                             fontFamily={fontFamily}
                             textAnchor={textAnchor}
