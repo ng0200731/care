@@ -288,6 +288,9 @@ function App() {
   });
   const [regionContents, setRegionContents] = useState<Map<string, any[]>>(new Map());
 
+  // Master properties version to trigger connector updates
+  const [masterPropertiesVersion, setMasterPropertiesVersion] = useState(0);
+
   // Line-text overflow connection functions
   const handleOverflowToggle = (contentId: string, regionId: string, enabled: boolean) => {
     // Update overflow settings
@@ -401,6 +404,31 @@ function App() {
     if (chainIndex === -1) return 'none';
     if (chainIndex === 0) return 'initiator';
     return 'connector';
+  };
+
+  // Get master properties for overflow chain connectors
+  const getMasterProperties = (contentId: string): { layout: any; typography: any } | null => {
+    const contentType = getContentTypeFromId(contentId);
+    const chain = overflowChains.get(contentType) || [];
+    const chainIndex = chain.indexOf(contentId);
+
+    if (chainIndex > 0) { // This is a connector
+      const masterContentId = chain[0]; // First in chain is master
+
+      // Find the master content object
+      const regionEntries = Array.from(regionContents.entries());
+      for (const [regionId, contents] of regionEntries) {
+        const masterContent = contents.find((c: any) => c.id === masterContentId);
+        if (masterContent) {
+          console.log('🔗 Found master properties for', contentId, ':', masterContent.layout, masterContent.typography);
+          return {
+            layout: masterContent.layout,
+            typography: masterContent.typography
+          };
+        }
+      }
+    }
+    return null;
   };
 
   // Calculate text capacity using line-based method
@@ -4009,6 +4037,15 @@ function App() {
     // REMOVED: Auto-overflow logic that caused unwanted automatic numbering
     // and state timing issues. All content types now follow the same manual
     // overflow behavior like translation-paragraph.
+
+    // Check if this is a master object being saved and increment version for connector updates
+    if (universalDialog.editingContent && getOverflowRole) {
+      const role = getOverflowRole(universalDialog.editingContent.id);
+      if (role === 'initiator') {
+        setMasterPropertiesVersion(prev => prev + 1);
+        console.log('🔄 Master properties updated, incrementing version for connector sync');
+      }
+    }
 
     // Show notification
     const contentTypeName = universalDialog.contentType?.name || 'Content';
@@ -10975,6 +11012,8 @@ function App() {
             isOverflowEnabled={isOverflowEnabled}
             getOverflowRole={getOverflowRole}
             onOverflowToggle={handleOverflowToggle}
+            onGetMasterProperties={getMasterProperties}
+            masterPropertiesVersion={masterPropertiesVersion}
             onSave={handleUniversalContentSave}
             onCancel={handleUniversalContentCancel}
           />

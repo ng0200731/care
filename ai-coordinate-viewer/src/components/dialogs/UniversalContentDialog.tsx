@@ -56,6 +56,8 @@ interface UniversalContentDialogProps {
   isOverflowEnabled?: (contentId: string) => boolean;
   getOverflowRole?: (contentId: string) => 'initiator' | 'connector' | 'none';
   onOverflowToggle?: (contentId: string, regionId: string, enabled: boolean) => void;
+  onGetMasterProperties?: (contentId: string) => { layout: any; typography: any } | null;
+  masterPropertiesVersion?: number; // Add version number to trigger updates
   onSave: (data: UniversalContentData) => void;
   onCancel: () => void;
 }
@@ -77,6 +79,8 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
   isOverflowEnabled,
   getOverflowRole,
   onOverflowToggle,
+  onGetMasterProperties,
+  masterPropertiesVersion,
   onSave,
   onCancel
 }) => {
@@ -150,11 +154,28 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
       console.log('🔍 Content layout:', editingContent.layout);
       console.log('🔍 Content typography:', editingContent.typography);
 
-      // Load existing content data for editing
-      setFormData({
-        ...editingContent,
-        regionId: regionId // Ensure region ID is current
-      });
+      // Check if this is a connector in an overflow chain
+      const role = getOverflowRole ? getOverflowRole(editingContent.id) : 'none';
+      const isConnector = role === 'connector';
+
+      if (isConnector && onGetMasterProperties) {
+        // Get master properties for connector objects
+        const masterProperties = onGetMasterProperties(editingContent.id);
+        console.log('🔗 Loading master properties for connector:', masterProperties);
+
+        setFormData({
+          ...editingContent,
+          regionId: regionId,
+          layout: masterProperties?.layout || editingContent.layout,
+          typography: masterProperties?.typography || editingContent.typography
+        });
+      } else {
+        // Load existing content data for editing (master or non-overflow)
+        setFormData({
+          ...editingContent,
+          regionId: regionId // Ensure region ID is current
+        });
+      }
     } else {
       // Reset to default values for new content
       setFormData({
@@ -179,7 +200,25 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
         content: {}
       });
     }
-  }, [editingContent, regionId, contentType.id]);
+  }, [editingContent?.id, regionId, contentType.id]);
+
+  // Update connector properties when master changes
+  useEffect(() => {
+    if (editingContent && getOverflowRole && onGetMasterProperties) {
+      const role = getOverflowRole(editingContent.id);
+      if (role === 'connector') {
+        const masterProperties = onGetMasterProperties(editingContent.id);
+        if (masterProperties) {
+          console.log('🔄 Updating connector with master properties:', masterProperties);
+          setFormData(prev => ({
+            ...prev,
+            layout: masterProperties.layout,
+            typography: masterProperties.typography
+          }));
+        }
+      }
+    }
+  }, [editingContent?.id, masterPropertiesVersion]);
 
   // Calculate remaining space in region
   const calculateRemainingSpace = () => {
@@ -617,6 +656,18 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
         }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <span style={{ fontSize: '18px', color: '#666', fontWeight: 'bold' }}>↔️</span> {contentType.name} property
+            {editingContent && (
+              <span style={{
+                fontSize: '12px',
+                padding: '2px 6px',
+                borderRadius: '4px',
+                backgroundColor: getOverflowRole && getOverflowRole(editingContent.id) === 'connector' ? '#ffebee' : '#e8f5e8',
+                color: getOverflowRole && getOverflowRole(editingContent.id) === 'connector' ? '#c62828' : '#2e7d32',
+                fontWeight: 'bold'
+              }}>
+                {getOverflowRole ? getOverflowRole(editingContent.id).toUpperCase() : 'NONE'}
+              </span>
+            )}
           </span>
           <button
             onClick={(e) => {
@@ -651,9 +702,24 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
 
 
         {/* PART 1: Layout & Positioning (Simplified) */}
-        <div style={sectionStyle}>
+        <div style={{
+          ...sectionStyle,
+          backgroundColor: editingContent && getOverflowRole && getOverflowRole(editingContent.id) === 'connector' ? '#f8f9fa' : 'white',
+          opacity: editingContent && getOverflowRole && getOverflowRole(editingContent.id) === 'connector' ? 0.5 : 1,
+          pointerEvents: editingContent && getOverflowRole && getOverflowRole(editingContent.id) === 'connector' ? 'none' : 'auto'
+        }}>
           <h3 style={{ margin: '0 0 15px 0', color: '#2d3748', fontSize: '16px' }}>
             📐 Layout & Positioning
+            {editingContent && getOverflowRole &&
+             getOverflowRole(editingContent.id) === 'connector' && (
+              <span style={{ fontSize: '12px', color: '#666', fontWeight: 'normal', marginLeft: '10px' }}>
+                (Inherited from chain master)
+              </span>
+            )}
+            <span style={{ fontSize: '10px', color: '#999', marginLeft: '10px' }}>
+              [Opacity: {editingContent && getOverflowRole && getOverflowRole(editingContent.id) === 'connector' ? '0.5' : '1'},
+               Events: {editingContent && getOverflowRole && getOverflowRole(editingContent.id) === 'connector' ? 'none' : 'auto'}]
+            </span>
           </h3>
 
           {/* Validation Messages */}
@@ -783,9 +849,24 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
         </div>
 
         {/* PART 2: Typography */}
-        <div style={sectionStyle}>
+        <div style={{
+          ...sectionStyle,
+          backgroundColor: editingContent && getOverflowRole && getOverflowRole(editingContent.id) === 'connector' ? '#f8f9fa' : 'white',
+          opacity: editingContent && getOverflowRole && getOverflowRole(editingContent.id) === 'connector' ? 0.5 : 1,
+          pointerEvents: editingContent && getOverflowRole && getOverflowRole(editingContent.id) === 'connector' ? 'none' : 'auto'
+        }}>
           <h3 style={{ margin: '0 0 15px 0', color: '#2d3748', fontSize: '16px' }}>
             🔤 Typography
+            {editingContent && getOverflowRole &&
+             getOverflowRole(editingContent.id) === 'connector' && (
+              <span style={{ fontSize: '12px', color: '#666', fontWeight: 'normal', marginLeft: '10px' }}>
+                (Inherited from chain master)
+              </span>
+            )}
+            <span style={{ fontSize: '10px', color: '#999', marginLeft: '10px' }}>
+              [Opacity: {editingContent && getOverflowRole && getOverflowRole(editingContent.id) === 'connector' ? '0.5' : '1'},
+               Events: {editingContent && getOverflowRole && getOverflowRole(editingContent.id) === 'connector' ? 'none' : 'auto'}]
+            </span>
           </h3>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px' }}>
