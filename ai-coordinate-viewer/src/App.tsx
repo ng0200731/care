@@ -310,12 +310,11 @@ function App() {
       const newChains = new Map(prevChains);
       const currentChain = newChains.get(contentType) || [];
 
+      // Only add if not already in chain
       if (!currentChain.includes(contentId)) {
+        // Add to end of chain to maintain sequential order
         const newChain = [...currentChain, contentId];
         newChains.set(contentType, newChain);
-
-        console.log(`✅ Added to ${contentType} overflow chain:`, contentId);
-        console.log(`📋 Current ${contentType} chain:`, newChain);
 
         // Show notification
         const role = newChain.length === 1 ? 'Initiator' : `Connector ${newChain.length}`;
@@ -336,16 +335,17 @@ function App() {
     setOverflowChains(prevChains => {
       const newChains = new Map(prevChains);
       const currentChain = newChains.get(contentType) || [];
+
+      // Remove the content from chain
       const newChain = currentChain.filter(id => id !== contentId);
 
       if (newChain.length === 0) {
+        // Delete the entire chain if empty
         newChains.delete(contentType);
       } else {
+        // Update chain - remaining items will be renumbered automatically
         newChains.set(contentType, newChain);
       }
-
-      console.log(`❌ Removed from ${contentType} overflow chain:`, contentId);
-      console.log(`📋 Updated ${contentType} chain:`, newChain);
 
       setNotification(`❌ Removed from overflow chain`);
       setTimeout(() => setNotification(null), 3000);
@@ -364,17 +364,40 @@ function App() {
     return 'connector';
   };
 
-  // Get overflow number for display (1-based index within content type chain)
+  // Get overflow number for display - simple counting approach
   const getOverflowNumber = (contentId: string): number => {
-    const contentType = getContentTypeFromId(contentId);
-    const chain = overflowChains.get(contentType) || [];
-    const chainIndex = chain.indexOf(contentId);
+    if (!isOverflowEnabled(contentId)) {
+      return 0;
+    }
 
-    return chainIndex === -1 ? 0 : chainIndex + 1; // 1-based numbering
+    const contentType = getContentTypeFromId(contentId);
+    let count = 0;
+
+    // Go through all regions and count overflow-enabled content of the same type
+    for (const [regionId, contents] of Array.from(regionContents.entries())) {
+      for (const content of contents) {
+        if (content.type === contentType && isOverflowEnabled(content.id)) {
+          count++;
+          if (content.id === contentId) {
+            return count; // Return position when we find our target
+          }
+        }
+      }
+    }
+
+    return 0;
   };
 
   const isOverflowEnabled = (contentId: string): boolean => {
     return overflowSettings.get(contentId) || false;
+  };
+
+  // Clear all overflow chains (useful for debugging/reset)
+  const clearAllOverflowChains = () => {
+    setOverflowChains(new Map());
+    setOverflowSettings(new Map());
+    setNotification('🔄 All overflow chains cleared');
+    setTimeout(() => setNotification(null), 3000);
   };
 
   // Helper function to get content type from content ID
@@ -3128,6 +3151,8 @@ function App() {
         setOverflowChains(new Map());
       }
 
+      // Note: Overflow numbers are now calculated dynamically, no need to restore permanent storage
+
       // Restore expanded mothers state
       if (projectState.expandedMothers && Array.isArray(projectState.expandedMothers)) {
         setExpandedMothers(new Set(projectState.expandedMothers));
@@ -3875,9 +3900,13 @@ function App() {
       return updatedContents;
     });
 
-    // Handle overflow for line-text content
-    if (contentData.type === 'line-text' && !universalDialog.editingContent) {
-      // Only check overflow for new content, not edited content
+    // Handle overflow for line-text and pure-english-paragraph content
+    if ((contentData.type === 'line-text' || contentData.type === 'pure-english-paragraph') && !universalDialog.editingContent) {
+      // Auto-enable overflow for these content types when created
+      console.log(`🌊 Auto-enabling overflow for new ${contentData.type} content:`, contentData.id);
+      handleOverflowToggle(contentData.id, data.regionId, true);
+
+      // Also check for existing overflow chains
       handleLineTextOverflow(data.regionId, contentData);
     }
 
