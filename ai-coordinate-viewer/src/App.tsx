@@ -8725,44 +8725,6 @@ function App() {
             </h3>
 
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              {/* Save and Save As Buttons for Project Mode */}
-              {isProjectMode && (
-                <>
-                  <button
-                    onClick={handleSaveProject}
-                    style={{
-                      padding: '4px 8px',
-                      fontSize: '11px',
-                      background: '#2196F3',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '3px',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease'
-                    }}
-                    title="Save current project"
-                  >
-                    💾 Save
-                  </button>
-                  <button
-                    onClick={handleSaveAsProject}
-                    style={{
-                      padding: '4px 8px',
-                      fontSize: '11px',
-                      background: '#4CAF50',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '3px',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s ease'
-                    }}
-                    title="Save project with new name"
-                  >
-                    📄 Save As
-                  </button>
-                </>
-              )}
-
               {/* Pin Button for Hierarchy Menu */}
               {isProjectMode && (
                 <button

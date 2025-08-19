@@ -93,8 +93,17 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
   // Padding toggle state
   const [applyPaddingToAll, setApplyPaddingToAll] = useState(false);
 
-  // Local overflow state for new content
+  // Local overflow state for both new and editing content
   const [localOverflowEnabled, setLocalOverflowEnabled] = useState(false);
+
+  // Initialize local overflow state when editing content
+  useEffect(() => {
+    if (editingContent && isOverflowEnabled) {
+      setLocalOverflowEnabled(isOverflowEnabled(editingContent.id));
+    } else {
+      setLocalOverflowEnabled(false);
+    }
+  }, [editingContent, isOverflowEnabled]);
 
   // Form data state - Initialize with editing content if provided
   const [formData, setFormData] = useState<UniversalContentData>(() => {
@@ -498,12 +507,17 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
       return;
     }
 
-    // Handle overflow for new line-text content
-    if (contentType.id === 'line-text' && !editingContent && localOverflowEnabled && onOverflowToggle) {
-      // For new content, trigger overflow after save
-      setTimeout(() => {
-        onOverflowToggle(formData.id, regionId, true);
-      }, 100); // Small delay to ensure content is saved first
+    // Handle overflow for line-text content (both new and editing)
+    if (contentType.id === 'line-text' && onOverflowToggle) {
+      if (editingContent) {
+        // For editing content, apply overflow state immediately
+        onOverflowToggle(editingContent.id, regionId, localOverflowEnabled);
+      } else if (localOverflowEnabled) {
+        // For new content, trigger overflow after save
+        setTimeout(() => {
+          onOverflowToggle(formData.id, regionId, true);
+        }, 100); // Small delay to ensure content is saved first
+      }
     }
 
     onSave(formData);
@@ -822,49 +836,22 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                     <input
                       type="checkbox"
-                      checked={editingContent ? isOverflowEnabled(editingContent.id) : localOverflowEnabled}
+                      checked={localOverflowEnabled}
                       onChange={(e) => {
-                        if (editingContent) {
-                          onOverflowToggle(editingContent.id, regionId, e.target.checked);
-                        } else {
-                          setLocalOverflowEnabled(e.target.checked);
-                        }
+                        setLocalOverflowEnabled(e.target.checked);
                       }}
                       style={{ width: '16px', height: '16px' }}
                     />
                     <span style={{ fontWeight: 'bold', color: '#495057' }}>Enable Overflow</span>
-                    {(() => {
-                      if (editingContent) {
-                        const role = getOverflowRole(editingContent.id);
-                        const isEnabled = isOverflowEnabled(editingContent.id);
-                        return (
-                          <span style={{
-                            fontSize: '12px',
-                            padding: '2px 6px',
-                            borderRadius: '3px',
-                            backgroundColor: isEnabled ? (role === 'initiator' ? '#4caf50' : role === 'connector' ? '#ff9800' : '#e0e0e0') : '#e0e0e0',
-                            color: isEnabled ? 'white' : '#666'
-                          }}>
-                            {role === 'initiator' ? '🟢 Initiator' :
-                             role === 'connector' ? '🔴🟢 Connector' :
-                             isEnabled ? '⚪ Ready' : '⚪ Disabled'}
-                          </span>
-                        );
-                      } else {
-                        // For new content, show preview of what role it will get
-                        return (
-                          <span style={{
-                            fontSize: '12px',
-                            padding: '2px 6px',
-                            borderRadius: '3px',
-                            backgroundColor: localOverflowEnabled ? '#2196f3' : '#e0e0e0',
-                            color: localOverflowEnabled ? 'white' : '#666'
-                          }}>
-                            {localOverflowEnabled ? '⚡ Will Auto-Connect' : '⚪ Disabled'}
-                          </span>
-                        );
-                      }
-                    })()}
+                    <span style={{
+                      fontSize: '12px',
+                      padding: '2px 6px',
+                      borderRadius: '3px',
+                      backgroundColor: localOverflowEnabled ? '#2196f3' : '#e0e0e0',
+                      color: localOverflowEnabled ? 'white' : '#666'
+                    }}>
+                      {localOverflowEnabled ? (editingContent ? '⚡ Will Enable' : '⚡ Will Auto-Connect') : '⚪ Disabled'}
+                    </span>
                   </label>
                   <div style={{ fontSize: '11px', color: '#6c757d', marginTop: '4px', marginLeft: '24px' }}>
                     When enabled, content will flow to connected regions when this region is full
