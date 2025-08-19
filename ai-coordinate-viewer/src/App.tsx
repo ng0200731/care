@@ -3927,8 +3927,13 @@ function App() {
 
       if (universalDialog.editingContent) {
         // Editing existing content - replace it
+        // FIXED: Preserve original ID to maintain overflow chain integrity
+        const preservedContentData = {
+          ...contentData,
+          id: universalDialog.editingContent.id
+        };
         const newContents = currentContents.map(content =>
-          content.id === universalDialog.editingContent.id ? contentData : content
+          content.id === universalDialog.editingContent.id ? preservedContentData : content
         );
         updatedContents.set(data.regionId, newContents);
         console.log(`✅ Updated existing content in region ${data.regionId}`);
@@ -3961,15 +3966,9 @@ function App() {
       return updatedContents;
     });
 
-    // Handle overflow for line-text and pure-english-paragraph content
-    if ((contentData.type === 'line-text' || contentData.type === 'pure-english-paragraph') && !universalDialog.editingContent) {
-      // Auto-enable overflow for these content types when created
-      console.log(`🌊 Auto-enabling overflow for new ${contentData.type} content:`, contentData.id);
-      handleOverflowToggle(contentData.id, data.regionId, true);
-
-      // Also check for existing overflow chains
-      handleLineTextOverflow(data.regionId, contentData);
-    }
+    // REMOVED: Auto-overflow logic that caused unwanted automatic numbering
+    // and state timing issues. All content types now follow the same manual
+    // overflow behavior like translation-paragraph.
 
     // Show notification
     const contentTypeName = universalDialog.contentType?.name || 'Content';
@@ -11499,7 +11498,7 @@ function App() {
         zIndex: 1000,
         transition: 'right 0.3s ease'
       }}>
-        v{packageJson.version} | Code: V2.1.91 | Port: {window.location.port || '80'} | {new Date().toLocaleString()}
+        v{packageJson.version} | Code: V2.6.18 | Port: {window.location.port || '80'} | {new Date().toLocaleString()}
       </div>
     </div>
   );
