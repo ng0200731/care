@@ -543,22 +543,46 @@ function App() {
   // Simple region occupation calculation
   // Generate colors for content objects
   const getContentObjectColor = (contentType: string, index: number) => {
-    const colors = [
-      '#FF6B6B', // Red
-      '#4ECDC4', // Teal
-      '#45B7D1', // Blue
-      '#96CEB4', // Green
-      '#FFEAA7', // Yellow
-      '#DDA0DD', // Plum
-      '#98D8C8', // Mint
-      '#F7DC6F', // Light Yellow
-      '#BB8FCE', // Light Purple
-      '#85C1E9'  // Light Blue
-    ];
+    // Content type specific colors for easy identification
+    const contentTypeColors: { [key: string]: string } = {
+      'line-text': '#3B82F6',                    // Blue - Clean, professional for simple text
+      'pure-english-paragraph': '#10B981',       // Green - Fresh, natural for English content
+      'translation-paragraph': '#F59E0B',        // Amber/Orange - Warm, attention-grabbing for translations
+      'washing-symbol': '#8B5CF6',               // Purple - Distinctive for care symbols
+      'image': '#EF4444',                        // Red - Bold, visual for image content
+      'coo': '#06B6D4'                          // Cyan - Cool, official for origin information
+    };
 
-    // Use content type and index to get consistent colors
-    const colorIndex = (contentType.length + index) % colors.length;
-    return colors[colorIndex];
+    // Return specific color for content type, or fallback to gray
+    return contentTypeColors[contentType] || '#6B7280'; // Gray fallback for unknown types
+  };
+
+  // Get region background color based on content type
+  const getRegionBackgroundColor = (regionId: string) => {
+    const contents = regionContents.get(regionId) || [];
+
+    if (contents.length === 0) {
+      // Empty region - light gray background
+      return 'rgba(243, 244, 246, 0.3)'; // Very light gray
+    }
+
+    // Get the primary content type (first content or most common)
+    const primaryContent = contents[0];
+    const contentType = primaryContent.type;
+
+    // Content type specific background colors (lighter versions of overlay colors)
+    const backgroundColors: { [key: string]: string } = {
+      'line-text': 'rgba(59, 130, 246, 0.15)',           // Light blue background
+      'pure-english-paragraph': 'rgba(16, 185, 129, 0.15)',  // Light green background
+      'translation-paragraph': 'rgba(245, 158, 11, 0.15)',   // Light amber/orange background
+      'washing-symbol': 'rgba(139, 92, 246, 0.15)',          // Light purple background
+      'image': 'rgba(239, 68, 68, 0.15)',                    // Light red background
+      'coo': 'rgba(6, 182, 212, 0.15)'                       // Light cyan background
+    };
+
+    const resultColor = backgroundColors[contentType] || 'rgba(107, 114, 128, 0.15)'; // Light gray fallback
+
+    return resultColor;
   };
 
   const calculateRegionOccupation = (regionId: string) => {
@@ -7092,8 +7116,8 @@ function App() {
                           dragOverRegion === region.id ?
                           (() => {
                             const hasContent = (regionContents.get(region.id) || []).length > 0;
-                            return hasContent ? '#ffebee' : '#e3f2fd'; // Red tint for occupied, blue for empty
-                          })() : region.backgroundColor}
+                            return hasContent ? '#ffebee' : getRegionBackgroundColor(region.id); // Red tint for occupied, content-type color for empty
+                          })() : getRegionBackgroundColor(region.id)}
                     stroke={hoveredRegionId === region.id ? '#ff6b35' : // Orange border on hover
                             dragOverRegion === region.id ?
                             (() => {
@@ -7362,9 +7386,21 @@ function App() {
                             y={overlayY}
                             width={overlayWidth}
                             height={overlayHeight}
-                            fill="#e3f2fd"
+                            fill={(() => {
+                              // Use content-type specific background color with higher opacity for visibility
+                              const contentType = content.type;
+                              const backgroundColors: { [key: string]: string } = {
+                                'line-text': 'rgba(59, 130, 246, 0.25)',           // Light blue background
+                                'pure-english-paragraph': 'rgba(16, 185, 129, 0.25)',  // Light green background
+                                'translation-paragraph': 'rgba(245, 158, 11, 0.25)',   // Light amber/orange background
+                                'washing-symbol': 'rgba(139, 92, 246, 0.25)',          // Light purple background
+                                'image': 'rgba(239, 68, 68, 0.25)',                    // Light red background
+                                'coo': 'rgba(6, 182, 212, 0.25)'                       // Light cyan background
+                              };
+                              return backgroundColors[contentType] || 'rgba(107, 114, 128, 0.25)';
+                            })()}
                             opacity={0.8}
-                            stroke="#2196f3"
+                            stroke={getContentObjectColor(content.type, contentIndex)}
                             strokeWidth={2}
                             strokeOpacity={0.9}
                             rx={3}
@@ -7555,8 +7591,8 @@ function App() {
                                 dragOverRegion === childRegion.id ?
                                 (() => {
                                   const hasContent = (regionContents.get(childRegion.id) || []).length > 0;
-                                  return hasContent ? '#ffebee' : '#e8f5e8'; // Red tint for occupied, green for empty
-                                })() : childRegion.backgroundColor}
+                                  return hasContent ? '#ffebee' : getRegionBackgroundColor(childRegion.id); // Red tint for occupied, content-type color for empty
+                                })() : getRegionBackgroundColor(childRegion.id)}
                           stroke={hoveredRegionId === childRegion.id ? '#ff6b35' : // Orange border on hover
                                   dragOverRegion === childRegion.id ?
                                   (() => {
