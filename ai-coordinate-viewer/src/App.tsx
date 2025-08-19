@@ -163,6 +163,7 @@ function App() {
   const [lastPanPoint, setLastPanPoint] = useState({ x: 0, y: 0 });
   const [mouseCoords, setMouseCoords] = useState({ x: 0, y: 0 });
   const [showDimensions, setShowDimensions] = useState(true);
+  const [showPreview, setShowPreview] = useState(true); // Toggle to show/hide input values in regions
   const [autoFitNotification, setAutoFitNotification] = useState(false);
   // Removed unused capture mode states
 
@@ -400,6 +401,45 @@ function App() {
     if (chainIndex === -1) return 'none';
     if (chainIndex === 0) return 'initiator';
     return 'connector';
+  };
+
+  // Calculate text capacity using line-based method
+  const calculateTextCapacity = (regionWidth: number, regionHeight: number, fontSize: number = 12): number => {
+    const avgCharWidth = fontSize * 0.6; // Approximate character width
+    const lineHeight = fontSize * 1.2;   // Standard line height
+
+    const charsPerLine = Math.floor(regionWidth / avgCharWidth);
+    const maxLines = Math.floor(regionHeight / lineHeight);
+
+    return charsPerLine * maxLines; // Total character capacity
+  };
+
+  // Split text by words to fit capacity
+  const splitTextByWords = (text: string, capacity: number): { fitting: string; overflow: string } => {
+    if (text.length <= capacity) {
+      return { fitting: text, overflow: '' };
+    }
+
+    const words = text.split(' ');
+    let fitting = '';
+    let overflow = '';
+    let currentLength = 0;
+
+    for (let i = 0; i < words.length; i++) {
+      const word = words[i];
+      const wordWithSpace = i === 0 ? word : ' ' + word;
+
+      if (currentLength + wordWithSpace.length <= capacity) {
+        fitting += wordWithSpace;
+        currentLength += wordWithSpace.length;
+      } else {
+        // Start overflow with remaining words
+        overflow = words.slice(i).join(' ');
+        break;
+      }
+    }
+
+    return { fitting, overflow };
   };
 
   // Get overflow number for display - count existing same content type
@@ -7557,6 +7597,197 @@ function App() {
                     );
                   })()}
 
+                  {/* Full Region Text Content - Fill entire region like text-area */}
+                  {showPreview && (() => {
+                    const regionContentsArray = regionContents.get(region.id) || [];
+                    if (regionContentsArray.length === 0) return null;
+
+                    return regionContentsArray.map((content: any, contentIndex: number) => {
+                      let displayText = '';
+
+                      // Extract text based on content type
+                      if (content.type === 'line-text' && content.content?.text) {
+                        displayText = content.content.text;
+                      } else if (content.type === 'pure-english-paragraph' && content.content?.text) {
+                        displayText = content.content.text;
+                      } else if (content.type === 'translation-paragraph') {
+                        const primary = content.content?.primaryContent || '';
+                        const secondary = content.content?.secondaryContent || '';
+                        displayText = primary + (secondary ? ` / ${secondary}` : '');
+                      } else if (content.type === 'washing-symbol' && content.content?.symbol) {
+                        displayText = content.content.symbol;
+                      } else if (content.type === 'image' && content.content?.src) {
+                        displayText = `[Image: ${content.content.src}]`;
+                      } else if (content.type === 'coo' && content.content?.country) {
+                        displayText = content.content.country;
+                      }
+
+                      if (!displayText) return null;
+
+                      // Get content properties with defaults
+                      const fontSize = content.content?.fontSize || 12;
+                      const fontFamily = content.content?.fontFamily || 'Arial';
+                      const textAlign = content.content?.textAlign || 'left';
+                      const padding = content.content?.padding || 2; // mm
+
+                      // Calculate region dimensions and text area
+                      const regionWidthPx = region.width * scale;
+                      const regionHeightPx = region.height * scale;
+                      const paddingPx = padding * scale;
+
+                      // Text area dimensions (region minus padding)
+                      const textAreaWidth = regionWidthPx - (paddingPx * 2);
+                      const textAreaHeight = regionHeightPx - (paddingPx * 2);
+
+                      // Calculate font size based on zoom
+                      const scaledFontSize = fontSize * zoom;
+                      const lineHeight = scaledFontSize * 1.2;
+
+                      // Calculate how many lines can fit
+                      const maxLines = Math.floor(textAreaHeight / lineHeight);
+
+                      if (maxLines <= 0) return null;
+
+                      // Text measurement function
+                      const measureTextWidth = (text: string) => {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        if (ctx) {
+                          ctx.font = `${scaledFontSize}px ${fontFamily}`;
+                          return ctx.measureText(text).width;
+                        }
+                        return text.length * scaledFontSize * 0.6; // Fallback estimation
+                      };
+
+                      // Word wrap function
+                      const wrapText = (text: string, maxWidth: number): string[] => {
+                        const words = text.split(' ');
+                        const lines: string[] = [];
+                        let currentLine = '';
+
+                        for (const word of words) {
+                          const testLine = currentLine ? currentLine + ' ' + word : word;
+                          const testWidth = measureTextWidth(testLine);
+
+                          if (testWidth <= maxWidth) {
+                            currentLine = testLine;
+                          } else {
+                            if (currentLine) {
+                              lines.push(currentLine);
+                              currentLine = word;
+                            } else {
+                              // Single word too long, force it
+                              lines.push(word);
+                              currentLine = '';
+                            }
+                          }
+                        }
+
+                        if (currentLine) {
+                          lines.push(currentLine);
+                        }
+
+                        return lines;
+                      };
+
+                      // Wrap text to fit region width
+                      const wrappedLines = wrapText(displayText, textAreaWidth);
+
+                      // Check if overflow is enabled and text exceeds region capacity
+                      let displayLines = wrappedLines;
+                      let hasOverflow = false;
+
+                      if (isOverflowEnabled(content.id) && wrappedLines.length > maxLines) {
+                        // Text overflows - split at line boundary
+                        displayLines = wrappedLines.slice(0, maxLines);
+                        hasOverflow = true;
+
+                        // Get overflow text (remaining lines)
+                        const overflowLines = wrappedLines.slice(maxLines);
+                        const overflowText = overflowLines.join(' ');
+
+                        // Find next region in overflow chain
+                        const contentType = content.type;
+                        const chain = overflowChains.get(contentType) || [];
+                        const currentIndex = chain.indexOf(content.id);
+
+                        if (currentIndex >= 0 && currentIndex < chain.length - 1) {
+                          const nextContentId = chain[currentIndex + 1];
+
+                          // Find the region containing the next content
+                          let nextRegionId: string | null = null;
+                          regionContents.forEach((contents, rId) => {
+                            if (contents.some((c: any) => c.id === nextContentId)) {
+                              nextRegionId = rId;
+                            }
+                          });
+
+                          if (nextRegionId && overflowText.trim()) {
+                            // Update next region's content with overflow text
+                            setTimeout(() => {
+                              setRegionContents(prevContents => {
+                                const newContents = new Map(prevContents);
+                                const nextRegionContents = newContents.get(nextRegionId!) || [];
+
+                                const updatedNextContents = nextRegionContents.map((c: any) => {
+                                  if (c.id === nextContentId) {
+                                    return {
+                                      ...c,
+                                      content: {
+                                        ...c.content,
+                                        text: overflowText
+                                      }
+                                    };
+                                  }
+                                  return c;
+                                });
+
+                                newContents.set(nextRegionId!, updatedNextContents);
+                                return newContents;
+                              });
+                            }, 100); // Small delay to avoid render conflicts
+                          }
+                        }
+                      }
+
+                      // Calculate text anchor based on alignment
+                      let textAnchor: 'start' | 'middle' | 'end' = 'start';
+                      let textX = baseX + (region.x * scale) + paddingPx;
+
+                      if (textAlign === 'center') {
+                        textAnchor = 'middle';
+                        textX = baseX + (region.x * scale) + regionWidthPx / 2;
+                      } else if (textAlign === 'right') {
+                        textAnchor = 'end';
+                        textX = baseX + (region.x * scale) + regionWidthPx - paddingPx;
+                      }
+
+                      // Render each line
+                      return displayLines.map((line, lineIndex) => {
+                        const textY = baseY + (region.y * scale) + paddingPx + (lineIndex + 1) * lineHeight;
+
+                        return (
+                          <text
+                            key={`${region.id}-preview-${contentIndex}-line-${lineIndex}`}
+                            x={textX}
+                            y={textY}
+                            fill="#000"
+                            fontSize={scaledFontSize}
+                            fontFamily={fontFamily}
+                            textAnchor={textAnchor}
+                            dominantBaseline="alphabetic"
+                            opacity="0.9"
+                            style={{
+                              pointerEvents: 'none'
+                            }}
+                          >
+                            {line}
+                          </text>
+                        );
+                      });
+                    });
+                  })()}
+
                   {/* Content Placeholders removed - only show centered content type labels in overlays above */}
                 </g>
                 );
@@ -8372,7 +8603,7 @@ function App() {
                   <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600' }}>
                     🏷️ Care Label Designer - {selectedCustomer?.customerName || 'Loading Customer'}
                     <span style={{ color: '#90caf9', marginLeft: '10px', fontSize: '14px' }}>
-                      v2.5.7
+                      v{packageJson.version}
                     </span>
                     {originalMasterFile && (
                       <span style={{ color: '#81c784', marginLeft: '10px' }}>
@@ -8495,6 +8726,20 @@ function App() {
                     }}
                   >
                     🔢 Overflow #
+                  </button>
+
+                  <button
+                    onClick={() => setShowPreview(!showPreview)}
+                    style={{
+                      ...buttonStyle,
+                      background: showPreview ? '#e3f2fd' : 'white',
+                      color: showPreview ? '#1976d2' : '#666',
+                      fontSize: '10px',
+                      padding: '4px 6px'
+                    }}
+                    title="Toggle preview of input values in regions"
+                  >
+                    👁️ Preview
                   </button>
 
                   {/* Preview Panel Button - Only show in project mode */}
@@ -11498,7 +11743,7 @@ function App() {
         zIndex: 1000,
         transition: 'right 0.3s ease'
       }}>
-        v{packageJson.version} | Code: V2.6.18 | Port: {window.location.port || '80'} | {new Date().toLocaleString()}
+        v{packageJson.version} | Port: {window.location.port || '80'} | {new Date().toLocaleString()}
       </div>
     </div>
   );

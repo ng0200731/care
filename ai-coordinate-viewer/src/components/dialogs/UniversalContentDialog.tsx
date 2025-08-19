@@ -96,14 +96,17 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
   // Local overflow state for both new and editing content
   const [localOverflowEnabled, setLocalOverflowEnabled] = useState(false);
 
-  // Initialize local overflow state when editing content
+  // Initialize local overflow state when editing content - only run once when dialog opens
   useEffect(() => {
     if (editingContent && isOverflowEnabled) {
-      setLocalOverflowEnabled(isOverflowEnabled(editingContent.id));
+      const initialState = isOverflowEnabled(editingContent.id);
+      setLocalOverflowEnabled(initialState);
+      console.log('🔄 Initialized overflow state for editing:', initialState);
     } else {
       setLocalOverflowEnabled(false);
+      console.log('🔄 Initialized overflow state for new content: false');
     }
-  }, [editingContent, isOverflowEnabled]);
+  }, [editingContent?.id]); // Only depend on editingContent.id, not the isOverflowEnabled function
 
   // Form data state - Initialize with editing content if provided
   const [formData, setFormData] = useState<UniversalContentData>(() => {
@@ -841,17 +844,36 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
 
               {/* Overflow Toggle for Line Text */}
               {onOverflowToggle && isOverflowEnabled && getOverflowRole && (
-                <div style={{ marginTop: '15px', padding: '12px', backgroundColor: '#f8f9fa', borderRadius: '6px', border: '1px solid #e9ecef' }}>
+                <div style={{
+                  marginTop: '15px',
+                  padding: '12px',
+                  backgroundColor: localOverflowEnabled ? '#e3f2fd' : '#f8f9fa',
+                  borderRadius: '6px',
+                  border: localOverflowEnabled ? '2px solid #2196f3' : '1px solid #e9ecef',
+                  transition: 'all 0.2s ease'
+                }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                     <input
                       type="checkbox"
                       checked={localOverflowEnabled}
                       onChange={(e) => {
-                        setLocalOverflowEnabled(e.target.checked);
+                        const newValue = e.target.checked;
+                        console.log('🌊 Overflow toggle clicked:', newValue, 'Previous:', localOverflowEnabled);
+                        setLocalOverflowEnabled(newValue);
                       }}
-                      style={{ width: '16px', height: '16px' }}
+                      style={{
+                        width: '16px',
+                        height: '16px',
+                        accentColor: '#2196f3'
+                      }}
                     />
-                    <span style={{ fontWeight: 'bold', color: '#495057' }}>Enable Overflow</span>
+                    <span style={{
+                      fontWeight: 'bold',
+                      color: localOverflowEnabled ? '#1976d2' : '#495057',
+                      transition: 'color 0.2s ease'
+                    }}>
+                      Enable Overflow {localOverflowEnabled ? '✓' : ''}
+                    </span>
                   </label>
                   <div style={{ fontSize: '11px', color: '#6c757d', marginTop: '4px', marginLeft: '24px' }}>
                     When enabled, content will flow to connected regions when this region is full
@@ -884,17 +906,36 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
 
               {/* Overflow Toggle for Translation Paragraph */}
               {onOverflowToggle && isOverflowEnabled && getOverflowRole && (
-                <div style={{ marginTop: '15px', padding: '12px', backgroundColor: '#f8f9fa', borderRadius: '6px', border: '1px solid #e9ecef' }}>
+                <div style={{
+                  marginTop: '15px',
+                  padding: '12px',
+                  backgroundColor: localOverflowEnabled ? '#e3f2fd' : '#f8f9fa',
+                  borderRadius: '6px',
+                  border: localOverflowEnabled ? '2px solid #2196f3' : '1px solid #e9ecef',
+                  transition: 'all 0.2s ease'
+                }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                     <input
                       type="checkbox"
                       checked={localOverflowEnabled}
                       onChange={(e) => {
-                        setLocalOverflowEnabled(e.target.checked);
+                        const newValue = e.target.checked;
+                        console.log('🌊 Overflow toggle clicked:', newValue, 'Previous:', localOverflowEnabled);
+                        setLocalOverflowEnabled(newValue);
                       }}
-                      style={{ width: '16px', height: '16px' }}
+                      style={{
+                        width: '16px',
+                        height: '16px',
+                        accentColor: '#2196f3'
+                      }}
                     />
-                    <span style={{ fontWeight: 'bold', color: '#495057' }}>Enable Overflow</span>
+                    <span style={{
+                      fontWeight: 'bold',
+                      color: localOverflowEnabled ? '#1976d2' : '#495057',
+                      transition: 'color 0.2s ease'
+                    }}>
+                      Enable Overflow {localOverflowEnabled ? '✓' : ''}
+                    </span>
                   </label>
                   <div style={{ fontSize: '11px', color: '#6c757d', marginTop: '4px', marginLeft: '24px' }}>
                     When enabled, content will flow to connected regions when this region is full
@@ -916,17 +957,36 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
 
               {/* Overflow Toggle for Pure English Paragraph */}
               {onOverflowToggle && isOverflowEnabled && getOverflowRole && (
-                <div style={{ marginTop: '15px', padding: '12px', backgroundColor: '#f8f9fa', borderRadius: '6px', border: '1px solid #e9ecef' }}>
+                <div style={{
+                  marginTop: '15px',
+                  padding: '12px',
+                  backgroundColor: localOverflowEnabled ? '#e3f2fd' : '#f8f9fa',
+                  borderRadius: '6px',
+                  border: localOverflowEnabled ? '2px solid #2196f3' : '1px solid #e9ecef',
+                  transition: 'all 0.2s ease'
+                }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                     <input
                       type="checkbox"
                       checked={localOverflowEnabled}
                       onChange={(e) => {
-                        setLocalOverflowEnabled(e.target.checked);
+                        const newValue = e.target.checked;
+                        console.log('🌊 Overflow toggle clicked:', newValue, 'Previous:', localOverflowEnabled);
+                        setLocalOverflowEnabled(newValue);
                       }}
-                      style={{ width: '16px', height: '16px' }}
+                      style={{
+                        width: '16px',
+                        height: '16px',
+                        accentColor: '#2196f3'
+                      }}
                     />
-                    <span style={{ fontWeight: 'bold', color: '#495057' }}>Enable Overflow</span>
+                    <span style={{
+                      fontWeight: 'bold',
+                      color: localOverflowEnabled ? '#1976d2' : '#495057',
+                      transition: 'color 0.2s ease'
+                    }}>
+                      Enable Overflow {localOverflowEnabled ? '✓' : ''}
+                    </span>
                   </label>
                   <div style={{ fontSize: '11px', color: '#6c757d', marginTop: '4px', marginLeft: '24px' }}>
                     When enabled, content will flow to connected regions when this region is full
