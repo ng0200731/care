@@ -354,6 +354,44 @@ function App() {
     });
   };
 
+  // Helper function to handle content deletion with overflow renumbering
+  const deleteContentWithOverflowCleanup = (contentId: string, regionId: string) => {
+    // Check if this content is part of an overflow chain
+    const isInOverflow = isOverflowEnabled(contentId);
+
+    if (isInOverflow) {
+      // Remove from overflow chain (this will automatically renumber remaining items)
+      removeFromOverflowChain(contentId);
+    }
+
+    // Remove from region contents
+    const currentContents = regionContents.get(regionId) || [];
+    const newContents = currentContents.filter(c => c.id !== contentId);
+    const updatedContents = new Map(regionContents);
+
+    if (newContents.length === 0) {
+      updatedContents.delete(regionId);
+    } else {
+      updatedContents.set(regionId, newContents);
+    }
+
+    setRegionContents(updatedContents);
+
+    // Show notification
+    const regionName = (() => {
+      // Find region name from data
+      for (const mother of data?.objects || []) {
+        const regions = (mother as any).regions || [];
+        const region = regions.find((r: any) => r.id === regionId);
+        if (region) return region.name;
+      }
+      return regionId;
+    })();
+
+    setNotification(`Content deleted from ${regionName}${isInOverflow ? ' (overflow renumbered)' : ''}`);
+    setTimeout(() => setNotification(null), 3000);
+  };
+
   const getOverflowRole = (contentId: string): 'initiator' | 'connector' | 'none' => {
     const contentType = getContentTypeFromId(contentId);
     const chain = overflowChains.get(contentType) || [];
@@ -4907,17 +4945,7 @@ function App() {
   };
 
   const handleDeleteContent = (content: any, regionId: string) => {
-    const currentContents = regionContents.get(regionId) || [];
-    const newContents = currentContents.filter(c => c.id !== content.id);
-    const updatedContents = new Map(regionContents);
-    if (newContents.length === 0) {
-      updatedContents.delete(regionId);
-    } else {
-      updatedContents.set(regionId, newContents);
-    }
-    setRegionContents(updatedContents);
-    setNotification(`Content deleted from ${regionId}`);
-    setTimeout(() => setNotification(null), 3000);
+    deleteContentWithOverflowCleanup(content.id, regionId);
   };
 
   // Region occupation handlers - COMMENTED OUT FOR NOW
@@ -6044,18 +6072,8 @@ function App() {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  // Delete content functionality
-                                  const currentContents = regionContents.get(region.id) || [];
-                                  const newContents = currentContents.filter((_, index) => index !== contentIndex);
-                                  const updatedContents = new Map(regionContents);
-                                  if (newContents.length === 0) {
-                                    updatedContents.delete(region.id);
-                                  } else {
-                                    updatedContents.set(region.id, newContents);
-                                  }
-                                  setRegionContents(updatedContents);
-                                  setNotification(`Content deleted from ${region.name}`);
-                                  setTimeout(() => setNotification(null), 3000);
+                                  // Delete content with overflow cleanup
+                                  deleteContentWithOverflowCleanup(contentItem.id, region.id);
                                 }}
                                 style={{
                                   background: '#f44336',
@@ -6269,17 +6287,8 @@ function App() {
                                       </div>
                                       <button
                                         onClick={() => {
-                                          const currentContents = regionContents.get(childRegion.id) || [];
-                                          const newContents = currentContents.filter((_, index) => index !== contentIndex);
-                                          const updatedContents = new Map(regionContents);
-                                          if (newContents.length === 0) {
-                                            updatedContents.delete(childRegion.id);
-                                          } else {
-                                            updatedContents.set(childRegion.id, newContents);
-                                          }
-                                          setRegionContents(updatedContents);
-                                          setNotification(`Content deleted from ${childRegion.name}`);
-                                          setTimeout(() => setNotification(null), 3000);
+                                          // Delete content with overflow cleanup
+                                          deleteContentWithOverflowCleanup(contentItem.id, childRegion.id);
                                         }}
                                         style={{
                                           background: '#f44336',
