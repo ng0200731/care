@@ -6495,8 +6495,12 @@ function App() {
                                 const sliceContentItems = regionContents.get(childRegion.id) || [];
                                 const hasContent = sliceContentItems.length > 0;
 
-                                // Only open slice popup if no content exists
-                                if (!hasContent) {
+                                if (hasContent) {
+                                  // Slice has content - open property dialog with pre-populated values
+                                  const content = sliceContentItems[0]; // Get first content item
+                                  handleContentDoubleClick(content, childRegion.id);
+                                } else {
+                                  // Slice has no content - open slice dialog
                                   setSlicingRegion(childRegion);
                                   setHighlightedRegion(childRegion.id);
                                   setSliceLines({ horizontal: [], vertical: [] });
@@ -8177,8 +8181,12 @@ function App() {
                             const sliceContentItems = regionContents.get(childRegion.id) || [];
                             const hasContent = sliceContentItems.length > 0;
 
-                            // Only open slice popup if no content exists
-                            if (!hasContent) {
+                            if (hasContent) {
+                              // Slice has content - open property dialog with pre-populated values
+                              const content = sliceContentItems[0]; // Get first content item
+                              handleContentDoubleClick(content, childRegion.id);
+                            } else {
+                              // Slice has no content - open slice dialog
                               setSlicingRegion(childRegion);
                               setHighlightedRegion(childRegion.id);
                               setSliceLines({ horizontal: [], vertical: [] });
