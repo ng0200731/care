@@ -57,6 +57,7 @@ interface UniversalContentDialogProps {
   getOverflowRole?: (contentId: string) => 'initiator' | 'connector' | 'none';
   onOverflowToggle?: (contentId: string, regionId: string, enabled: boolean) => void;
   onGetMasterProperties?: (contentId: string) => { layout: any; typography: any } | null;
+  onRecalculateOverflow?: (masterContentId: string) => void;
   masterPropertiesVersion?: number; // Add version number to trigger updates
   onSave: (data: UniversalContentData) => void;
   onCancel: () => void;
@@ -80,6 +81,7 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
   getOverflowRole,
   onOverflowToggle,
   onGetMasterProperties,
+  onRecalculateOverflow,
   masterPropertiesVersion,
   onSave,
   onCancel
@@ -206,6 +208,19 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
       }
     }
     return null;
+  };
+
+  // Trigger overflow recalculation for initiators
+  const triggerOverflowRecalculation = () => {
+    if (editingContent && getOverflowRole && onRecalculateOverflow) {
+      const role = getOverflowRole(editingContent.id);
+      if (role === 'initiator') {
+        // Use setTimeout to ensure state updates are processed first
+        setTimeout(() => {
+          onRecalculateOverflow(editingContent.id);
+        }, 0);
+      }
+    }
   };
 
   const masterProperties = getMasterPropertiesForDisplay();
@@ -495,6 +510,11 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
         [field]: value
       }
     }));
+
+    // Trigger overflow recalculation for font size changes
+    if (field === 'fontSize') {
+      triggerOverflowRecalculation();
+    }
   };
 
   const handleContentChange = (field: string, value: any) => {
@@ -505,6 +525,11 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
         [field]: value
       }
     }));
+
+    // Trigger overflow recalculation for text content changes
+    if (field === 'text') {
+      triggerOverflowRecalculation();
+    }
   };
 
   // Apply padding to all sides
@@ -558,6 +583,9 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
         }
       }));
     }
+
+    // Trigger overflow recalculation for padding changes (affects text capacity)
+    triggerOverflowRecalculation();
   };
 
   const handleSave = () => {

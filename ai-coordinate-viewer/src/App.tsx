@@ -465,6 +465,151 @@ function App() {
     return { fitting, overflow };
   };
 
+  // Recalculate and redistribute overflow text across chain
+  const recalculateOverflowChain = (masterContentId: string) => {
+    const contentType = getContentTypeFromId(masterContentId);
+    const chain = overflowChains.get(contentType) || [];
+
+    if (chain.length === 0 || chain[0] !== masterContentId) return;
+
+    // Get master content
+    const masterRegionEntry = Array.from(regionContents.entries()).find(([regionId, contents]) =>
+      contents.some((c: any) => c.id === masterContentId)
+    );
+
+    if (!masterRegionEntry) return;
+
+    const [masterRegionId, masterContents] = masterRegionEntry;
+    const masterContent = masterContents.find((c: any) => c.id === masterContentId);
+
+    if (!masterContent || !masterContent.content?.text) return;
+
+    // Get master region for capacity calculation
+    const masterRegion = (data?.objects.find((obj: any) =>
+      (obj as any).regions?.some((r: any) => r.id === masterRegionId)
+    ) as any)?.regions?.find((r: any) => r.id === masterRegionId);
+
+    if (!masterRegion) return;
+
+    // Calculate capacity and redistribute text
+    const fontSize = masterContent.typography?.fontSize || 12;
+    const padding = masterContent.layout?.padding || { top: 2, right: 2, bottom: 2, left: 2 };
+    const effectiveWidth = masterRegion.width - padding.left - padding.right;
+    const effectiveHeight = masterRegion.height - padding.top - padding.bottom;
+
+    const masterCapacity = calculateTextCapacity(effectiveWidth, effectiveHeight, fontSize);
+    const originalText = masterContent.content.text;
+
+    console.log('🔄 OVERFLOW RECALCULATION:', {
+      masterContentId,
+      originalTextLength: originalText.length,
+      masterCapacity,
+      effectiveWidth,
+      effectiveHeight,
+      fontSize,
+      chainLength: chain.length
+    });
+
+    // Split text for master region
+    const { fitting: masterText, overflow: remainingText } = splitTextByWords(originalText, masterCapacity);
+
+    console.log('📝 Master text split:', {
+      masterTextLength: masterText.length,
+      remainingTextLength: remainingText.length,
+      masterText: masterText.substring(0, 50) + '...',
+      remainingText: remainingText.substring(0, 50) + '...'
+    });
+
+    // Update master content
+    setRegionContents(prev => {
+      const newContents = new Map(prev);
+      const masterRegionContents = [...(newContents.get(masterRegionId) || [])];
+      const masterIndex = masterRegionContents.findIndex((c: any) => c.id === masterContentId);
+
+      if (masterIndex >= 0) {
+        masterRegionContents[masterIndex] = {
+          ...masterRegionContents[masterIndex],
+          content: { ...masterRegionContents[masterIndex].content, text: masterText }
+        };
+        newContents.set(masterRegionId, masterRegionContents);
+      }
+
+      // Clear or update connector regions
+      let currentOverflow = remainingText;
+
+      for (let i = 1; i < chain.length; i++) {
+        const connectorId = chain[i];
+        const connectorEntry = Array.from(newContents.entries()).find(([regionId, contents]) =>
+          contents.some((c: any) => c.id === connectorId)
+        );
+
+        console.log(`🔗 Processing connector ${i}:`, {
+          connectorId,
+          hasEntry: !!connectorEntry,
+          currentOverflowLength: currentOverflow.length
+        });
+
+        if (connectorEntry) {
+          const [connectorRegionId, connectorContents] = connectorEntry;
+          const connectorIndex = connectorContents.findIndex((c: any) => c.id === connectorId);
+
+          if (connectorIndex >= 0) {
+            if (!currentOverflow) {
+              // No more overflow - clear this connector
+              console.log(`🧹 Clearing connector ${i} - no more overflow`);
+              const updatedConnectorContents = [...connectorContents];
+              updatedConnectorContents[connectorIndex] = {
+                ...updatedConnectorContents[connectorIndex],
+                content: { ...updatedConnectorContents[connectorIndex].content, text: '' }
+              };
+              newContents.set(connectorRegionId, updatedConnectorContents);
+            } else {
+              // Calculate capacity for this connector region
+              const connectorRegion = (data?.objects.find((obj: any) =>
+                (obj as any).regions?.some((r: any) => r.id === connectorRegionId)
+              ) as any)?.regions?.find((r: any) => r.id === connectorRegionId);
+
+              if (connectorRegion) {
+                const connectorEffectiveWidth = connectorRegion.width - padding.left - padding.right;
+                const connectorEffectiveHeight = connectorRegion.height - padding.top - padding.bottom;
+                const connectorCapacity = calculateTextCapacity(connectorEffectiveWidth, connectorEffectiveHeight, fontSize);
+
+                console.log(`📊 Connector ${i} capacity:`, {
+                  regionWidth: connectorRegion.width,
+                  regionHeight: connectorRegion.height,
+                  effectiveWidth: connectorEffectiveWidth,
+                  effectiveHeight: connectorEffectiveHeight,
+                  capacity: connectorCapacity,
+                  currentOverflowLength: currentOverflow.length
+                });
+
+                const { fitting: connectorText, overflow: nextOverflow } = splitTextByWords(currentOverflow, connectorCapacity);
+
+                console.log(`✂️ Connector ${i} text split:`, {
+                  fittingLength: connectorText.length,
+                  nextOverflowLength: nextOverflow.length,
+                  fittingText: connectorText.substring(0, 30) + '...',
+                  nextOverflowText: nextOverflow.substring(0, 30) + '...'
+                });
+
+                const updatedConnectorContents = [...connectorContents];
+                updatedConnectorContents[connectorIndex] = {
+                  ...updatedConnectorContents[connectorIndex],
+                  content: { ...updatedConnectorContents[connectorIndex].content, text: connectorText }
+                };
+                newContents.set(connectorRegionId, updatedConnectorContents);
+
+                currentOverflow = nextOverflow;
+              }
+            }
+          }
+        }
+      }
+
+      return newContents;
+    });
+  };
+
   // Get overflow number for display - count existing same content type
   const getOverflowNumber = (contentId: string): number => {
     // If overflow not enabled, return 0 (will show nothing)
@@ -11018,6 +11163,7 @@ function App() {
             getOverflowRole={getOverflowRole}
             onOverflowToggle={handleOverflowToggle}
             onGetMasterProperties={getMasterProperties}
+            onRecalculateOverflow={recalculateOverflowChain}
             masterPropertiesVersion={masterPropertiesVersion}
             onSave={handleUniversalContentSave}
             onCancel={handleUniversalContentCancel}
