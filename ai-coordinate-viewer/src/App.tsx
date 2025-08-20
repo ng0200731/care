@@ -118,12 +118,7 @@ function App() {
   const isMasterFileMode = !context || context !== 'projects';
   const isProjectMode = context === 'projects';
 
-  console.log('🎯 Mode Detection:', {
-    isMasterFileMode,
-    isProjectMode,
-    context,
-    masterFileId
-  });
+  // Mode Detection (removed noisy logging)
   const [data, setData] = useState<AIData | null>(null);
   const [selectedObject, setSelectedObject] = useState<AIObject | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -2338,7 +2333,7 @@ function App() {
         const midFold = (obj as any).midFoldLine;
         const padding = midFold.padding || 3;
 
-        console.log('🎨 Rendering mid-fold line:', midFold);
+        // Rendering mid-fold line (removed noisy logging)
 
         if (midFold.type === 'horizontal') {
           // Calculate Y position based on direction and position
@@ -7661,13 +7656,25 @@ function App() {
 
                       if (!displayText) return null;
 
-                      // Get content properties from correct locations with defaults
-                      const fontSize = content.typography?.fontSize || 12;
-                      const fontFamily = content.typography?.fontFamily || 'Arial';
-                      const fontColor = content.typography?.fontColor || '#000000';
-                      const textAlign = content.layout?.horizontalAlign || 'left';
-                      const verticalAlign = content.layout?.verticalAlign || 'top';
-                      const padding = content.layout?.padding || { top: 2, right: 2, bottom: 2, left: 2 };
+                      // Get content properties - use master properties for connectors
+                      const role = getOverflowRole(content.id);
+                      let effectiveLayout = content.layout;
+                      let effectiveTypography = content.typography;
+
+                      if (role === 'connector') {
+                        const masterProps = getMasterProperties(content.id);
+                        if (masterProps) {
+                          effectiveLayout = masterProps.layout;
+                          effectiveTypography = masterProps.typography;
+                        }
+                      }
+
+                      const fontSize = effectiveTypography?.fontSize || 12;
+                      const fontFamily = effectiveTypography?.fontFamily || 'Arial';
+                      const fontColor = effectiveTypography?.fontColor || '#000000';
+                      const textAlign = effectiveLayout?.horizontalAlign || 'left';
+                      const verticalAlign = effectiveLayout?.verticalAlign || 'top';
+                      const padding = effectiveLayout?.padding || { top: 2, right: 2, bottom: 2, left: 2 };
 
                       // Calculate region dimensions and text area
                       const regionWidthPx = region.width * scale;
@@ -8045,7 +8052,6 @@ function App() {
               // Check if mid-fold line is enabled - if so, don't show sewing lines
               const objectMidFoldLine = (obj as any).midFoldLine;
               if (objectMidFoldLine && objectMidFoldLine.enabled) {
-                console.log('🚫 Skipping sewing lines - mid-fold line is enabled');
                 return null;
               }
 
@@ -8189,7 +8195,7 @@ function App() {
                 return null;
               }
 
-              console.log('🎨 Rendering mid-fold line on canvas:', objectMidFoldLine);
+              // Rendering mid-fold line on canvas (removed noisy logging)
 
               const midFold = objectMidFoldLine;
               const padding = midFold.padding || 3;
@@ -8516,8 +8522,7 @@ function App() {
             />
           )}
 
-          {/* Debug: Log context to verify project mode detection */}
-          {console.log('🔍 Context:', context, 'Project Mode:', context === 'projects')}
+          {/* Debug: Context verification (removed noisy logging) */}
 
           {/* Header - Different for Project Mode vs Master File Mode */}
           {context === 'projects' ? (

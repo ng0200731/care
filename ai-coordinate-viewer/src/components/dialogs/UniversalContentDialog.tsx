@@ -105,10 +105,8 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
     if (editingContent && isOverflowEnabled) {
       const initialState = isOverflowEnabled(editingContent.id);
       setLocalOverflowEnabled(initialState);
-      console.log('🔄 Initialized overflow state for editing:', initialState);
     } else {
       setLocalOverflowEnabled(false);
-      console.log('🔄 Initialized overflow state for new content: false');
     }
   }, [editingContent?.id]); // Only depend on editingContent.id, not the isOverflowEnabled function
 
@@ -150,9 +148,6 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
   useEffect(() => {
     if (editingContent) {
       // Debug: Log the editing content structure
-      console.log('🔍 Editing content received:', editingContent);
-      console.log('🔍 Content layout:', editingContent.layout);
-      console.log('🔍 Content typography:', editingContent.typography);
 
       // Check if this is a connector in an overflow chain
       const role = getOverflowRole ? getOverflowRole(editingContent.id) : 'none';
@@ -161,7 +156,6 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
       if (isConnector && onGetMasterProperties) {
         // Get master properties for connector objects
         const masterProperties = onGetMasterProperties(editingContent.id);
-        console.log('🔗 Loading master properties for connector:', masterProperties);
 
         setFormData({
           ...editingContent,
@@ -202,6 +196,31 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
     }
   }, [editingContent?.id, regionId, contentType.id]);
 
+  // Get master properties for display in connector dialogs
+  const getMasterPropertiesForDisplay = () => {
+    if (editingContent && getOverflowRole && onGetMasterProperties) {
+      const role = getOverflowRole(editingContent.id);
+      if (role === 'connector') {
+        const masterProperties = onGetMasterProperties(editingContent.id);
+        return masterProperties;
+      }
+    }
+    return null;
+  };
+
+  const masterProperties = getMasterPropertiesForDisplay();
+  const isConnector = editingContent && getOverflowRole && getOverflowRole(editingContent.id) === 'connector';
+
+  // Debug: Check if master properties are being retrieved
+  if (isConnector) {
+    console.log('🔍 CONNECTOR DEBUG:', {
+      contentId: editingContent?.id,
+      isConnector,
+      masterProperties,
+      hasGetMasterProps: !!onGetMasterProperties
+    });
+  }
+
   // Update connector properties when master changes
   useEffect(() => {
     if (editingContent && getOverflowRole && onGetMasterProperties) {
@@ -209,7 +228,6 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
       if (role === 'connector') {
         const masterProperties = onGetMasterProperties(editingContent.id);
         if (masterProperties) {
-          console.log('🔄 Updating connector with master properties:', masterProperties);
           setFormData(prev => ({
             ...prev,
             layout: masterProperties.layout,
@@ -704,22 +722,17 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
         {/* PART 1: Layout & Positioning (Simplified) */}
         <div style={{
           ...sectionStyle,
-          backgroundColor: editingContent && getOverflowRole && getOverflowRole(editingContent.id) === 'connector' ? '#f8f9fa' : 'white',
-          opacity: editingContent && getOverflowRole && getOverflowRole(editingContent.id) === 'connector' ? 0.5 : 1,
-          pointerEvents: editingContent && getOverflowRole && getOverflowRole(editingContent.id) === 'connector' ? 'none' : 'auto'
+          backgroundColor: isConnector ? '#f8f9fa' : 'white',
+          opacity: isConnector ? 0.5 : 1,
+          pointerEvents: isConnector ? 'none' : 'auto'
         }}>
           <h3 style={{ margin: '0 0 15px 0', color: '#2d3748', fontSize: '16px' }}>
             📐 Layout & Positioning
-            {editingContent && getOverflowRole &&
-             getOverflowRole(editingContent.id) === 'connector' && (
+            {isConnector && (
               <span style={{ fontSize: '12px', color: '#666', fontWeight: 'normal', marginLeft: '10px' }}>
                 (Inherited from chain master)
               </span>
             )}
-            <span style={{ fontSize: '10px', color: '#999', marginLeft: '10px' }}>
-              [Opacity: {editingContent && getOverflowRole && getOverflowRole(editingContent.id) === 'connector' ? '0.5' : '1'},
-               Events: {editingContent && getOverflowRole && getOverflowRole(editingContent.id) === 'connector' ? 'none' : 'auto'}]
-            </span>
           </h3>
 
           {/* Validation Messages */}
@@ -755,9 +768,10 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
             <div>
               <label style={labelStyle}>Horizontal Alignment:</label>
               <select
-                value={formData.layout.horizontalAlign}
+                value={isConnector && masterProperties ? masterProperties.layout.horizontalAlign : formData.layout.horizontalAlign}
                 onChange={(e) => handleLayoutChange('horizontalAlign', e.target.value)}
                 style={inputStyle}
+                disabled={!!isConnector}
               >
                 <option value="left">Left</option>
                 <option value="center">Center</option>
@@ -767,9 +781,10 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
             <div>
               <label style={labelStyle}>Vertical Alignment:</label>
               <select
-                value={formData.layout.verticalAlign}
+                value={isConnector && masterProperties ? masterProperties.layout.verticalAlign : formData.layout.verticalAlign}
                 onChange={(e) => handleLayoutChange('verticalAlign', e.target.value)}
                 style={inputStyle}
+                disabled={!!isConnector}
               >
                 <option value="top">Top</option>
                 <option value="center">Center</option>
@@ -851,31 +866,27 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
         {/* PART 2: Typography */}
         <div style={{
           ...sectionStyle,
-          backgroundColor: editingContent && getOverflowRole && getOverflowRole(editingContent.id) === 'connector' ? '#f8f9fa' : 'white',
-          opacity: editingContent && getOverflowRole && getOverflowRole(editingContent.id) === 'connector' ? 0.5 : 1,
-          pointerEvents: editingContent && getOverflowRole && getOverflowRole(editingContent.id) === 'connector' ? 'none' : 'auto'
+          backgroundColor: isConnector ? '#f8f9fa' : 'white',
+          opacity: isConnector ? 0.5 : 1,
+          pointerEvents: isConnector ? 'none' : 'auto'
         }}>
           <h3 style={{ margin: '0 0 15px 0', color: '#2d3748', fontSize: '16px' }}>
             🔤 Typography
-            {editingContent && getOverflowRole &&
-             getOverflowRole(editingContent.id) === 'connector' && (
+            {isConnector && (
               <span style={{ fontSize: '12px', color: '#666', fontWeight: 'normal', marginLeft: '10px' }}>
                 (Inherited from chain master)
               </span>
             )}
-            <span style={{ fontSize: '10px', color: '#999', marginLeft: '10px' }}>
-              [Opacity: {editingContent && getOverflowRole && getOverflowRole(editingContent.id) === 'connector' ? '0.5' : '1'},
-               Events: {editingContent && getOverflowRole && getOverflowRole(editingContent.id) === 'connector' ? 'none' : 'auto'}]
-            </span>
           </h3>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px' }}>
             <div>
               <label style={labelStyle}>Font Family:</label>
               <select
-                value={formData.typography.fontFamily}
+                value={isConnector && masterProperties ? masterProperties.typography.fontFamily : formData.typography.fontFamily}
                 onChange={(e) => handleTypographyChange('fontFamily', e.target.value)}
                 style={inputStyle}
+                disabled={!!isConnector}
               >
                 {fontFamilies.map(font => (
                   <option key={font} value={font}>{font}</option>
@@ -886,20 +897,22 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
               <label style={labelStyle}>Font Size (px):</label>
               <input
                 type="number"
-                value={formData.typography.fontSize}
+                value={isConnector && masterProperties ? masterProperties.typography.fontSize : formData.typography.fontSize}
                 onChange={(e) => handleTypographyChange('fontSize', Number(e.target.value))}
                 style={inputStyle}
                 min="8"
                 max="72"
+                disabled={!!isConnector}
               />
             </div>
             <div>
               <label style={labelStyle}>Font Color:</label>
               <input
                 type="color"
-                value={formData.typography.fontColor}
+                value={isConnector && masterProperties ? masterProperties.typography.fontColor : formData.typography.fontColor}
                 onChange={(e) => handleTypographyChange('fontColor', e.target.value)}
                 style={{ ...inputStyle, height: '40px' }}
+                disabled={!!isConnector}
               />
             </div>
           </div>
@@ -939,7 +952,6 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
                       checked={localOverflowEnabled}
                       onChange={(e) => {
                         const newValue = e.target.checked;
-                        console.log('🌊 Overflow toggle clicked:', newValue, 'Previous:', localOverflowEnabled);
                         setLocalOverflowEnabled(newValue);
                       }}
                       style={{
@@ -1001,7 +1013,6 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
                       checked={localOverflowEnabled}
                       onChange={(e) => {
                         const newValue = e.target.checked;
-                        console.log('🌊 Overflow toggle clicked:', newValue, 'Previous:', localOverflowEnabled);
                         setLocalOverflowEnabled(newValue);
                       }}
                       style={{
@@ -1052,7 +1063,6 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
                       checked={localOverflowEnabled}
                       onChange={(e) => {
                         const newValue = e.target.checked;
-                        console.log('🌊 Overflow toggle clicked:', newValue, 'Previous:', localOverflowEnabled);
                         setLocalOverflowEnabled(newValue);
                       }}
                       style={{
