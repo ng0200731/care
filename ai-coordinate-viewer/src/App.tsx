@@ -697,14 +697,55 @@ function App() {
 
       const fontSize = targetContent.typography?.fontSize || 12;
       const padding = targetContent.layout?.padding || { top: 2, right: 2, bottom: 2, left: 2 };
-      const effectiveWidth = targetRegion.width - padding.left - padding.right;
-      const effectiveHeight = targetRegion.height - padding.top - padding.bottom;
-      const capacity = calculateTextCapacity(effectiveWidth, effectiveHeight, fontSize);
+      // Use canvas-based wrapping like the canvas preview so capacity matches visual layout
+      const mmToPx = 3.78;
+      const fontFamily = targetContent.typography?.fontFamily || 'Arial';
+      const textAreaWidthPx = Math.max(0, (targetRegion.width - padding.left - padding.right) * mmToPx);
+      const textAreaHeightPx = Math.max(0, (targetRegion.height - padding.top - padding.bottom) * mmToPx);
+      const scaledFontSize = fontSize; // typography font size is already in px
+      const lineHeightPx = scaledFontSize * 1.2;
+      const maxLines = Math.max(0, Math.floor(textAreaHeightPx / lineHeightPx));
 
-      console.log(`📊 Position ${position} capacity: ${capacity}, text length: ${currentText.length}`);
+      const measureTextWidth = (text: string) => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.font = `${scaledFontSize}px ${fontFamily}`;
+          return ctx.measureText(text).width;
+        }
+        return text.length * scaledFontSize * 0.6;
+      };
 
-      // Fill this position completely
-      const { fitting, overflow } = splitTextByWords(currentText, capacity);
+      const wrapText = (text: string, maxWidth: number): string[] => {
+        const words = text.split(' ');
+        const lines: string[] = [];
+        let currentLine = '';
+        for (const word of words) {
+          const testLine = currentLine ? currentLine + ' ' + word : word;
+          const testWidth = measureTextWidth(testLine);
+          if (testWidth <= maxWidth) {
+            currentLine = testLine;
+          } else {
+            if (currentLine) {
+              lines.push(currentLine);
+              currentLine = word;
+            } else {
+              // Single long word
+              lines.push(word);
+              currentLine = '';
+            }
+          }
+        }
+        if (currentLine) lines.push(currentLine);
+        return lines;
+      };
+
+      const wrapped = wrapText(currentText, textAreaWidthPx);
+      const fittingLines = wrapped.slice(0, maxLines);
+      const fitting = fittingLines.join(' ');
+      const overflow = wrapped.slice(maxLines).join(' ');
+
+      console.log(`📊 Position ${position} lines: ${fittingLines.length}/${maxLines}, overflow chars: ${overflow.length}`);
 
       // Update content with fitted text
       const updatedContents = [...targetContents];
@@ -714,9 +755,9 @@ function App() {
       };
       newContents.set(targetRegionId, updatedContents);
 
-      console.log(`✅ Position ${position} filled: ${fitting.length}/${capacity}, overflow: ${overflow.length}`);
+      console.log(`✅ Position ${position} filled; overflow length: ${overflow.length}`);
 
-      // SIMPLE RULE: Move overflow to next position
+      // Move precise overflow to next position
       currentText = overflow;
       console.log(`➡️ Moving ${overflow.length} chars to next position`);
     }
