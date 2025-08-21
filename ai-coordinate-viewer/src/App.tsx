@@ -8284,6 +8284,188 @@ function App() {
                             </text>
                           );
                         })()}
+
+                        {(() => {
+                          const sliceContents = regionContents.get(childRegion.id) || [];
+                          if (sliceContents.length === 0) return null;
+
+                          // Pick the first item with displayable text
+                          let picked: any = null;
+                          for (const item of sliceContents) {
+                            if (item?.type === 'line-text' && item.content?.text?.trim()) { picked = item; break; }
+                            if (item?.type === 'pure-english-paragraph' && item.content?.text?.trim()) { picked = item; break; }
+                            if (item?.type === 'translation-paragraph' && (item.content?.primaryContent?.trim() || item.content?.secondaryContent?.trim())) { picked = item; break; }
+                            if (item?.type === 'washing-symbol' && item.content?.symbol?.trim()) { picked = item; break; }
+                            if (item?.type === 'coo' && item.content?.country?.trim()) { picked = item; break; }
+                          }
+                          if (!picked) return null;
+
+                          // Resolve effective layout/typography (respect connector/master)
+                          const role = getOverflowRole(picked.id);
+                          let effectiveLayout = picked.layout || {};
+                          let effectiveTypography = picked.typography || {};
+                          if (role === 'connector') {
+                            const masterProps = getMasterProperties(picked.id);
+                            if (masterProps) {
+                              effectiveLayout = masterProps.layout || effectiveLayout;
+                              effectiveTypography = masterProps.typography || effectiveTypography;
+                            }
+                          }
+
+                          // Extract display text by type
+                          let displayText = '';
+                          if (picked.type === 'translation-paragraph') {
+                            const primary = picked.content?.primaryContent || '';
+                            const secondary = picked.content?.secondaryContent || '';
+                            displayText = primary + (secondary ? ` / ${secondary}` : '');
+                          } else if (picked.type === 'line-text' || picked.type === 'pure-english-paragraph') {
+                            displayText = picked.content?.text || '';
+                          } else if (picked.type === 'washing-symbol') {
+                            displayText = picked.content?.symbol || '';
+                          } else if (picked.type === 'coo') {
+                            displayText = picked.content?.country || '';
+                          }
+                          if (!displayText?.trim()) return null;
+
+                          // Typography and layout
+                          const fontSize = effectiveTypography?.fontSize || 12;
+                          const fontFamily = effectiveTypography?.fontFamily || 'Arial';
+                          const fontColor = effectiveTypography?.fontColor || '#000000';
+                          const textAlign = effectiveLayout?.horizontalAlign || 'left';
+                          const verticalAlign = effectiveLayout?.verticalAlign || 'top';
+                          const padding = effectiveLayout?.padding || { top: 2, right: 2, bottom: 2, left: 2 };
+
+                          // Dimensions
+                          const mmToPx = 3.78;
+                          const scale = zoom * mmToPx;
+                          const sliceWidthPx = childRegion.width * scale;
+                          const sliceHeightPx = childRegion.height * scale;
+                          const paddingTopPx = (padding.top || 0) * scale;
+                          const paddingRightPx = (padding.right || 0) * scale;
+                          const paddingBottomPx = (padding.bottom || 0) * scale;
+                          const paddingLeftPx = (padding.left || 0) * scale;
+
+                          const textAreaWidth = Math.max(0, sliceWidthPx - paddingLeftPx - paddingRightPx);
+                          const textAreaHeight = Math.max(0, sliceHeightPx - paddingTopPx - paddingBottomPx);
+
+                          const scaledFontSize = Math.max(6, fontSize * zoom);
+                          const lineHeight = scaledFontSize * 1.2;
+                          const maxLines = Math.max(0, Math.floor(textAreaHeight / lineHeight));
+                          if (maxLines <= 0) return null;
+
+                          // Measure/wrap
+                          const measureTextWidth = (text: string) => {
+                            const canvas = document.createElement('canvas');
+                            const ctx = canvas.getContext('2d');
+                            if (ctx) {
+                              ctx.font = `${scaledFontSize}px ${fontFamily}`;
+                              return ctx.measureText(text).width;
+                            }
+                            return text.length * scaledFontSize * 0.6;
+                          };
+
+                          const wrapText = (text: string, maxWidth: number): string[] => {
+                            const words = text.split(' ');
+                            const lines: string[] = [];
+                            let current = '';
+                            for (const w of words) {
+                              const test = current ? current + ' ' + w : w;
+                              if (measureTextWidth(test) <= maxWidth) {
+                                current = test;
+                              } else {
+                                if (current) lines.push(current);
+                                current = w;
+                              }
+                            }
+                            if (current) lines.push(current);
+                            return lines;
+                          };
+
+                          const wrappedLines = wrapText(displayText, textAreaWidth);
+                          let displayLines = wrappedLines;
+                          if (displayLines.length > maxLines) {
+                            displayLines = wrappedLines.slice(0, maxLines);
+                            // Overflow forwarding for slices (same logic as regions)
+                            if (isOverflowEnabled(picked.id)) {
+                              const overflowLines = wrappedLines.slice(maxLines);
+                              const overflowText = overflowLines.join(' ');
+                              const contentType = picked.type;
+                              const chain = overflowChains.get(contentType) || [];
+                              const currentIndex = chain.indexOf(picked.id);
+                              if (currentIndex >= 0 && currentIndex < chain.length - 1) {
+                                const nextContentId = chain[currentIndex + 1];
+                                // Find the region that contains the next content id
+                                let nextRegionId: string | null = null;
+                                regionContents.forEach((contents, rId) => {
+                                  if (contents.some((c: any) => c.id === nextContentId)) {
+                                    nextRegionId = rId;
+                                  }
+                                });
+                                if (nextRegionId && overflowText.trim()) {
+                                  setTimeout(() => {
+                                    setRegionContents(prev => {
+                                      const newMap = new Map(prev);
+                                      const nextList = newMap.get(nextRegionId!) || [];
+                                      const updated = nextList.map((c: any) => {
+                                        if (c.id === nextContentId) {
+                                          return {
+                                            ...c,
+                                            content: {
+                                              ...c.content,
+                                              text: overflowText
+                                            }
+                                          };
+                                        }
+                                        return c;
+                                      });
+                                      newMap.set(nextRegionId!, updated);
+                                      return newMap;
+                                    });
+                                  }, 100);
+                                }
+                              }
+                            }
+                          }
+                          if (displayLines.length === 0) return null;
+
+                          // Horizontal alignment
+                          let textAnchor: 'start' | 'middle' | 'end' = 'start';
+                          let textX = baseX + (childRegion.x * scale) + paddingLeftPx;
+                          if (textAlign === 'center') {
+                            textAnchor = 'middle';
+                            textX = baseX + (childRegion.x * scale) + sliceWidthPx / 2;
+                          } else if (textAlign === 'right') {
+                            textAnchor = 'end';
+                            textX = baseX + (childRegion.x * scale) + sliceWidthPx - paddingRightPx;
+                          }
+
+                          // Vertical alignment
+                          let startY = baseY + (childRegion.y * scale) + paddingTopPx;
+                          if (verticalAlign === 'center') {
+                            const totalTextHeight = displayLines.length * lineHeight;
+                            startY = baseY + (childRegion.y * scale) + (sliceHeightPx - totalTextHeight) / 2;
+                          } else if (verticalAlign === 'bottom') {
+                            const totalTextHeight = displayLines.length * lineHeight;
+                            startY = baseY + (childRegion.y * scale) + sliceHeightPx - paddingBottomPx - totalTextHeight;
+                          }
+
+                          return displayLines.map((line, idx) => (
+                            <text
+                              key={`slice-text-${childRegion.id}-${idx}`}
+                              x={textX}
+                              y={startY + (idx + 1) * lineHeight}
+                              fill={fontColor}
+                              fontSize={scaledFontSize}
+                              fontFamily={fontFamily}
+                              textAnchor={textAnchor}
+                              dominantBaseline="alphabetic"
+                              opacity="0.95"
+                              style={{ pointerEvents: 'none' }}
+                            >
+                              {line}
+                            </text>
+                          ));
+                        })()}
                       </g>
                     );
                   });

@@ -1,0 +1,135 @@
+[33ma2ed227[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m V2.6.59 - Added slice double-click to open property dialog with pre-populated values (wrong seq again)
+[33m0958b72[m V2.6.58 - Fixed overflow redistribution to follow simple rule - take text from Position #1 only, clear all positions, fill each to capacity and move overflow to next position
+[33m5aaa77a[m V2.6.50 - Added debug logging for overflow distribution (WIP - investigating weird arrangement)
+[33m720faa4[m V2.6.47 - Fixed canvas rendering to use master properties for connectors
+[33mac672ce[m V2.6.39 - Fixed master-connector property synchronization (connector size issue remains)
+[33md2e32e1[m V2.6.25 - Fixed content properties not applying to canvas text rendering
+[33m949d3cf[m V2.6.24 - Fixed overflow toggle, added full-region text rendering with overflow chain support
+[33m1a73ec8[m V2.6.19 - Removed confusing overflow status indicator spans
+[33mcfe4594[m V2.6.18 - Fixed auto-overflow issues: removed unwanted automatic numbering and state timing problems
+[33mef4d841[m V2.6.16 - Fixed region fill colors: each content type now has distinct background color
+[33meea030c[m V2.6.15 - Fixed overflow numbering logic to use simple counting (existing count + 1)
+[33mb2b5940[m V2.6.12 - Added automatic overflow renumbering when content is deleted
+[33m270f7fc[m V2.6.11 - Fixed overflow numbering with simple counting logic
+[33m77c3b59[m V2.1.91 - Fixed overflow logic: separate chains per content type with proper 1-based numbering
+[33me7c881c[m V2.6.4 - Fixed overflow toggle behavior to only apply on Save, removed duplicate save buttons
+[33mb7a7c1e[m V2.6.2 - Fixed content overflow settings saving and restoration with complete save/load functionality
+[33m796db62[m V2.5.8 - Added pin buttons to Project Mode and Content Types menus for persistent visibility
+[33m218794c[m V2.5.7 - Objects Hierarchy panel now follows Content Types behavior with 300px width
+[33m4e313d4[m V2.5.6 - Add hierarchy hover effect with canvas highlighting
+[33m92e0c4a[m V2.5.5 - Remove connection lines, add overflow sequence numbers toggle
+[33ma5f0c78[m V2.3.96 - Implemented cross-mother chain connections for line-text overflow visualization
+[33m054e8f5[m V2.3.67 - Fixed existing project master file workflow to load clean master file instead of existing project state
+[33m2811e31[m V2.3.66 - Fixed Add Master File notification timeout to auto-disappear after 3 seconds
+[33m76fec4c[m V2.3.65 - Added 'Add Master File' button to create clean master file template as new mother
+[33m48d51a8[m V2.3.63 - Repositioned Project Mode and Content Types tabs group to middle of vertical screen
+[33m3049b14[m V2.3.61 - Complete hierarchy panel hide/show with vertical tabs
+[33mee9643a[m V2.3.54 - Added project navigation button to header in project mode
+[33m582b33e[m V2.3.47 - Move project button to header next to Care Label Layout System title
+[33m1d8f59c[m V2.3.43 - Checkpoint 173: Stable auto-hide content menu implementation
+[33maf2b610[m V2.3.42 - Disabled slice button and double-click when content exists
+[33m33e5e9f[m V2.3.40 - Fixed drag/drop warning dialog for parent regions without slices
+[33m7d753b2[m V2.3.20 - Improved Label Positioning: Region Labels Top-Left Bold, Slice Labels Top-Right Regular
+[33m5cc04a7[m V2.3.19 - Fixed Region Text Truncation to Show Full Content Type Names
+[33m4b7cdbd[m V2.3.16 - Fixed Duplicate Content Text Overlapping by Removing Redundant Text Rendering
+[33mb13eff8[m V2.3.11 - Standardized PDF with Same Line Thickness, Black Colors, Dotted Margins/Padding, and Uniform Fonts
+[33ma6836e4[m V2.3.10 - Updated PDF Mid-Fold Lines to Red Dotted Style with Padding Margins and Dimensions
+[33m19a2ad8[m V2.3.7 - Fixed PDF Export Slice Positioning and Removed DOS ASCII Dialogs
+[33m61f7883[m V2.3.1 - Fixed Header Layout Name Detection and One Content Type Per Slice Validation
+[33me08523a[m V2.2.3 - Added System Header and Changed Add Page to Add Master File
+[33m5ab1c34[m V2.1.96 - Changed Trash All Regions to Trash All Slices - Preserves Parent Regions
+[33m466635c[m V2.1.92 - Split Save into Two Buttons with Name Prompts and Dynamic Visibility
+[33m29f7bc7[m V2.1.82 - Complete project save/load system: empty template creation, project page integration, layout management, localStorage fallback with redirect functionality
+[33m8106934[m V2.1.74 - Project Mode drag & drop: content type text centered in regions, 1 content per region limit, enhanced visibility with full region coverage
+[33m712ac6a[m V2.1.69 - Fixed mother positioning to prevent overlaps, restricted duplicate to Mother_1 only, implemented single PDF generation for all mothers
+[33maab8c68[m V2.1.67 - Master File Enhancement: 6 major features - smart duplication with regions, centralized save/PDF buttons, trash mother functionality, removed individual buttons
+[33m53f5e36[m V2.1.65 - Added duplicate mother functionality with proper state management for master file mode
+[33m90b52fb[m V2.1.58 - Added 4 new functions: double-click canvas regions to slice, trash confirmations, trash all regions button, moveable slice popup
+[33mbcd2fb3[m V2.1.53 - 1:1 scale PDF generation with visual layout on A4 paper
+[33mcd92431[m V2.1.80 - Added PDF print button for mothers: generates 1:1 scale PDF with all regions, margins, and mid-fold lines using jsPDF library
+[33m9202a8d[m V2.1.79 - Applied mother thumbnail style to slice region preview: simple flexbox layout with readable dimensions following existing UI patterns
+[33meb24e0c[m V2.1.75 - Fixed slice region dimension text positioning: moved 60mm text to cross vertical line with 1/3 font size
+[33m285a262[m V2.1.65 - Restored dimension labels between B & C regions
+[33mee4815e[m V2.1.58 - Fixed slice dialog visual issues: reduced dimension label font size to half and corrected scissor icon rotations
+[33m991e9be[m v2.1.52 - Implemented synchronized region hover feedback: bidirectional visual sync between region list and SVG canvas, enhanced color-coded states (orange for hover, blue for editing, green for drag), smooth 0.2s transitions, smart state management prevents hover conflicts during editing
+[33mafbbb41[m v2.1.51 - Extended automatic region creation to mother updates: auto-creates regions when updating mothers with no existing regions, preserves existing regions when present, applies same mid-fold logic for both create and update operations
+[33m4a4169b[m V2.1.50 - Fixed mother edit button logic: dimmed when regions exist, active when no regions
+[33m6205c7a[m V2.1.37 - Fixed TypeScript error: added missing occupyLeftoverSpace property
+[33m18c7328[m Resolved merge conflicts - integrated edit functionality with occupy leftover space feature
+[33m49f773d[m V2.1.36 - Implemented drag-and-drop property popup with edit functionality
+[33mdaf54c3[m v2.1.26 - Implemented content type labels only on canvas overlays: removed actual text content display, show only formatted content type labels like {Line Text}, {Pure English Paragraph}, etc., all centered horizontally and vertically regardless of alignment settings, simplified display logic
+[33mb0fd8e0[m v2.1.22 - Implemented visual content area overlays on canvas regions: added transparent colored rectangles showing occupied space for each content object with unique colors, 30% opacity overlays, simple vertical stacking layout, and real-time updates when content is added to regions
+[33m71a3dad[m v2.1.21 - Fixed floating point precision errors in area calculations causing incorrect save button blocking: added Math.round to 6 decimal places for all area calculations (content area, remaining area, proposed area, total usage) to eliminate JavaScript floating point precision issues that caused 100% usage scenarios to be incorrectly blocked
+[33m5520c5d[m v2.1.16 - Implemented region space occupation logic with simple area calculation: blocks drops when region is 100% full with alert '[Region Name] is full', allows drops with green visual feedback when space available, added drag handlers to both left panel hierarchy and canvas regions
+[33mab54877[m V2.1.16 - Updated Layout & Positioning section: added 'Occupy leftover space' option and improved width/height controls with proper dimming
+[33m2b761ef[m V2.1.15 - Implemented universal content dialog system for all 6 content types with standardized layout, typography, and content-specific sections
+[33mdf5eb7b[m V2.1.14 - Fixed JSX syntax error in draggable content dialogs
+[33m68fd650[m V2.1.14 - Made content dialogs draggable and non-blocking for better canvas interaction
+[33m427b9ac[m V2.1.13 - Restricted region editing to Master File Mode only, regions read-only in Project Mode
+[33mb629475[m V2.1.12 - Removed test buttons and debug logging for cleaner production code
+[33m1b801f8[m V2.1.11 - Fixed content hierarchy: removed right menu styling, added placed content under regions in left hierarchy
+[33m5b70c8d[m V2.0.8 - Implemented drag-and-drop content system with placeholder blocks and debug panel
+[33ma137268[m V1.9.5 - Removed son buttons and added SON_ATTRIBUTES.md documentation
+[33mb898d4c[m V1.9.3 - Merged changes and fixed big preview regions/mid-fold lines
+[33m3e05c35[m V1.8.2 - Fixed big preview to show regions and mid-fold lines, removed dotted borders from regions
+[33me952d5c[m V1.9.2 - Master Files UI fixes: customer label, card click disabled, thumbnails show regions + mid-fold; small preview synced; region border thin+dotted; preview legacy mid-fold support
+[33m8f302e5[m V1.8.0 - Fixed space detection and added full-width priority for region creation
+[33mcfd454c[m v1.7.6 - Implement enhanced mid-fold auto-allocation logic with intelligent existing region handling, 10mm minimum size enforcement, unique region naming system, cross-fold validation to prevent invalid region placement, smart space utilization for complex layouts, comprehensive error handling with clear user feedback, and support for multiple test scenarios including blank mothers, partial existing regions, and invalid configurations to resolve cannot allocate errors and provide professional region management
+[33mb3843f7[m v1.7.5 - Update git commit protocol to manual-only execution and fix mid-fold region calculation logic to ensure perfectly even padding on both sides of mid-fold line by simplifying region positioning calculations, removing complex coordinate adjustments that caused uneven spacing, implementing direct boundary calculations for accurate region placement, and adding enhanced debug logging to verify equal spacing above and below mid-fold line for professional manufacturing precision
+[33mb117881[m v1.7.3 - Fix mid-fold padding consistency and add dynamic region updates when padding values change in mother template to ensure regions automatically reposition when mid-fold line properties are modified, resolve visual inconsistency where mid-fold lines appeared shorter than expected by making lines span full width/height while using padding only for region calculations, and implement automatic region recalculation for existing mid-fold aware regions when template settings change
+[33m945454b[m v1.7.2 - Create comprehensive version management and git commit protocol documentation with mandatory rules for all future code changes including version increment requirements, detailed commit message standards, and testing protocols to ensure professional development practices and complete change traceability
+[33ma07bbd7[m Fix TypeScript compilation errors v1.7.1
+[33me024320[m Implement mid-fold aware region creation system v1.7.0
+[33m0b8e05a[m Add version tracking and display system v1.6.0
+[33m71f93d4[m Fix mid-fold line rendering on main canvas
+[33m06749ab[m feat: Improve mother dialog UX and integrate sewing type toggle
+[33m988b10f[m Implement advanced region management with overlap prevention and smart space utilization
+[33m37aaf15[m Implement draggable region dialog and always-visible Add Region button
+[33m48f1445[m Fix margin/sewing line consistency and add master file name display
+[33m90a3458[m Fix son creation feedback - Add visual notification and hierarchy display
+[33m9d09130[m Remove popup dialog - Create sons directly on button click
+[33mc8dd736[m Replace simple dialog with comprehensive SonObjectManager
+[33mb346f04[m Fix TypeScript type mismatch for son object types
+[33me1d6eb7[m Fix syntax error: Remove orphaned son metadata code
+[33m1b3f9c5[m Implement proper Son Creation Dialog with all attributes
+[33m17387bc[m Remove Add Son buttons from master file mode
+[33mc25bdbb[m Fix Create Mother Template dialog layout spacing issues
+[33mebb6252[m Implement basic master file vs project mode detection and UI
+[33m7e5c7d9[m WIP: Implement master file vs project mode architecture
+[33me8abe8e[m Fix exchange icon alignment in Create Mother dialog
+[33m2f7acb1[m Add debugging and visual feedback for Add Son button
+[33mbaed5b2[m Add comprehensive son object attributes when creating sons
+[33md669cc7[m Fix Add Son button positioning - now visible above mother
+[33mfac68f8[m Position Add Son button outside and side by side with mother
+[33mca69365[m Fix Add Son button visibility in project context
+[33m0e7d2f3[m Improve margin lines and add son object creation
+[33m3ddd805[m Hide Edit and Save buttons in project context
+[33m9b26161[m Implement meaningful URLs, context-aware navigation, and improved UX
+[33m2ca6cbb[m UI improvements and functionality enhancements - Dec 2024
+[33mca9b5e5[m Enhance big thumbnail: remove green lines, add margin details (2mm,3mm), sewing position, mid-fold position
+[33mf625a1f[m Fix big thumbnail: implement 80% canvas usage with professional styling
+[33m5cc451f[m Implement canvas image capture and display functionality
+[33mcac8ac9[m v1.5.2: Fix canvas-only route - Remove duplicate Create Method interface from /create_zero, implement immediate state initialization for web creation mode, add CanvasOnly component for direct canvas access
+[33m10c6750[m  before change route
+[33m1d8a626[m v1.4.1: Clean navigation structure - Remove Master Files DB from left menu, maintain single logical path through Master Files page
+[33md49a665[m v1.4.0: Complete Master File Management with overwrite functionality - Add Back button, edit mode detection, overwrite confirmation popup, revision tracking, and navigation back to management page
+[33m9a8b77d[m v1.3.0: Implement master file loading for editing - Complete CRUD cycle with Edit button and canvas restoration
+[33mfa291de[m v1.2.8: Remove 2 specific popups - edit mother object save popup and save master file dialog popup
+[33m6ede496[m feat: Implement Customer-Linked Care Label Layout System
+[33m9c7deeb[m feat: Enhanced customer management and master file workflow
+[33m5479d8e[m Optimize left menu and ensure persistent navigation
+[33mc6fbf0c[m Fix UI layout and styling issues
+[33mee9b534[m Phase 2A Complete: Modern UI Navigation System
+[33mb695982[m Phase 2A: Modern UI Navigation System Complete
+[33meab08c1[m Phase 1: Backend API foundation setup
+[33m218abf7[m Fix missing bottom margin value - use 'down' property instead of 'bottom' to match object data structure
+[33mc5a1c5b[m Fix object details synchronization - read margin and sewing data from object properties instead of metadata map
+[33m5ffd800[m Fix sewing offset dialog bug - use specific ID selector instead of generic querySelector
+[33me3d55bc[m Convert object details to plain text display - remove editable controls for margins and sewing position
+[33mcf34416[m Complete merge with remote changes
+[33md43c33f[m Add dimension labels for margins and sewing lines with proper positioning and colors
+[33mde13703[m Improve mother dialog: blank width/height, apply to 4 sides checkbox, fix sewing position memory
+[33md6ae1e5[m Fix sewing offset calculation and make mid-fold automatic without offset dialog
+[33m8927a9c[m Add Mid-Fold sewing position group and change sewing line color to red
+[33mf90065a[m Remove Mid-Fold button and functionality from Visual Indicators panel
+[33maa4454f[m Fix margin and sewing line calculations to be zoom-aware for consistent visual appearance
