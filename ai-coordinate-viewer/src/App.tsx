@@ -7983,7 +7983,7 @@ function App() {
                       const verticalAlign = effectiveLayout?.verticalAlign || 'top';
                       const padding = effectiveLayout?.padding || { top: 2, right: 2, bottom: 2, left: 2 };
 
-                      // Calculate region dimensions and text area
+                      // Calculate region dimensions and text area (render coordinates)
                       const regionWidthPx = region.width * scale;
                       const regionHeightPx = region.height * scale;
                       const paddingTopPx = padding.top * scale;
@@ -7991,16 +7991,19 @@ function App() {
                       const paddingBottomPx = padding.bottom * scale;
                       const paddingLeftPx = padding.left * scale;
 
-                      // Text area dimensions (region minus padding)
-                      const textAreaWidth = regionWidthPx - paddingLeftPx - paddingRightPx;
-                      const textAreaHeight = regionHeightPx - paddingTopPx - paddingBottomPx;
+                      // Wrap layout must be zoom-invariant. Compute wrapping in mm→px (no zoom)
+                      const pxPerMm = 3.78;
+                      const wrapWidthPx = (region.width - padding.left - padding.right) * pxPerMm;
+                      const wrapHeightPx = (region.height - padding.top - padding.bottom) * pxPerMm;
 
-                      // Calculate font size based on zoom
+                      // Font sizes: use base for wrap, scaled for render
+                      const baseFontPx = fontSize * pxPerMm;
                       const scaledFontSize = fontSize * zoom;
-                      const lineHeight = scaledFontSize * 1.2;
+                      const lineHeight = scaledFontSize * 1.2; // render spacing
+                      const wrapLineHeight = baseFontPx * 1.2; // wrap spacing (zoom invariant)
 
-                      // Calculate how many lines can fit
-                      const maxLines = Math.floor(textAreaHeight / lineHeight);
+                      // Calculate how many lines can fit (zoom invariant)
+                      const maxLines = Math.floor(wrapHeightPx / wrapLineHeight);
 
                       if (maxLines <= 0) return null;
 
@@ -8046,8 +8049,8 @@ function App() {
                         return lines;
                       };
 
-                      // Wrap text to fit region width
-                      const wrappedLines = wrapText(displayText, textAreaWidth);
+                      // Wrap text to fit region width (zoom invariant)
+                      const wrappedLines = wrapText(displayText, wrapWidthPx);
 
                       // Check if overflow is enabled and text exceeds region capacity
                       let displayLines = wrappedLines;
