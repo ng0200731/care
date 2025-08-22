@@ -210,12 +210,15 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
     return null;
   };
 
-  // Trigger overflow recalculation for initiators
+  // Trigger overflow recalculation for initiators and connectors
   const triggerOverflowRecalculation = () => {
     if (editingContent && getOverflowRole && onRecalculateOverflow) {
       const role = getOverflowRole(editingContent.id);
       if (role === 'initiator') {
-        // Use setTimeout to ensure state updates are processed first
+        setTimeout(() => {
+          onRecalculateOverflow(editingContent.id);
+        }, 0);
+      } else if (role === 'connector') {
         setTimeout(() => {
           onRecalculateOverflow(editingContent.id);
         }, 0);
@@ -513,6 +516,7 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
 
     // Trigger overflow recalculation for font size changes
     if (field === 'fontSize') {
+      console.log(`📏 FONT SIZE CHANGED: ${value} - triggering redistribution...`);
       triggerOverflowRecalculation();
     }
   };

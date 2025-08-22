@@ -446,7 +446,6 @@ function App() {
       for (const [regionId, contents] of regionEntries) {
         const masterContent = contents.find((c: any) => c.id === masterContentId);
         if (masterContent) {
-          console.log('🔗 Found master properties for', contentId, ':', masterContent.layout, masterContent.typography);
           return {
             layout: masterContent.layout,
             typography: masterContent.typography
@@ -562,14 +561,60 @@ function App() {
     return originalText;
   };
 
+  // Helper function to get all regions including slices (children)
+  const getAllRegionsIncludingSlices = (): any[] => {
+    const allRegions: any[] = [];
+    data?.objects.forEach((obj: any) => {
+      if ((obj as any).regions) {
+        (obj as any).regions.forEach((region: any) => {
+          // Add the parent region
+          allRegions.push(region);
+          // Add any child regions (slices)
+          if (region.children && region.children.length > 0) {
+            allRegions.push(...region.children);
+          }
+        });
+      }
+    });
+    return allRegions;
+  };
+
+  // Helper function to find a region by ID (including slices)
+  const findRegionById = (regionId: string): any => {
+    for (const obj of data?.objects || []) {
+      if ((obj as any).regions) {
+        for (const region of (obj as any).regions) {
+          // Check parent region
+          if (region.id === regionId) {
+            return region;
+          }
+          // Check child regions (slices)
+          if (region.children && region.children.length > 0) {
+            const childRegion = region.children.find((child: any) => child.id === regionId);
+            if (childRegion) {
+              return childRegion;
+            }
+          }
+        }
+      }
+    }
+    return null;
+  };
+
   // CLEAR AND REDISTRIBUTE: When initiator changes, clear all connectors and redistribute from scratch
-  const recalculateOverflowChain = (masterContentId: string) => {
-    const contentType = getContentTypeFromId(masterContentId);
+  const recalculateOverflowChain = (contentId: string) => {
+    const contentType = getContentTypeFromId(contentId);
     const chain = overflowChains.get(contentType) || [];
 
-    if (chain.length === 0 || chain[0] !== masterContentId) return;
+    if (chain.length === 0) return;
+    
+    // Find the initiator (first in chain) regardless of which content ID was passed
+    const masterContentId = chain[0];
+    
+    // If this content is not in the chain, ignore
+    if (!chain.includes(contentId)) return;
 
-    console.log(`🔄 CLEAR AND REDISTRIBUTE: Starting fresh for ${contentType}`);
+    console.log(`🔄 FONT SIZE REDISTRIBUTION: Starting for ${contentType} (triggered by ${contentId}, initiator: ${masterContentId})`);
 
     // STEP 1: Get original text from Position #1 only (the initiator)
     const masterRegionEntry = Array.from(regionContents.entries()).find(([regionId, contents]) =>
@@ -619,14 +664,18 @@ function App() {
 
     if (!masterRegion) return;
 
-    const fontSize = masterContent.typography?.fontSize || 12;
-    const padding = masterContent.layout?.padding || { top: 2, right: 2, bottom: 2, left: 2 };
+    // Get master properties that will be applied to ALL positions in the chain
+    const masterTypography = masterContent.typography || {};
+    const masterLayout = masterContent.layout || {};
+    const masterFontSize = masterTypography.fontSize || 12;
+    const masterPadding = masterLayout.padding || { top: 2, right: 2, bottom: 2, left: 2 };
 
     console.log('🔄 CLEAR AND REDISTRIBUTE:', {
       masterContentId,
       originalTextLength: originalText.length,
-      fontSize,
-      chainLength: chain.length
+      masterFontSize,
+      chainLength: chain.length,
+      usingMasterProperties: true
     });
 
     // STEP 4: SIMPLE SEQUENTIAL REDISTRIBUTION - Follow the rule exactly
@@ -636,13 +685,8 @@ function App() {
     // LOG THE ACTUAL CHAIN DATA
     console.log(`🔗 CHAIN DATA for content type: ${contentType}`);
 
-    // Get all regions from data
-    const allRegions: any[] = [];
-    data?.objects.forEach((obj: any) => {
-      if ((obj as any).regions) {
-        allRegions.push(...(obj as any).regions);
-      }
-    });
+    // Get all regions from data (including slices)
+    const allRegions: any[] = getAllRegionsIncludingSlices();
 
     console.log(`📋 Chain positions:`, chain.map((id, index) => {
       const region = allRegions.find(r => r.id === id);
@@ -681,36 +725,37 @@ function App() {
         continue;
       }
 
-      // Get region for capacity calculation
-      const targetRegion = (data?.objects.find((obj: any) =>
-        (obj as any).regions?.some((r: any) => r.id === targetRegionId)
-      ) as any)?.regions?.find((r: any) => r.id === targetRegionId);
+      // Get region for capacity calculation using helper function
+      const targetRegion = findRegionById(targetRegionId);
 
       if (!targetRegion) {
         console.log(`❌ Could not find region ${targetRegionId}, skipping`);
         continue;
       }
 
-      // Get content for typography settings
+      // Get content for updating - but use ONLY master properties for capacity and updating
       const targetContents = newContents.get(targetRegionId) || [];
       const targetContent = targetContents[targetContentIndex];
-
-      const fontSize = targetContent.typography?.fontSize || 12;
-      const padding = targetContent.layout?.padding || { top: 2, right: 2, bottom: 2, left: 2 };
+      
+      // USE ONLY MASTER PROPERTIES for entire chain - no individual content properties
+      const fontSize = masterFontSize;
+      const padding = masterPadding;
       const effectiveWidth = targetRegion.width - padding.left - padding.right;
       const effectiveHeight = targetRegion.height - padding.top - padding.bottom;
       const capacity = calculateTextCapacity(effectiveWidth, effectiveHeight, fontSize);
 
-      console.log(`📊 Position ${position} capacity: ${capacity}, text length: ${currentText.length}`);
+      console.log(`📊 FONT SIZE DEBUG: Position ${position} - fontSize: ${fontSize} (from master), capacity: ${capacity}, text: ${currentText.length} chars`);
 
       // Fill this position completely
       const { fitting, overflow } = splitTextByWords(currentText, capacity);
 
-      // Update content with fitted text
+      // Update content with fitted text AND inherit ALL master properties
       const updatedContents = [...targetContents];
       updatedContents[targetContentIndex] = {
         ...updatedContents[targetContentIndex],
-        content: { ...updatedContents[targetContentIndex].content, text: fitting }
+        content: { ...updatedContents[targetContentIndex].content, text: fitting },
+        typography: { ...masterTypography }, // Inherit ALL master typography
+        layout: { ...masterLayout } // Inherit ALL master layout
       };
       newContents.set(targetRegionId, updatedContents);
 
