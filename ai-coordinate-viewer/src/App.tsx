@@ -736,7 +736,7 @@ function App() {
       // Get content for updating - but use ONLY master properties for capacity and updating
       const targetContents = newContents.get(targetRegionId) || [];
       const targetContent = targetContents[targetContentIndex];
-      
+
       // USE ONLY MASTER PROPERTIES for entire chain - no individual content properties
       const fontSize = masterFontSize;
       const padding = masterPadding;
@@ -746,8 +746,36 @@ function App() {
 
       console.log(`📊 FONT SIZE DEBUG: Position ${position} - fontSize: ${fontSize} (from master), capacity: ${capacity}, text: ${currentText.length} chars`);
 
-      // Fill this position completely
-      const { fitting, overflow } = splitTextByWords(currentText, capacity);
+      const wrapText = (text: string, maxWidth: number): string[] => {
+        const words = text.split(' ');
+        const lines: string[] = [];
+        let currentLine = '';
+        for (const word of words) {
+          const testLine = currentLine ? currentLine + ' ' + word : word;
+          const testWidth = measureTextWidth(testLine);
+          if (testWidth <= maxWidth) {
+            currentLine = testLine;
+          } else {
+            if (currentLine) {
+              lines.push(currentLine);
+              currentLine = word;
+            } else {
+              // Single long word
+              lines.push(word);
+              currentLine = '';
+            }
+          }
+        }
+        if (currentLine) lines.push(currentLine);
+        return lines;
+      };
+
+      const wrapped = wrapText(currentText, textAreaWidthPx);
+      const fittingLines = wrapped.slice(0, maxLines);
+      const fitting = fittingLines.join(' ');
+      const overflow = wrapped.slice(maxLines).join(' ');
+
+      console.log(`📊 Position ${position} lines: ${fittingLines.length}/${maxLines}, overflow chars: ${overflow.length}`);
 
       // Update content with fitted text AND inherit ALL master properties
       const updatedContents = [...targetContents];
@@ -759,9 +787,9 @@ function App() {
       };
       newContents.set(targetRegionId, updatedContents);
 
-      console.log(`✅ Position ${position} filled: ${fitting.length}/${capacity}, overflow: ${overflow.length}`);
+      console.log(`✅ Position ${position} filled; overflow length: ${overflow.length}`);
 
-      // SIMPLE RULE: Move overflow to next position
+      // Move precise overflow to next position
       currentText = overflow;
       console.log(`➡️ Moving ${overflow.length} chars to next position`);
     }
@@ -7987,7 +8015,7 @@ function App() {
                       const verticalAlign = effectiveLayout?.verticalAlign || 'top';
                       const padding = effectiveLayout?.padding || { top: 2, right: 2, bottom: 2, left: 2 };
 
-                      // Calculate region dimensions and text area
+                      // Calculate region dimensions and text area (render coordinates)
                       const regionWidthPx = region.width * scale;
                       const regionHeightPx = region.height * scale;
                       const paddingTopPx = padding.top * scale;
@@ -7995,16 +8023,19 @@ function App() {
                       const paddingBottomPx = padding.bottom * scale;
                       const paddingLeftPx = padding.left * scale;
 
-                      // Text area dimensions (region minus padding)
-                      const textAreaWidth = regionWidthPx - paddingLeftPx - paddingRightPx;
-                      const textAreaHeight = regionHeightPx - paddingTopPx - paddingBottomPx;
+                      // Wrap layout must be zoom-invariant. Compute wrapping in mm→px (no zoom)
+                      const pxPerMm = 3.78;
+                      const wrapWidthPx = (region.width - padding.left - padding.right) * pxPerMm;
+                      const wrapHeightPx = (region.height - padding.top - padding.bottom) * pxPerMm;
 
-                      // Calculate font size based on zoom
+                      // Font sizes: use base for wrap, scaled for render
+                      const baseFontPx = fontSize * pxPerMm;
                       const scaledFontSize = fontSize * zoom;
-                      const lineHeight = scaledFontSize * 1.2;
+                      const lineHeight = scaledFontSize * 1.2; // render spacing
+                      const wrapLineHeight = baseFontPx * 1.2; // wrap spacing (zoom invariant)
 
-                      // Calculate how many lines can fit
-                      const maxLines = Math.floor(textAreaHeight / lineHeight);
+                      // Calculate how many lines can fit (zoom invariant)
+                      const maxLines = Math.floor(wrapHeightPx / wrapLineHeight);
 
                       if (maxLines <= 0) return null;
 
@@ -8050,8 +8081,8 @@ function App() {
                         return lines;
                       };
 
-                      // Wrap text to fit region width
-                      const wrappedLines = wrapText(displayText, textAreaWidth);
+                      // Wrap text to fit region width (zoom invariant)
+                      const wrappedLines = wrapText(displayText, wrapWidthPx);
 
                       // Check if overflow is enabled and text exceeds region capacity
                       let displayLines = wrappedLines;
