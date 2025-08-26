@@ -320,19 +320,55 @@ const MasterFilesManagement: React.FC = () => {
 
       // Render regions (top/bottom etc.) inside mother objects
       const regions = Array.isArray((obj as any).regions) ? (obj as any).regions : [];
-      regions.forEach((r: any) => {
+      regions.forEach((r: any, regionIndex: number) => {
         const rx = x + (r.x || 0);
         const ry = y + (r.y || 0);
         const rw = r.width || 0;
         const rh = r.height || 0;
         const bg = r.backgroundColor || 'rgba(76, 175, 80, 0.08)';
         const border = r.borderColor || '#4CAF50';
-        svgContent += `<rect x="${rx}" y="${ry}" width="${rw}" height="${rh}"
-          fill="${bg}" stroke="${border}" stroke-width="0.5" stroke-dasharray="1,2" opacity="0.9"/>`;
-        // Optional region name label
-        if (r.name) {
+
+        // Check if region has slices (child regions)
+        const hasSlices = r.children && r.children.length > 0;
+
+        if (hasSlices) {
+          // Draw parent region outline (lighter)
+          svgContent += `<rect x="${rx}" y="${ry}" width="${rw}" height="${rh}"
+            fill="rgba(255, 152, 0, 0.05)" stroke="#ff9800" stroke-width="0.3" stroke-dasharray="2,2" opacity="0.7"/>`;
+
+          // Add region label (R1, R2, etc.) - positioned in top-left corner
+          const rLabelSize = Math.max(3, Math.min(4, 3.0 * scale));
+          svgContent += `<text x="${rx + 3}" y="${ry + 12}"
+            fill="#ff9800" font-size="${rLabelSize}" text-anchor="start" font-weight="bold">
+            R${regionIndex + 1}</text>`;
+
+          // Draw child slices
+          r.children.forEach((childRegion: any, childIndex: number) => {
+            const childX = x + (childRegion.x || 0);
+            const childY = y + (childRegion.y || 0);
+            const childW = childRegion.width || 0;
+            const childH = childRegion.height || 0;
+            const childBg = childRegion.backgroundColor || 'rgba(76, 175, 80, 0.1)';
+            const childBorder = childRegion.borderColor || '#4CAF50';
+
+            // Draw slice rectangle
+            svgContent += `<rect x="${childX}" y="${childY}" width="${childW}" height="${childH}"
+              fill="${childBg}" stroke="${childBorder}" stroke-width="0.5" stroke-dasharray="3,3" opacity="0.8"/>`;
+
+            // Add slice label
+            const sliceLabelSize = Math.max(2, Math.min(3, 2.2 * scale));
+            svgContent += `<text x="${childX + childW - 2}" y="${childY + 8}"
+              fill="${childBorder}" font-size="${sliceLabelSize}" text-anchor="end" font-weight="bold">
+              S${childIndex + 1}</text>`;
+          });
+        } else {
+          // Draw regular region (no slices)
+          svgContent += `<rect x="${rx}" y="${ry}" width="${rw}" height="${rh}"
+            fill="${bg}" stroke="${border}" stroke-width="0.5" stroke-dasharray="1,2" opacity="0.9"/>`;
+
+          // Add region label (R1, R2, etc.) - positioned in top-left corner
           const rLabelSize = Math.max(3, Math.min(4, 3.2 * scale));
-          svgContent += `<text x="${rx + rw / 2}" y="${ry + 12}" fill="#4CAF50" font-size="${rLabelSize}" font-weight="bold" text-anchor="middle">${r.name}</text>`;
+          svgContent += `<text x="${rx + 3}" y="${ry + 12}" fill="#4CAF50" font-size="${rLabelSize}" font-weight="bold" text-anchor="start">R${regionIndex + 1}</text>`;
         }
       });
 
