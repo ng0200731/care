@@ -746,6 +746,25 @@ function App() {
 
       console.log(`📊 FONT SIZE DEBUG: Position ${position} - fontSize: ${fontSize} (from master), capacity: ${capacity}, text: ${currentText.length} chars`);
 
+      // Add missing variables for text wrapping
+      const mmToPx = 3.78;
+      const fontFamily = masterTypography.fontFamily || 'Arial';
+      const textAreaWidthPx = Math.max(0, effectiveWidth * mmToPx);
+      const textAreaHeightPx = Math.max(0, effectiveHeight * mmToPx);
+      const scaledFontSize = fontSize; // typography font size is already in px
+      const lineHeightPx = scaledFontSize * 1.2;
+      const maxLines = Math.max(0, Math.floor(textAreaHeightPx / lineHeightPx));
+
+      const measureTextWidth = (text: string) => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.font = `${scaledFontSize}px ${fontFamily}`;
+          return ctx.measureText(text).width;
+        }
+        return text.length * scaledFontSize * 0.6;
+      };
+
       const wrapText = (text: string, maxWidth: number): string[] => {
         const words = text.split(' ');
         const lines: string[] = [];
@@ -6658,8 +6677,8 @@ function App() {
                                       );
                                     })()}
 
-                                    {/* Delete button - Master File Mode only */}
-                                    {isMasterFileMode && (
+                                    {/* Delete button - Available in both Master File Mode and Project Mode */}
+                                    {(isMasterFileMode || isProjectMode) && (
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
