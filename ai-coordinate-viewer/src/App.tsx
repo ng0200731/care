@@ -456,19 +456,237 @@ function App() {
     return null;
   };
 
-  // Calculate text capacity using line-based method
-  const calculateTextCapacity = (regionWidth: number, regionHeight: number, fontSize: number = 12): number => {
-    const avgCharWidth = fontSize * 0.6; // Approximate character width
-    const lineHeight = fontSize * 1.2;   // Standard line height
+  // PHASE 1: Precise text measurement utilities
+  const createTextMeasurementCanvas = (): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } | null => {
+    try {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
 
-    const charsPerLine = Math.floor(regionWidth / avgCharWidth);
-    const maxLines = Math.floor(regionHeight / lineHeight);
+      // Set high DPI for accurate measurements
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = 1000 * dpr;
+      canvas.height = 1000 * dpr;
+      ctx.scale(dpr, dpr);
 
-    return charsPerLine * maxLines; // Total character capacity
+      return { canvas, ctx };
+    } catch (error) {
+      console.warn('Failed to create measurement canvas:', error);
+      return null;
+    }
   };
 
-  // Split text by words to fit capacity
+  const measureTextPrecisely = (
+    text: string,
+    fontSize: number,
+    fontFamily: string = 'Arial'
+  ): { width: number; height: number } => {
+    const measurement = createTextMeasurementCanvas();
+    if (!measurement) {
+      // Fallback to approximation if canvas fails
+      return {
+        width: text.length * fontSize * 0.6,
+        height: fontSize * 1.2
+      };
+    }
+
+    const { ctx } = measurement;
+    ctx.font = `${fontSize}px ${fontFamily}`;
+
+    const metrics = ctx.measureText(text);
+    const width = metrics.width;
+
+    // Calculate actual text height using font metrics
+    const height = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+
+    return {
+      width: width,
+      height: height || fontSize // Fallback if actualBoundingBox not supported
+    };
+  };
+
+  const getZoomInvariantMeasurements = (
+    regionWidth: number,
+    regionHeight: number,
+    padding: { top: number; right: number; bottom: number; left: number }
+  ): { effectiveWidth: number; effectiveHeight: number } => {
+    // Always work in mm units - zoom should not affect these calculations
+    const effectiveWidth = Math.max(0, regionWidth - padding.left - padding.right);
+    const effectiveHeight = Math.max(0, regionHeight - padding.top - padding.bottom);
+
+    return { effectiveWidth, effectiveHeight };
+  };
+
+  // ENHANCED: Calculate precise text capacity with actual measurements
+  const calculatePreciseTextCapacity = (
+    regionWidth: number,
+    regionHeight: number,
+    fontSize: number = 12,
+    fontFamily: string = 'Arial',
+    padding: { top: number; right: number; bottom: number; left: number } = { top: 2, right: 2, bottom: 2, left: 2 }
+  ): { maxLines: number; avgCharsPerLine: number; totalCapacity: number; utilizationTarget: number } => {
+
+    const { effectiveWidth, effectiveHeight } = getZoomInvariantMeasurements(regionWidth, regionHeight, padding);
+
+    // Convert mm to pixels for text measurement (3.78 px/mm at 96 DPI)
+    const mmToPx = 3.78;
+    const effectiveWidthPx = effectiveWidth * mmToPx;
+    const effectiveHeightPx = effectiveHeight * mmToPx;
+
+    // Measure actual line height with the specific font
+    const sampleText = "Ag"; // Contains ascenders and descenders
+    const lineMetrics = measureTextPrecisely(sampleText, fontSize, fontFamily);
+    const actualLineHeight = Math.max(lineMetrics.height * 1.2, fontSize * 1.2); // 1.2 line spacing
+
+    // Calculate maximum lines that can fit
+    const maxLines = Math.floor(effectiveHeightPx / actualLineHeight);
+
+    // Measure average character width using common text sample
+    const charSample = "The quick brown fox jumps over the lazy dog 1234567890";
+    const charMetrics = measureTextPrecisely(charSample, fontSize, fontFamily);
+    const avgCharWidth = charMetrics.width / charSample.length;
+
+    // Calculate average characters per line
+    const avgCharsPerLine = Math.floor(effectiveWidthPx / avgCharWidth);
+
+    // Total capacity with safety margin
+    const totalCapacity = maxLines * avgCharsPerLine;
+
+    // Set utilization target to 95% - only overflow when region is 95% full
+    const utilizationTarget = Math.floor(totalCapacity * 0.95);
+
+    return {
+      maxLines,
+      avgCharsPerLine,
+      totalCapacity,
+      utilizationTarget
+    };
+  };
+
+  // LEGACY: Keep old function for backward compatibility during transition
+  const calculateTextCapacity = (regionWidth: number, regionHeight: number, fontSize: number = 12): number => {
+    // Use new precise calculation but return only total capacity for compatibility
+    const precise = calculatePreciseTextCapacity(regionWidth, regionHeight, fontSize);
+    return precise.utilizationTarget; // Return the 95% target instead of full capacity
+  };
+
+  // PHASE 1: Enhanced text fitting with precise measurements
+  const findOptimalTextFit = (
+    text: string,
+    regionWidth: number,
+    regionHeight: number,
+    fontSize: number,
+    fontFamily: string = 'Arial',
+    padding: { top: number; right: number; bottom: number; left: number } = { top: 2, right: 2, bottom: 2, left: 2 }
+  ): { fitting: string; overflow: string; utilizationPercent: number; linesUsed: number; fittingLines: string[] } => {
+
+    if (!text || text.length === 0) {
+      return { fitting: '', overflow: '', utilizationPercent: 0, linesUsed: 0, fittingLines: [] };
+    }
+
+    const { effectiveWidth, effectiveHeight } = getZoomInvariantMeasurements(regionWidth, regionHeight, padding);
+    const mmToPx = 3.78;
+    const effectiveWidthPx = effectiveWidth * mmToPx;
+    const effectiveHeightPx = effectiveHeight * mmToPx;
+
+    // Get precise capacity metrics
+    const capacity = calculatePreciseTextCapacity(regionWidth, regionHeight, fontSize, fontFamily, padding);
+
+    // Create measurement context
+    const measurement = createTextMeasurementCanvas();
+    if (!measurement) {
+      console.warn('❌ Canvas measurement not available, using legacy fallback');
+      // Fallback to simple word-based splitting
+      const legacyResult = splitTextByWordsLegacy(text, capacity.utilizationTarget);
+      const legacyLines = legacyResult.fitting.split(' ').reduce((lines: string[], word: string, index: number) => {
+        if (index === 0) {
+          lines.push(word);
+        } else {
+          const lastLine = lines[lines.length - 1];
+          if (lastLine.length + word.length + 1 <= capacity.avgCharsPerLine) {
+            lines[lines.length - 1] = lastLine + ' ' + word;
+          } else {
+            lines.push(word);
+          }
+        }
+        return lines;
+      }, []);
+
+      return {
+        fitting: legacyResult.fitting,
+        overflow: legacyResult.overflow,
+        utilizationPercent: legacyResult.fitting.length > 0 ? (legacyResult.fitting.length / capacity.totalCapacity) * 100 : 0,
+        linesUsed: legacyLines.length,
+        fittingLines: legacyLines
+      };
+    }
+
+    const { ctx } = measurement;
+    ctx.font = `${fontSize}px ${fontFamily}`;
+
+    const lineHeight = Math.max(fontSize * 1.2, measureTextPrecisely("Ag", fontSize, fontFamily).height * 1.2);
+    const maxLines = Math.floor(effectiveHeightPx / lineHeight);
+
+    // Split text into words for processing
+    const words = text.split(' ');
+    const fittingLines: string[] = [];
+    let currentLine = '';
+    let wordIndex = 0;
+
+    // Build lines word by word, measuring actual width
+    while (wordIndex < words.length && fittingLines.length < maxLines) {
+      const word = words[wordIndex];
+      const testLine = currentLine ? `${currentLine} ${word}` : word;
+      const lineWidth = ctx.measureText(testLine).width;
+
+      if (lineWidth <= effectiveWidthPx) {
+        // Word fits on current line
+        currentLine = testLine;
+        wordIndex++;
+      } else {
+        // Word doesn't fit, start new line
+        if (currentLine) {
+          fittingLines.push(currentLine);
+          currentLine = word;
+          wordIndex++;
+        } else {
+          // Single word is too long for line - force it and move on
+          fittingLines.push(word);
+          currentLine = '';
+          wordIndex++;
+        }
+      }
+    }
+
+    // Add the last line if it has content
+    if (currentLine && fittingLines.length < maxLines) {
+      fittingLines.push(currentLine);
+    }
+
+    // Calculate results
+    const fitting = fittingLines.join(' ');
+    const remainingWords = words.slice(wordIndex);
+    const overflow = remainingWords.join(' ');
+
+    // Calculate utilization percentage
+    const totalPossibleChars = capacity.totalCapacity;
+    const utilizationPercent = totalPossibleChars > 0 ? (fitting.length / totalPossibleChars) * 100 : 0;
+
+    return {
+      fitting,
+      overflow,
+      utilizationPercent,
+      linesUsed: fittingLines.length,
+      fittingLines
+    };
+  };
+
+  // LEGACY: Keep old function for backward compatibility
   const splitTextByWords = (text: string, capacity: number): { fitting: string; overflow: string } => {
+    return splitTextByWordsLegacy(text, capacity);
+  };
+
+  const splitTextByWordsLegacy = (text: string, capacity: number): { fitting: string; overflow: string } => {
     if (text.length <= capacity) {
       return { fitting: text, overflow: '' };
     }
@@ -524,7 +742,7 @@ function App() {
     const initiatorContent = initiatorContents.find((c: any) => c.id === initiatorContentId);
     const originalText = initiatorContent?.content?.text || '';
 
-    console.log(`📝 Original text from initiator (${originalText.length} chars):`, originalText.substring(0, 50) + '...');
+
 
     // Clear ALL in the chain (including initiator at position 0)
     const newContents = new Map(regionContents);
@@ -688,11 +906,16 @@ function App() {
     // Get all regions from data (including slices)
     const allRegions: any[] = getAllRegionsIncludingSlices();
 
-    console.log(`📋 Chain positions:`, chain.map((id, index) => {
-      const region = allRegions.find(r => r.id === id);
-      const contents = regionContents.get(id) || [];
-      const targetContent = contents.find(c => c.content.type === contentType);
-      return `${index}: ${region?.name || id} (${contentType}) - hasText: ${!!targetContent?.content.text}`;
+    console.log(`📋 Chain positions:`, chain.map((contentId, index) => {
+      // Find which region contains this content ID
+      const regionEntry = Array.from(regionContents.entries()).find(([regionId, contents]) =>
+        contents.some((c: any) => c.id === contentId)
+      );
+      const regionId = regionEntry ? regionEntry[0] : 'unknown';
+      const region = allRegions.find(r => r.id === regionId);
+      const contents = regionContents.get(regionId) || [];
+      const targetContent = contents.find(c => c.id === contentId);
+      return `${index}: ${region?.name || regionId} (content: ${contentId}) - hasText: ${!!targetContent?.content.text}`;
     }));
 
     // Process each position in chain sequentially
@@ -740,61 +963,44 @@ function App() {
       // USE ONLY MASTER PROPERTIES for entire chain - no individual content properties
       const fontSize = masterFontSize;
       const padding = masterPadding;
-      const effectiveWidth = targetRegion.width - padding.left - padding.right;
-      const effectiveHeight = targetRegion.height - padding.top - padding.bottom;
-      const capacity = calculateTextCapacity(effectiveWidth, effectiveHeight, fontSize);
-
-      console.log(`📊 FONT SIZE DEBUG: Position ${position} - fontSize: ${fontSize} (from master), capacity: ${capacity}, text: ${currentText.length} chars`);
-
-      // Add missing variables for text wrapping
-      const mmToPx = 3.78;
       const fontFamily = masterTypography.fontFamily || 'Arial';
-      const textAreaWidthPx = Math.max(0, effectiveWidth * mmToPx);
-      const textAreaHeightPx = Math.max(0, effectiveHeight * mmToPx);
-      const scaledFontSize = fontSize; // typography font size is already in px
-      const lineHeightPx = scaledFontSize * 1.2;
-      const maxLines = Math.max(0, Math.floor(textAreaHeightPx / lineHeightPx));
 
-      const measureTextWidth = (text: string) => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.font = `${scaledFontSize}px ${fontFamily}`;
-          return ctx.measureText(text).width;
-        }
-        return text.length * scaledFontSize * 0.6;
-      };
+      // PHASE 1: Use precise capacity calculation
+      const preciseCapacity = calculatePreciseTextCapacity(
+        targetRegion.width,
+        targetRegion.height,
+        fontSize,
+        fontFamily,
+        padding
+      );
 
-      const wrapText = (text: string, maxWidth: number): string[] => {
-        const words = text.split(' ');
-        const lines: string[] = [];
-        let currentLine = '';
-        for (const word of words) {
-          const testLine = currentLine ? currentLine + ' ' + word : word;
-          const testWidth = measureTextWidth(testLine);
-          if (testWidth <= maxWidth) {
-            currentLine = testLine;
-          } else {
-            if (currentLine) {
-              lines.push(currentLine);
-              currentLine = word;
-            } else {
-              // Single long word
-              lines.push(word);
-              currentLine = '';
-            }
-          }
-        }
-        if (currentLine) lines.push(currentLine);
-        return lines;
-      };
+      const capacity = preciseCapacity.utilizationTarget; // Use 95% target for overflow trigger
 
-      const wrapped = wrapText(currentText, textAreaWidthPx);
-      const fittingLines = wrapped.slice(0, maxLines);
-      const fitting = fittingLines.join(' ');
-      const overflow = wrapped.slice(maxLines).join(' ');
+      console.log(`📊 PRECISE CAPACITY DEBUG: Position ${position}:`);
+      console.log(`   - Region: ${targetRegion.width}×${targetRegion.height}mm`);
+      console.log(`   - Font: ${fontSize}px ${fontFamily}`);
+      console.log(`   - Lines: ${preciseCapacity.maxLines}, Chars/line: ${preciseCapacity.avgCharsPerLine}`);
+      console.log(`   - Total capacity: ${preciseCapacity.totalCapacity}, Target: ${capacity}`);
+      console.log(`   - Current text: ${currentText.length} chars`);
 
-      console.log(`📊 Position ${position} lines: ${fittingLines.length}/${maxLines}, overflow chars: ${overflow.length}`);
+      // PHASE 1: Use optimal text fitting with precise measurements
+      const optimalFit = findOptimalTextFit(
+        currentText,
+        targetRegion.width,
+        targetRegion.height,
+        fontSize,
+        fontFamily,
+        padding
+      );
+
+      const fitting = optimalFit.fitting;
+      const overflow = optimalFit.overflow;
+
+      console.log(`📊 OPTIMAL FIT Position ${position}:`);
+      console.log(`   - Lines used: ${optimalFit.linesUsed}/${preciseCapacity.maxLines}`);
+      console.log(`   - Utilization: ${optimalFit.utilizationPercent.toFixed(1)}%`);
+      console.log(`   - Fitting: ${fitting.length} chars`);
+      console.log(`   - Overflow: ${overflow.length} chars`);
 
       // Update content with fitted text AND inherit ALL master properties
       const updatedContents = [...targetContents];
@@ -8034,88 +8240,40 @@ function App() {
                       const verticalAlign = effectiveLayout?.verticalAlign || 'top';
                       const padding = effectiveLayout?.padding || { top: 2, right: 2, bottom: 2, left: 2 };
 
-                      // Calculate region dimensions and text area (render coordinates)
+                      // PHASE 1: Use precise text measurement for rendering
+                      const preciseCapacity = calculatePreciseTextCapacity(
+                        region.width,
+                        region.height,
+                        fontSize,
+                        fontFamily,
+                        padding
+                      );
+
+                      const optimalFit = findOptimalTextFit(
+                        displayText,
+                        region.width,
+                        region.height,
+                        fontSize,
+                        fontFamily,
+                        padding
+                      );
+
+                      // Use optimal fit results for display - lines are already calculated!
+                      const displayLines = optimalFit.fittingLines;
+                      const hasOverflow = optimalFit.overflow.length > 0;
+
+                      // Calculate render coordinates (zoom-dependent)
                       const regionWidthPx = region.width * scale;
                       const regionHeightPx = region.height * scale;
                       const paddingTopPx = padding.top * scale;
                       const paddingRightPx = padding.right * scale;
                       const paddingBottomPx = padding.bottom * scale;
                       const paddingLeftPx = padding.left * scale;
+                      const scaledFontSize = Math.max(6, fontSize * zoom);
+                      const lineHeight = scaledFontSize * 1.2;
 
-                      // Wrap layout must be zoom-invariant. Compute wrapping in mm→px (no zoom)
-                      const pxPerMm = 3.78;
-                      const wrapWidthPx = (region.width - padding.left - padding.right) * pxPerMm;
-                      const wrapHeightPx = (region.height - padding.top - padding.bottom) * pxPerMm;
-
-                      // Font sizes: use base for wrap, scaled for render
-                      const baseFontPx = fontSize * pxPerMm;
-                      const scaledFontSize = fontSize * zoom;
-                      const lineHeight = scaledFontSize * 1.2; // render spacing
-                      const wrapLineHeight = baseFontPx * 1.2; // wrap spacing (zoom invariant)
-
-                      // Calculate how many lines can fit (zoom invariant)
-                      const maxLines = Math.floor(wrapHeightPx / wrapLineHeight);
-
-                      if (maxLines <= 0) return null;
-
-                      // Text measurement function
-                      const measureTextWidth = (text: string) => {
-                        const canvas = document.createElement('canvas');
-                        const ctx = canvas.getContext('2d');
-                        if (ctx) {
-                          ctx.font = `${scaledFontSize}px ${fontFamily}`;
-                          return ctx.measureText(text).width;
-                        }
-                        return text.length * scaledFontSize * 0.6; // Fallback estimation
-                      };
-
-                      // Word wrap function
-                      const wrapText = (text: string, maxWidth: number): string[] => {
-                        const words = text.split(' ');
-                        const lines: string[] = [];
-                        let currentLine = '';
-
-                        for (const word of words) {
-                          const testLine = currentLine ? currentLine + ' ' + word : word;
-                          const testWidth = measureTextWidth(testLine);
-
-                          if (testWidth <= maxWidth) {
-                            currentLine = testLine;
-                          } else {
-                            if (currentLine) {
-                              lines.push(currentLine);
-                              currentLine = word;
-                            } else {
-                              // Single word too long, force it
-                              lines.push(word);
-                              currentLine = '';
-                            }
-                          }
-                        }
-
-                        if (currentLine) {
-                          lines.push(currentLine);
-                        }
-
-                        return lines;
-                      };
-
-                      // Wrap text to fit region width (zoom invariant)
-                      const wrappedLines = wrapText(displayText, wrapWidthPx);
-
-                      // Check if overflow is enabled and text exceeds region capacity
-                      let displayLines = wrappedLines;
-                      let hasOverflow = false;
-
-                      if (isOverflowEnabled(content.id) && wrappedLines.length > maxLines) {
-                        // Text overflows - split at line boundary
-                        displayLines = wrappedLines.slice(0, maxLines);
-                        hasOverflow = true;
-
-                        // Get overflow text (remaining lines)
-                        const overflowLines = wrappedLines.slice(maxLines);
-                        const overflowText = overflowLines.join(' ');
-
+                      // Handle overflow using Phase 1 results
+                      if (isOverflowEnabled(content.id) && hasOverflow) {
                         // Find next region in overflow chain
                         const contentType = content.type;
                         const chain = overflowChains.get(contentType) || [];
@@ -8132,7 +8290,7 @@ function App() {
                             }
                           });
 
-                          if (nextRegionId && overflowText.trim()) {
+                          if (nextRegionId && optimalFit.overflow.trim()) {
                             // Update next region's content with overflow text
                             setTimeout(() => {
                               setRegionContents(prevContents => {
@@ -8145,7 +8303,7 @@ function App() {
                                       ...c,
                                       content: {
                                         ...c.content,
-                                        text: overflowText
+                                        text: optimalFit.overflow
                                       }
                                     };
                                   }
@@ -8182,29 +8340,54 @@ function App() {
                         startY = baseY + (region.y * scale) + regionHeightPx - paddingBottomPx - totalTextHeight;
                       }
 
-                      // Render each line
-                      return displayLines.map((line, lineIndex) => {
-                        const textY = startY + (lineIndex + 1) * lineHeight;
+                      // Create clipping path to ensure text stays within region boundaries
+                      const clipPathId = `clip-${region.id}-${contentIndex}`;
+                      const clipX = baseX + (region.x * scale) + paddingLeftPx;
+                      const clipY = baseY + (region.y * scale) + paddingTopPx;
+                      const clipWidth = regionWidthPx - paddingLeftPx - paddingRightPx;
+                      const clipHeight = regionHeightPx - paddingTopPx - paddingBottomPx;
 
-                        return (
-                          <text
-                            key={`${region.id}-preview-${contentIndex}-line-${lineIndex}`}
-                            x={textX}
-                            y={textY}
-                            fill={fontColor}
-                            fontSize={scaledFontSize}
-                            fontFamily={fontFamily}
-                            textAnchor={textAnchor}
-                            dominantBaseline="alphabetic"
-                            opacity="0.9"
-                            style={{
-                              pointerEvents: 'none'
-                            }}
-                          >
-                            {line}
-                          </text>
-                        );
-                      });
+                      return (
+                        <g key={`${region.id}-text-group-${contentIndex}`}>
+                          {/* Define clipping path */}
+                          <defs>
+                            <clipPath id={clipPathId}>
+                              <rect
+                                x={clipX}
+                                y={clipY}
+                                width={clipWidth}
+                                height={clipHeight}
+                              />
+                            </clipPath>
+                          </defs>
+
+                          {/* Render text lines with clipping */}
+                          <g clipPath={`url(#${clipPathId})`}>
+                            {displayLines.map((line, lineIndex) => {
+                              const textY = startY + (lineIndex + 1) * lineHeight;
+
+                              return (
+                                <text
+                                  key={`${region.id}-preview-${contentIndex}-line-${lineIndex}`}
+                                  x={textX}
+                                  y={textY}
+                                  fill={fontColor}
+                                  fontSize={scaledFontSize}
+                                  fontFamily={fontFamily}
+                                  textAnchor={textAnchor}
+                                  dominantBaseline="alphabetic"
+                                  opacity="0.9"
+                                  style={{
+                                    pointerEvents: 'none'
+                                  }}
+                                >
+                                  {line}
+                                </text>
+                              );
+                            })}
+                          </g>
+                        </g>
+                      );
                     });
                   })()}
 
