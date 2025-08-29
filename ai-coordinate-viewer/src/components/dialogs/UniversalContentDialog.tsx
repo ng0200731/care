@@ -514,11 +514,7 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
       }
     }));
 
-    // Trigger overflow recalculation for font size changes
-    if (field === 'fontSize') {
-      console.log(`📏 FONT SIZE CHANGED: ${value} - triggering redistribution...`);
-      triggerOverflowRecalculation();
-    }
+    // Note: Overflow recalculation will be triggered on save, not during input changes
   };
 
   const handleContentChange = (field: string, value: any) => {
@@ -530,10 +526,7 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
       }
     }));
 
-    // Trigger overflow recalculation for text content changes
-    if (field === 'text') {
-      triggerOverflowRecalculation();
-    }
+    // Note: Overflow recalculation will be triggered on save, not during input changes
   };
 
   // Apply padding to all sides
@@ -588,8 +581,7 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
       }));
     }
 
-    // Trigger overflow recalculation for padding changes (affects text capacity)
-    triggerOverflowRecalculation();
+    // Note: Overflow recalculation will be triggered on save, not during input changes
   };
 
   const handleSave = () => {
