@@ -518,6 +518,12 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
   };
 
   const handleContentChange = (field: string, value: any) => {
+    console.log('🔍 CONTENT CHANGE DEBUG:');
+    console.log('   - Field:', field);
+    console.log('   - Value Length:', value?.length || 0);
+    console.log('   - Value Preview:', value?.substring(0, 50));
+    console.log('   - Full Value:', value);
+
     setFormData(prev => ({
       ...prev,
       content: {

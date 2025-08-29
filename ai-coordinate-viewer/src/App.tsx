@@ -820,6 +820,177 @@ function App() {
   };
 
   // CLEAR AND REDISTRIBUTE: When initiator changes, clear all connectors and redistribute from scratch
+  const recalculateOverflowChainWithText = (contentId: string, newText: string) => {
+    const contentType = getContentTypeFromId(contentId);
+    const chain = overflowChains.get(contentType) || [];
+
+    if (chain.length === 0) return;
+
+    // Find the initiator (first in chain) regardless of which content ID was passed
+    const masterContentId = chain[0];
+
+    // If this content is not in the chain, ignore
+    if (!chain.includes(contentId)) return;
+
+    console.log(`🔄 FONT SIZE REDISTRIBUTION WITH TEXT: Starting for ${contentType} (triggered by ${contentId}, initiator: ${masterContentId})`);
+
+    // Use the provided text directly instead of reading from state
+    const originalText = newText || '';
+
+    console.log(`📝 Starting redistribution with provided text (${originalText.length} chars)`);
+    console.log(`🔍 PROVIDED TEXT DEBUG:`);
+    console.log('   - Master Content ID:', masterContentId);
+    console.log('   - Provided Text:', originalText);
+    console.log('   - Text Length:', originalText.length);
+
+    // STEP 2: Clear ALL positions in the chain
+    const newContents = new Map(regionContents);
+
+    chain.forEach((contentId, index) => {
+      const regionEntry = Array.from(regionContents.entries()).find(([regionId, contents]) =>
+        contents.some((c: any) => c.id === contentId)
+      );
+
+      if (regionEntry) {
+        const [regionId, contents] = regionEntry;
+        const updatedContents = [...contents];
+        const contentIndex = updatedContents.findIndex((c: any) => c.id === contentId);
+
+        if (contentIndex !== -1) {
+          updatedContents[contentIndex] = {
+            ...updatedContents[contentIndex],
+            content: { ...updatedContents[contentIndex].content, text: '' }
+          };
+          newContents.set(regionId, updatedContents);
+          console.log(`🗑️ Cleared position ${index}: ${regionId}/${contentId}`);
+        }
+      }
+    });
+
+    // STEP 3: Get master region for capacity calculation
+    const masterRegionEntry = Array.from(regionContents.entries()).find(([regionId, contents]) =>
+      contents.some((c: any) => c.id === masterContentId)
+    );
+
+    if (!masterRegionEntry) return;
+
+    const [masterRegionId] = masterRegionEntry;
+    const masterContents = regionContents.get(masterRegionId) || [];
+    const masterContent = masterContents.find((c: any) => c.id === masterContentId);
+    if (!masterContent) return;
+
+    const masterRegion = (data?.objects.find((obj: any) =>
+      (obj as any).regions?.some((r: any) => r.id === masterRegionId)
+    ) as any)?.regions?.find((r: any) => r.id === masterRegionId);
+
+    if (!masterRegion) return;
+
+    // Get master properties that will be applied to ALL positions in the chain
+    const masterTypography = masterContent.typography || {};
+    const masterLayout = masterContent.layout || {};
+    const masterFontSize = masterTypography.fontSize || 12;
+    const masterPadding = masterLayout.padding || { top: 2, right: 2, bottom: 2, left: 2 };
+
+    console.log('🔄 CLEAR AND REDISTRIBUTE:', {
+      masterContentId,
+      originalTextLength: originalText.length,
+      masterFontSize,
+      chainLength: chain.length,
+      usingMasterProperties: true
+    });
+
+    // Continue with redistribution using the provided text...
+    let currentText = originalText;
+
+    // Process each position in chain sequentially
+    for (let position = 0; position < chain.length; position++) {
+      const contentId = chain[position];
+      const isInitiator = position === 0;
+
+      console.log(`📍 Processing position ${position} (${isInitiator ? 'INITIATOR' : 'CONNECTOR'}): ${contentId}`);
+
+      if (!currentText || currentText.length === 0) {
+        console.log(`🛑 No more text to distribute, stopping at position ${position}`);
+        break;
+      }
+
+      // Find region containing this content
+      let targetRegionId = '';
+      let targetContentIndex = -1;
+
+      for (const [regionId, contents] of Array.from(newContents.entries())) {
+        const foundIndex = contents.findIndex((c: any) => c.id === contentId);
+        if (foundIndex !== -1) {
+          targetRegionId = regionId;
+          targetContentIndex = foundIndex;
+          break;
+        }
+      }
+
+      if (targetContentIndex === -1) {
+        console.log(`❌ Could not find content ${contentId}, skipping`);
+        continue;
+      }
+
+      // Get region for capacity calculation
+      const targetRegion = (data?.objects.find((obj: any) =>
+        (obj as any).regions?.some((r: any) => r.id === targetRegionId)
+      ) as any)?.regions?.find((r: any) => r.id === targetRegionId);
+
+      if (!targetRegion) {
+        console.log(`❌ Could not find region ${targetRegionId}, skipping`);
+        continue;
+      }
+
+      // Get content for updating
+      const targetContents = newContents.get(targetRegionId) || [];
+      const targetContent = targetContents[targetContentIndex];
+
+      // Use master properties for entire chain
+      const fontSize = masterFontSize;
+      const padding = masterPadding;
+      const fontFamily = masterTypography.fontFamily || 'Arial';
+
+      // Use optimal text fitting
+      const optimalFit = findOptimalTextFit(
+        currentText,
+        targetRegion.width,
+        targetRegion.height,
+        fontSize,
+        fontFamily,
+        padding
+      );
+
+      const fitting = optimalFit.fitting;
+      const overflow = optimalFit.overflow;
+
+      console.log(`📊 OPTIMAL FIT Position ${position}:`);
+      console.log(`   - Fitting: ${fitting.length} chars`);
+      console.log(`   - Overflow: ${overflow.length} chars`);
+
+      // Update content with fitted text
+      const updatedContents = [...targetContents];
+      updatedContents[targetContentIndex] = {
+        ...updatedContents[targetContentIndex],
+        content: { ...updatedContents[targetContentIndex].content, text: fitting },
+        typography: { ...masterTypography },
+        layout: { ...masterLayout }
+      };
+      newContents.set(targetRegionId, updatedContents);
+
+      console.log(`✅ Position ${position} filled; overflow length: ${overflow.length}`);
+
+      // Move overflow to next position
+      currentText = overflow;
+      console.log(`➡️ Moving ${overflow.length} chars to next position`);
+    }
+
+    console.log(`🏁 Sequential redistribution complete`);
+
+    // Update state with final result
+    setRegionContents(newContents);
+  };
+
   const recalculateOverflowChain = (contentId: string) => {
     const contentType = getContentTypeFromId(contentId);
     const chain = overflowChains.get(contentType) || [];
@@ -850,6 +1021,12 @@ function App() {
     const originalText = masterContent.content.text || '';
 
     console.log(`📝 Starting redistribution with original text (${originalText.length} chars)`);
+    console.log(`🔍 MASTER CONTENT DEBUG:`);
+    console.log('   - Master Content ID:', masterContentId);
+    console.log('   - Original Text Full:', originalText);
+    console.log('   - Original Text Length:', originalText.length);
+    console.log('   - Master Content Object:', masterContent);
+    console.log('   - Content.text:', masterContent.content.text);
 
     // STEP 2: Clear ALL positions in the chain
     const newContents = new Map(regionContents);
@@ -4527,6 +4704,13 @@ function App() {
   };
 
   const handleUniversalContentSave = (data: UniversalContentData) => {
+    // DEBUG: Log what data is received from dialog
+    console.log('🔍 APP SAVE RECEIVED:');
+    console.log('   - Data Type:', data.type);
+    console.log('   - Data Content:', data.content);
+    console.log('   - Data Content Text:', data.content.text);
+    console.log('   - Text Length:', data.content.text?.length || 0);
+
     // In Project Mode, ensure content occupies the whole region
     let contentData = data;
     if (isProjectMode) {
@@ -4599,6 +4783,12 @@ function App() {
       if (role === 'initiator') {
         setMasterPropertiesVersion(prev => prev + 1);
         console.log('🔄 Master properties updated, incrementing version for connector sync');
+
+        // CRITICAL: Trigger overflow redistribution when initiator content changes
+        // Pass the new text directly to avoid state timing issues
+        setTimeout(() => {
+          recalculateOverflowChainWithText(universalDialog.editingContent.id, contentData.content.text);
+        }, 100);
       }
     }
 
