@@ -1071,7 +1071,7 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
             <div>
               <label style={labelStyle}>Paragraph Content:</label>
               <textarea
-                value={formData.content.text || ''}
+                value={formData.content.originalText || formData.content.text || ''}
                 onChange={(e) => handleContentChange('text', e.target.value)}
                 style={{ ...inputStyle, height: '120px', resize: 'vertical' }}
                 placeholder="Enter your paragraph content here..."
