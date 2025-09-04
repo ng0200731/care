@@ -5670,60 +5670,107 @@ function App() {
                     contentType: content.type
                   });
 
-                  // Choose display text based on available space - prioritize actual content with wrapping
+                  // Choose display text based on available space - use same logic as web view
                   let displayText: string;
-                  if (childRegion.width >= 12 && childRegion.height >= 6) {
-                    // If slice has good dimensions for readable text, use full text (will be wrapped)
+                  if (childRegion.width >= 5 && childRegion.height >= 3) {
+                    // If slice has minimum dimensions, use full text (will be wrapped exactly like web)
                     displayText = fullText;
-                  } else if (childRegion.width >= 8 && childRegion.height >= 4) {
-                    // For medium slices, use abbreviated content type
-                    displayText = abbreviatedLabels[content.type] || content.type.substring(0, 6);
                   } else {
-                    // Too small for readable text
+                    // Too small for any text (same as web view)
                     displayText = '';
                   }
 
                   // Only render text if we have something to show
                   if (displayText) {
-                    const textX = childX + 0.5; // Smaller left margin
-                    const textY = childY + 2.5; // Top margin
-                    const maxWidth = childRegion.width - 1; // Available width with minimal margins
-                    const maxHeight = childRegion.height - 3; // Available height with minimal margins
+                    // Get the actual content object to access typography and layout settings
+                    const contentObj = sliceContents[0];
 
-                    // Use larger, more readable font size
-                    const fontSize = Math.max(8, Math.min(10, childRegion.width / 8)); // Dynamic font size based on width
-                    pdf.setFontSize(fontSize);
-                    pdf.setFont('helvetica', 'normal');
-                    pdf.setTextColor(0, 0, 0);
+                    // Use the same typography and layout logic as web view
+                    const effectiveTypography = contentObj.typography || {};
+                    const effectiveLayout = contentObj.layout || {};
 
-                    // Use splitTextToSize to wrap text within the region
-                    const wrappedText = pdf.splitTextToSize(displayText, maxWidth);
+                    const fontSize = effectiveTypography.fontSize || 12;
+                    const fontFamily = effectiveTypography.fontFamily || 'helvetica';
+                    const fontColor = effectiveTypography.fontColor || '#000000';
+                    const textAlign = effectiveLayout.horizontalAlign || 'left';
+                    const verticalAlign = effectiveLayout.verticalAlign || 'top';
+                    const padding = effectiveLayout.padding || { top: 2, right: 2, bottom: 2, left: 2 };
 
-                    // Calculate proper line height for readability (1.2-1.4 times font size)
-                    const lineHeight = fontSize * 0.35; // Convert pt to mm and add spacing
-                    const totalTextHeight = wrappedText.length * lineHeight;
+                    // EXACT WEB REPLICATION: Match web view pixel-perfect
+                    // Web: scaledFontSize = Math.max(6, fontSize * zoom) where zoom = 1 for PDF
+                    const scaledFontSize = Math.max(6, fontSize); // Exact web logic
+                    // Web: lineHeight = scaledFontSize * 1.2 (in pixels)
+                    const webLineHeightPx = scaledFontSize * 1.2; // Exact web logic
 
-                    // Only render if text fits within the region height
-                    if (totalTextHeight <= maxHeight) {
-                      // Render each line individually for better control
-                      wrappedText.forEach((line: string, index: number) => {
-                        pdf.text(line, textX, textY + (index * lineHeight));
-                      });
-                    } else {
-                      // If text is too long, show truncated version
-                      const maxLines = Math.floor(maxHeight / lineHeight);
-                      if (maxLines > 0) {
-                        const truncatedText = wrappedText.slice(0, maxLines);
-                        if (truncatedText.length < wrappedText.length && truncatedText.length > 0) {
-                          // Add ellipsis to last line if truncated
-                          const lastLine = truncatedText[truncatedText.length - 1];
-                          truncatedText[truncatedText.length - 1] = lastLine.substring(0, Math.max(0, lastLine.length - 3)) + '...';
-                        }
-                        // Render each line individually
-                        truncatedText.forEach((line: string, index: number) => {
-                          pdf.text(line, textX, textY + (index * lineHeight));
-                        });
+                    // Convert web pixels to PDF units (1px = 0.264583mm at 96 DPI)
+                    const pdfFontSize = scaledFontSize * 0.75; // Convert px to pt for PDF
+                    const lineHeightMM = webLineHeightPx * 0.264583; // Convert px to mm
+
+                    pdf.setFontSize(pdfFontSize);
+                    pdf.setFont(fontFamily === 'Arial' ? 'helvetica' : fontFamily, 'normal');
+
+                    // Convert hex color to RGB exactly like web
+                    const hexToRgb = (hex: string) => {
+                      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+                      return result ? {
+                        r: parseInt(result[1], 16),
+                        g: parseInt(result[2], 16),
+                        b: parseInt(result[3], 16)
+                      } : { r: 0, g: 0, b: 0 };
+                    };
+                    const color = hexToRgb(fontColor);
+                    pdf.setTextColor(color.r, color.g, color.b);
+
+                    // Calculate text area with exact padding like web view
+                    const paddingTop = padding.top || 0;
+                    const paddingRight = padding.right || 0;
+                    const paddingBottom = padding.bottom || 0;
+                    const paddingLeft = padding.left || 0;
+
+                    const textAreaWidth = Math.max(0, childRegion.width - paddingLeft - paddingRight);
+                    const textAreaHeight = Math.max(0, childRegion.height - paddingTop - paddingBottom);
+
+                    // Use splitTextToSize to wrap text exactly like web view
+                    const wrappedText = pdf.splitTextToSize(displayText, textAreaWidth);
+
+                    // Calculate max lines exactly like web view
+                    const maxLines = Math.max(0, Math.floor(textAreaHeight / lineHeightMM));
+
+                    if (maxLines > 0) {
+                      let displayLines = wrappedText;
+                      if (displayLines.length > maxLines) {
+                        displayLines = wrappedText.slice(0, maxLines);
                       }
+
+                      // Calculate horizontal alignment exactly like web view
+                      let textX = childX + paddingLeft;
+                      if (textAlign === 'center') {
+                        textX = childX + childRegion.width / 2;
+                      } else if (textAlign === 'right') {
+                        textX = childX + childRegion.width - paddingRight;
+                      }
+
+                      // Calculate vertical alignment exactly like web view
+                      // Web: startY = baseY + (region.y * scale) + paddingTopPx;
+                      let startY = childY + paddingTop;
+                      if (verticalAlign === 'center') {
+                        // Web: totalTextHeight = displayLines.length * lineHeight;
+                        const totalTextHeight = displayLines.length * lineHeightMM;
+                        // Web: startY = baseY + (region.y * scale) + (regionHeightPx - totalTextHeight) / 2;
+                        startY = childY + (childRegion.height - totalTextHeight) / 2;
+                      } else if (verticalAlign === 'bottom') {
+                        const totalTextHeight = displayLines.length * lineHeightMM;
+                        // Web: startY = baseY + (region.y * scale) + regionHeightPx - paddingBottomPx - totalTextHeight;
+                        startY = childY + childRegion.height - paddingBottom - totalTextHeight;
+                      }
+
+                      // Render each line with EXACT positioning like web view
+                      // Web: const textY = startY + (lineIndex + 1) * lineHeight;
+                      displayLines.forEach((line: string, lineIndex: number) => {
+                        const textY = startY + (lineIndex + 1) * lineHeightMM; // EXACT web formula
+                        const align = textAlign === 'center' ? 'center' : textAlign === 'right' ? 'right' : 'left';
+                        pdf.text(line, textX, textY, { align: align });
+                      });
                     }
                   }
                 }
@@ -5769,66 +5816,105 @@ function App() {
                 const charWidth = 0.8; // Character width in mm at 8pt
                 const maxChars = Math.floor(availableWidth / charWidth);
 
-                // Choose display text based on available space - prioritize actual content with wrapping
+                // Choose display text based on available space - use same logic as web view
                 let displayText: string;
-                if (region.width >= 20 && region.height >= 10) {
-                  // If region has good dimensions for readable text, use full text (will be wrapped)
+                if (region.width >= 8 && region.height >= 5) {
+                  // If region has minimum dimensions, use full text (will be wrapped exactly like web)
                   displayText = fullText;
-                } else if (region.width >= 12 && region.height >= 6) {
-                  // For medium regions, use abbreviated content type
-                  const abbreviatedLabels: { [key: string]: string } = {
-                    'line-text': 'line text',
-                    'pure-english-paragraph': 'english',
-                    'translation-paragraph': 'translation',
-                    'washing-symbol': 'washing',
-                    'image': 'image',
-                    'coo': 'coo'
-                  };
-                  displayText = abbreviatedLabels[content.type] || content.type;
                 } else {
-                  // Too small for readable text
+                  // Too small for any text (same as web view)
                   displayText = '';
                 }
 
-                const textX = regionX + 0.8; // Smaller left margin
-                const textY = regionY + 4.5; // Top margin (below region label)
-                const maxWidth = region.width - 1.6; // Available width with minimal margins
-                const maxHeight = region.height - 5.5; // Available height with minimal margins
+                // Get the actual content object to access typography and layout settings
+                const contentObj = regionContentsForRegion[0];
 
-                // Use larger, more readable font size for regions
-                const fontSize = Math.max(9, Math.min(12, region.width / 10)); // Dynamic font size based on width
-                pdf.setFontSize(fontSize);
-                pdf.setFont('helvetica', 'normal');
-                pdf.setTextColor(0, 0, 0);
+                // Use the same typography and layout logic as web view
+                const effectiveTypography = contentObj.typography || {};
+                const effectiveLayout = contentObj.layout || {};
 
-                // Use splitTextToSize to wrap text within the region
-                const wrappedText = pdf.splitTextToSize(displayText, maxWidth);
+                const fontSize = effectiveTypography.fontSize || 12;
+                const fontFamily = effectiveTypography.fontFamily || 'helvetica';
+                const fontColor = effectiveTypography.fontColor || '#000000';
+                const textAlign = effectiveLayout.horizontalAlign || 'left';
+                const verticalAlign = effectiveLayout.verticalAlign || 'top';
+                const padding = effectiveLayout.padding || { top: 2, right: 2, bottom: 2, left: 2 };
 
-                // Calculate proper line height for readability (1.2-1.4 times font size)
-                const lineHeight = fontSize * 0.4; // Convert pt to mm and add proper spacing
-                const totalTextHeight = wrappedText.length * lineHeight;
+                // EXACT WEB REPLICATION: Match web view pixel-perfect
+                // Web: scaledFontSize = Math.max(6, fontSize * zoom) where zoom = 1 for PDF
+                const scaledFontSize = Math.max(6, fontSize); // Exact web logic
+                // Web: lineHeight = scaledFontSize * 1.2 (in pixels)
+                const webLineHeightPx = scaledFontSize * 1.2; // Exact web logic
 
-                // Only render if text fits within the region height
-                if (totalTextHeight <= maxHeight) {
-                  // Render each line individually for better control
-                  wrappedText.forEach((line: string, index: number) => {
-                    pdf.text(line, textX, textY + (index * lineHeight));
-                  });
-                } else {
-                  // If text is too long, show truncated version
-                  const maxLines = Math.floor(maxHeight / lineHeight);
-                  if (maxLines > 0) {
-                    const truncatedText = wrappedText.slice(0, maxLines);
-                    if (truncatedText.length < wrappedText.length && truncatedText.length > 0) {
-                      // Add ellipsis to last line if truncated
-                      const lastLine = truncatedText[truncatedText.length - 1];
-                      truncatedText[truncatedText.length - 1] = lastLine.substring(0, Math.max(0, lastLine.length - 3)) + '...';
-                    }
-                    // Render each line individually
-                    truncatedText.forEach((line: string, index: number) => {
-                      pdf.text(line, textX, textY + (index * lineHeight));
-                    });
+                // Convert web pixels to PDF units (1px = 0.264583mm at 96 DPI)
+                const pdfFontSize = scaledFontSize * 0.75; // Convert px to pt for PDF
+                const lineHeightMM = webLineHeightPx * 0.264583; // Convert px to mm
+
+                pdf.setFontSize(pdfFontSize);
+                pdf.setFont(fontFamily === 'Arial' ? 'helvetica' : fontFamily, 'normal');
+
+                // Convert hex color to RGB exactly like web
+                const hexToRgb = (hex: string) => {
+                  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+                  return result ? {
+                    r: parseInt(result[1], 16),
+                    g: parseInt(result[2], 16),
+                    b: parseInt(result[3], 16)
+                  } : { r: 0, g: 0, b: 0 };
+                };
+                const color = hexToRgb(fontColor);
+                pdf.setTextColor(color.r, color.g, color.b);
+
+                // Calculate text area with exact padding like web view
+                const paddingTop = (padding.top || 0) + 3; // Add space for region label
+                const paddingRight = padding.right || 0;
+                const paddingBottom = padding.bottom || 0;
+                const paddingLeft = padding.left || 0;
+
+                const textAreaWidth = Math.max(0, region.width - paddingLeft - paddingRight);
+                const textAreaHeight = Math.max(0, region.height - paddingTop - paddingBottom);
+
+                // Use splitTextToSize to wrap text exactly like web view
+                const wrappedText = pdf.splitTextToSize(displayText, textAreaWidth);
+
+                // Calculate max lines exactly like web view
+                const maxLines = Math.max(0, Math.floor(textAreaHeight / lineHeightMM));
+
+                if (maxLines > 0) {
+                  let displayLines = wrappedText;
+                  if (displayLines.length > maxLines) {
+                    displayLines = wrappedText.slice(0, maxLines);
                   }
+
+                  // Calculate horizontal alignment exactly like web view
+                  let textX = regionX + paddingLeft;
+                  if (textAlign === 'center') {
+                    textX = regionX + region.width / 2;
+                  } else if (textAlign === 'right') {
+                    textX = regionX + region.width - paddingRight;
+                  }
+
+                  // Calculate vertical alignment exactly like web view
+                  // Web: startY = baseY + (region.y * scale) + paddingTopPx;
+                  let startY = regionY + paddingTop;
+                  if (verticalAlign === 'center') {
+                    // Web: totalTextHeight = displayLines.length * lineHeight;
+                    const totalTextHeight = displayLines.length * lineHeightMM;
+                    // Web: startY = baseY + (region.y * scale) + (regionHeightPx - totalTextHeight) / 2;
+                    startY = regionY + (region.height - totalTextHeight) / 2;
+                  } else if (verticalAlign === 'bottom') {
+                    const totalTextHeight = displayLines.length * lineHeightMM;
+                    // Web: startY = baseY + (region.y * scale) + regionHeightPx - paddingBottomPx - totalTextHeight;
+                    startY = regionY + region.height - paddingBottom - totalTextHeight;
+                  }
+
+                  // Render each line with EXACT positioning like web view
+                  // Web: const textY = startY + (lineIndex + 1) * lineHeight;
+                  displayLines.forEach((line: string, lineIndex: number) => {
+                    const textY = startY + (lineIndex + 1) * lineHeightMM; // EXACT web formula
+                    const align = textAlign === 'center' ? 'center' : textAlign === 'right' ? 'right' : 'left';
+                    pdf.text(line, textX, textY, { align: align });
+                  });
                 }
               }
             }
