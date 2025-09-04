@@ -518,6 +518,12 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
   };
 
   const handleContentChange = (field: string, value: any) => {
+    console.log('🔍 CONTENT CHANGE DEBUG:');
+    console.log('   - Field:', field);
+    console.log('   - Value Length:', value?.length || 0);
+    console.log('   - Value Preview:', value?.substring(0, 50));
+    console.log('   - Full Value:', value);
+
     setFormData(prev => ({
       ...prev,
       content: {
@@ -1065,7 +1071,7 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
             <div>
               <label style={labelStyle}>Paragraph Content:</label>
               <textarea
-                value={formData.content.text || ''}
+                value={formData.content.originalText || formData.content.text || ''}
                 onChange={(e) => handleContentChange('text', e.target.value)}
                 style={{ ...inputStyle, height: '120px', resize: 'vertical' }}
                 placeholder="Enter your paragraph content here..."
