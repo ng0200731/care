@@ -5429,10 +5429,17 @@ function App() {
                 if (sliceContents.length > 0) {
                   const content = sliceContents[0]; // Show only first content type
 
-                  // Full content type names
-                  const fullText = content.type;
+                  // Get actual text content for text-based content types
+                  let fullText = content.type; // Default to content type
+                  if (content.content && content.content.text) {
+                    // For paragraph and line text, show the actual text content
+                    fullText = content.content.text;
+                  } else if (content.content && content.content.primaryContent) {
+                    // For translation paragraphs, show primary content
+                    fullText = content.content.primaryContent;
+                  }
 
-                  // Abbreviated labels for small spaces
+                  // Abbreviated labels for small spaces (fallback when text is too long)
                   const abbreviatedLabels: { [key: string]: string } = {
                     'line-text': 'text',
                     'pure-english-paragraph': 'eng',
@@ -5456,30 +5463,61 @@ function App() {
                     contentType: content.type
                   });
 
-                  // Choose display text based on available space - be more generous with space
+                  // Choose display text based on available space - prioritize actual content with wrapping
                   let displayText: string;
-                  if (availableWidth >= 15) { // If slice is wider than 15mm, try full text
+                  if (childRegion.width >= 12 && childRegion.height >= 6) {
+                    // If slice has good dimensions for readable text, use full text (will be wrapped)
                     displayText = fullText;
-                  } else if (maxChars >= fullText.length) {
-                    // Calculated space is enough for full text
-                    displayText = fullText;
-                  } else if (maxChars >= 4) {
-                    // Use abbreviated text if available, otherwise truncate
-                    displayText = abbreviatedLabels[content.type] || fullText.substring(0, Math.max(3, maxChars));
+                  } else if (childRegion.width >= 8 && childRegion.height >= 4) {
+                    // For medium slices, use abbreviated content type
+                    displayText = abbreviatedLabels[content.type] || content.type.substring(0, 6);
                   } else {
-                    // Too small for any meaningful text
+                    // Too small for readable text
                     displayText = '';
                   }
 
                   // Only render text if we have something to show
                   if (displayText) {
-                    const textX = childX + (childRegion.width / 2);
-                    const textY = childY + (childRegion.height / 2) + 1;
+                    const textX = childX + 0.5; // Smaller left margin
+                    const textY = childY + 2.5; // Top margin
+                    const maxWidth = childRegion.width - 1; // Available width with minimal margins
+                    const maxHeight = childRegion.height - 3; // Available height with minimal margins
 
-                    pdf.setFontSize(8);
-                    pdf.setFont('helvetica', 'italic'); // Italic font for content text
-                    pdf.setTextColor(0, 0, 0); // Black text
-                    pdf.text(displayText, textX, textY, { align: 'center' });
+                    // Use larger, more readable font size
+                    const fontSize = Math.max(8, Math.min(10, childRegion.width / 8)); // Dynamic font size based on width
+                    pdf.setFontSize(fontSize);
+                    pdf.setFont('helvetica', 'normal');
+                    pdf.setTextColor(0, 0, 0);
+
+                    // Use splitTextToSize to wrap text within the region
+                    const wrappedText = pdf.splitTextToSize(displayText, maxWidth);
+
+                    // Calculate proper line height for readability (1.2-1.4 times font size)
+                    const lineHeight = fontSize * 0.35; // Convert pt to mm and add spacing
+                    const totalTextHeight = wrappedText.length * lineHeight;
+
+                    // Only render if text fits within the region height
+                    if (totalTextHeight <= maxHeight) {
+                      // Render each line individually for better control
+                      wrappedText.forEach((line: string, index: number) => {
+                        pdf.text(line, textX, textY + (index * lineHeight));
+                      });
+                    } else {
+                      // If text is too long, show truncated version
+                      const maxLines = Math.floor(maxHeight / lineHeight);
+                      if (maxLines > 0) {
+                        const truncatedText = wrappedText.slice(0, maxLines);
+                        if (truncatedText.length < wrappedText.length && truncatedText.length > 0) {
+                          // Add ellipsis to last line if truncated
+                          const lastLine = truncatedText[truncatedText.length - 1];
+                          truncatedText[truncatedText.length - 1] = lastLine.substring(0, Math.max(0, lastLine.length - 3)) + '...';
+                        }
+                        // Render each line individually
+                        truncatedText.forEach((line: string, index: number) => {
+                          pdf.text(line, textX, textY + (index * lineHeight));
+                        });
+                      }
+                    }
                   }
                 }
               }
@@ -5509,23 +5547,28 @@ function App() {
               if (regionContentsForRegion.length > 0) {
                 const content = regionContentsForRegion[0]; // Show only first content type
 
-                // Use full content type names for regions (same as slices)
-                const fullText = content.type;
+                // Get actual text content for text-based content types
+                let fullText = content.type; // Default to content type
+                if (content.content && content.content.text) {
+                  // For paragraph and line text, show the actual text content
+                  fullText = content.content.text;
+                } else if (content.content && content.content.primaryContent) {
+                  // For translation paragraphs, show primary content
+                  fullText = content.content.primaryContent;
+                }
 
                 // Calculate available space for text
                 const availableWidth = region.width - 4; // 2mm margin on each side
                 const charWidth = 0.8; // Character width in mm at 8pt
                 const maxChars = Math.floor(availableWidth / charWidth);
 
-                // Choose display text based on available space
+                // Choose display text based on available space - prioritize actual content with wrapping
                 let displayText: string;
-                if (availableWidth >= 20) { // If region is wider than 20mm, use full text
+                if (region.width >= 20 && region.height >= 10) {
+                  // If region has good dimensions for readable text, use full text (will be wrapped)
                   displayText = fullText;
-                } else if (maxChars >= fullText.length) {
-                  // Calculated space is enough for full text
-                  displayText = fullText;
-                } else {
-                  // Use abbreviated text for small regions
+                } else if (region.width >= 12 && region.height >= 6) {
+                  // For medium regions, use abbreviated content type
                   const abbreviatedLabels: { [key: string]: string } = {
                     'line-text': 'line text',
                     'pure-english-paragraph': 'english',
@@ -5534,16 +5577,52 @@ function App() {
                     'image': 'image',
                     'coo': 'coo'
                   };
-                  displayText = abbreviatedLabels[content.type] || fullText.substring(0, Math.max(3, maxChars));
+                  displayText = abbreviatedLabels[content.type] || content.type;
+                } else {
+                  // Too small for readable text
+                  displayText = '';
                 }
 
-                const textX = regionX + (region.width / 2);
-                const textY = regionY + (region.height / 2) + 2;
+                const textX = regionX + 0.8; // Smaller left margin
+                const textY = regionY + 4.5; // Top margin (below region label)
+                const maxWidth = region.width - 1.6; // Available width with minimal margins
+                const maxHeight = region.height - 5.5; // Available height with minimal margins
 
-                pdf.setFontSize(8);
-                pdf.setFont('helvetica', 'italic'); // Italic font for content text
-                pdf.setTextColor(0, 0, 0); // Black text
-                pdf.text(displayText, textX, textY, { align: 'center' });
+                // Use larger, more readable font size for regions
+                const fontSize = Math.max(9, Math.min(12, region.width / 10)); // Dynamic font size based on width
+                pdf.setFontSize(fontSize);
+                pdf.setFont('helvetica', 'normal');
+                pdf.setTextColor(0, 0, 0);
+
+                // Use splitTextToSize to wrap text within the region
+                const wrappedText = pdf.splitTextToSize(displayText, maxWidth);
+
+                // Calculate proper line height for readability (1.2-1.4 times font size)
+                const lineHeight = fontSize * 0.4; // Convert pt to mm and add proper spacing
+                const totalTextHeight = wrappedText.length * lineHeight;
+
+                // Only render if text fits within the region height
+                if (totalTextHeight <= maxHeight) {
+                  // Render each line individually for better control
+                  wrappedText.forEach((line: string, index: number) => {
+                    pdf.text(line, textX, textY + (index * lineHeight));
+                  });
+                } else {
+                  // If text is too long, show truncated version
+                  const maxLines = Math.floor(maxHeight / lineHeight);
+                  if (maxLines > 0) {
+                    const truncatedText = wrappedText.slice(0, maxLines);
+                    if (truncatedText.length < wrappedText.length && truncatedText.length > 0) {
+                      // Add ellipsis to last line if truncated
+                      const lastLine = truncatedText[truncatedText.length - 1];
+                      truncatedText[truncatedText.length - 1] = lastLine.substring(0, Math.max(0, lastLine.length - 3)) + '...';
+                    }
+                    // Render each line individually
+                    truncatedText.forEach((line: string, index: number) => {
+                      pdf.text(line, textX, textY + (index * lineHeight));
+                    });
+                  }
+                }
               }
             }
           }
