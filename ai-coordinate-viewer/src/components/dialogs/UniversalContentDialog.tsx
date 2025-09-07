@@ -102,6 +102,10 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
   // Local overflow state for both new and editing content
   const [localOverflowEnabled, setLocalOverflowEnabled] = useState(false);
 
+  // Track if user is actively editing to prevent useEffect interference
+  const userIsEditingRef = useRef(false);
+  const editingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   // Initialize local overflow state when editing content - only run once when dialog opens
   useEffect(() => {
     if (editingContent && isOverflowEnabled) {
@@ -148,8 +152,14 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
 
   // Update form data when editing content or regionId changes
   useEffect(() => {
+    // Don't reset form data if user is actively editing
+    if (userIsEditingRef.current) {
+      console.log('🔍 SKIPPING FORM RESET - User is actively editing');
+      return;
+    }
+
     if (editingContent) {
-      // Debug: Log the editing content structure
+      console.log('🔍 LOADING EDITING CONTENT:', editingContent.id);
 
       // Check if this is a connector in an overflow chain
       const role = getOverflowRole ? getOverflowRole(editingContent.id) : 'none';
@@ -196,7 +206,7 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
         content: {}
       });
     }
-  }, [editingContent?.id, regionId, contentType.id]);
+  }, [editingContent?.id]); // Only run when editing different content
 
   // Get master properties for display in connector dialogs
   const getMasterPropertiesForDisplay = () => {
@@ -523,6 +533,20 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
     console.log('   - Value Length:', value?.length || 0);
     console.log('   - Value Preview:', value?.substring(0, 50));
     console.log('   - Full Value:', value);
+
+    // Mark user as actively editing
+    userIsEditingRef.current = true;
+
+    // Clear any existing timeout
+    if (editingTimeoutRef.current) {
+      clearTimeout(editingTimeoutRef.current);
+    }
+
+    // Set timeout to mark editing as finished after 2 seconds of inactivity
+    editingTimeoutRef.current = setTimeout(() => {
+      userIsEditingRef.current = false;
+      console.log('🔍 USER EDITING TIMEOUT - Editing flag cleared');
+    }, 2000);
 
     setFormData(prev => ({
       ...prev,
@@ -1071,7 +1095,7 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
             <div>
               <label style={labelStyle}>Paragraph Content:</label>
               <textarea
-                value={formData.content.originalText || formData.content.text || ''}
+                value={formData.content.text || ''}
                 onChange={(e) => handleContentChange('text', e.target.value)}
                 style={{ ...inputStyle, height: '120px', resize: 'vertical' }}
                 placeholder="Enter your paragraph content here..."

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLocation } from 'react-router-dom';
 import MainNavigation from './MainNavigation';
 
 // Import version from package.json
@@ -9,6 +10,12 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
+  const location = useLocation();
+
+  // Check if we're in project context
+  const urlParams = new URLSearchParams(location.search);
+  const context = urlParams.get('context');
+  const isProjectContext = context === 'projects';
   return (
     <div style={{
       minHeight: '100vh',
@@ -51,7 +58,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               fontSize: '22px', // 24px -> 22px (-10%)
               fontWeight: '600'
             }}>
-              Care Label Layout System
+              Care Label Layout System{isProjectContext ? ' - Project' : ''}
             </h2>
             <div style={{
               display: 'flex',
