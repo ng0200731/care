@@ -15,6 +15,29 @@ const NewCtMenu: React.FC<NewCtMenuProps> = ({
   isPinned = false,
   onTogglePin
 }) => {
+  // Drag handlers
+  const handleDragStart = (e: React.DragEvent<HTMLButtonElement>) => {
+    const newLineTextContentType = {
+      id: 'new-line-text',
+      name: 'Line Text',
+      icon: '📝',
+      description: 'New style line text content',
+      isNewCt: true // Flag to identify this as new CT content
+    };
+
+    console.log('🚀 NEW CT DRAG START:', newLineTextContentType.name, 'ID:', newLineTextContentType.id);
+    e.dataTransfer.setData('application/json', JSON.stringify(newLineTextContentType));
+    e.dataTransfer.effectAllowed = 'copy';
+
+    // Add visual feedback
+    e.currentTarget.style.opacity = '0.5';
+  };
+
+  const handleDragEnd = (e: React.DragEvent<HTMLButtonElement>) => {
+    // Reset visual feedback
+    e.currentTarget.style.opacity = '1';
+  };
+
   if (!isVisible) return null;
 
   return (
@@ -37,8 +60,11 @@ const NewCtMenu: React.FC<NewCtMenuProps> = ({
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
-      {/* Line Text Button */}
+      {/* Line Text Button - Draggable */}
       <button
+        draggable
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
         style={{
           width: '100%',
           padding: '15px 20px',
@@ -48,12 +74,13 @@ const NewCtMenu: React.FC<NewCtMenuProps> = ({
           color: 'white',
           fontSize: '16px',
           fontWeight: '600',
-          cursor: 'pointer',
+          cursor: 'grab',
           transition: 'all 0.2s ease',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: '8px'
+          gap: '8px',
+          userSelect: 'none'
         }}
         onMouseEnter={(e) => {
           e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
@@ -66,6 +93,12 @@ const NewCtMenu: React.FC<NewCtMenuProps> = ({
           e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
           e.currentTarget.style.transform = 'translateY(0)';
           e.currentTarget.style.boxShadow = 'none';
+        }}
+        onMouseDown={(e) => {
+          e.currentTarget.style.cursor = 'grabbing';
+        }}
+        onMouseUp={(e) => {
+          e.currentTarget.style.cursor = 'grab';
         }}
         onClick={() => {
           console.log('Line Text button clicked');

@@ -212,9 +212,6 @@ function App() {
   const [newCtHideTimeout, setNewCtHideTimeout] = useState<NodeJS.Timeout | null>(null);
   const [pinnedNewCtMenu, setPinnedNewCtMenu] = useState(false);
 
-  // Debug state for leftover space calculations
-  const [debugInfo, setDebugInfo] = useState<string[]>([]);
-
   // Auto-hide menu handlers
   const handleMenuTriggerEnter = () => {
     if (isProjectMode) {
@@ -4630,7 +4627,49 @@ function App() {
 
     console.log('🎯 Proceeding with content drop:', contentTypeData.name, 'on region:', regionId);
 
-    // Open universal content dialog for all content types (new content, not editing)
+    // Check if this is the new CT line text
+    if ((contentTypeData as any).isNewCt && contentTypeData.id === 'new-line-text') {
+      console.log('🆕 NEW CT Line Text - Creating simple text label');
+
+      // Create simple content directly without dialog
+      const newContent = {
+        id: `content_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        type: 'new-line-text',
+        regionId: regionId,
+        layout: {
+          occupyLeftoverSpace: true,
+          fullWidth: true,
+          fullHeight: true,
+          width: { value: 100, unit: '%' as const },
+          height: { value: 100, unit: '%' as const },
+          horizontalAlign: 'center' as const,
+          verticalAlign: 'center' as const,
+          padding: { top: 5, right: 5, bottom: 5, left: 5 }
+        },
+        typography: {
+          fontFamily: 'Arial',
+          fontSize: 14,
+          fontColor: '#000000'
+        },
+        content: {
+          text: 'line text'
+        }
+      };
+
+      // Add content directly to region
+      setRegionContents(prevContents => {
+        const newContents = new Map(prevContents);
+        const currentContents = newContents.get(regionId) || [];
+        newContents.set(regionId, [...currentContents, newContent]);
+        return newContents;
+      });
+
+      setNotification(`✅ Added line text to ${occupation.regionName}`);
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
+
+    // For all other content types, open universal content dialog
     setUniversalDialog({
       isOpen: true,
       regionId: regionId,
@@ -8273,20 +8312,7 @@ function App() {
                           });
                         });
 
-                        console.log('🔍 Finding leftover space in region:', {
-                          regionWidth: region.width,
-                          regionHeight: region.height,
-                          existingContent: existingContentRects.length,
-                          contentRects: existingContentRects
 
-
-                        });
-
-                        // Store debug info using setTimeout to avoid re-render loop
-                        setTimeout(() => {
-                          const debugMsg = `🔍 LEFTOVER SPACE SEARCH:\nRegion: ${region.width}×${region.height}mm\nExisting content: ${existingContentRects.length} items\nContent rects: ${JSON.stringify(existingContentRects, null, 2)}`;
-                          setDebugInfo(prev => [...prev.slice(-4), debugMsg]);
-                        }, 0);
 
                         // For leftover space, calculate the remaining area after existing content
                         // Instead of finding largest rectangle, use simple subtraction approach
@@ -8326,19 +8352,7 @@ function App() {
                           }
                         }
 
-                        console.log('✅ Found leftover space:', {
-                          width: contentWidth,
-                          height: contentHeight,
-                          area: contentWidth * contentHeight,
-                          position: (content as any)._calculatedPosition
-                        });
 
-                        // Store debug info using setTimeout to avoid re-render loop
-                        setTimeout(() => {
-                          const calcPos = (content as any)._calculatedPosition;
-                          const debugMsg = `✅ FOUND LEFTOVER SPACE:\nSize: ${contentWidth}×${contentHeight}mm\nArea: ${contentWidth * contentHeight}mm²\nPosition: x=${calcPos.x}, y=${calcPos.y}`;
-                          setDebugInfo(prev => [...prev.slice(-4), debugMsg]);
-                        }, 10);
                       } else {
                         // Normal width calculation - CONSTRAINED TO REGION
                         if (content.layout.fullWidth || content.layout.width.value === 100) {
@@ -8381,18 +8395,7 @@ function App() {
                         overlayX = regionStartX + (calcPos.x * scale);
                         overlayY = regionStartY + (calcPos.y * scale);
 
-                        console.log('🎯 Positioning leftover content at calculated position:', {
-                          calcPos,
-                          overlayX,
-                          overlayY,
-                          regionStart: { x: regionStartX, y: regionStartY }
-                        });
 
-                        // Store debug info using setTimeout to avoid re-render loop
-                        setTimeout(() => {
-                          const debugMsg = `🎯 POSITIONING LEFTOVER CONTENT:\nCalculated pos: x=${calcPos.x}, y=${calcPos.y}\nOverlay pos: x=${overlayX}, y=${overlayY}\nRegion start: x=${regionStartX}, y=${regionStartY}`;
-                          setDebugInfo(prev => [...prev.slice(-4), debugMsg]);
-                        }, 20);
                       } else {
                         // In Project Mode, content should occupy the whole region
                         if (isProjectMode) {
@@ -12248,63 +12251,7 @@ function App() {
 
 
 
-      {/* Debug Panel for Leftover Space */}
-      {debugInfo.length > 0 && (
-        <div style={{
-          position: 'fixed',
-          bottom: '50px',
-          right: ((showContentMenu || pinnedContentMenu) || (showHierarchyMenu || pinnedHierarchyMenu) || (showNewCtMenu || pinnedNewCtMenu)) ? '320px' : '10px',
-          background: 'rgba(255,255,255,0.95)',
-          color: '#333',
-          padding: '10px',
-          borderRadius: '8px',
-          fontSize: '11px',
-          fontFamily: 'monospace',
-          zIndex: 1000,
-          transition: 'right 0.3s ease',
-          maxWidth: '400px',
-          maxHeight: '300px',
-          overflowY: 'auto',
-          border: '2px solid #007acc',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
-        }}>
-          <div style={{
-            fontWeight: 'bold',
-            marginBottom: '8px',
-            color: '#007acc',
-            borderBottom: '1px solid #007acc',
-            paddingBottom: '4px'
-          }}>
-            🐛 LEFTOVER SPACE DEBUG INFO
-          </div>
-          {debugInfo.map((info, index) => (
-            <div key={index} style={{
-              marginBottom: '8px',
-              padding: '4px',
-              background: index % 2 === 0 ? '#f0f8ff' : '#fff',
-              borderRadius: '4px',
-              whiteSpace: 'pre-wrap'
-            }}>
-              {info}
-            </div>
-          ))}
-          <button
-            onClick={() => setDebugInfo([])}
-            style={{
-              marginTop: '8px',
-              padding: '4px 8px',
-              background: '#dc3545',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              fontSize: '10px',
-              cursor: 'pointer'
-            }}
-          >
-            Clear Debug
-          </button>
-        </div>
-      )}
+
 
       {/* Region Slice Dialog - Draggable */}
       {showSliceDialog && slicingRegion && (
