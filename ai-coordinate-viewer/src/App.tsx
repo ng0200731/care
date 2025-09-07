@@ -12075,6 +12075,52 @@ function App() {
         </div>
       )}
 
+      {/* New CT Tab - Always visible in project mode */}
+      {isProjectMode && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 'calc(45% + 200px)', // Position below Content Types tab
+            right: 0,
+            width: '120px',
+            height: 'auto',
+            zIndex: 1000,
+            pointerEvents: 'auto'
+          }}
+        >
+          {/* New CT Tab */}
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: '0',
+              width: '110px',
+              height: '80px',
+              backgroundColor: '#6b46c1',
+              borderRadius: '8px 0 0 8px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'white',
+              fontSize: '12px',
+              cursor: 'pointer',
+              boxShadow: '-4px 0 12px rgba(0,0,0,0.2)',
+              transition: 'all 0.2s ease',
+              padding: '8px'
+            }}
+          >
+            <div style={{ fontSize: '16px', marginBottom: '4px' }}>🆕</div>
+            <div style={{ textAlign: 'center', lineHeight: '1.2', fontWeight: '500' }}>
+              NEW CT
+            </div>
+            <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '2px' }}>
+              New content
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Content Menu - Auto-hide in project mode */}
       <ContentMenu
         isVisible={(showContentMenu || pinnedContentMenu) && isProjectMode}
