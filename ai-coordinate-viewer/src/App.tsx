@@ -6,6 +6,7 @@ import SonObjectManager, { SonObject } from './components/content-editors/SonObj
 import { masterFileService } from './services/masterFileService';
 import { customerService, Customer } from './services/customerService';
 import ContentMenu, { ContentType } from './components/ContentMenu';
+import NewCtMenu from './components/NewCtMenu';
 import UniversalContentDialog, { UniversalContentData } from './components/dialogs/UniversalContentDialog';
 import jsPDF from 'jspdf';
 // import RegionOccupationDialog, { RegionOccupationData } from './components/dialogs/RegionOccupationDialog';
@@ -206,6 +207,11 @@ function App() {
   const [hierarchyHideTimeout, setHierarchyHideTimeout] = useState<NodeJS.Timeout | null>(null);
   const [pinnedHierarchyMenu, setPinnedHierarchyMenu] = useState(false);
 
+  // Auto-hide new CT menu state - Project mode only
+  const [showNewCtMenu, setShowNewCtMenu] = useState(false);
+  const [newCtHideTimeout, setNewCtHideTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [pinnedNewCtMenu, setPinnedNewCtMenu] = useState(false);
+
   // Debug state for leftover space calculations
   const [debugInfo, setDebugInfo] = useState<string[]>([]);
 
@@ -246,6 +252,26 @@ function App() {
         setShowHierarchyMenu(false);
       }, 500); // 500ms delay before hiding
       setHierarchyHideTimeout(timeout);
+    }
+  };
+
+  // Auto-hide new CT menu handlers
+  const handleNewCtTriggerEnter = () => {
+    if (isProjectMode) {
+      if (newCtHideTimeout) {
+        clearTimeout(newCtHideTimeout);
+        setNewCtHideTimeout(null);
+      }
+      setShowNewCtMenu(true);
+    }
+  };
+
+  const handleNewCtLeave = () => {
+    if (isProjectMode && !pinnedNewCtMenu) {
+      const timeout = setTimeout(() => {
+        setShowNewCtMenu(false);
+      }, 500); // 500ms delay before hiding
+      setNewCtHideTimeout(timeout);
     }
   };
 
@@ -9546,7 +9572,7 @@ function App() {
       display: 'flex',
       flexDirection: 'column',
       background: '#f5f5f5',
-      marginRight: ((showContentMenu || pinnedContentMenu) || (showHierarchyMenu || pinnedHierarchyMenu)) ? '300px' : '0',
+      marginRight: ((showContentMenu || pinnedContentMenu) || (showHierarchyMenu || pinnedHierarchyMenu) || (showNewCtMenu || pinnedNewCtMenu)) ? '300px' : '0',
       pointerEvents: isLoadingMasterFile ? 'none' : 'auto',
       opacity: isLoadingMasterFile ? 0.6 : 1,
       transition: 'margin-right 0.3s ease, opacity 0.3s ease'
@@ -12087,6 +12113,7 @@ function App() {
             zIndex: 1000,
             pointerEvents: 'auto'
           }}
+          onMouseEnter={handleNewCtTriggerEnter}
         >
           {/* New CT Tab */}
           <div
@@ -12131,6 +12158,15 @@ function App() {
         onMouseLeave={handleMenuLeave}
         isPinned={pinnedContentMenu}
         onTogglePin={() => setPinnedContentMenu(!pinnedContentMenu)}
+      />
+
+      {/* New CT Menu - Auto-hide in project mode */}
+      <NewCtMenu
+        isVisible={(showNewCtMenu || pinnedNewCtMenu) && isProjectMode}
+        onMouseEnter={handleNewCtTriggerEnter}
+        onMouseLeave={handleNewCtLeave}
+        isPinned={pinnedNewCtMenu}
+        onTogglePin={() => setPinnedNewCtMenu(!pinnedNewCtMenu)}
       />
 
       {/* Region Occupation Dialog */}
@@ -12217,7 +12253,7 @@ function App() {
         <div style={{
           position: 'fixed',
           bottom: '50px',
-          right: ((showContentMenu || pinnedContentMenu) || (showHierarchyMenu || pinnedHierarchyMenu)) ? '320px' : '10px',
+          right: ((showContentMenu || pinnedContentMenu) || (showHierarchyMenu || pinnedHierarchyMenu) || (showNewCtMenu || pinnedNewCtMenu)) ? '320px' : '10px',
           background: 'rgba(255,255,255,0.95)',
           color: '#333',
           padding: '10px',
@@ -12957,7 +12993,7 @@ function App() {
       <div style={{
         position: 'fixed',
         bottom: '10px',
-        right: ((showContentMenu || pinnedContentMenu) || (showHierarchyMenu || pinnedHierarchyMenu)) ? '320px' : '10px',
+        right: ((showContentMenu || pinnedContentMenu) || (showHierarchyMenu || pinnedHierarchyMenu) || (showNewCtMenu || pinnedNewCtMenu)) ? '320px' : '10px',
         background: 'rgba(0,0,0,0.7)',
         color: 'white',
         padding: '4px 8px',
