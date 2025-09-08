@@ -8,6 +8,7 @@ import { customerService, Customer } from './services/customerService';
 import ContentMenu, { ContentType } from './components/ContentMenu';
 import NewCtMenu from './components/NewCtMenu';
 import UniversalContentDialog, { UniversalContentData } from './components/dialogs/UniversalContentDialog';
+import NewLineTextDialog, { NewLineTextConfig } from './components/NewLineTextDialog';
 import jsPDF from 'jspdf';
 // import RegionOccupationDialog, { RegionOccupationData } from './components/dialogs/RegionOccupationDialog';
 // import PreviewControlPanel, { PreviewSettings } from './components/PreviewControlPanel';
@@ -211,6 +212,153 @@ function App() {
   const [showNewCtMenu, setShowNewCtMenu] = useState(false);
   const [newCtHideTimeout, setNewCtHideTimeout] = useState<NodeJS.Timeout | null>(null);
   const [pinnedNewCtMenu, setPinnedNewCtMenu] = useState(false);
+
+  // New Line Text Dialog state
+  const [newLineTextDialog, setNewLineTextDialog] = useState<{
+    isOpen: boolean;
+    regionId: string;
+    regionWidth: number;
+    regionHeight: number;
+    editingContent?: any;
+  } | null>(null);
+
+  // Handle New Line Text Dialog Save
+  const handleNewLineTextSave = (config: NewLineTextConfig) => {
+    if (!newLineTextDialog) return;
+
+    const { regionId, editingContent } = newLineTextDialog;
+
+    if (editingContent) {
+      // Update existing content
+      console.log('🔄 Updating existing content:', editingContent.id, 'with config:', config);
+      setRegionContents(prevContents => {
+        const newContents = new Map(prevContents);
+        const currentContents = newContents.get(regionId) || [];
+        const updatedContents = currentContents.map((content: any) => {
+          if (content.id === editingContent.id) {
+            const updatedContent = {
+              ...content,
+              layout: {
+                ...content.layout,
+                horizontalAlign: config.alignment.horizontal,
+                verticalAlign: config.alignment.vertical,
+                padding: {
+                  top: config.padding.top,
+                  right: config.padding.right,
+                  bottom: config.padding.bottom,
+                  left: config.padding.left
+                }
+              },
+              typography: {
+                ...content.typography,
+                fontFamily: config.typography.fontFamily,
+                fontSize: config.typography.fontSize,
+                fontSizeUnit: config.typography.fontSizeUnit,
+                fontColor: content.typography?.fontColor || '#000000'
+              },
+              content: {
+                ...content.content,
+                text: config.textContent
+              },
+              newLineTextConfig: config // Store the full config for future editing
+            };
+            console.log('✅ Updated content object:', updatedContent);
+            return updatedContent;
+          }
+          return content;
+        });
+        console.log('🔄 Setting updated contents for region:', regionId, 'with updatedContents:', updatedContents);
+        newContents.set(regionId, updatedContents);
+        return newContents;
+      });
+
+      // Find region name for notification
+      const regionName = (() => {
+        // Find region name from data
+        const currentData = data || webCreationData;
+        if (currentData) {
+          for (const obj of currentData.objects) {
+            if (obj.type?.includes('mother')) {
+              const regions = (obj as any).regions || [];
+              const region = regions.find((r: any) => r.id === regionId);
+              if (region) return region.name;
+            }
+          }
+        }
+        return regionId;
+      })();
+
+      setNotification(`✅ Updated line text in ${regionName}`);
+      setTimeout(() => setNotification(null), 3000);
+    } else {
+      // Create new content
+      const newContent = {
+        id: `content_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        type: 'new-line-text',
+        regionId: regionId,
+        layout: {
+          occupyLeftoverSpace: true,
+          fullWidth: true,
+          fullHeight: true,
+          width: { value: 100, unit: '%' as const },
+          height: { value: 100, unit: '%' as const },
+          horizontalAlign: config.alignment.horizontal,
+          verticalAlign: config.alignment.vertical,
+          padding: {
+            top: config.padding.top,
+            right: config.padding.right,
+            bottom: config.padding.bottom,
+            left: config.padding.left
+          }
+        },
+        typography: {
+          fontFamily: config.typography.fontFamily,
+          fontSize: config.typography.fontSize,
+          fontSizeUnit: config.typography.fontSizeUnit,
+          fontColor: '#000000'
+        },
+        content: {
+          text: config.textContent
+        },
+        newLineTextConfig: config // Store the full config for future editing
+      };
+
+      // Add content to region
+      setRegionContents(prevContents => {
+        const newContents = new Map(prevContents);
+        const currentContents = newContents.get(regionId) || [];
+        newContents.set(regionId, [...currentContents, newContent]);
+        return newContents;
+      });
+
+      // Find region name for notification
+      const regionName = (() => {
+        // Find region name from data
+        const currentData = data || webCreationData;
+        if (currentData) {
+          for (const obj of currentData.objects) {
+            if (obj.type?.includes('mother')) {
+              const regions = (obj as any).regions || [];
+              const region = regions.find((r: any) => r.id === regionId);
+              if (region) return region.name;
+            }
+          }
+        }
+        return regionId;
+      })();
+
+      setNotification(`✅ Added configured line text to ${regionName}`);
+      setTimeout(() => setNotification(null), 3000);
+    }
+
+    // Close dialog
+    setNewLineTextDialog(null);
+  };
+
+  // Handle New Line Text Dialog Cancel
+  const handleNewLineTextCancel = () => {
+    setNewLineTextDialog(null);
+  };
 
   // Auto-hide menu handlers
   const handleMenuTriggerEnter = () => {
@@ -1291,6 +1439,39 @@ function App() {
 
   const handleContentDoubleClick = (content: any, regionId: string) => {
     console.log('🖱️ Double-clicked content:', content.type, content.id);
+
+    // Handle new-line-text content type specially
+    if (content.type === 'new-line-text') {
+      // Find the region from current data
+      const currentData = data || webCreationData;
+      let region: any = null;
+      
+      if (currentData) {
+        for (const obj of currentData.objects) {
+          if (obj.type?.includes('mother')) {
+            const regions = (obj as any).regions || [];
+            region = regions.find((r: any) => r.id === regionId);
+            if (region) break;
+          }
+        }
+      }
+      
+      if (!region) {
+        setNotification(`❌ Region ${regionId} not found`);
+        setTimeout(() => setNotification(null), 3000);
+        return;
+      }
+
+      // Open NewLineTextDialog for editing with existing content
+      setNewLineTextDialog({
+        isOpen: true,
+        regionId: regionId,
+        regionWidth: region.width,
+        regionHeight: region.height,
+        editingContent: content
+      });
+      return;
+    }
 
     // Find the content type from available content types
     const contentTypes = [
@@ -4629,43 +4810,33 @@ function App() {
 
     // Check if this is the new CT line text
     if ((contentTypeData as any).isNewCt && contentTypeData.id === 'new-line-text') {
-      console.log('🆕 NEW CT Line Text - Creating simple text label');
+      console.log('🆕 NEW CT Line Text - Opening configuration dialog');
 
-      // Create simple content directly without dialog
-      const newContent = {
-        id: `content_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        type: 'new-line-text',
-        regionId: regionId,
-        layout: {
-          occupyLeftoverSpace: true,
-          fullWidth: true,
-          fullHeight: true,
-          width: { value: 100, unit: '%' as const },
-          height: { value: 100, unit: '%' as const },
-          horizontalAlign: 'center' as const,
-          verticalAlign: 'center' as const,
-          padding: { top: 5, right: 5, bottom: 5, left: 5 }
-        },
-        typography: {
-          fontFamily: 'Arial',
-          fontSize: 14,
-          fontColor: '#000000'
-        },
-        content: {
-          text: 'line text'
+      // Find the region to get its dimensions
+      let region: any = null;
+      const currentData = data || webCreationData;
+      if (currentData) {
+        for (const obj of currentData.objects) {
+          if (obj.type?.includes('mother')) {
+            const regions = (obj as any).regions || [];
+            region = regions.find((r: any) => r.id === regionId);
+            if (region) break;
+          }
         }
-      };
+      }
+      if (!region) {
+        setNotification(`❌ Region ${regionId} not found`);
+        setTimeout(() => setNotification(null), 3000);
+        return;
+      }
 
-      // Add content directly to region
-      setRegionContents(prevContents => {
-        const newContents = new Map(prevContents);
-        const currentContents = newContents.get(regionId) || [];
-        newContents.set(regionId, [...currentContents, newContent]);
-        return newContents;
+      // Open configuration dialog
+      setNewLineTextDialog({
+        isOpen: true,
+        regionId: regionId,
+        regionWidth: region.width,
+        regionHeight: region.height
       });
-
-      setNotification(`✅ Added line text to ${occupation.regionName}`);
-      setTimeout(() => setNotification(null), 3000);
       return;
     }
 
@@ -8621,6 +8792,9 @@ function App() {
                       // Extract text based on content type
                       if (content.type === 'line-text' && content.content?.text) {
                         displayText = content.content.text;
+                      } else if (content.type === 'new-line-text' && content.content?.text) {
+                        displayText = content.content.text;
+                        console.log('🎨 new-line-text displayText:', displayText, 'content:', content);
                       } else if (content.type === 'pure-english-paragraph' && content.content?.text) {
                         displayText = content.content.text;
                       } else if (content.type === 'translation-paragraph') {
@@ -8635,7 +8809,10 @@ function App() {
                         displayText = content.content.country;
                       }
 
-                      if (!displayText) return null;
+                      if (!displayText) {
+                        console.log('❌ No displayText for content:', content.type, content.id, 'content.content:', content.content);
+                        return null;
+                      }
 
                       // Get content properties - use master properties for connectors
                       const role = getOverflowRole(content.id);
@@ -8650,12 +8827,48 @@ function App() {
                         }
                       }
 
-                      const fontSize = effectiveTypography?.fontSize || 12;
-                      const fontFamily = effectiveTypography?.fontFamily || 'Arial';
-                      const fontColor = effectiveTypography?.fontColor || '#000000';
-                      const textAlign = effectiveLayout?.horizontalAlign || 'left';
-                      const verticalAlign = effectiveLayout?.verticalAlign || 'top';
-                      const padding = effectiveLayout?.padding || { top: 2, right: 2, bottom: 2, left: 2 };
+                      // Special handling for new-line-text with custom configuration
+                      let fontSize = effectiveTypography?.fontSize || 12;
+                      let fontFamily = effectiveTypography?.fontFamily || 'Arial';
+                      let fontColor = effectiveTypography?.fontColor || '#000000';
+                      let textAlign = effectiveLayout?.horizontalAlign || 'left';
+                      let verticalAlign = effectiveLayout?.verticalAlign || 'top';
+                      let padding = effectiveLayout?.padding || { top: 2, right: 2, bottom: 2, left: 2 };
+                      let fontSizeUnit = 'px';
+
+                      if (content.type === 'new-line-text' && content.newLineTextConfig) {
+                        const config = content.newLineTextConfig;
+                        fontSize = config.typography.fontSize;
+                        fontFamily = config.typography.fontFamily;
+                        fontSizeUnit = config.typography.fontSizeUnit;
+                        textAlign = config.alignment.horizontal;
+                        verticalAlign = config.alignment.vertical;
+                        padding = config.padding;
+
+                        // Handle text truncation for new-line-text
+                        const availableWidth = region.width - config.padding.left - config.padding.right;
+                        const estimatedCharWidth = fontSize * 0.6;
+                        const maxChars = Math.floor(availableWidth / estimatedCharWidth);
+                        
+                        console.log('🎨 new-line-text truncation check:', {
+                          originalText: displayText,
+                          availableWidth,
+                          fontSize,
+                          estimatedCharWidth,
+                          maxChars,
+                          textLength: displayText.length
+                        });
+
+                        if (displayText.length * estimatedCharWidth > availableWidth) {
+                          const truncateLength = Math.max(0, maxChars - 3); // Reserve space for "..."
+                          if (truncateLength <= 0) {
+                            displayText = '...'; // If we can't fit anything, just show dots
+                          } else {
+                            displayText = displayText.substring(0, truncateLength) + '...';
+                          }
+                          console.log('🎨 Text truncated to:', displayText);
+                        }
+                      }
 
                       // PHASE 1: Use precise text measurement for rendering
                       const preciseCapacity = calculatePreciseTextCapacity(
@@ -12934,6 +13147,19 @@ function App() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* New Line Text Configuration Dialog */}
+      {newLineTextDialog && (
+        <NewLineTextDialog
+          isOpen={newLineTextDialog.isOpen}
+          regionId={newLineTextDialog.regionId}
+          regionWidth={newLineTextDialog.regionWidth}
+          regionHeight={newLineTextDialog.regionHeight}
+          editingContent={newLineTextDialog.editingContent}
+          onSave={handleNewLineTextSave}
+          onCancel={handleNewLineTextCancel}
+        />
       )}
 
       {/* Version Footer */}
