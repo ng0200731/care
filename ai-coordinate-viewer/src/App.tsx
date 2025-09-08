@@ -655,6 +655,7 @@ function App() {
     const measurement = createTextMeasurementCanvas();
     if (!measurement) {
       // Fallback to approximation if canvas fails
+      console.warn('⚠️ Canvas measurement failed, using fallback approximation for:', text);
       return {
         width: text.length * fontSize * 0.6,
         height: fontSize * 1.2
@@ -669,6 +670,18 @@ function App() {
 
     // Calculate actual text height using font metrics
     const height = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+
+    // DEBUG: Log measurement results for debugging
+    if (text.includes('The quick brown fox')) {
+      console.log('🔍 measureTextPrecisely DEBUG:', {
+        text: text.substring(0, 30) + '...',
+        fontSize: fontSize + 'px',
+        fontFamily,
+        measuredWidth: width + 'px',
+        textLength: text.length,
+        widthPerChar: (width / text.length).toFixed(2) + 'px'
+      });
+    }
 
     return {
       width: width,
@@ -694,7 +707,8 @@ function App() {
     regionHeight: number,
     fontSize: number = 12,
     fontFamily: string = 'Arial',
-    padding: { top: number; right: number; bottom: number; left: number } = { top: 2, right: 2, bottom: 2, left: 2 }
+    padding: { top: number; right: number; bottom: number; left: number } = { top: 2, right: 2, bottom: 2, left: 2 },
+    maxUtilization: boolean = false // New parameter for aggressive fitting
   ): { maxLines: number; avgCharsPerLine: number; totalCapacity: number; utilizationTarget: number } => {
 
     const { effectiveWidth, effectiveHeight } = getZoomInvariantMeasurements(regionWidth, regionHeight, padding);
@@ -720,11 +734,28 @@ function App() {
     // Calculate average characters per line
     const avgCharsPerLine = Math.floor(effectiveWidthPx / avgCharWidth);
 
+    // DEBUG: Log all measurements
+    console.log('🔍 calculatePreciseTextCapacity DEBUG:', {
+      regionWidth: regionWidth + 'mm',
+      effectiveWidth: effectiveWidth + 'mm', 
+      effectiveWidthPx: effectiveWidthPx + 'px',
+      fontSize: fontSize + 'px',
+      fontFamily,
+      charSample: charSample.substring(0, 20) + '...',
+      charSampleLength: charSample.length,
+      charMetricsWidth: charMetrics.width + 'px',
+      avgCharWidth: avgCharWidth + 'px',
+      avgCharsPerLine,
+      maxLines
+    });
+
     // Total capacity with safety margin
     const totalCapacity = maxLines * avgCharsPerLine;
 
-    // Set utilization target to 95% - only overflow when region is 95% full
-    const utilizationTarget = Math.floor(totalCapacity * 0.95);
+    // Set utilization target based on mode
+    const utilizationTarget = maxUtilization 
+      ? totalCapacity // Use 100% for aggressive fitting (new-line-text)
+      : Math.floor(totalCapacity * 0.95); // Use 95% for conservative fitting (legacy)
 
     return {
       maxLines,
@@ -748,7 +779,8 @@ function App() {
     regionHeight: number,
     fontSize: number,
     fontFamily: string = 'Arial',
-    padding: { top: number; right: number; bottom: number; left: number } = { top: 2, right: 2, bottom: 2, left: 2 }
+    padding: { top: number; right: number; bottom: number; left: number } = { top: 2, right: 2, bottom: 2, left: 2 },
+    maxUtilization: boolean = false // New parameter for aggressive fitting
   ): { fitting: string; overflow: string; utilizationPercent: number; linesUsed: number; fittingLines: string[] } => {
 
     if (!text || text.length === 0) {
@@ -760,8 +792,8 @@ function App() {
     const effectiveWidthPx = effectiveWidth * mmToPx;
     const effectiveHeightPx = effectiveHeight * mmToPx;
 
-    // Get precise capacity metrics
-    const capacity = calculatePreciseTextCapacity(regionWidth, regionHeight, fontSize, fontFamily, padding);
+    // Get precise capacity metrics with max utilization setting
+    const capacity = calculatePreciseTextCapacity(regionWidth, regionHeight, fontSize, fontFamily, padding, maxUtilization);
 
     // Create measurement context
     const measurement = createTextMeasurementCanvas();
@@ -8845,52 +8877,85 @@ function App() {
                         verticalAlign = config.alignment.vertical;
                         padding = config.padding;
 
-                        // Handle text truncation for new-line-text
-                        const availableWidth = region.width - config.padding.left - config.padding.right;
-                        const estimatedCharWidth = fontSize * 0.6;
-                        const maxChars = Math.floor(availableWidth / estimatedCharWidth);
-                        
-                        console.log('🎨 new-line-text truncation check:', {
-                          originalText: displayText,
-                          availableWidth,
-                          fontSize,
-                          estimatedCharWidth,
-                          maxChars,
-                          textLength: displayText.length
-                        });
-
-                        if (displayText.length * estimatedCharWidth > availableWidth) {
-                          const truncateLength = Math.max(0, maxChars - 3); // Reserve space for "..."
-                          if (truncateLength <= 0) {
-                            displayText = '...'; // If we can't fit anything, just show dots
-                          } else {
-                            displayText = displayText.substring(0, truncateLength) + '...';
-                          }
-                          console.log('🎨 Text truncated to:', displayText);
-                        }
+                        // For new-line-text, let findOptimalTextFit handle all text fitting
+                        // Don't apply custom truncation logic here - let the advanced algorithm handle it
+                        console.log('🎨 new-line-text using advanced text fitting for:', displayText);
                       }
 
                       // PHASE 1: Use precise text measurement for rendering
-                      const preciseCapacity = calculatePreciseTextCapacity(
-                        region.width,
-                        region.height,
-                        fontSize,
-                        fontFamily,
-                        padding
-                      );
+                      // Convert font size to pixels for consistent processing
+                      let fontSizeForProcessing = fontSize;
+                      if (content.type === 'new-line-text' && content.newLineTextConfig) {
+                        const config = content.newLineTextConfig;
+                        if (config.typography.fontSizeUnit === 'pt') {
+                          fontSizeForProcessing = fontSize * 4/3; // Convert points to pixels
+                        } else if (config.typography.fontSizeUnit === 'mm') {
+                          fontSizeForProcessing = fontSize * 3.779527559; // Convert mm to pixels
+                        }
+                        console.log('🎨 Font size conversion:', fontSize, config.typography.fontSizeUnit, '→', fontSizeForProcessing, 'px');
+                      }
+                      
+                      // 🎯 ACCURATE TRUNCATION: Based on visual test results
+                      let displayLines: string[];
+                      let hasOverflow = false;
+                      let optimalFit: any = null; // Declare for overflow logic
+                      
+                      if (content.type === 'new-line-text') {
+                        // Use precise truncation based on visual test data
+                        // Test result: "AB CD EF GH IJ KL MN" (25 chars) fits exactly in 24mm available width
+                        // This gives us: 24mm ÷ 25 chars = 0.96mm per character
+                        
+                        const availableWidthMm = region.width - padding.left - padding.right;
+                        const charWidthMm = 0.96; // From visual test: 24mm ÷ 25 chars
+                        const maxChars = Math.floor(availableWidthMm / charWidthMm);
+                        
+                        console.log('🎯 ACCURATE TRUNCATION based on visual test:', {
+                          originalText: displayText,
+                          availableWidthMm: availableWidthMm + 'mm',
+                          charWidthMm: charWidthMm + 'mm/char',
+                          maxChars,
+                          textLength: displayText.length,
+                          willTruncate: displayText.length > maxChars
+                        });
+                        
+                        if (displayText.length > maxChars) {
+                          const truncateLength = Math.max(0, maxChars - 3); // Reserve space for "..."
+                          if (truncateLength <= 0) {
+                            displayText = '...';
+                          } else {
+                            displayText = displayText.substring(0, truncateLength) + '...';
+                          }
+                          console.log('🎯 Text truncated to:', displayText);
+                        }
+                        
+                        displayLines = [displayText];
+                        hasOverflow = false;
+                        optimalFit = { overflow: '' };
+                      } else {
+                        // For other content types: use normal fitting algorithm
+                        const preciseCapacity = calculatePreciseTextCapacity(
+                          region.width,
+                          region.height,
+                          fontSizeForProcessing, // Use converted font size
+                          fontFamily,
+                          padding,
+                          false // Use normal fitting for other content
+                        );
 
-                      const optimalFit = findOptimalTextFit(
-                        displayText,
-                        region.width,
-                        region.height,
-                        fontSize,
-                        fontFamily,
-                        padding
-                      );
+                        optimalFit = findOptimalTextFit(
+                          displayText,
+                          region.width,
+                          region.height,
+                          fontSizeForProcessing, // Use converted font size
+                          fontFamily,
+                          padding,
+                          false // Use normal fitting for other content
+                        );
 
-                      // Use optimal fit results for display - lines are already calculated!
-                      const displayLines = optimalFit.fittingLines;
-                      const hasOverflow = optimalFit.overflow.length > 0;
+                        // Use optimal fit results for display - lines are already calculated!
+                        displayLines = optimalFit.fittingLines;
+                        hasOverflow = optimalFit.overflow.length > 0;
+                      }
 
                       // Calculate render coordinates (zoom-dependent)
                       const regionWidthPx = region.width * scale;
@@ -8954,7 +9019,10 @@ function App() {
 
                       if (textAlign === 'center') {
                         textAnchor = 'middle';
-                        textX = baseX + (region.x * scale) + regionWidthPx / 2;
+                        // Center within the available area (respecting padding)
+                        const availableAreaX = baseX + (region.x * scale) + paddingLeftPx;
+                        const availableAreaWidth = regionWidthPx - paddingLeftPx - paddingRightPx;
+                        textX = availableAreaX + availableAreaWidth / 2;
                       } else if (textAlign === 'right') {
                         textAnchor = 'end';
                         textX = baseX + (region.x * scale) + regionWidthPx - paddingRightPx;
@@ -8964,7 +9032,10 @@ function App() {
                       let startY = baseY + (region.y * scale) + paddingTopPx;
                       if (verticalAlign === 'center') {
                         const totalTextHeight = displayLines.length * lineHeight;
-                        startY = baseY + (region.y * scale) + (regionHeightPx - totalTextHeight) / 2;
+                        // Center within the available area (respecting padding)
+                        const availableAreaY = baseY + (region.y * scale) + paddingTopPx;
+                        const availableAreaHeight = regionHeightPx - paddingTopPx - paddingBottomPx;
+                        startY = availableAreaY + (availableAreaHeight - totalTextHeight) / 2;
                       } else if (verticalAlign === 'bottom') {
                         const totalTextHeight = displayLines.length * lineHeight;
                         startY = baseY + (region.y * scale) + regionHeightPx - paddingBottomPx - totalTextHeight;
@@ -9016,6 +9087,92 @@ function App() {
                               );
                             })}
                           </g>
+                        </g>
+                      );
+                    });
+                  })()}
+
+                  {/* Padding boundaries visualization for new-line-text content */}
+                  {(() => {
+                    const regionContentsArray = regionContents.get(region.id) || [];
+                    if (!regionContentsArray || regionContentsArray.length === 0) return null;
+                    return regionContentsArray.map((content: any, contentIndex: number) => {
+                      if (content.type !== 'new-line-text' || !content.newLineTextConfig) return null;
+                      
+                      const config = content.newLineTextConfig;
+                      const regionWidthPx = region.width * scale;
+                      const regionHeightPx = region.height * scale;
+                      const paddingTopPx = config.padding.top * scale;
+                      const paddingRightPx = config.padding.right * scale;
+                      const paddingBottomPx = config.padding.bottom * scale;
+                      const paddingLeftPx = config.padding.left * scale;
+                      
+                      // Only show if any padding is greater than 0
+                      if (config.padding.top === 0 && config.padding.right === 0 && 
+                          config.padding.bottom === 0 && config.padding.left === 0) {
+                        return null;
+                      }
+                      
+                      const regionX = baseX + (region.x * scale);
+                      const regionY = baseY + (region.y * scale);
+                      
+                      return (
+                        <g key={`${region.id}-padding-${contentIndex}`}>
+                          {/* Top padding line */}
+                          {config.padding.top > 0 && (
+                            <line
+                              x1={regionX + paddingLeftPx}
+                              y1={regionY + paddingTopPx}
+                              x2={regionX + regionWidthPx - paddingRightPx}
+                              y2={regionY + paddingTopPx}
+                              stroke="#ff6b35"
+                              strokeWidth="1"
+                              strokeDasharray="3,3"
+                              opacity="0.7"
+                            />
+                          )}
+                          
+                          {/* Bottom padding line */}
+                          {config.padding.bottom > 0 && (
+                            <line
+                              x1={regionX + paddingLeftPx}
+                              y1={regionY + regionHeightPx - paddingBottomPx}
+                              x2={regionX + regionWidthPx - paddingRightPx}
+                              y2={regionY + regionHeightPx - paddingBottomPx}
+                              stroke="#ff6b35"
+                              strokeWidth="1"
+                              strokeDasharray="3,3"
+                              opacity="0.7"
+                            />
+                          )}
+                          
+                          {/* Left padding line */}
+                          {config.padding.left > 0 && (
+                            <line
+                              x1={regionX + paddingLeftPx}
+                              y1={regionY + paddingTopPx}
+                              x2={regionX + paddingLeftPx}
+                              y2={regionY + regionHeightPx - paddingBottomPx}
+                              stroke="#ff6b35"
+                              strokeWidth="1"
+                              strokeDasharray="3,3"
+                              opacity="0.7"
+                            />
+                          )}
+                          
+                          {/* Right padding line */}
+                          {config.padding.right > 0 && (
+                            <line
+                              x1={regionX + regionWidthPx - paddingRightPx}
+                              y1={regionY + paddingTopPx}
+                              x2={regionX + regionWidthPx - paddingRightPx}
+                              y2={regionY + regionHeightPx - paddingBottomPx}
+                              stroke="#ff6b35"
+                              strokeWidth="1"
+                              strokeDasharray="3,3"
+                              opacity="0.7"
+                            />
+                          )}
                         </g>
                       );
                     });

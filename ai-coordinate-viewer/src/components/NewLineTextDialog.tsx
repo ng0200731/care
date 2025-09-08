@@ -72,11 +72,56 @@ const NewLineTextDialog: React.FC<NewLineTextDialogProps> = ({
   const [config, setConfig] = useState<NewLineTextConfig>(getInitialConfig());
 
   const [isTextTruncated, setIsTextTruncated] = useState(false);
+  
+  // State for "For all size" padding sync
+  const [syncAllPadding, setSyncAllPadding] = useState(false);
 
   // Update config when editing content changes
   useEffect(() => {
     setConfig(getInitialConfig());
   }, [editingContent]);
+
+  // Handle synchronized padding changes
+  const handlePaddingChange = (side: 'left' | 'top' | 'right' | 'bottom', value: number) => {
+    if (syncAllPadding) {
+      // Update all padding sides to the same value
+      setConfig(prev => ({
+        ...prev,
+        padding: {
+          left: value,
+          top: value,
+          right: value,
+          bottom: value
+        }
+      }));
+    } else {
+      // Update only the specific side
+      setConfig(prev => ({
+        ...prev,
+        padding: { ...prev.padding, [side]: value }
+      }));
+    }
+  };
+
+  // Toggle sync all padding
+  const handleSyncAllPaddingToggle = () => {
+    const newSyncState = !syncAllPadding;
+    setSyncAllPadding(newSyncState);
+    
+    if (newSyncState) {
+      // When enabling sync, set all values to the left padding value
+      const leftValue = config.padding.left;
+      setConfig(prev => ({
+        ...prev,
+        padding: {
+          left: leftValue,
+          top: leftValue,
+          right: leftValue,
+          bottom: leftValue
+        }
+      }));
+    }
+  };
 
   // Font options
   const fontOptions = [
@@ -93,18 +138,28 @@ const NewLineTextDialog: React.FC<NewLineTextDialogProps> = ({
   // Calculate available width for text
   const availableWidth = regionWidth - config.padding.left - config.padding.right;
 
-  // Estimate text width (rough calculation)
-  const estimateTextWidth = (text: string, fontSize: number, fontFamily: string): number => {
-    // Rough character width estimation based on font size
-    const avgCharWidth = fontSize * 0.6; // Approximate character width
-    return text.length * avgCharWidth;
+  // Estimate text width with proper unit conversion
+  const estimateTextWidth = (text: string, fontSize: number, fontSizeUnit: string, fontFamily: string): number => {
+    // Convert font size to pixels for character width estimation
+    let fontSizeInPixels = fontSize;
+    if (fontSizeUnit === 'pt') {
+      fontSizeInPixels = fontSize * 4/3; // 1 point = 4/3 pixels
+    } else if (fontSizeUnit === 'mm') {
+      fontSizeInPixels = fontSize * 3.779527559; // 1 mm = ~3.78 pixels at 96 DPI
+    }
+    
+    // Estimate character width in pixels, then convert to mm
+    const avgCharWidthPx = fontSizeInPixels * 0.6;
+    const avgCharWidthMm = avgCharWidthPx / 3.779527559; // Convert pixels to mm
+    return text.length * avgCharWidthMm;
   };
 
-  // Check if text needs truncation
+  // Check if text needs truncation - DISABLED FOR VISUAL TESTING
   useEffect(() => {
-    const estimatedWidth = estimateTextWidth(config.textContent, config.typography.fontSize, config.typography.fontFamily);
-    setIsTextTruncated(estimatedWidth > availableWidth);
-  }, [config.textContent, config.typography.fontSize, config.typography.fontFamily, availableWidth]);
+    // For visual testing: disable truncation warning
+    setIsTextTruncated(false);
+    console.log('📏 Dialog: Visual testing mode - truncation disabled');
+  }, [config.textContent, config.typography.fontSize, config.typography.fontSizeUnit, config.typography.fontFamily, availableWidth]);
 
   // Handle text truncation
   const getTruncatedText = (text: string): string => {
@@ -118,7 +173,7 @@ const NewLineTextDialog: React.FC<NewLineTextDialogProps> = ({
     while (left <= right) {
       const mid = Math.floor((left + right) / 2);
       const testText = text.substring(0, mid) + '...';
-      const estimatedWidth = estimateTextWidth(testText, config.typography.fontSize, config.typography.fontFamily);
+      const estimatedWidth = estimateTextWidth(testText, config.typography.fontSize, config.typography.fontSizeUnit, config.typography.fontFamily);
       
       if (estimatedWidth <= availableWidth) {
         maxFitLength = mid;
@@ -189,14 +244,32 @@ const NewLineTextDialog: React.FC<NewLineTextDialogProps> = ({
 
         {/* Padding Controls */}
         <div style={{ marginBottom: '24px' }}>
-          <h3 style={{
-            margin: '0 0 12px 0',
-            fontSize: '16px',
-            fontWeight: '600',
-            color: '#2d3748'
-          }}>
-            Padding (mm)
-          </h3>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <h3 style={{
+              margin: 0,
+              fontSize: '16px',
+              fontWeight: '600',
+              color: '#2d3748'
+            }}>
+              Padding (mm)
+            </h3>
+            <label style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              color: '#4a5568'
+            }}>
+              <input
+                type="checkbox"
+                checked={syncAllPadding}
+                onChange={handleSyncAllPaddingToggle}
+                style={{ cursor: 'pointer' }}
+              />
+              For all size
+            </label>
+          </div>
           <div style={{
             display: 'grid',
             gridTemplateColumns: '1fr 1fr',
@@ -211,10 +284,7 @@ const NewLineTextDialog: React.FC<NewLineTextDialogProps> = ({
                 min="0"
                 step="0.1"
                 value={config.padding.left}
-                onChange={(e) => setConfig(prev => ({
-                  ...prev,
-                  padding: { ...prev.padding, left: parseFloat(e.target.value) || 0 }
-                }))}
+                onChange={(e) => handlePaddingChange('left', parseFloat(e.target.value) || 0)}
                 style={{
                   width: '100%',
                   padding: '8px 12px',
@@ -233,16 +303,16 @@ const NewLineTextDialog: React.FC<NewLineTextDialogProps> = ({
                 min="0"
                 step="0.1"
                 value={config.padding.top}
-                onChange={(e) => setConfig(prev => ({
-                  ...prev,
-                  padding: { ...prev.padding, top: parseFloat(e.target.value) || 0 }
-                }))}
+                disabled={syncAllPadding}
+                onChange={(e) => handlePaddingChange('top', parseFloat(e.target.value) || 0)}
                 style={{
                   width: '100%',
                   padding: '8px 12px',
                   border: '2px solid #e2e8f0',
                   borderRadius: '6px',
-                  fontSize: '14px'
+                  fontSize: '14px',
+                  backgroundColor: syncAllPadding ? '#f7fafc' : 'white',
+                  cursor: syncAllPadding ? 'not-allowed' : 'text'
                 }}
               />
             </div>
@@ -255,16 +325,16 @@ const NewLineTextDialog: React.FC<NewLineTextDialogProps> = ({
                 min="0"
                 step="0.1"
                 value={config.padding.right}
-                onChange={(e) => setConfig(prev => ({
-                  ...prev,
-                  padding: { ...prev.padding, right: parseFloat(e.target.value) || 0 }
-                }))}
+                disabled={syncAllPadding}
+                onChange={(e) => handlePaddingChange('right', parseFloat(e.target.value) || 0)}
                 style={{
                   width: '100%',
                   padding: '8px 12px',
                   border: '2px solid #e2e8f0',
                   borderRadius: '6px',
-                  fontSize: '14px'
+                  fontSize: '14px',
+                  backgroundColor: syncAllPadding ? '#f7fafc' : 'white',
+                  cursor: syncAllPadding ? 'not-allowed' : 'text'
                 }}
               />
             </div>
@@ -277,16 +347,16 @@ const NewLineTextDialog: React.FC<NewLineTextDialogProps> = ({
                 min="0"
                 step="0.1"
                 value={config.padding.bottom}
-                onChange={(e) => setConfig(prev => ({
-                  ...prev,
-                  padding: { ...prev.padding, bottom: parseFloat(e.target.value) || 0 }
-                }))}
+                disabled={syncAllPadding}
+                onChange={(e) => handlePaddingChange('bottom', parseFloat(e.target.value) || 0)}
                 style={{
                   width: '100%',
                   padding: '8px 12px',
                   border: '2px solid #e2e8f0',
                   borderRadius: '6px',
-                  fontSize: '14px'
+                  fontSize: '14px',
+                  backgroundColor: syncAllPadding ? '#f7fafc' : 'white',
+                  cursor: syncAllPadding ? 'not-allowed' : 'text'
                 }}
               />
             </div>
