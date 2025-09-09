@@ -32,6 +32,7 @@ export interface NewMultiLineConfig {
     lineSpacing: number;
     lineWidth: number;
   };
+  processedLines?: string[]; // Exact lines from preview for canvas to use
 }
 
 const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
@@ -214,11 +215,15 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
         } else {
           // Word doesn't fit, start new line
           if (currentLine) {
+            // Push current line and start new line with the word that didn't fit
             wrappedLines.push(currentLine);
             currentLine = word;
+            console.log(`📄 Word wrap: "${word}" moved to new line (would exceed ${availableWidth.toFixed(1)}mm)`);
           } else {
-            // Single word is too long, but we still add it (no word breaking)
+            // Single word is too long for available width, but we never break words
+            // Add it anyway to preserve word integrity
             wrappedLines.push(word);
+            console.log(`⚠️ Long word: "${word}" exceeds available width but kept whole`);
           }
         }
       }
@@ -251,7 +256,22 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
   };
 
   const handleSave = () => {
-    onSave(config);
+    // Generate the exact wrapped lines that the preview shows
+    const wrappedLines = processTextForPreview(config.textContent);
+
+    // Add the processed lines to the config so canvas can use them directly
+    const configWithProcessedLines = {
+      ...config,
+      processedLines: wrappedLines // Store exact preview lines for canvas
+    };
+
+    console.log('💾 Saving multi-line config with processed lines:', {
+      originalText: config.textContent,
+      processedLines: wrappedLines,
+      totalLines: wrappedLines.length
+    });
+
+    onSave(configWithProcessedLines);
   };
 
   if (!isOpen) return null;
@@ -597,11 +617,14 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
           <div>
             <label style={{ fontSize: '14px', color: '#4a5568', display: 'block', marginBottom: '4px' }}>
               Text Value (use {config.lineBreak.symbol} for line breaks)
+              <span style={{ fontSize: '12px', color: '#718096', fontStyle: 'italic' }}>
+                {' '}• Words will never be cut - whole words move to next line
+              </span>
             </label>
             <textarea
               value={config.textContent}
               onChange={(e) => setConfig(prev => ({ ...prev, textContent: e.target.value }))}
-              placeholder={`Enter multi-line text...${config.lineBreak.symbol}Use ${config.lineBreak.symbol} for line breaks`}
+              placeholder={`Enter multi-line text...${config.lineBreak.symbol}Use ${config.lineBreak.symbol} for line breaks${config.lineBreak.symbol}Example: This is a long sentence that will wrap at word boundaries when it reaches the padding dotted line`}
               rows={4}
               style={{
                 width: '100%',

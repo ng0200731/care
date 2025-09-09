@@ -110,9 +110,9 @@ function App() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Word wrapping function for multi-line text (same logic as in dialog)
+  // Word wrapping function for multi-line text (EXACT COPY from dialog preview)
   const wrapMultiLineText = (text: string, fontSize: number, fontSizeUnit: string, fontFamily: string, availableWidthMm: number, lineBreakSymbol: string): string => {
-    // Text width estimation using canvas measurement
+    // EXACT COPY: Text width estimation using canvas measurement (same as dialog)
     const estimateTextWidth = (text: string): number => {
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
@@ -138,7 +138,7 @@ function App() {
       return textWidthMm;
     };
 
-    // Intelligent word wrapping - whole words move to next line
+    // EXACT COPY: Intelligent word wrapping from dialog (whole words move to next line)
     const wrapTextToLines = (text: string): string[] => {
       // First split by manual line break symbols
       const manualLines = text.split(lineBreakSymbol);
@@ -176,11 +176,15 @@ function App() {
           } else {
             // Word doesn't fit, start new line
             if (currentLine) {
+              // Push current line and start new line with the word that didn't fit
               wrappedLines.push(currentLine);
               currentLine = word;
+              console.log(`📄 Canvas word wrap: "${word}" moved to new line (would exceed ${availableWidthMm.toFixed(1)}mm)`);
             } else {
-              // Single word is too long, but we still add it (no word breaking)
+              // Single word is too long for available width, but we never break words
+              // Add it anyway to preserve word integrity
               wrappedLines.push(word);
+              console.log(`⚠️ Canvas long word: "${word}" exceeds available width but kept whole`);
             }
           }
         }
@@ -196,15 +200,16 @@ function App() {
 
     const wrappedLines = wrapTextToLines(text);
 
-    // Debug logging
-    console.log('📄 App: Multi-line word wrapping:', {
+    // Enhanced debug logging to compare with preview
+    console.log('📄 Canvas: Multi-line word wrapping (should match preview):', {
       originalText: `"${text}"`,
       availableWidth: availableWidthMm.toFixed(2) + 'mm',
       fontSize: `${fontSize}${fontSizeUnit}`,
       fontFamily: fontFamily,
       lineBreakSymbol: lineBreakSymbol,
       wrappedLines: wrappedLines,
-      totalLines: wrappedLines.length
+      totalLines: wrappedLines.length,
+      joinedResult: wrappedLines.join('\\n')
     });
 
     // Join lines with newline characters for rendering
@@ -9259,6 +9264,56 @@ function App() {
                         displayLines = [displayText];
                         hasOverflow = false;
                         optimalFit = { overflow: '' };
+                      } else if (content.type === 'new-multi-line') {
+                        // For multi-line content: Use EXACT lines from preview (no re-processing)
+                        console.log('🎯 Canvas: Using exact processed lines from preview');
+
+                        // Use the exact processed lines from the preview dialog
+                        if (content.newMultiLineConfig?.processedLines) {
+                          displayLines = [...content.newMultiLineConfig.processedLines];
+                          console.log('✅ Canvas: Using saved processed lines:', displayLines);
+                        } else {
+                          // Fallback: if no processed lines, use simple split (shouldn't happen)
+                          displayLines = displayText.split('\n');
+                          console.log('⚠️ Canvas: No processed lines found, using fallback split');
+                        }
+
+                        // Calculate available height and check for height truncation (same as preview)
+                        const availableHeightMm = region.height - padding.top - padding.bottom;
+
+                        // Calculate line height in mm (same logic as dialog)
+                        let fontSizeMm = fontSize;
+                        if (fontSizeUnit === 'px') {
+                          fontSizeMm = fontSize / 3.779527559; // Convert px to mm
+                        } else if (fontSizeUnit === 'pt') {
+                          fontSizeMm = (fontSize * 4/3) / 3.779527559; // Convert pt to px, then to mm
+                        }
+
+                        const lineSpacing = content.newMultiLineConfig?.lineBreak?.lineSpacing || 1.2;
+                        const lineHeightMm = fontSizeMm * lineSpacing;
+                        const totalTextHeightMm = displayLines.length * lineHeightMm;
+
+                        console.log('🎯 Canvas: Using exact preview lines:', {
+                          originalText: displayText,
+                          processedLines: displayLines,
+                          totalLines: displayLines.length,
+                          availableHeightMm: availableHeightMm.toFixed(2) + 'mm',
+                          lineHeightMm: lineHeightMm.toFixed(2) + 'mm',
+                          totalTextHeightMm: totalTextHeightMm.toFixed(2) + 'mm',
+                          needsHeightTruncation: totalTextHeightMm > availableHeightMm
+                        });
+
+                        // Check for height truncation (same as preview)
+                        if (totalTextHeightMm > availableHeightMm) {
+                          const maxVisibleLines = Math.floor(availableHeightMm / lineHeightMm);
+                          displayLines = displayLines.slice(0, maxVisibleLines);
+                          hasOverflow = true;
+                          console.log('🎯 Canvas: Multi-line text truncated to', maxVisibleLines, 'lines (same as preview)');
+                        } else {
+                          hasOverflow = false;
+                        }
+
+                        optimalFit = { overflow: hasOverflow ? 'height-truncated' : '' };
                       } else {
                         // For other content types: use normal fitting algorithm
                         const preciseCapacity = calculatePreciseTextCapacity(
