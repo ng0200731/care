@@ -9,6 +9,7 @@ import ContentMenu, { ContentType } from './components/ContentMenu';
 import NewCtMenu from './components/NewCtMenu';
 import UniversalContentDialog, { UniversalContentData } from './components/dialogs/UniversalContentDialog';
 import NewLineTextDialog, { NewLineTextConfig } from './components/NewLineTextDialog';
+import NewMultiLineDialog, { NewMultiLineConfig } from './components/NewMultiLineDialog';
 import jsPDF from 'jspdf';
 // import RegionOccupationDialog, { RegionOccupationData } from './components/dialogs/RegionOccupationDialog';
 // import PreviewControlPanel, { PreviewSettings } from './components/PreviewControlPanel';
@@ -222,6 +223,15 @@ function App() {
     editingContent?: any;
   } | null>(null);
 
+  // New Multi-line Dialog state
+  const [newMultiLineDialog, setNewMultiLineDialog] = useState<{
+    isOpen: boolean;
+    regionId: string;
+    regionWidth: number;
+    regionHeight: number;
+    editingContent?: any;
+  } | null>(null);
+
   // Handle New Line Text Dialog Save
   const handleNewLineTextSave = (config: NewLineTextConfig) => {
     if (!newLineTextDialog) return;
@@ -358,6 +368,141 @@ function App() {
   // Handle New Line Text Dialog Cancel
   const handleNewLineTextCancel = () => {
     setNewLineTextDialog(null);
+  };
+
+  // Handle New Multi-line Dialog Save
+  const handleNewMultiLineSave = (config: NewMultiLineConfig) => {
+    if (!newMultiLineDialog) return;
+
+    const { regionId, editingContent } = newMultiLineDialog;
+
+    if (editingContent) {
+      // Update existing content
+      console.log('🔄 Updating existing multi-line content:', editingContent.id, 'with config:', config);
+      setRegionContents(prevContents => {
+        const newContents = new Map(prevContents);
+        const currentContents = newContents.get(regionId) || [];
+        const updatedContents = currentContents.map((content: any) => {
+          if (content.id === editingContent.id) {
+            const updatedContent = {
+              ...content,
+              layout: {
+                ...content.layout,
+                horizontalAlign: config.alignment.horizontal,
+                verticalAlign: config.alignment.vertical,
+                padding: {
+                  top: config.padding.top,
+                  right: config.padding.right,
+                  bottom: config.padding.bottom,
+                  left: config.padding.left
+                }
+              },
+              typography: {
+                ...content.typography,
+                fontFamily: config.typography.fontFamily,
+                fontSize: config.typography.fontSize,
+                fontSizeUnit: config.typography.fontSizeUnit,
+                fontColor: content.typography?.fontColor || '#000000'
+              },
+              content: {
+                ...content.content,
+                text: config.textContent
+              },
+              newMultiLineConfig: config // Store the full config for future editing
+            };
+            console.log('✅ Updated multi-line content object:', updatedContent);
+            return updatedContent;
+          }
+          return content;
+        });
+        newContents.set(regionId, updatedContents);
+        return newContents;
+      });
+
+      // Find region name for notification
+      const regionName = (() => {
+        const currentData = data || webCreationData;
+        if (currentData) {
+          for (const obj of currentData.objects) {
+            if (obj.type?.includes('mother')) {
+              const regions = (obj as any).regions || [];
+              const region = regions.find((r: any) => r.id === regionId);
+              if (region) return region.name;
+            }
+          }
+        }
+        return regionId;
+      })();
+
+      setNotification(`✅ Updated multi-line text in ${regionName}`);
+      setTimeout(() => setNotification(null), 3000);
+    } else {
+      // Create new content
+      const newContent = {
+        id: `content_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        type: 'new-multi-line',
+        regionId: regionId,
+        layout: {
+          occupyLeftoverSpace: true,
+          fullWidth: true,
+          fullHeight: true,
+          width: { value: 100, unit: '%' as const },
+          height: { value: 100, unit: '%' as const },
+          horizontalAlign: config.alignment.horizontal,
+          verticalAlign: config.alignment.vertical,
+          padding: {
+            top: config.padding.top,
+            right: config.padding.right,
+            bottom: config.padding.bottom,
+            left: config.padding.left
+          }
+        },
+        typography: {
+          fontFamily: config.typography.fontFamily,
+          fontSize: config.typography.fontSize,
+          fontSizeUnit: config.typography.fontSizeUnit,
+          fontColor: '#000000'
+        },
+        content: {
+          text: config.textContent
+        },
+        newMultiLineConfig: config // Store the full config for future editing
+      };
+
+      // Add content to region
+      setRegionContents(prevContents => {
+        const newContents = new Map(prevContents);
+        const currentContents = newContents.get(regionId) || [];
+        newContents.set(regionId, [...currentContents, newContent]);
+        return newContents;
+      });
+
+      // Find region name for notification
+      const regionName = (() => {
+        const currentData = data || webCreationData;
+        if (currentData) {
+          for (const obj of currentData.objects) {
+            if (obj.type?.includes('mother')) {
+              const regions = (obj as any).regions || [];
+              const region = regions.find((r: any) => r.id === regionId);
+              if (region) return region.name;
+            }
+          }
+        }
+        return regionId;
+      })();
+
+      setNotification(`✅ Added configured multi-line text to ${regionName}`);
+      setTimeout(() => setNotification(null), 3000);
+    }
+
+    // Close dialog
+    setNewMultiLineDialog(null);
+  };
+
+  // Handle New Multi-line Dialog Cancel
+  const handleNewMultiLineCancel = () => {
+    setNewMultiLineDialog(null);
   };
 
   // Auto-hide menu handlers
@@ -1507,8 +1652,36 @@ function App() {
 
     // Handle new-multi-line content type specially
     if (content.type === 'new-multi-line') {
-      console.log('🆕 NEW CT Multi-line double-clicked - No action for now');
-      // Do nothing for now as requested
+      console.log('🆕 NEW CT Multi-line double-clicked - Opening configuration dialog');
+
+      // Find the region from current data
+      const currentData = data || webCreationData;
+      let region: any = null;
+
+      if (currentData) {
+        for (const obj of currentData.objects) {
+          if (obj.type?.includes('mother')) {
+            const regions = (obj as any).regions || [];
+            region = regions.find((r: any) => r.id === regionId);
+            if (region) break;
+          }
+        }
+      }
+
+      if (!region) {
+        setNotification(`❌ Region ${regionId} not found`);
+        setTimeout(() => setNotification(null), 3000);
+        return;
+      }
+
+      // Open NewMultiLineDialog for editing with existing content
+      setNewMultiLineDialog({
+        isOpen: true,
+        regionId: regionId,
+        regionWidth: region.width,
+        regionHeight: region.height,
+        editingContent: content
+      });
       return;
     }
 
@@ -4881,9 +5054,9 @@ function App() {
 
     // Check if this is the new CT multi-line
     if ((contentTypeData as any).isNewCt && contentTypeData.id === 'new-multi-line') {
-      console.log('🆕 NEW CT Multi-line - Creating simple multi-line content');
+      console.log('🆕 NEW CT Multi-line - Opening configuration dialog');
 
-      // Find the region to get its name
+      // Find the region to get its dimensions
       let region: any = null;
       const currentData = data || webCreationData;
       if (currentData) {
@@ -4895,43 +5068,19 @@ function App() {
           }
         }
       }
-      const regionName = region?.name || regionId;
+      if (!region) {
+        setNotification(`❌ Region ${regionId} not found`);
+        setTimeout(() => setNotification(null), 3000);
+        return;
+      }
 
-      // Create simple multi-line content directly
-      const newContent = {
-        id: `content_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        type: 'new-multi-line',
+      // Open configuration dialog
+      setNewMultiLineDialog({
+        isOpen: true,
         regionId: regionId,
-        layout: {
-          occupyLeftoverSpace: true,
-          fullWidth: true,
-          fullHeight: true,
-          width: { value: 100, unit: '%' as const },
-          height: { value: 100, unit: '%' as const },
-          horizontalAlign: 'center' as const,
-          verticalAlign: 'center' as const,
-          padding: { top: 2, right: 2, bottom: 2, left: 2 }
-        },
-        typography: {
-          fontFamily: 'Arial',
-          fontSize: 14,
-          fontColor: '#000000'
-        },
-        content: {
-          text: 'multiple line'
-        }
-      };
-
-      // Add content to region
-      setRegionContents(prevContents => {
-        const newContents = new Map(prevContents);
-        const currentContents = newContents.get(regionId) || [];
-        newContents.set(regionId, [...currentContents, newContent]);
-        return newContents;
+        regionWidth: region.width,
+        regionHeight: region.height
       });
-
-      setNotification(`✅ Added multi-line text to ${regionName}`);
-      setTimeout(() => setNotification(null), 3000);
       return;
     }
 
@@ -13381,6 +13530,19 @@ function App() {
           editingContent={newLineTextDialog.editingContent}
           onSave={handleNewLineTextSave}
           onCancel={handleNewLineTextCancel}
+        />
+      )}
+
+      {/* New Multi-line Configuration Dialog */}
+      {newMultiLineDialog && (
+        <NewMultiLineDialog
+          isOpen={newMultiLineDialog.isOpen}
+          regionId={newMultiLineDialog.regionId}
+          regionWidth={newMultiLineDialog.regionWidth}
+          regionHeight={newMultiLineDialog.regionHeight}
+          editingContent={newMultiLineDialog.editingContent}
+          onSave={handleNewMultiLineSave}
+          onCancel={handleNewMultiLineCancel}
         />
       )}
 
