@@ -8,6 +8,7 @@ interface NewLineTextDialogProps {
   editingContent?: any;
   onSave: (config: NewLineTextConfig) => void;
   onCancel: () => void;
+  onPreviewUpdate?: (config: NewLineTextConfig) => void;
 }
 
 export interface NewLineTextConfig {
@@ -138,53 +139,60 @@ const NewLineTextDialog: React.FC<NewLineTextDialogProps> = ({
   // Calculate available width for text
   const availableWidth = regionWidth - config.padding.left - config.padding.right;
 
-  // Estimate text width with proper unit conversion
+  // More accurate text width estimation using canvas measurement
   const estimateTextWidth = (text: string, fontSize: number, fontSizeUnit: string, fontFamily: string): number => {
-    // Convert font size to pixels for character width estimation
+    // Create a temporary canvas for accurate text measurement
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    if (!context) return text.length * 2; // Fallback
+
+    // Convert font size to pixels for canvas measurement
     let fontSizeInPixels = fontSize;
     if (fontSizeUnit === 'pt') {
       fontSizeInPixels = fontSize * 4/3; // 1 point = 4/3 pixels
     } else if (fontSizeUnit === 'mm') {
       fontSizeInPixels = fontSize * 3.779527559; // 1 mm = ~3.78 pixels at 96 DPI
     }
-    
-    // Estimate character width in pixels, then convert to mm
-    const avgCharWidthPx = fontSizeInPixels * 0.6;
-    const avgCharWidthMm = avgCharWidthPx / 3.779527559; // Convert pixels to mm
-    return text.length * avgCharWidthMm;
+
+    // Set font for measurement
+    context.font = `${fontSizeInPixels}px ${fontFamily}`;
+
+    // Measure text width in pixels
+    const textWidthPx = context.measureText(text).width;
+
+    // Convert pixels to mm (96 DPI standard)
+    const textWidthMm = textWidthPx / 3.779527559;
+
+    return textWidthMm;
   };
 
-  // Check if text needs truncation - DISABLED FOR VISUAL TESTING
+  // Check if text needs truncation
   useEffect(() => {
-    // For visual testing: disable truncation warning
-    setIsTextTruncated(false);
-    console.log('📏 Dialog: Visual testing mode - truncation disabled');
+    const estimatedWidth = estimateTextWidth(
+      config.textContent,
+      config.typography.fontSize,
+      config.typography.fontSizeUnit,
+      config.typography.fontFamily
+    );
+
+    const isTruncated = estimatedWidth > availableWidth;
+    setIsTextTruncated(isTruncated);
+
+    console.log('📏 Dialog: Truncation check:', {
+      text: `"${config.textContent}"`,
+      textLength: config.textContent.length,
+      fontSize: `${config.typography.fontSize}${config.typography.fontSizeUnit}`,
+      fontFamily: config.typography.fontFamily,
+      regionWidth: regionWidth.toFixed(2) + 'mm',
+      paddingLeft: config.padding.left.toFixed(2) + 'mm',
+      paddingRight: config.padding.right.toFixed(2) + 'mm',
+      availableWidth: availableWidth.toFixed(2) + 'mm',
+      estimatedWidth: estimatedWidth.toFixed(2) + 'mm',
+      isTruncated
+    });
   }, [config.textContent, config.typography.fontSize, config.typography.fontSizeUnit, config.typography.fontFamily, availableWidth]);
 
-  // Handle text truncation
-  const getTruncatedText = (text: string): string => {
-    if (!isTextTruncated) return text;
-    
-    // Binary search for maximum characters that fit
-    let left = 0;
-    let right = text.length;
-    let maxFitLength = 0;
-
-    while (left <= right) {
-      const mid = Math.floor((left + right) / 2);
-      const testText = text.substring(0, mid) + '...';
-      const estimatedWidth = estimateTextWidth(testText, config.typography.fontSize, config.typography.fontSizeUnit, config.typography.fontFamily);
-      
-      if (estimatedWidth <= availableWidth) {
-        maxFitLength = mid;
-        left = mid + 1;
-      } else {
-        right = mid - 1;
-      }
-    }
-
-    return text.substring(0, maxFitLength) + '...';
-  };
+  // No ellipsis logic - just show the full text in preview
 
   const handleSave = () => {
     onSave(config);
@@ -564,8 +572,6 @@ const NewLineTextDialog: React.FC<NewLineTextDialogProps> = ({
                 color: '#856404'
               }}>
                 ⚠️ Text will be truncated to fit available width ({availableWidth.toFixed(1)}mm)
-                <br />
-                Preview: "{getTruncatedText(config.textContent)}"
               </div>
             )}
           </div>
@@ -602,9 +608,10 @@ const NewLineTextDialog: React.FC<NewLineTextDialogProps> = ({
               minHeight: '60px',
               padding: `${config.padding.top}mm ${config.padding.right}mm ${config.padding.bottom}mm ${config.padding.left}mm`,
               border: '1px dashed #cbd5e0',
-              background: 'white'
+              background: 'white',
+              color: isTextTruncated ? '#dc2626' : '#000000' // Red color when truncated, black when normal
             }}>
-              {isTextTruncated ? getTruncatedText(config.textContent) : config.textContent}
+              {config.textContent}
             </div>
           </div>
         </div>
