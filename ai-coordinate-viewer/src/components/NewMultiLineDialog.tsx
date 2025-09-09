@@ -136,12 +136,118 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
     { value: '\\', label: '\\ (Backslash)' }
   ];
 
-  // Calculate available width for text
+  // Calculate available width for text (same logic as line text)
   const availableWidth = regionWidth - config.padding.left - config.padding.right;
 
-  // Process text with line breaks for preview
+  // More accurate text width estimation using canvas measurement (same as line text)
+  const estimateTextWidth = (text: string, fontSize: number, fontSizeUnit: string, fontFamily: string): number => {
+    // Create a temporary canvas for accurate text measurement
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    if (!context) return text.length * 2; // Fallback
+
+    // Convert font size to pixels for canvas measurement
+    let fontSizeInPixels = fontSize;
+    if (fontSizeUnit === 'pt') {
+      fontSizeInPixels = fontSize * 4/3; // 1 point = 4/3 pixels
+    } else if (fontSizeUnit === 'mm') {
+      fontSizeInPixels = fontSize * 3.779527559; // 1 mm = ~3.78 pixels at 96 DPI
+    }
+
+    // Set font for measurement
+    context.font = `${fontSizeInPixels}px ${fontFamily}`;
+
+    // Measure text width in pixels
+    const textWidthPx = context.measureText(text).width;
+
+    // Convert pixels to mm (96 DPI standard)
+    const textWidthMm = textWidthPx / 3.779527559;
+
+    return textWidthMm;
+  };
+
+  // Intelligent word wrapping - whole words move to next line
+  const wrapTextToLines = (text: string): string[] => {
+    // First split by manual line break symbols
+    const manualLines = text.split(config.lineBreak.symbol);
+    const wrappedLines: string[] = [];
+
+    manualLines.forEach(line => {
+      const trimmedLine = line.trim();
+      if (!trimmedLine) {
+        wrappedLines.push(''); // Preserve empty lines
+        return;
+      }
+
+      // Check if the entire line fits
+      const lineWidth = estimateTextWidth(
+        trimmedLine,
+        config.typography.fontSize,
+        config.typography.fontSizeUnit,
+        config.typography.fontFamily
+      );
+
+      if (lineWidth <= availableWidth) {
+        // Line fits completely
+        wrappedLines.push(trimmedLine);
+        return;
+      }
+
+      // Line is too long, need to wrap words
+      const words = trimmedLine.split(' ');
+      let currentLine = '';
+
+      for (let i = 0; i < words.length; i++) {
+        const word = words[i];
+        const testLine = currentLine ? `${currentLine} ${word}` : word;
+
+        const testWidth = estimateTextWidth(
+          testLine,
+          config.typography.fontSize,
+          config.typography.fontSizeUnit,
+          config.typography.fontFamily
+        );
+
+        if (testWidth <= availableWidth) {
+          // Word fits on current line
+          currentLine = testLine;
+        } else {
+          // Word doesn't fit, start new line
+          if (currentLine) {
+            wrappedLines.push(currentLine);
+            currentLine = word;
+          } else {
+            // Single word is too long, but we still add it (no word breaking)
+            wrappedLines.push(word);
+          }
+        }
+      }
+
+      // Add the last line if it has content
+      if (currentLine) {
+        wrappedLines.push(currentLine);
+      }
+    });
+
+    return wrappedLines;
+  };
+
+  // Process text with intelligent word wrapping for preview
   const processTextForPreview = (text: string): string[] => {
-    return text.split(config.lineBreak.symbol).map(line => line.trim());
+    const wrappedLines = wrapTextToLines(text);
+
+    // Debug logging for word wrapping
+    console.log('📄 Multi-line word wrapping:', {
+      originalText: `"${text}"`,
+      availableWidth: availableWidth.toFixed(2) + 'mm',
+      fontSize: `${config.typography.fontSize}${config.typography.fontSizeUnit}`,
+      fontFamily: config.typography.fontFamily,
+      lineBreakSymbol: config.lineBreak.symbol,
+      wrappedLines: wrappedLines,
+      totalLines: wrappedLines.length
+    });
+
+    return wrappedLines;
   };
 
   const handleSave = () => {

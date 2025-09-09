@@ -110,6 +110,107 @@ function App() {
   const location = useLocation();
   const navigate = useNavigate();
 
+  // Word wrapping function for multi-line text (same logic as in dialog)
+  const wrapMultiLineText = (text: string, fontSize: number, fontSizeUnit: string, fontFamily: string, availableWidthMm: number, lineBreakSymbol: string): string => {
+    // Text width estimation using canvas measurement
+    const estimateTextWidth = (text: string): number => {
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      if (!context) return text.length * 2; // Fallback
+
+      // Convert font size to pixels for canvas measurement
+      let fontSizeInPixels = fontSize;
+      if (fontSizeUnit === 'pt') {
+        fontSizeInPixels = fontSize * 4/3; // 1 point = 4/3 pixels
+      } else if (fontSizeUnit === 'mm') {
+        fontSizeInPixels = fontSize * 3.779527559; // 1 mm = ~3.78 pixels at 96 DPI
+      }
+
+      // Set font for measurement
+      context.font = `${fontSizeInPixels}px ${fontFamily}`;
+
+      // Measure text width in pixels
+      const textWidthPx = context.measureText(text).width;
+
+      // Convert pixels to mm (96 DPI standard)
+      const textWidthMm = textWidthPx / 3.779527559;
+
+      return textWidthMm;
+    };
+
+    // Intelligent word wrapping - whole words move to next line
+    const wrapTextToLines = (text: string): string[] => {
+      // First split by manual line break symbols
+      const manualLines = text.split(lineBreakSymbol);
+      const wrappedLines: string[] = [];
+
+      manualLines.forEach(line => {
+        const trimmedLine = line.trim();
+        if (!trimmedLine) {
+          wrappedLines.push(''); // Preserve empty lines
+          return;
+        }
+
+        // Check if the entire line fits
+        const lineWidth = estimateTextWidth(trimmedLine);
+
+        if (lineWidth <= availableWidthMm) {
+          // Line fits completely
+          wrappedLines.push(trimmedLine);
+          return;
+        }
+
+        // Line is too long, need to wrap words
+        const words = trimmedLine.split(' ');
+        let currentLine = '';
+
+        for (let i = 0; i < words.length; i++) {
+          const word = words[i];
+          const testLine = currentLine ? `${currentLine} ${word}` : word;
+
+          const testWidth = estimateTextWidth(testLine);
+
+          if (testWidth <= availableWidthMm) {
+            // Word fits on current line
+            currentLine = testLine;
+          } else {
+            // Word doesn't fit, start new line
+            if (currentLine) {
+              wrappedLines.push(currentLine);
+              currentLine = word;
+            } else {
+              // Single word is too long, but we still add it (no word breaking)
+              wrappedLines.push(word);
+            }
+          }
+        }
+
+        // Add the last line if it has content
+        if (currentLine) {
+          wrappedLines.push(currentLine);
+        }
+      });
+
+      return wrappedLines;
+    };
+
+    const wrappedLines = wrapTextToLines(text);
+
+    // Debug logging
+    console.log('📄 App: Multi-line word wrapping:', {
+      originalText: `"${text}"`,
+      availableWidth: availableWidthMm.toFixed(2) + 'mm',
+      fontSize: `${fontSize}${fontSizeUnit}`,
+      fontFamily: fontFamily,
+      lineBreakSymbol: lineBreakSymbol,
+      wrappedLines: wrappedLines,
+      totalLines: wrappedLines.length
+    });
+
+    // Join lines with newline characters for rendering
+    return wrappedLines.join('\n');
+  };
+
   // Get URL parameters to determine context and mode
   const urlParams = new URLSearchParams(location.search);
   const context = urlParams.get('context');
@@ -9094,6 +9195,19 @@ function App() {
                         // For new-line-text, let findOptimalTextFit handle all text fitting
                         // Don't apply custom truncation logic here - let the advanced algorithm handle it
                         console.log('🎨 new-line-text using advanced text fitting for:', displayText);
+                      } else if (content.type === 'new-multi-line' && content.newMultiLineConfig) {
+                        const config = content.newMultiLineConfig;
+                        fontSize = config.typography.fontSize;
+                        fontFamily = config.typography.fontFamily;
+                        fontSizeUnit = config.typography.fontSizeUnit;
+                        textAlign = config.alignment.horizontal;
+                        verticalAlign = config.alignment.vertical;
+                        padding = config.padding;
+
+                        // Apply word wrapping for multi-line content
+                        const availableWidth = region.width - padding.left - padding.right;
+                        displayText = wrapMultiLineText(displayText, fontSize, fontSizeUnit, fontFamily, availableWidth, config.lineBreak.symbol);
+                        console.log('🎨 new-multi-line using word wrapping for:', displayText);
                       }
 
                       // PHASE 1: Use precise text measurement for rendering
