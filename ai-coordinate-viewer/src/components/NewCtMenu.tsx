@@ -15,8 +15,8 @@ const NewCtMenu: React.FC<NewCtMenuProps> = ({
   isPinned = false,
   onTogglePin
 }) => {
-  // Drag handlers
-  const handleDragStart = (e: React.DragEvent<HTMLButtonElement>) => {
+  // Drag handlers for Line Text
+  const handleLineTextDragStart = (e: React.DragEvent<HTMLButtonElement>) => {
     const newLineTextContentType = {
       id: 'new-line-text',
       name: 'Line Text',
@@ -27,6 +27,24 @@ const NewCtMenu: React.FC<NewCtMenuProps> = ({
 
     console.log('🚀 NEW CT DRAG START:', newLineTextContentType.name, 'ID:', newLineTextContentType.id);
     e.dataTransfer.setData('application/json', JSON.stringify(newLineTextContentType));
+    e.dataTransfer.effectAllowed = 'copy';
+
+    // Add visual feedback
+    e.currentTarget.style.opacity = '0.5';
+  };
+
+  // Drag handlers for Multi-line
+  const handleMultiLineDragStart = (e: React.DragEvent<HTMLButtonElement>) => {
+    const multiLineContentType = {
+      id: 'new-multi-line',
+      name: 'Multi Line',
+      icon: '📄',
+      description: 'New style multi-line text content',
+      isNewCt: true // Flag to identify this as new CT content
+    };
+
+    console.log('🚀 NEW CT DRAG START:', multiLineContentType.name, 'ID:', multiLineContentType.id);
+    e.dataTransfer.setData('application/json', JSON.stringify(multiLineContentType));
     e.dataTransfer.effectAllowed = 'copy';
 
     // Add visual feedback
@@ -63,7 +81,57 @@ const NewCtMenu: React.FC<NewCtMenuProps> = ({
       {/* Line Text Button - Draggable */}
       <button
         draggable
-        onDragStart={handleDragStart}
+        onDragStart={handleLineTextDragStart}
+        onDragEnd={handleDragEnd}
+        style={{
+          width: '100%',
+          padding: '15px 20px',
+          backgroundColor: 'rgba(255, 255, 255, 0.1)',
+          border: '2px solid rgba(255, 255, 255, 0.2)',
+          borderRadius: '8px',
+          color: 'white',
+          fontSize: '16px',
+          fontWeight: '600',
+          cursor: 'grab',
+          transition: 'all 0.2s ease',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '8px',
+          userSelect: 'none',
+          marginBottom: '12px'
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.4)';
+          e.currentTarget.style.transform = 'translateY(-2px)';
+          e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.2)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+          e.currentTarget.style.transform = 'translateY(0)';
+          e.currentTarget.style.boxShadow = 'none';
+        }}
+        onMouseDown={(e) => {
+          e.currentTarget.style.cursor = 'grabbing';
+        }}
+        onMouseUp={(e) => {
+          e.currentTarget.style.cursor = 'grab';
+        }}
+        onClick={() => {
+          console.log('Line Text button clicked');
+          // Add functionality here later
+        }}
+      >
+        <span style={{ fontSize: '18px' }}>📝</span>
+        Line Text
+      </button>
+
+      {/* Multi-line Button - Draggable */}
+      <button
+        draggable
+        onDragStart={handleMultiLineDragStart}
         onDragEnd={handleDragEnd}
         style={{
           width: '100%',
@@ -101,12 +169,12 @@ const NewCtMenu: React.FC<NewCtMenuProps> = ({
           e.currentTarget.style.cursor = 'grab';
         }}
         onClick={() => {
-          console.log('Line Text button clicked');
+          console.log('Multi-line button clicked');
           // Add functionality here later
         }}
       >
-        <span style={{ fontSize: '18px' }}>📝</span>
-        Line Text
+        <span style={{ fontSize: '18px' }}>📄</span>
+        Multi-line
       </button>
     </div>
   );

@@ -1505,6 +1505,13 @@ function App() {
       return;
     }
 
+    // Handle new-multi-line content type specially
+    if (content.type === 'new-multi-line') {
+      console.log('🆕 NEW CT Multi-line double-clicked - No action for now');
+      // Do nothing for now as requested
+      return;
+    }
+
     // Find the content type from available content types
     const contentTypes = [
       { id: 'line-text', name: 'Line Text', icon: '📝', description: 'Single line text content' },
@@ -4869,6 +4876,62 @@ function App() {
         regionWidth: region.width,
         regionHeight: region.height
       });
+      return;
+    }
+
+    // Check if this is the new CT multi-line
+    if ((contentTypeData as any).isNewCt && contentTypeData.id === 'new-multi-line') {
+      console.log('🆕 NEW CT Multi-line - Creating simple multi-line content');
+
+      // Find the region to get its name
+      let region: any = null;
+      const currentData = data || webCreationData;
+      if (currentData) {
+        for (const obj of currentData.objects) {
+          if (obj.type?.includes('mother')) {
+            const regions = (obj as any).regions || [];
+            region = regions.find((r: any) => r.id === regionId);
+            if (region) break;
+          }
+        }
+      }
+      const regionName = region?.name || regionId;
+
+      // Create simple multi-line content directly
+      const newContent = {
+        id: `content_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        type: 'new-multi-line',
+        regionId: regionId,
+        layout: {
+          occupyLeftoverSpace: true,
+          fullWidth: true,
+          fullHeight: true,
+          width: { value: 100, unit: '%' as const },
+          height: { value: 100, unit: '%' as const },
+          horizontalAlign: 'center' as const,
+          verticalAlign: 'center' as const,
+          padding: { top: 2, right: 2, bottom: 2, left: 2 }
+        },
+        typography: {
+          fontFamily: 'Arial',
+          fontSize: 14,
+          fontColor: '#000000'
+        },
+        content: {
+          text: 'multiple line'
+        }
+      };
+
+      // Add content to region
+      setRegionContents(prevContents => {
+        const newContents = new Map(prevContents);
+        const currentContents = newContents.get(regionId) || [];
+        newContents.set(regionId, [...currentContents, newContent]);
+        return newContents;
+      });
+
+      setNotification(`✅ Added multi-line text to ${regionName}`);
+      setTimeout(() => setNotification(null), 3000);
       return;
     }
 
@@ -8827,6 +8890,8 @@ function App() {
                       } else if (content.type === 'new-line-text' && content.content?.text) {
                         displayText = content.content.text;
                         console.log('🎨 new-line-text displayText:', displayText, 'content:', content);
+                      } else if (content.type === 'new-multi-line' && content.content?.text) {
+                        displayText = content.content.text;
                       } else if (content.type === 'pure-english-paragraph' && content.content?.text) {
                         displayText = content.content.text;
                       } else if (content.type === 'translation-paragraph') {
