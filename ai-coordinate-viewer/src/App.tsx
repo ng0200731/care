@@ -1780,6 +1780,15 @@ function App() {
         return;
       }
 
+      // Debug: Check actual region data
+      console.log('🔍 REGION DEBUG - Opening NewMultiLineDialog for editing:', {
+        regionId: regionId,
+        regionData: region,
+        actualWidth: region.width,
+        actualHeight: region.height,
+        expectedWidth: '35mm (if this shows 33mm, the region data is wrong)'
+      });
+
       // Open NewMultiLineDialog for editing with existing content
       setNewMultiLineDialog({
         isOpen: true,
@@ -5179,6 +5188,15 @@ function App() {
         setTimeout(() => setNotification(null), 3000);
         return;
       }
+
+      // Debug: Check actual region data for new content
+      console.log('🔍 REGION DEBUG - Opening NewMultiLineDialog for new content:', {
+        regionId: regionId,
+        regionData: region,
+        actualWidth: region.width,
+        actualHeight: region.height,
+        expectedWidth: '35mm (if this shows 33mm, the region data is wrong)'
+      });
 
       // Open configuration dialog
       setNewMultiLineDialog({
@@ -9209,10 +9227,8 @@ function App() {
                         verticalAlign = config.alignment.vertical;
                         padding = config.padding;
 
-                        // Apply word wrapping for multi-line content
-                        const availableWidth = region.width - padding.left - padding.right;
-                        displayText = wrapMultiLineText(displayText, fontSize, fontSizeUnit, fontFamily, availableWidth, config.lineBreak.symbol);
-                        console.log('🎨 new-multi-line using word wrapping for:', displayText);
+                        // Skip old word wrapping - new-multi-line uses processed lines from preview
+                        console.log('🎨 new-multi-line skipping old word wrapping, will use processed lines from preview');
                       }
 
                       // PHASE 1: Use precise text measurement for rendering
@@ -9293,9 +9309,35 @@ function App() {
                         const lineHeightMm = fontSizeMm * lineSpacing;
                         const totalTextHeightMm = displayLines.length * lineHeightMm;
 
+                        // DETAILED MEASUREMENTS for debugging
+                        console.log('📏 CANVAS DETAILED MEASUREMENTS:');
+                        console.log('  Label Width (Region):', region.width.toFixed(2) + 'mm');
+                        console.log('  Padding Left:', padding.left.toFixed(2) + 'mm');
+                        console.log('  Padding Right:', padding.right.toFixed(2) + 'mm');
+                        console.log('  Total Padding:', (padding.left + padding.right).toFixed(2) + 'mm');
+                        console.log('  Width after Padding:', (region.width - padding.left - padding.right).toFixed(2) + 'mm');
+                        console.log('  Font:', `${fontSize}${fontSizeUnit} ${fontFamily}`);
+
+                        // REGION DATA DEBUG - Show full region object
+                        console.log('🔍 FULL REGION DATA DEBUG:', {
+                          regionId: region.id,
+                          regionName: region.name,
+                          regionWidth: region.width,
+                          regionHeight: region.height,
+                          regionX: region.x,
+                          regionY: region.y,
+                          fullRegionObject: region,
+                          issue: 'Region width is 33mm but should be 35mm based on mother object'
+                        });
+
+                        console.log('📄 CANVAS EACH LINE MEASUREMENTS:');
+                        displayLines.slice(0, 5).forEach((line, index) => {
+                          console.log(`  Line ${index + 1}: "${line}" (${line.length} chars)`);
+                        });
+
                         console.log('🎯 Canvas: Using exact preview lines:', {
-                          originalText: displayText,
-                          processedLines: displayLines,
+                          originalText: displayText.substring(0, 50) + '...',
+                          processedLines: displayLines.length + ' lines',
                           totalLines: displayLines.length,
                           availableHeightMm: availableHeightMm.toFixed(2) + 'mm',
                           lineHeightMm: lineHeightMm.toFixed(2) + 'mm',

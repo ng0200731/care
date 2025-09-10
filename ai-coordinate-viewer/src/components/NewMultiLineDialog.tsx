@@ -137,8 +137,9 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
     { value: '\\', label: '\\ (Backslash)' }
   ];
 
-  // Calculate available width for text (same logic as line text)
-  const availableWidth = regionWidth - config.padding.left - config.padding.right;
+  // Calculate available width for text (accounting for Line Width percentage)
+  const paddingAdjustedWidth = regionWidth - config.padding.left - config.padding.right;
+  const availableWidth = paddingAdjustedWidth * (config.lineBreak.lineWidth / 100);
 
   // More accurate text width estimation using canvas measurement (same as line text)
   const estimateTextWidth = (text: string, fontSize: number, fontSizeUnit: string, fontFamily: string): number => {
@@ -155,6 +156,15 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
       fontSizeInPixels = fontSize * 3.779527559; // 1 mm = ~3.78 pixels at 96 DPI
     }
 
+    // Debug font conversion for Arial 6pt
+    if (fontSize === 6 && fontSizeUnit === 'pt' && fontFamily === 'Arial') {
+      console.log('🔍 Font conversion for Arial 6pt:', {
+        originalSize: fontSize + fontSizeUnit,
+        convertedPixels: fontSizeInPixels + 'px',
+        expectedPixels: '8px (6 * 4/3)'
+      });
+    }
+
     // Set font for measurement
     context.font = `${fontSizeInPixels}px ${fontFamily}`;
 
@@ -169,8 +179,25 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
 
   // Intelligent word wrapping - whole words move to next line
   const wrapTextToLines = (text: string): string[] => {
+    console.log('🔍 Input text analysis:', {
+      originalText: JSON.stringify(text),
+      lineBreakSymbol: JSON.stringify(config.lineBreak.symbol),
+      containsActualNewlines: text.includes('\n'),
+      containsSymbol: text.includes(config.lineBreak.symbol)
+    });
+
     // First split by manual line break symbols
-    const manualLines = text.split(config.lineBreak.symbol);
+    // Handle both actual newlines and the configured symbol
+    let manualLines: string[];
+    if (config.lineBreak.symbol === '\\n' || config.lineBreak.symbol === '\n') {
+      // For newline symbols, split by actual newlines
+      manualLines = text.split('\n');
+    } else {
+      // For other symbols, split by the symbol
+      manualLines = text.split(config.lineBreak.symbol);
+    }
+
+    console.log('🔍 Manual lines after split:', manualLines);
     const wrappedLines: string[] = [];
 
     manualLines.forEach(line => {
@@ -209,6 +236,8 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
           config.typography.fontFamily
         );
 
+        console.log(`🔍 Testing: "${testLine}" | Width: ${testWidth.toFixed(2)}mm | Available: ${availableWidth.toFixed(2)}mm | Fits: ${testWidth <= availableWidth}`);
+
         if (testWidth <= availableWidth) {
           // Word fits on current line
           currentLine = testLine;
@@ -217,6 +246,8 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
           if (currentLine) {
             // Push current line and start new line with the word that didn't fit
             wrappedLines.push(currentLine);
+            const lineWidth = estimateTextWidth(currentLine, config.typography.fontSize, config.typography.fontSizeUnit, config.typography.fontFamily);
+            console.log(`📄 Line complete: "${currentLine}" | Length: ${currentLine.length} chars | Width: ${lineWidth.toFixed(2)}mm | Available: ${availableWidth.toFixed(2)}mm | Usage: ${((lineWidth/availableWidth)*100).toFixed(1)}%`);
             currentLine = word;
             console.log(`📄 Word wrap: "${word}" moved to new line (would exceed ${availableWidth.toFixed(1)}mm)`);
           } else {
@@ -239,17 +270,45 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
 
   // Process text with intelligent word wrapping for preview
   const processTextForPreview = (text: string): string[] => {
+    // Test specific phrases to verify calculations
+    const testPhrase = "EN Wash with similar colors";
+    const testWidth = estimateTextWidth(testPhrase, config.typography.fontSize, config.typography.fontSizeUnit, config.typography.fontFamily);
+
+    console.log('🧪 EXACT TEST for your phrase:', {
+      testPhrase: testPhrase,
+      calculatedWidth: testWidth.toFixed(2) + 'mm',
+      availableWidth: availableWidth.toFixed(2) + 'mm',
+      shouldFitOnOneLine: testWidth <= availableWidth,
+      widthUsagePercentage: ((testWidth / availableWidth) * 100).toFixed(1) + '%'
+    });
+
     const wrappedLines = wrapTextToLines(text);
 
-    // Debug logging for word wrapping
-    console.log('📄 Multi-line word wrapping:', {
-      originalText: `"${text}"`,
-      availableWidth: availableWidth.toFixed(2) + 'mm',
-      fontSize: `${config.typography.fontSize}${config.typography.fontSizeUnit}`,
-      fontFamily: config.typography.fontFamily,
-      lineBreakSymbol: config.lineBreak.symbol,
-      wrappedLines: wrappedLines,
-      totalLines: wrappedLines.length
+    // Debug logging for word wrapping with detailed measurements
+    console.log('📏 DETAILED MEASUREMENTS:');
+    console.log('  Label Width (Region):', regionWidth.toFixed(2) + 'mm');
+    console.log('  Padding Left:', config.padding.left.toFixed(2) + 'mm');
+    console.log('  Padding Right:', config.padding.right.toFixed(2) + 'mm');
+    console.log('  Total Padding:', (config.padding.left + config.padding.right).toFixed(2) + 'mm');
+    console.log('  Width after Padding:', (regionWidth - config.padding.left - config.padding.right).toFixed(2) + 'mm');
+    console.log('  Line Width %:', config.lineBreak.lineWidth + '%');
+    console.log('  Available Width for Text:', availableWidth.toFixed(2) + 'mm');
+    console.log('  Font:', `${config.typography.fontSize}${config.typography.fontSizeUnit} ${config.typography.fontFamily}`);
+
+    console.log('📄 EACH LINE MEASUREMENTS:');
+    wrappedLines.forEach((line, index) => {
+      const lineWidth = estimateTextWidth(line, config.typography.fontSize, config.typography.fontSizeUnit, config.typography.fontFamily);
+      const usage = ((lineWidth / availableWidth) * 100);
+      console.log(`  Line ${index + 1}: "${line}"`);
+      console.log(`    Width: ${lineWidth.toFixed(2)}mm | Available: ${availableWidth.toFixed(2)}mm | Usage: ${usage.toFixed(1)}%`);
+    });
+
+    console.log('📄 SUMMARY:', {
+      totalLines: wrappedLines.length,
+      averageUsage: (wrappedLines.reduce((sum, line) => {
+        const lineWidth = estimateTextWidth(line, config.typography.fontSize, config.typography.fontSizeUnit, config.typography.fontFamily);
+        return sum + (lineWidth / availableWidth);
+      }, 0) / wrappedLines.length * 100).toFixed(1) + '%'
     });
 
     return wrappedLines;
