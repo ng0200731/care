@@ -137,9 +137,9 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
     { value: '\\', label: '\\ (Backslash)' }
   ];
 
-  // Calculate available width for text (accounting for Line Width percentage)
+  // Calculate available width for text (use full width after padding for wrapping calculation)
   const paddingAdjustedWidth = regionWidth - config.padding.left - config.padding.right;
-  const availableWidth = paddingAdjustedWidth * (config.lineBreak.lineWidth / 100);
+  const availableWidth = paddingAdjustedWidth; // Use full width for text wrapping calculation
 
   // More accurate text width estimation using canvas measurement (same as line text)
   const estimateTextWidth = (text: string, fontSize: number, fontSizeUnit: string, fontFamily: string): number => {
@@ -291,8 +291,8 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
     console.log('  Padding Right:', config.padding.right.toFixed(2) + 'mm');
     console.log('  Total Padding:', (config.padding.left + config.padding.right).toFixed(2) + 'mm');
     console.log('  Width after Padding:', (regionWidth - config.padding.left - config.padding.right).toFixed(2) + 'mm');
-    console.log('  Line Width %:', config.lineBreak.lineWidth + '%');
-    console.log('  Available Width for Text:', availableWidth.toFixed(2) + 'mm');
+    console.log('  Line Width % (for reference):', config.lineBreak.lineWidth + '%');
+    console.log('  Available Width for Text (full width after padding):', availableWidth.toFixed(2) + 'mm');
     console.log('  Font:', `${config.typography.fontSize}${config.typography.fontSizeUnit} ${config.typography.fontFamily}`);
 
     console.log('📄 EACH LINE MEASUREMENTS:');
@@ -823,7 +823,7 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
             }}>
               {processTextForPreview(config.textContent).map((line, index) => (
                 <div key={index} style={{
-                  width: `${config.lineBreak.lineWidth}%`,
+                  width: '100%', // Use full available width for text display
                   textAlign: config.alignment.horizontal
                 }}>
                   {line || '\u00A0'} {/* Non-breaking space for empty lines */}
