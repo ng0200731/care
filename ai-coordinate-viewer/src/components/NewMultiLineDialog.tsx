@@ -399,7 +399,7 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
               fontWeight: '600',
               color: '#2d3748'
             }}>
-              Padding (mm)
+              Padding (mm) <span style={{ fontSize: '12px', color: '#22c55e', fontWeight: 'normal' }}>• Green dotted lines in canvas</span>
             </h3>
             <label style={{
               display: 'flex',

@@ -9603,6 +9603,92 @@ function App() {
                     });
                   })()}
 
+                  {/* Padding boundaries visualization for new-multi-line content */}
+                  {(() => {
+                    const regionContentsArray = regionContents.get(region.id) || [];
+                    if (!regionContentsArray || regionContentsArray.length === 0) return null;
+                    return regionContentsArray.map((content: any, contentIndex: number) => {
+                      if (content.type !== 'new-multi-line' || !content.newMultiLineConfig) return null;
+
+                      const config = content.newMultiLineConfig;
+                      const regionWidthPx = region.width * scale;
+                      const regionHeightPx = region.height * scale;
+                      const paddingTopPx = config.padding.top * scale;
+                      const paddingRightPx = config.padding.right * scale;
+                      const paddingBottomPx = config.padding.bottom * scale;
+                      const paddingLeftPx = config.padding.left * scale;
+
+                      // Only show if any padding is greater than 0
+                      if (config.padding.top === 0 && config.padding.right === 0 &&
+                          config.padding.bottom === 0 && config.padding.left === 0) {
+                        return null;
+                      }
+
+                      const regionX = baseX + (region.x * scale);
+                      const regionY = baseY + (region.y * scale);
+
+                      return (
+                        <g key={`${region.id}-multi-padding-${contentIndex}`}>
+                          {/* Top padding line */}
+                          {config.padding.top > 0 && (
+                            <line
+                              x1={regionX + paddingLeftPx}
+                              y1={regionY + paddingTopPx}
+                              x2={regionX + regionWidthPx - paddingRightPx}
+                              y2={regionY + paddingTopPx}
+                              stroke="#22c55e"
+                              strokeWidth="1"
+                              strokeDasharray="3,3"
+                              opacity="0.7"
+                            />
+                          )}
+
+                          {/* Bottom padding line */}
+                          {config.padding.bottom > 0 && (
+                            <line
+                              x1={regionX + paddingLeftPx}
+                              y1={regionY + regionHeightPx - paddingBottomPx}
+                              x2={regionX + regionWidthPx - paddingRightPx}
+                              y2={regionY + regionHeightPx - paddingBottomPx}
+                              stroke="#22c55e"
+                              strokeWidth="1"
+                              strokeDasharray="3,3"
+                              opacity="0.7"
+                            />
+                          )}
+
+                          {/* Left padding line */}
+                          {config.padding.left > 0 && (
+                            <line
+                              x1={regionX + paddingLeftPx}
+                              y1={regionY + paddingTopPx}
+                              x2={regionX + paddingLeftPx}
+                              y2={regionY + regionHeightPx - paddingBottomPx}
+                              stroke="#22c55e"
+                              strokeWidth="1"
+                              strokeDasharray="3,3"
+                              opacity="0.7"
+                            />
+                          )}
+
+                          {/* Right padding line */}
+                          {config.padding.right > 0 && (
+                            <line
+                              x1={regionX + regionWidthPx - paddingRightPx}
+                              y1={regionY + paddingTopPx}
+                              x2={regionX + regionWidthPx - paddingRightPx}
+                              y2={regionY + regionHeightPx - paddingBottomPx}
+                              stroke="#22c55e"
+                              strokeWidth="1"
+                              strokeDasharray="3,3"
+                              opacity="0.7"
+                            />
+                          )}
+                        </g>
+                      );
+                    });
+                  })()}
+
                   {/* Content Placeholders removed - only show centered content type labels in overlays above */}
                 </g>
                 );
@@ -9955,6 +10041,91 @@ function App() {
                               {line}
                             </text>
                           ));
+                        })()}
+
+                        {/* Padding boundaries visualization for new-multi-line content in child regions */}
+                        {(() => {
+                          const childContentItems = regionContents.get(childRegion.id) || [];
+                          return childContentItems.map((content: any, contentIndex: number) => {
+                            if (content.type !== 'new-multi-line' || !content.newMultiLineConfig) return null;
+
+                            const config = content.newMultiLineConfig;
+                            const childWidthPx = childRegion.width * scale;
+                            const childHeightPx = childRegion.height * scale;
+                            const paddingTopPx = config.padding.top * scale;
+                            const paddingRightPx = config.padding.right * scale;
+                            const paddingBottomPx = config.padding.bottom * scale;
+                            const paddingLeftPx = config.padding.left * scale;
+
+                            // Only show if any padding is greater than 0
+                            if (config.padding.top === 0 && config.padding.right === 0 &&
+                                config.padding.bottom === 0 && config.padding.left === 0) {
+                              return null;
+                            }
+
+                            const childX = baseX + (childRegion.x * scale);
+                            const childY = baseY + (childRegion.y * scale);
+
+                            return (
+                              <g key={`${childRegion.id}-multi-padding-${contentIndex}`}>
+                                {/* Top padding line */}
+                                {config.padding.top > 0 && (
+                                  <line
+                                    x1={childX + paddingLeftPx}
+                                    y1={childY + paddingTopPx}
+                                    x2={childX + childWidthPx - paddingRightPx}
+                                    y2={childY + paddingTopPx}
+                                    stroke="#22c55e"
+                                    strokeWidth="1"
+                                    strokeDasharray="3,3"
+                                    opacity="0.7"
+                                  />
+                                )}
+
+                                {/* Bottom padding line */}
+                                {config.padding.bottom > 0 && (
+                                  <line
+                                    x1={childX + paddingLeftPx}
+                                    y1={childY + childHeightPx - paddingBottomPx}
+                                    x2={childX + childWidthPx - paddingRightPx}
+                                    y2={childY + childHeightPx - paddingBottomPx}
+                                    stroke="#22c55e"
+                                    strokeWidth="1"
+                                    strokeDasharray="3,3"
+                                    opacity="0.7"
+                                  />
+                                )}
+
+                                {/* Left padding line */}
+                                {config.padding.left > 0 && (
+                                  <line
+                                    x1={childX + paddingLeftPx}
+                                    y1={childY + paddingTopPx}
+                                    x2={childX + paddingLeftPx}
+                                    y2={childY + childHeightPx - paddingBottomPx}
+                                    stroke="#22c55e"
+                                    strokeWidth="1"
+                                    strokeDasharray="3,3"
+                                    opacity="0.7"
+                                  />
+                                )}
+
+                                {/* Right padding line */}
+                                {config.padding.right > 0 && (
+                                  <line
+                                    x1={childX + childWidthPx - paddingRightPx}
+                                    y1={childY + paddingTopPx}
+                                    x2={childX + childWidthPx - paddingRightPx}
+                                    y2={childY + childHeightPx - paddingBottomPx}
+                                    stroke="#22c55e"
+                                    strokeWidth="1"
+                                    strokeDasharray="3,3"
+                                    opacity="0.7"
+                                  />
+                                )}
+                              </g>
+                            );
+                          });
                         })()}
                       </g>
                     );
