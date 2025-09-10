@@ -174,7 +174,14 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
     // Convert pixels to mm (96 DPI standard)
     const textWidthMm = textWidthPx / 3.779527559;
 
-    return textWidthMm;
+    // Apply a slight optimization factor to maximize space utilization
+    // Canvas measurement tends to be slightly more conservative than actual SVG rendering
+    const optimizationFactor = 0.95; // Use 95% of measured width for more aggressive fitting
+    const optimizedWidth = textWidthMm * optimizationFactor;
+
+    console.log(`📏 Text measurement: "${text}" | Raw: ${textWidthMm.toFixed(2)}mm | Optimized: ${optimizedWidth.toFixed(2)}mm`);
+
+    return optimizedWidth;
   };
 
   // Intelligent word wrapping - whole words move to next line
@@ -207,7 +214,7 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
         return;
       }
 
-      // Check if the entire line fits
+      // Check if the entire line fits (with aggressive fitting buffer)
       const lineWidth = estimateTextWidth(
         trimmedLine,
         config.typography.fontSize,
@@ -215,7 +222,10 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
         config.typography.fontFamily
       );
 
-      if (lineWidth <= availableWidth) {
+      const fittingBuffer = 0.2; // 0.2mm buffer for more aggressive text fitting
+      const effectiveAvailableWidth = availableWidth + fittingBuffer;
+
+      if (lineWidth <= effectiveAvailableWidth) {
         // Line fits completely
         wrappedLines.push(trimmedLine);
         return;
@@ -236,9 +246,13 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
           config.typography.fontFamily
         );
 
-        console.log(`🔍 Testing: "${testLine}" | Width: ${testWidth.toFixed(2)}mm | Available: ${availableWidth.toFixed(2)}mm | Fits: ${testWidth <= availableWidth}`);
+        // Add a small buffer to available width for more aggressive fitting
+        const fittingBuffer = 0.2; // 0.2mm buffer for more aggressive text fitting
+        const effectiveAvailableWidth = availableWidth + fittingBuffer;
 
-        if (testWidth <= availableWidth) {
+        console.log(`🔍 Testing: "${testLine}" | Width: ${testWidth.toFixed(2)}mm | Available: ${availableWidth.toFixed(2)}mm | Effective: ${effectiveAvailableWidth.toFixed(2)}mm | Fits: ${testWidth <= effectiveAvailableWidth}`);
+
+        if (testWidth <= effectiveAvailableWidth) {
           // Word fits on current line
           currentLine = testLine;
         } else {
@@ -293,6 +307,7 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
     console.log('  Width after Padding:', (regionWidth - config.padding.left - config.padding.right).toFixed(2) + 'mm');
     console.log('  Line Width % (for reference):', config.lineBreak.lineWidth + '%');
     console.log('  Available Width for Text (full width after padding):', availableWidth.toFixed(2) + 'mm');
+    console.log('  Effective Width with Aggressive Fitting (+0.2mm buffer):', (availableWidth + 0.2).toFixed(2) + 'mm');
     console.log('  Font:', `${config.typography.fontSize}${config.typography.fontSizeUnit} ${config.typography.fontFamily}`);
 
     console.log('📄 EACH LINE MEASUREMENTS:');
