@@ -10044,8 +10044,9 @@ function App() {
                             }
 
                             // Calculate positioning and dimensions (same as main regions)
-                            const baseX = (childRegion.x * scale);
-                            const baseY = (childRegion.y * scale);
+                            // Child regions are positioned relative to the parent object
+                            const childBaseX = baseX + (childRegion.x * scale);
+                            const childBaseY = baseY + (childRegion.y * scale);
                             const regionWidthPx = childRegion.width * scale;
                             const regionHeightPx = childRegion.height * scale;
                             const paddingTopPx = padding.top * scale;
@@ -10065,21 +10066,21 @@ function App() {
                             const lineHeight = scaledFontSize * lineSpacing;
 
                             // Calculate text positioning based on alignment
-                            let textX = baseX + paddingLeftPx;
-                            let textY = baseY + paddingTopPx;
+                            let textX = childBaseX + paddingLeftPx;
+                            let textY = childBaseY + paddingTopPx;
 
                             if (textAlign === 'center') {
-                              textX = baseX + regionWidthPx / 2;
+                              textX = childBaseX + regionWidthPx / 2;
                             } else if (textAlign === 'right') {
-                              textX = baseX + regionWidthPx - paddingRightPx;
+                              textX = childBaseX + regionWidthPx - paddingRightPx;
                             }
 
                             if (verticalAlign === 'center') {
                               const totalTextHeight = displayLines.length * lineHeight;
-                              textY = baseY + (regionHeightPx - totalTextHeight) / 2;
+                              textY = childBaseY + (regionHeightPx - totalTextHeight) / 2;
                             } else if (verticalAlign === 'bottom') {
                               const totalTextHeight = displayLines.length * lineHeight;
-                              textY = baseY + regionHeightPx - paddingBottomPx - totalTextHeight;
+                              textY = childBaseY + regionHeightPx - paddingBottomPx - totalTextHeight;
                             }
 
                             // Render text lines (same as main regions)
