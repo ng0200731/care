@@ -110,6 +110,102 @@ function App() {
   const location = useLocation();
   const navigate = useNavigate();
 
+  // Child region text wrapping function - returns lines and overflow info
+  const processChildRegionTextWrapping = (
+    text: string,
+    availableWidthPx: number,
+    availableHeightPx: number,
+    fontSizePx: number,
+    fontFamily: string,
+    lineBreakSymbol: string,
+    lineSpacing: number
+  ): { lines: string[]; hasOverflow: boolean } => {
+    // Convert pixels to mm for text measurement (96 DPI: 1mm = 3.779527559px)
+    const availableWidthMm = availableWidthPx / 3.779527559;
+    const fontSizeMm = fontSizePx / 3.779527559;
+
+    // Text width estimation using canvas measurement
+    const estimateTextWidth = (text: string): number => {
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      if (!context) return text.length * 2; // Fallback
+
+      context.font = `${fontSizePx}px ${fontFamily}`;
+      const textWidthPx = context.measureText(text).width;
+      return textWidthPx / 3.779527559; // Convert to mm
+    };
+
+    // Word wrapping logic
+    const wrapTextToLines = (text: string): string[] => {
+      const manualLines = text.split(lineBreakSymbol);
+      const wrappedLines: string[] = [];
+
+      manualLines.forEach(line => {
+        const trimmedLine = line.trim();
+        if (!trimmedLine) {
+          wrappedLines.push('');
+          return;
+        }
+
+        const lineWidth = estimateTextWidth(trimmedLine);
+        if (lineWidth <= availableWidthMm) {
+          wrappedLines.push(trimmedLine);
+          return;
+        }
+
+        // Line too long, wrap words
+        const words = trimmedLine.split(' ');
+        let currentLine = '';
+
+        for (let i = 0; i < words.length; i++) {
+          const word = words[i];
+          const testLine = currentLine ? `${currentLine} ${word}` : word;
+          const testWidth = estimateTextWidth(testLine);
+
+          if (testWidth <= availableWidthMm) {
+            currentLine = testLine;
+          } else {
+            if (currentLine) {
+              wrappedLines.push(currentLine);
+              currentLine = word;
+            } else {
+              wrappedLines.push(word);
+            }
+          }
+        }
+
+        if (currentLine) {
+          wrappedLines.push(currentLine);
+        }
+      });
+
+      return wrappedLines;
+    };
+
+    const wrappedLines = wrapTextToLines(text);
+
+    // Check for overflow based on available height
+    const lineHeight = fontSizePx * lineSpacing;
+    const maxLines = Math.floor(availableHeightPx / lineHeight);
+    const hasOverflow = wrappedLines.length > maxLines;
+
+    // Trim lines if overflow
+    const finalLines = hasOverflow ? wrappedLines.slice(0, maxLines) : wrappedLines;
+
+    console.log('🎯 Child region text wrapping:', {
+      availableWidthMm: availableWidthMm.toFixed(2),
+      availableHeightPx: availableHeightPx.toFixed(2),
+      fontSizePx,
+      lineHeight,
+      maxLines,
+      totalLines: wrappedLines.length,
+      finalLines: finalLines.length,
+      hasOverflow
+    });
+
+    return { lines: finalLines, hasOverflow };
+  };
+
   // Word wrapping function for multi-line text (EXACT COPY from dialog preview)
   const wrapMultiLineText = (text: string, fontSize: number, fontSizeUnit: string, fontFamily: string, availableWidthMm: number, lineBreakSymbol: string): string => {
     // EXACT COPY: Text width estimation using canvas measurement (same as dialog)
@@ -10046,21 +10142,19 @@ function App() {
                               const childLineSpacing = content.newMultiLineConfig?.lineBreak?.lineSpacing || 1.2;
                               const childLineHeight = childScaledFontSize * childLineSpacing;
 
-                              // Calculate text wrapping for child region
-                              const childProcessedResult = processTextForWrapping(
+                              // Calculate text wrapping for child region using canvas measurement
+                              const childProcessedResult = processChildRegionTextWrapping(
                                 displayText,
                                 childAvailableWidthPx,
                                 childAvailableHeightPx,
                                 childScaledFontSize,
-                                childLineHeight,
+                                content.newMultiLineConfig?.typography?.fontFamily || 'Arial',
                                 content.newMultiLineConfig?.lineBreak?.symbol || '\n',
-                                content.newMultiLineConfig?.lineBreak?.lineSpacing || 1.2,
-                                content.newMultiLineConfig?.lineBreak?.lineWidth || 100
+                                content.newMultiLineConfig?.lineBreak?.lineSpacing || 1.2
                               );
 
                               displayLines = childProcessedResult.lines;
                               hasOverflow = childProcessedResult.hasOverflow;
-                              optimalFit = childProcessedResult.optimalFit;
 
                               console.log('✅ Child Canvas: Calculated wrapping for child region:', {
                                 availableWidth: childAvailableWidthPx,
