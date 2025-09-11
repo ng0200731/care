@@ -366,6 +366,7 @@ function App() {
   const [showPreview, setShowPreview] = useState(true); // Toggle to show/hide input values in regions
   const [showPartitionLines, setShowPartitionLines] = useState(true); // Toggle to show/hide region and slice solid lines
   const [showSupportingLines, setShowSupportingLines] = useState(true); // Toggle to show/hide dotted lines (margin, padding, mid-fold)
+  const [showPartitionNames, setShowPartitionNames] = useState(true); // Toggle to show/hide region and slice labels (R1, R2, S1, S2)
   const [autoFitNotification, setAutoFitNotification] = useState(false);
   // Removed unused capture mode states
 
@@ -6421,11 +6422,13 @@ function App() {
               pdf.rect(regionX, regionY, region.width, region.height);
             }
 
-            // Add parent region label - top-left, bold
-            pdf.setFontSize(8);
-            pdf.setFont('helvetica', 'bold'); // Bold font for region labels
-            pdf.setTextColor(0, 0, 0); // Black text
-            pdf.text(`R${regionIndex + 1}`, regionX + 1, regionY + 4);
+            // Add parent region label - top-left, bold (only if partition names are enabled)
+            if (showPartitionNames) {
+              pdf.setFontSize(8);
+              pdf.setFont('helvetica', 'bold'); // Bold font for region labels
+              pdf.setTextColor(0, 0, 0); // Black text
+              pdf.text(`R${regionIndex + 1}`, regionX + 1, regionY + 4);
+            }
 
             // Draw child slices (slices have absolute coordinates within mother, need to make relative to region)
             region.children.forEach((childRegion: any, childIndex: number) => {
@@ -6443,13 +6446,15 @@ function App() {
                 pdf.rect(childX, childY, childRegion.width, childRegion.height);
               }
 
-              // Add slice label - top-right, regular font
-              pdf.setFontSize(8);
-              pdf.setFont('helvetica', 'normal'); // Regular font for slice labels
-              pdf.setTextColor(0, 0, 0); // Black text
-              // Position at top-right corner of slice
-              const sliceLabelX = childX + childRegion.width - 1; // Right edge minus small margin
-              pdf.text(`S${childIndex + 1}`, sliceLabelX, childY + 4, { align: 'right' });
+              // Add slice label - top-right, regular font (only if partition names are enabled)
+              if (showPartitionNames) {
+                pdf.setFontSize(8);
+                pdf.setFont('helvetica', 'normal'); // Regular font for slice labels
+                pdf.setTextColor(0, 0, 0); // Black text
+                // Position at top-right corner of slice
+                const sliceLabelX = childX + childRegion.width - 1; // Right edge minus small margin
+                pdf.text(`S${childIndex + 1}`, sliceLabelX, childY + 4, { align: 'right' });
+              }
 
               // Add content type for slice - intelligent text sizing based on available space
               if (isProjectMode && childRegion.width > 3 && childRegion.height > 2) {
@@ -6612,11 +6617,13 @@ function App() {
               pdf.rect(regionX, regionY, region.width, region.height);
             }
 
-            // Add region label - top-left, bold
-            pdf.setFontSize(8);
-            pdf.setFont('helvetica', 'bold'); // Bold font for region labels
-            pdf.setTextColor(0, 0, 0); // Black text
-            pdf.text(`R${regionIndex + 1}`, regionX + 1, regionY + 4);
+            // Add region label - top-left, bold (only if partition names are enabled)
+            if (showPartitionNames) {
+              pdf.setFontSize(8);
+              pdf.setFont('helvetica', 'bold'); // Bold font for region labels
+              pdf.setTextColor(0, 0, 0); // Black text
+              pdf.text(`R${regionIndex + 1}`, regionX + 1, regionY + 4);
+            }
 
             // Add content type for region - use full text like slices
             if (isProjectMode && region.width > 10 && region.height > 5) {
@@ -8915,7 +8922,7 @@ function App() {
               const scale = zoom * mmToPx;
 
               // Helper function to render a region and its children
-              const renderRegionWithChildren = (region: Region): React.ReactElement[] => {
+              const renderRegionWithChildren = (region: Region, regionIndex: number): React.ReactElement[] => {
                 const elements: React.ReactElement[] = [];
 
                 // Determine highlighting style for parent region
@@ -9284,19 +9291,21 @@ function App() {
                   })()}
 
                   {/* Region Label */}
-                  <text
-                    x={baseX + (region.x * scale) + (region.width * scale) / 2}
-                    y={baseY + (region.y * scale) + 15}
-                    fill={region.borderColor}
-                    fontSize="10"
-                    fontWeight="bold"
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    opacity="0.9"
-                    style={{ pointerEvents: 'none' }}
-                  >
-                    {region.name}
-                  </text>
+                  {showPartitionNames && (
+                    <text
+                      x={baseX + (region.x * scale) + (region.width * scale) / 2}
+                      y={baseY + (region.y * scale) + 15}
+                      fill={region.borderColor}
+                      fontSize="10"
+                      fontWeight="bold"
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      opacity="0.9"
+                      style={{ pointerEvents: 'none' }}
+                    >
+                      R{regionIndex + 1}
+                    </text>
+                  )}
 
                   {/* Region Dimensions */}
                   <text
@@ -9923,7 +9932,7 @@ function App() {
 
                 // Render child regions if they exist
                 if (region.children && region.children.length > 0) {
-                  region.children.forEach((childRegion: Region) => {
+                  region.children.forEach((childRegion: Region, childIndex: number) => {
                     const isChildEditing = editingRegion && editingRegion.id === childRegion.id;
                     const isChildHighlighted = highlightedRegion === childRegion.id;
 
@@ -10004,18 +10013,20 @@ function App() {
                         />
 
                         {/* Child Region Label */}
-                        <text
-                          x={baseX + (childRegion.x * scale) + (childRegion.width * scale) / 2}
-                          y={baseY + (childRegion.y * scale) + 12}
-                          fill={childRegion.borderColor}
-                          fontSize="8"
-                          fontWeight="bold"
-                          textAnchor="middle"
-                          dominantBaseline="middle"
-                          opacity="0.9"
-                        >
-                          {childRegion.name}
-                        </text>
+                        {showPartitionNames && (
+                          <text
+                            x={baseX + (childRegion.x * scale) + (childRegion.width * scale) / 2}
+                            y={baseY + (childRegion.y * scale) + 12}
+                            fill={childRegion.borderColor}
+                            fontSize="8"
+                            fontWeight="bold"
+                            textAnchor="middle"
+                            dominantBaseline="middle"
+                            opacity="0.9"
+                          >
+                            S{childIndex + 1}
+                          </text>
+                        )}
 
                         {/* Child Region Dimensions */}
                         <text
@@ -10406,7 +10417,7 @@ function App() {
                 return elements;
               };
 
-              return objectRegions.flatMap(renderRegionWithChildren);
+              return objectRegions.flatMap((region: Region, regionIndex: number) => renderRegionWithChildren(region, regionIndex));
             })()}
 
             {/* Chain connections moved to SVG level - see after all objects rendered */}
@@ -11211,8 +11222,19 @@ function App() {
                     ⋯ Supporting Line
                   </button>
 
-
-
+                  <button
+                    onClick={() => setShowPartitionNames(!showPartitionNames)}
+                    style={{
+                      ...buttonStyle,
+                      background: showPartitionNames ? '#e3f2fd' : 'white',
+                      color: showPartitionNames ? '#1976d2' : '#666',
+                      fontSize: '10px',
+                      padding: '4px 6px'
+                    }}
+                    title="Toggle visibility of partition names (R1, R2, S1, S2)"
+                  >
+                    🏷️ Partition Name
+                  </button>
 
                 </div>
 
