@@ -817,7 +817,9 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
             padding: '16px',
             background: '#f7fafc',
             position: 'relative',
-            minHeight: '120px'
+            minHeight: '200px',
+            maxHeight: '400px',
+            overflow: 'auto'
           }}>
             <div style={{
               fontFamily: config.typography.fontFamily,
@@ -829,8 +831,8 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
                             config.alignment.horizontal === 'center' ? 'center' : 'flex-end',
               justifyContent: config.alignment.vertical === 'top' ? 'flex-start' :
                              config.alignment.vertical === 'center' ? 'center' : 'flex-end',
-              height: '100%',
-              minHeight: '120px',
+              height: 'auto',
+              minHeight: '180px',
               padding: `${config.padding.top}mm ${config.padding.right}mm ${config.padding.bottom}mm ${config.padding.left}mm`,
               border: '1px dashed #cbd5e0',
               background: 'white',

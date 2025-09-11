@@ -1725,15 +1725,29 @@ function App() {
 
     // Handle new-line-text content type specially
     if (content.type === 'new-line-text') {
-      // Find the region from current data
+      // Find the region from current data (check both main regions and child regions/slices)
       const currentData = data || webCreationData;
       let region: any = null;
-      
+
       if (currentData) {
         for (const obj of currentData.objects) {
           if (obj.type?.includes('mother')) {
             const regions = (obj as any).regions || [];
+
+            // First check main regions
             region = regions.find((r: any) => r.id === regionId);
+            if (region) break;
+
+            // If not found in main regions, check child regions (slices)
+            for (const parentRegion of regions) {
+              if (parentRegion.children && parentRegion.children.length > 0) {
+                const childRegion = parentRegion.children.find((child: any) => child.id === regionId);
+                if (childRegion) {
+                  region = childRegion;
+                  break;
+                }
+              }
+            }
             if (region) break;
           }
         }
@@ -1760,7 +1774,7 @@ function App() {
     if (content.type === 'new-multi-line') {
       console.log('🆕 NEW CT Multi-line double-clicked - Opening configuration dialog');
 
-      // Find the region from current data
+      // Find the region from current data (check both main regions and child regions/slices)
       const currentData = data || webCreationData;
       let region: any = null;
 
@@ -1768,7 +1782,21 @@ function App() {
         for (const obj of currentData.objects) {
           if (obj.type?.includes('mother')) {
             const regions = (obj as any).regions || [];
+
+            // First check main regions
             region = regions.find((r: any) => r.id === regionId);
+            if (region) break;
+
+            // If not found in main regions, check child regions (slices)
+            for (const parentRegion of regions) {
+              if (parentRegion.children && parentRegion.children.length > 0) {
+                const childRegion = parentRegion.children.find((child: any) => child.id === regionId);
+                if (childRegion) {
+                  region = childRegion;
+                  break;
+                }
+              }
+            }
             if (region) break;
           }
         }
