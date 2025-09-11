@@ -579,7 +579,21 @@ function App() {
       setRegionContents(prevContents => {
         const newContents = new Map(prevContents);
         const currentContents = newContents.get(regionId) || [];
-        newContents.set(regionId, [...currentContents, newContent]);
+        const updatedContents = [...currentContents, newContent];
+        newContents.set(regionId, updatedContents);
+
+        console.log('💾 SAVING NEW MULTI-LINE CONTENT:', {
+          regionId: regionId,
+          isSlice: regionId.includes('_slice_'),
+          newContentId: newContent.id,
+          contentType: newContent.type,
+          textContent: config.textContent.substring(0, 50) + '...',
+          processedLines: config.processedLines?.length || 0,
+          currentContentsCount: currentContents.length,
+          updatedContentsCount: updatedContents.length,
+          allRegionIds: Array.from(newContents.keys())
+        });
+
         return newContents;
       });
 
@@ -9913,6 +9927,8 @@ function App() {
                           let picked: any = null;
                           for (const item of sliceContents) {
                             if (item?.type === 'line-text' && item.content?.text?.trim()) { picked = item; break; }
+                            if (item?.type === 'new-line-text' && item.content?.text?.trim()) { picked = item; break; }
+                            if (item?.type === 'new-multi-line' && item.content?.text?.trim()) { picked = item; break; }
                             if (item?.type === 'pure-english-paragraph' && item.content?.text?.trim()) { picked = item; break; }
                             if (item?.type === 'translation-paragraph' && (item.content?.primaryContent?.trim() || item.content?.secondaryContent?.trim())) { picked = item; break; }
                             if (item?.type === 'washing-symbol' && item.content?.symbol?.trim()) { picked = item; break; }
@@ -9938,7 +9954,7 @@ function App() {
                             const primary = picked.content?.primaryContent || '';
                             const secondary = picked.content?.secondaryContent || '';
                             displayText = primary + (secondary ? ` / ${secondary}` : '');
-                          } else if (picked.type === 'line-text' || picked.type === 'pure-english-paragraph') {
+                          } else if (picked.type === 'line-text' || picked.type === 'pure-english-paragraph' || picked.type === 'new-line-text' || picked.type === 'new-multi-line') {
                             displayText = picked.content?.text || '';
                           } else if (picked.type === 'washing-symbol') {
                             displayText = picked.content?.symbol || '';
