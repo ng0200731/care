@@ -812,10 +812,10 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
             Preview
           </h3>
           <div style={{
-            border: '2px solid #e2e8f0',
+            border: '3px solid #ff0000', // Debug: red border to make it visible
             borderRadius: '6px',
             padding: '16px',
-            background: '#f7fafc',
+            background: '#ffff00', // Debug: yellow background to make it visible
             position: 'relative',
             minHeight: '200px',
             maxHeight: '400px',
@@ -838,14 +838,28 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
               background: 'white',
               lineHeight: config.lineBreak.lineSpacing
             }}>
-              {processTextForPreview(config.textContent).map((line, index) => (
-                <div key={index} style={{
-                  width: '100%', // Use full available width for text display
-                  textAlign: config.alignment.horizontal
-                }}>
-                  {line || '\u00A0'} {/* Non-breaking space for empty lines */}
-                </div>
-              ))}
+              {(() => {
+                const previewLines = processTextForPreview(config.textContent);
+                console.log('🖼️ PREVIEW RENDER:', {
+                  totalLines: previewLines.length,
+                  lines: previewLines,
+                  regionId: regionId,
+                  regionWidth: regionWidth,
+                  regionHeight: regionHeight,
+                  textContent: config.textContent.substring(0, 50) + '...'
+                });
+                return previewLines.map((line, index) => (
+                  <div key={index} style={{
+                    width: '100%', // Use full available width for text display
+                    textAlign: config.alignment.horizontal,
+                    backgroundColor: index % 2 === 0 ? 'rgba(0,255,0,0.1)' : 'rgba(0,0,255,0.1)', // Debug: alternating colors
+                    border: '1px solid red', // Debug: visible border
+                    padding: '2px'
+                  }}>
+                    {line || '\u00A0'} {/* Non-breaking space for empty lines */}
+                  </div>
+                ));
+              })()}
             </div>
           </div>
         </div>
