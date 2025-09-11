@@ -10080,6 +10080,8 @@ function App() {
                             } else if (verticalAlign === 'bottom') {
                               const totalTextHeight = displayLines.length * lineHeight;
                               textY = baseY + regionHeightPx - paddingBottomPx - totalTextHeight;
+                            }
+
                             // Render text lines (same as main regions)
                             if (displayLines.length === 0) return null;
 

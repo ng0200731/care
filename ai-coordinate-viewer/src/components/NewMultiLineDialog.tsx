@@ -812,10 +812,10 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
             Preview
           </h3>
           <div style={{
-            border: '3px solid #ff0000', // Debug: red border to make it visible
+            border: '2px solid #e2e8f0',
             borderRadius: '6px',
             padding: '16px',
-            background: '#ffff00', // Debug: yellow background to make it visible
+            background: '#f7fafc',
             position: 'relative',
             minHeight: '200px',
             maxHeight: '400px',
