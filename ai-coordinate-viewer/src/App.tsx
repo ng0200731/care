@@ -9919,188 +9919,195 @@ function App() {
                           );
                         })()}
 
+                        {/* Child Region Text Content - Use same advanced rendering as main regions */}
                         {(() => {
                           const sliceContents = regionContents.get(childRegion.id) || [];
                           if (sliceContents.length === 0) return null;
 
-                          // Pick the first item with displayable text
-                          let picked: any = null;
-                          for (const item of sliceContents) {
-                            if (item?.type === 'line-text' && item.content?.text?.trim()) { picked = item; break; }
-                            if (item?.type === 'new-line-text' && item.content?.text?.trim()) { picked = item; break; }
-                            if (item?.type === 'new-multi-line' && item.content?.text?.trim()) { picked = item; break; }
-                            if (item?.type === 'pure-english-paragraph' && item.content?.text?.trim()) { picked = item; break; }
-                            if (item?.type === 'translation-paragraph' && (item.content?.primaryContent?.trim() || item.content?.secondaryContent?.trim())) { picked = item; break; }
-                            if (item?.type === 'washing-symbol' && item.content?.symbol?.trim()) { picked = item; break; }
-                            if (item?.type === 'coo' && item.content?.country?.trim()) { picked = item; break; }
-                          }
-                          if (!picked) return null;
+                          console.log('🎨 CHILD REGION RENDERING:', {
+                            childRegionId: childRegion.id,
+                            contentCount: sliceContents.length,
+                            contentTypes: sliceContents.map(c => c.type)
+                          });
 
-                          // Resolve effective layout/typography (respect connector/master)
-                          const role = getOverflowRole(picked.id);
-                          let effectiveLayout = picked.layout || {};
-                          let effectiveTypography = picked.typography || {};
-                          if (role === 'connector') {
-                            const masterProps = getMasterProperties(picked.id);
-                            if (masterProps) {
-                              effectiveLayout = masterProps.layout || effectiveLayout;
-                              effectiveTypography = masterProps.typography || effectiveTypography;
+                          return sliceContents.map((content: any, contentIndex: number) => {
+                            let displayText = '';
+
+                            // Extract text based on content type (same as main regions)
+                            if (content.type === 'line-text' && content.content?.text) {
+                              displayText = content.content.text;
+                            } else if (content.type === 'new-line-text' && content.content?.text) {
+                              displayText = content.content.text;
+                              console.log('🎨 child new-line-text displayText:', displayText, 'content:', content);
+                            } else if (content.type === 'new-multi-line' && content.content?.text) {
+                              displayText = content.content.text;
+                              console.log('🎨 child new-multi-line displayText:', displayText, 'content:', content);
+                            } else if (content.type === 'pure-english-paragraph' && content.content?.text) {
+                              displayText = content.content.text;
+                            } else if (content.type === 'translation-paragraph') {
+                              const primary = content.content?.primaryContent || '';
+                              const secondary = content.content?.secondaryContent || '';
+                              displayText = primary + (secondary ? ` / ${secondary}` : '');
+                            } else if (content.type === 'washing-symbol' && content.content?.symbol) {
+                              displayText = content.content.symbol;
+                            } else if (content.type === 'image' && content.content?.src) {
+                              displayText = `[Image: ${content.content.src}]`;
+                            } else if (content.type === 'coo' && content.content?.country) {
+                              displayText = content.content.country;
                             }
-                          }
 
-                          // Extract display text by type
-                          let displayText = '';
-                          if (picked.type === 'translation-paragraph') {
-                            const primary = picked.content?.primaryContent || '';
-                            const secondary = picked.content?.secondaryContent || '';
-                            displayText = primary + (secondary ? ` / ${secondary}` : '');
-                          } else if (picked.type === 'line-text' || picked.type === 'pure-english-paragraph' || picked.type === 'new-line-text' || picked.type === 'new-multi-line') {
-                            displayText = picked.content?.text || '';
-                          } else if (picked.type === 'washing-symbol') {
-                            displayText = picked.content?.symbol || '';
-                          } else if (picked.type === 'coo') {
-                            displayText = picked.content?.country || '';
-                          }
-                          if (!displayText?.trim()) return null;
-
-                          // Typography and layout
-                          const fontSize = effectiveTypography?.fontSize || 12;
-                          const fontFamily = effectiveTypography?.fontFamily || 'Arial';
-                          const fontColor = effectiveTypography?.fontColor || '#000000';
-                          const textAlign = effectiveLayout?.horizontalAlign || 'left';
-                          const verticalAlign = effectiveLayout?.verticalAlign || 'top';
-                          const padding = effectiveLayout?.padding || { top: 2, right: 2, bottom: 2, left: 2 };
-
-                          // Dimensions
-                          const mmToPx = 3.78;
-                          const scale = zoom * mmToPx;
-                          const sliceWidthPx = childRegion.width * scale;
-                          const sliceHeightPx = childRegion.height * scale;
-                          const paddingTopPx = (padding.top || 0) * scale;
-                          const paddingRightPx = (padding.right || 0) * scale;
-                          const paddingBottomPx = (padding.bottom || 0) * scale;
-                          const paddingLeftPx = (padding.left || 0) * scale;
-
-                          const textAreaWidth = Math.max(0, sliceWidthPx - paddingLeftPx - paddingRightPx);
-                          const textAreaHeight = Math.max(0, sliceHeightPx - paddingTopPx - paddingBottomPx);
-
-                          const scaledFontSize = Math.max(6, fontSize * zoom);
-                          const lineHeight = scaledFontSize * 1.2;
-                          const maxLines = Math.max(0, Math.floor(textAreaHeight / lineHeight));
-                          if (maxLines <= 0) return null;
-
-                          // Measure/wrap
-                          const measureTextWidth = (text: string) => {
-                            const canvas = document.createElement('canvas');
-                            const ctx = canvas.getContext('2d');
-                            if (ctx) {
-                              ctx.font = `${scaledFontSize}px ${fontFamily}`;
-                              return ctx.measureText(text).width;
+                            if (!displayText) {
+                              console.log('❌ Child region: No displayText for content:', content.type, content.id, 'content.content:', content.content);
+                              return null;
                             }
-                            return text.length * scaledFontSize * 0.6;
-                          };
 
-                          const wrapText = (text: string, maxWidth: number): string[] => {
-                            const words = text.split(' ');
-                            const lines: string[] = [];
-                            let current = '';
-                            for (const w of words) {
-                              const test = current ? current + ' ' + w : w;
-                              if (measureTextWidth(test) <= maxWidth) {
-                                current = test;
+                            // Get content properties - use master properties for connectors (same as main regions)
+                            const role = getOverflowRole(content.id);
+                            let effectiveLayout = content.layout;
+                            let effectiveTypography = content.typography;
+
+                            if (role === 'connector') {
+                              const masterProps = getMasterProperties(content.id);
+                              if (masterProps) {
+                                effectiveLayout = masterProps.layout || effectiveLayout;
+                                effectiveTypography = masterProps.typography || effectiveTypography;
+                              }
+                            }
+
+                            // Typography and layout (same as main regions)
+                            let fontSize = effectiveTypography?.fontSize || 12;
+                            let fontFamily = effectiveTypography?.fontFamily || 'Arial';
+                            let fontSizeUnit = effectiveTypography?.fontSizeUnit || 'px';
+                            let fontColor = effectiveTypography?.fontColor || '#000000';
+                            let textAlign = effectiveLayout?.horizontalAlign || 'left';
+                            let verticalAlign = effectiveLayout?.verticalAlign || 'top';
+                            let padding = effectiveLayout?.padding || { top: 2, right: 2, bottom: 2, left: 2 };
+
+                            // Handle new content types with their specific configs (same as main regions)
+                            if (content.type === 'new-line-text' && content.newLineTextConfig) {
+                              const config = content.newLineTextConfig;
+                              fontSize = config.typography.fontSize;
+                              fontFamily = config.typography.fontFamily;
+                              fontSizeUnit = config.typography.fontSizeUnit;
+                              textAlign = config.alignment.horizontal;
+                              verticalAlign = config.alignment.vertical;
+                              padding = config.padding;
+                              console.log('🎨 child new-line-text using advanced text fitting for:', displayText);
+                            } else if (content.type === 'new-multi-line' && content.newMultiLineConfig) {
+                              const config = content.newMultiLineConfig;
+                              fontSize = config.typography.fontSize;
+                              fontFamily = config.typography.fontFamily;
+                              fontSizeUnit = config.typography.fontSizeUnit;
+                              textAlign = config.alignment.horizontal;
+                              verticalAlign = config.alignment.vertical;
+                              padding = config.padding;
+                              console.log('🎨 child new-multi-line using processed lines from preview');
+                            }
+
+                            // Advanced text processing (same as main regions)
+                            let displayLines: string[] = [];
+                            let hasOverflow = false;
+                            let optimalFit: any = { overflow: '' };
+
+                            // PHASE 1: Use precise text measurement for rendering (same as main regions)
+                            let fontSizeForProcessing = fontSize;
+                            if (fontSizeUnit === 'pt') {
+                              fontSizeForProcessing = fontSize * 4/3; // Convert pt to px
+                            } else if (fontSizeUnit === 'mm') {
+                              fontSizeForProcessing = fontSize * 3.779527559; // Convert mm to px
+                            }
+
+                            if (content.type === 'new-line-text') {
+                              // For new-line-text: Use advanced text fitting (same as main regions)
+                              console.log('🎨 child new-line-text using advanced text fitting for:', displayText);
+                              displayLines = [displayText];
+                              hasOverflow = false;
+                              optimalFit = { overflow: '' };
+                            } else if (content.type === 'new-multi-line') {
+                              // For multi-line content: Use EXACT lines from preview (same as main regions)
+                              console.log('🎯 Child Canvas: Using exact processed lines from preview');
+
+                              // Use the exact processed lines from the preview dialog
+                              if (content.newMultiLineConfig?.processedLines) {
+                                displayLines = [...content.newMultiLineConfig.processedLines];
+                                console.log('✅ Child Canvas: Using saved processed lines:', displayLines);
                               } else {
-                                if (current) lines.push(current);
-                                current = w;
+                                // Fallback: if no processed lines, use simple split (shouldn't happen)
+                                displayLines = displayText.split('\n');
+                                console.log('⚠️ Child Canvas: No processed lines found, using fallback split');
                               }
+                            } else {
+                              // For other content types: Use simple processing
+                              displayLines = [displayText];
+                              hasOverflow = false;
+                              optimalFit = { overflow: '' };
                             }
-                            if (current) lines.push(current);
-                            return lines;
-                          };
 
-                          const wrappedLines = wrapText(displayText, textAreaWidth);
-                          let displayLines = wrappedLines;
-                          if (displayLines.length > maxLines) {
-                            displayLines = wrappedLines.slice(0, maxLines);
-                            // Overflow forwarding for slices (same logic as regions)
-                            if (isOverflowEnabled(picked.id)) {
-                              const overflowLines = wrappedLines.slice(maxLines);
-                              const overflowText = overflowLines.join(' ');
-                              const contentType = picked.type;
-                              const chain = overflowChains.get(contentType) || [];
-                              const currentIndex = chain.indexOf(picked.id);
-                              if (currentIndex >= 0 && currentIndex < chain.length - 1) {
-                                const nextContentId = chain[currentIndex + 1];
-                                // Find the region that contains the next content id
-                                let nextRegionId: string | null = null;
-                                regionContents.forEach((contents, rId) => {
-                                  if (contents.some((c: any) => c.id === nextContentId)) {
-                                    nextRegionId = rId;
-                                  }
-                                });
-                                if (nextRegionId && overflowText.trim()) {
-                                  setTimeout(() => {
-                                    setRegionContents(prev => {
-                                      const newMap = new Map(prev);
-                                      const nextList = newMap.get(nextRegionId!) || [];
-                                      const updated = nextList.map((c: any) => {
-                                        if (c.id === nextContentId) {
-                                          return {
-                                            ...c,
-                                            content: {
-                                              ...c.content,
-                                              text: overflowText
-                                            }
-                                          };
-                                        }
-                                        return c;
-                                      });
-                                      newMap.set(nextRegionId!, updated);
-                                      return newMap;
-                                    });
-                                  }, 100);
-                                }
-                              }
+                            // Calculate positioning and dimensions (same as main regions)
+                            const baseX = (childRegion.x * scale);
+                            const baseY = (childRegion.y * scale);
+                            const regionWidthPx = childRegion.width * scale;
+                            const regionHeightPx = childRegion.height * scale;
+                            const paddingTopPx = padding.top * scale;
+                            const paddingRightPx = padding.right * scale;
+                            const paddingBottomPx = padding.bottom * scale;
+                            const paddingLeftPx = padding.left * scale;
+
+                            const availableWidthPx = Math.max(0, regionWidthPx - paddingLeftPx - paddingRightPx);
+                            const availableHeightPx = Math.max(0, regionHeightPx - paddingTopPx - paddingBottomPx);
+
+                            // Calculate font size in pixels for rendering
+                            let fontSizeInPixels = fontSizeForProcessing;
+                            const scaledFontSize = Math.max(6, fontSizeInPixels * zoom);
+
+                            // Calculate line height and positioning
+                            const lineSpacing = content.newMultiLineConfig?.lineBreak?.lineSpacing || 1.2;
+                            const lineHeight = scaledFontSize * lineSpacing;
+
+                            // Calculate text positioning based on alignment
+                            let textX = baseX + paddingLeftPx;
+                            let textY = baseY + paddingTopPx;
+
+                            if (textAlign === 'center') {
+                              textX = baseX + regionWidthPx / 2;
+                            } else if (textAlign === 'right') {
+                              textX = baseX + regionWidthPx - paddingRightPx;
                             }
-                          }
-                          if (displayLines.length === 0) return null;
 
-                          // Horizontal alignment
-                          let textAnchor: 'start' | 'middle' | 'end' = 'start';
-                          let textX = baseX + (childRegion.x * scale) + paddingLeftPx;
-                          if (textAlign === 'center') {
-                            textAnchor = 'middle';
-                            textX = baseX + (childRegion.x * scale) + sliceWidthPx / 2;
-                          } else if (textAlign === 'right') {
-                            textAnchor = 'end';
-                            textX = baseX + (childRegion.x * scale) + sliceWidthPx - paddingRightPx;
-                          }
+                            if (verticalAlign === 'center') {
+                              const totalTextHeight = displayLines.length * lineHeight;
+                              textY = baseY + (regionHeightPx - totalTextHeight) / 2;
+                            } else if (verticalAlign === 'bottom') {
+                              const totalTextHeight = displayLines.length * lineHeight;
+                              textY = baseY + regionHeightPx - paddingBottomPx - totalTextHeight;
+                            // Render text lines (same as main regions)
+                            if (displayLines.length === 0) return null;
 
-                          // Vertical alignment
-                          let startY = baseY + (childRegion.y * scale) + paddingTopPx;
-                          if (verticalAlign === 'center') {
-                            const totalTextHeight = displayLines.length * lineHeight;
-                            startY = baseY + (childRegion.y * scale) + (sliceHeightPx - totalTextHeight) / 2;
-                          } else if (verticalAlign === 'bottom') {
-                            const totalTextHeight = displayLines.length * lineHeight;
-                            startY = baseY + (childRegion.y * scale) + sliceHeightPx - paddingBottomPx - totalTextHeight;
-                          }
+                            // Set text anchor based on alignment
+                            let textAnchor: 'start' | 'middle' | 'end' = 'start';
+                            if (textAlign === 'center') {
+                              textAnchor = 'middle';
+                            } else if (textAlign === 'right') {
+                              textAnchor = 'end';
+                            }
 
-                          return displayLines.map((line, idx) => (
-                            <text
-                              key={`slice-text-${childRegion.id}-${idx}`}
-                              x={textX}
-                              y={startY + (idx + 1) * lineHeight}
-                              fill={fontColor}
-                              fontSize={scaledFontSize}
-                              fontFamily={fontFamily}
-                              textAnchor={textAnchor}
-                              dominantBaseline="alphabetic"
-                              opacity="0.95"
-                              style={{ pointerEvents: 'none' }}
-                            >
-                              {line}
-                            </text>
-                          ));
+                            return displayLines.map((line, lineIndex) => (
+                              <text
+                                key={`child-text-${childRegion.id}-${contentIndex}-${lineIndex}`}
+                                x={textX}
+                                y={textY + (lineIndex + 1) * lineHeight}
+                                fill={fontColor}
+                                fontSize={scaledFontSize}
+                                fontFamily={fontFamily}
+                                textAnchor={textAnchor}
+                                dominantBaseline="alphabetic"
+                                opacity="0.95"
+                                style={{ pointerEvents: 'none' }}
+                              >
+                                {line}
+                              </text>
+                            ));
+                          });
                         })()}
 
                         {/* Padding boundaries visualization for new-multi-line content in child regions */}
