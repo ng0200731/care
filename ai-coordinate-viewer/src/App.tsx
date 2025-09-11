@@ -364,6 +364,8 @@ function App() {
   const [mouseCoords, setMouseCoords] = useState({ x: 0, y: 0 });
   const [showDimensions, setShowDimensions] = useState(true);
   const [showPreview, setShowPreview] = useState(true); // Toggle to show/hide input values in regions
+  const [showPartitionLines, setShowPartitionLines] = useState(true); // Toggle to show/hide region and slice solid lines
+  const [showSupportingLines, setShowSupportingLines] = useState(true); // Toggle to show/hide dotted lines (margin, padding, mid-fold)
   const [autoFitNotification, setAutoFitNotification] = useState(false);
   // Removed unused capture mode states
 
@@ -2152,7 +2154,7 @@ function App() {
   //   editModeInPreview: true,
   //   dragDropInPreview: false
   // });
-  const [showPreviewPanel, setShowPreviewPanel] = useState(false);
+
 
   // Pending content data (after region occupation is confirmed)
   // const [pendingContentData, setPendingContentData] = useState<{
@@ -6190,6 +6192,64 @@ function App() {
       pdf.text(`Paper Size: ${paperSize} (${paperWidthMM/10}cm × ${paperHeightMM/10}cm)`, 10, 25);
       pdf.text(`Generated: ${new Date().toLocaleString()}`, 10, 30);
 
+      // Add Objects Hierarchy information if hierarchy panel is visible
+      let currentY = 40; // Start position for content
+      if (showHierarchyMenu || pinnedHierarchyMenu) {
+        pdf.setFontSize(12);
+        pdf.setTextColor(0, 0, 0);
+        pdf.text('📋 Objects Hierarchy:', 10, currentY);
+        currentY += 8;
+
+        // Build hierarchy for PDF
+        const { mothers: hierarchyMothers, orphans } = buildHierarchy(currentData.objects);
+
+        pdf.setFontSize(9);
+        hierarchyMothers.forEach((mother, index) => {
+          // Mother information - access properties through mother.object
+          const motherName = mother.object?.name || 'Unknown';
+          const motherWidth = mother.object?.width || 0;
+          const motherHeight = mother.object?.height || 0;
+          // Show dimensions only if dimensions toggle is enabled
+          const dimensionText = showDimensions ? ` (${motherWidth}×${motherHeight}mm)` : '';
+          pdf.text(`👑 ${motherName}${dimensionText}`, 15, currentY);
+          currentY += 5;
+
+          // Sons information - access through mother.children
+          if (mother.children && mother.children.length > 0) {
+            mother.children.forEach((son, sonIndex) => {
+              const sonName = son?.name || 'Unknown';
+              const sonWidth = son?.width || 0;
+              const sonHeight = son?.height || 0;
+              // Show dimensions only if dimensions toggle is enabled
+              const dimensionText = showDimensions ? ` (${sonWidth}×${sonHeight}mm)` : '';
+              pdf.text(`   └ ${sonName}${dimensionText}`, 20, currentY);
+              currentY += 4;
+            });
+          } else {
+            pdf.text(`   └ No sons`, 20, currentY);
+            currentY += 4;
+          }
+          currentY += 2; // Extra space between mothers
+        });
+
+        // Orphans information
+        if (orphans && orphans.length > 0) {
+          pdf.text('🔸 Orphan Objects:', 15, currentY);
+          currentY += 5;
+          orphans.forEach((orphan) => {
+            const orphanName = orphan?.name || 'Unknown';
+            const orphanWidth = orphan?.width || 0;
+            const orphanHeight = orphan?.height || 0;
+            // Show dimensions only if dimensions toggle is enabled
+            const dimensionText = showDimensions ? ` (${orphanWidth}×${orphanHeight}mm)` : '';
+            pdf.text(`   └ ${orphanName}${dimensionText}`, 20, currentY);
+            currentY += 4;
+          });
+        }
+
+        currentY += 10; // Extra space before mothers drawing
+      }
+
       // Draw each mother and its regions
       mothers.forEach((mother, motherIndex) => {
         const motherRegions = (mother as any).regions || [];
@@ -6197,22 +6257,24 @@ function App() {
         // Draw mother outline
         pdf.setDrawColor(0, 0, 0); // Black
         pdf.setLineWidth(0.3); // Standard thickness
-        pdf.rect(mother.x, mother.y + 35, mother.width, mother.height); // +35 for header space
+        pdf.rect(mother.x, mother.y + currentY, mother.width, mother.height); // Use dynamic Y position
 
         // Add mother label
         pdf.setFontSize(8);
         pdf.setTextColor(0, 0, 0); // Black text
-        pdf.text(`${mother.name} (${mother.width}×${mother.height}mm)`, mother.x, mother.y + 32);
+        // Show dimensions only if dimensions toggle is enabled
+        const motherDimensionText = showDimensions ? ` (${mother.width}×${mother.height}mm)` : '';
+        pdf.text(`${mother.name}${motherDimensionText}`, mother.x, mother.y + currentY - 3);
 
-        // Draw mother margins if they exist
+        // Draw mother margins if they exist and supporting lines are enabled
         const motherMargins = (mother as any).margins;
-        if (motherMargins) {
+        if (motherMargins && showSupportingLines) {
           pdf.setDrawColor(0, 0, 0); // Black for margins
           pdf.setLineWidth(0.3); // Standard thickness
           pdf.setLineDashPattern([1, 1], 0); // Dotted line
 
           const motherX = mother.x;
-          const motherY = mother.y + 35;
+          const motherY = mother.y + currentY;
 
           // Top margin
           if (motherMargins.top > 0) {
@@ -6234,11 +6296,11 @@ function App() {
           pdf.setLineDashPattern([], 0); // Reset to solid line
         }
 
-        // Draw mid fold lines if they exist
+        // Draw mid fold lines if they exist and supporting lines are enabled
         const midFoldLine = (mother as any).midFoldLine;
-        if (midFoldLine && midFoldLine.enabled) {
+        if (midFoldLine && midFoldLine.enabled && showSupportingLines) {
           const motherX = mother.x;
-          const motherY = mother.y + 35;
+          const motherY = mother.y + currentY;
           const padding = midFoldLine.padding || 3;
 
           if (midFoldLine.type === 'horizontal') {
@@ -6270,10 +6332,12 @@ function App() {
             // Bottom padding line
             pdf.line(motherX, motherY + midFoldY + padding/2, motherX + mother.width, motherY + midFoldY + padding/2);
 
-            // Add padding dimension labels
-            pdf.setFontSize(8); // Standard font size
-            pdf.setTextColor(0, 0, 0); // Black text
-            pdf.text(`${padding}mm`, motherX + mother.width + 2, motherY + midFoldY);
+            // Add padding dimension labels only if dimensions toggle is enabled
+            if (showDimensions) {
+              pdf.setFontSize(8); // Standard font size
+              pdf.setTextColor(0, 0, 0); // Black text
+              pdf.text(`${padding}mm`, motherX + mother.width + 2, motherY + midFoldY);
+            }
 
           } else if (midFoldLine.type === 'vertical') {
             // Calculate X position of mid-fold line
@@ -6304,22 +6368,24 @@ function App() {
             // Right padding line
             pdf.line(motherX + midFoldX + padding/2, motherY, motherX + midFoldX + padding/2, motherY + mother.height);
 
-            // Add padding dimension labels
-            pdf.setFontSize(8); // Standard font size
-            pdf.setTextColor(0, 0, 0); // Black text
-            pdf.text(`${padding}mm`, motherX + midFoldX - 5, motherY + mother.height + 8);
+            // Add padding dimension labels only if dimensions toggle is enabled
+            if (showDimensions) {
+              pdf.setFontSize(8); // Standard font size
+              pdf.setTextColor(0, 0, 0); // Black text
+              pdf.text(`${padding}mm`, motherX + midFoldX - 5, motherY + mother.height + 8);
+            }
           }
 
           pdf.setLineDashPattern([], 0); // Reset to solid line
         }
 
-        // Add mother margin dimension labels
-        if (motherMargins) {
+        // Add mother margin dimension labels only if dimensions toggle is enabled
+        if (motherMargins && showDimensions) {
           pdf.setFontSize(8); // Standard font size
           pdf.setTextColor(0, 0, 0); // Black text
 
           const motherX = mother.x;
-          const motherY = mother.y + 35;
+          const motherY = mother.y + currentY;
 
           // Top margin label
           if (motherMargins.top > 0) {
@@ -6342,16 +6408,18 @@ function App() {
         // Draw regions with content and slices
         motherRegions.forEach((region: any, regionIndex: number) => {
           const regionX = mother.x + region.x;
-          const regionY = mother.y + region.y + 35;
+          const regionY = mother.y + region.y + currentY;
 
           // Check if region has child slices
           const hasSlices = region.children && region.children.length > 0;
 
           if (hasSlices) {
-            // Draw parent region outline
-            pdf.setDrawColor(0, 0, 0); // Black for parent
-            pdf.setLineWidth(0.3); // Standard thickness
-            pdf.rect(regionX, regionY, region.width, region.height);
+            // Draw parent region outline only if partition lines are enabled
+            if (showPartitionLines) {
+              pdf.setDrawColor(0, 0, 0); // Black for parent
+              pdf.setLineWidth(0.3); // Standard thickness
+              pdf.rect(regionX, regionY, region.width, region.height);
+            }
 
             // Add parent region label - top-left, bold
             pdf.setFontSize(8);
@@ -6368,10 +6436,12 @@ function App() {
               const childX = regionX + relativeX;
               const childY = regionY + relativeY;
 
-              // Draw slice outline
-              pdf.setDrawColor(0, 0, 0); // Black for slices
-              pdf.setLineWidth(0.3); // Standard thickness
-              pdf.rect(childX, childY, childRegion.width, childRegion.height);
+              // Draw slice outline only if partition lines are enabled
+              if (showPartitionLines) {
+                pdf.setDrawColor(0, 0, 0); // Black for slices
+                pdf.setLineWidth(0.3); // Standard thickness
+                pdf.rect(childX, childY, childRegion.width, childRegion.height);
+              }
 
               // Add slice label - top-right, regular font
               pdf.setFontSize(8);
@@ -6535,10 +6605,12 @@ function App() {
               }
             });
           } else {
-            // Draw regular region (no slices)
-            pdf.setDrawColor(0, 0, 0); // Black for regions
-            pdf.setLineWidth(0.3); // Standard thickness
-            pdf.rect(regionX, regionY, region.width, region.height);
+            // Draw regular region (no slices) only if partition lines are enabled
+            if (showPartitionLines) {
+              pdf.setDrawColor(0, 0, 0); // Black for regions
+              pdf.setLineWidth(0.3); // Standard thickness
+              pdf.rect(regionX, regionY, region.width, region.height);
+            }
 
             // Add region label - top-left, bold
             pdf.setFontSize(8);
@@ -8629,8 +8701,8 @@ function App() {
                 </text>
               ));
 
-              // Add margin guide lines if this object is selected
-              const marginGuides = selectedObject === obj ? [
+              // Add margin guide lines if this object is selected and supporting lines are enabled
+              const marginGuides = selectedObject === obj && showSupportingLines ? [
                 // Top margin line
                 <line
                   key="margin-top"
@@ -8743,7 +8815,7 @@ function App() {
         {isWebCreationMode && obj.type?.includes('mother') && (
           <>
             {/* Margin Rectangle */}
-            {showMarginRectangles && (() => {
+            {showMarginRectangles && showSupportingLines && (() => {
               // Use the actual object's margins, not the global config
               const objectMargins = (obj as any).margins || motherConfig.margins;
               const mmToPx = 3.78;
@@ -8883,13 +8955,15 @@ function App() {
                             const hasContent = (regionContents.get(region.id) || []).length > 0;
                             return hasContent ? '#ffebee' : getRegionBackgroundColor(region.id); // Red tint for occupied, content-type color for empty
                           })() : getRegionBackgroundColor(region.id)}
-                    stroke={hoveredRegionId === region.id ? '#ff6b35' : // Orange border on hover
+                    stroke={!showPartitionLines ? 'none' : // Hide partition lines when toggled off
+                            hoveredRegionId === region.id ? '#ff6b35' : // Orange border on hover
                             dragOverRegion === region.id ?
                             (() => {
                               const hasContent = (regionContents.get(region.id) || []).length > 0;
                               return hasContent ? '#f44336' : '#2196f3'; // Red border for occupied, blue for empty
                             })() : strokeColor}
-                    strokeWidth={hoveredRegionId === region.id ? 5 : // Thicker border on hover
+                    strokeWidth={!showPartitionLines ? 0 : // Hide partition lines when toggled off
+                                hoveredRegionId === region.id ? 5 : // Thicker border on hover
                                 dragOverRegion === region.id ? 4 : strokeWidth}
                     strokeDasharray="5,5"
                     opacity={hoveredRegionId === region.id ? 1.0 : // Full opacity on hover
@@ -9686,9 +9760,9 @@ function App() {
                       const paddingBottomPx = config.padding.bottom * scale;
                       const paddingLeftPx = config.padding.left * scale;
                       
-                      // Only show if any padding is greater than 0
-                      if (config.padding.top === 0 && config.padding.right === 0 && 
-                          config.padding.bottom === 0 && config.padding.left === 0) {
+                      // Only show if any padding is greater than 0 and supporting lines are enabled
+                      if (!showSupportingLines || (config.padding.top === 0 && config.padding.right === 0 &&
+                          config.padding.bottom === 0 && config.padding.left === 0)) {
                         return null;
                       }
                       
@@ -9772,9 +9846,9 @@ function App() {
                       const paddingBottomPx = config.padding.bottom * scale;
                       const paddingLeftPx = config.padding.left * scale;
 
-                      // Only show if any padding is greater than 0
-                      if (config.padding.top === 0 && config.padding.right === 0 &&
-                          config.padding.bottom === 0 && config.padding.left === 0) {
+                      // Only show if any padding is greater than 0 and supporting lines are enabled
+                      if (!showSupportingLines || (config.padding.top === 0 && config.padding.right === 0 &&
+                          config.padding.bottom === 0 && config.padding.left === 0)) {
                         return null;
                       }
 
@@ -9878,13 +9952,15 @@ function App() {
                                   const hasContent = (regionContents.get(childRegion.id) || []).length > 0;
                                   return hasContent ? '#ffebee' : getRegionBackgroundColor(childRegion.id); // Red tint for occupied, content-type color for empty
                                 })() : getRegionBackgroundColor(childRegion.id)}
-                          stroke={hoveredRegionId === childRegion.id ? '#ff6b35' : // Orange border on hover
+                          stroke={!showPartitionLines ? 'none' : // Hide partition lines when toggled off
+                                  hoveredRegionId === childRegion.id ? '#ff6b35' : // Orange border on hover
                                   dragOverRegion === childRegion.id ?
                                   (() => {
                                     const hasContent = (regionContents.get(childRegion.id) || []).length > 0;
                                     return hasContent ? '#f44336' : '#4caf50'; // Red border for occupied, green for empty
                                   })() : childStrokeColor}
-                          strokeWidth={hoveredRegionId === childRegion.id ? 4 : // Thicker border on hover
+                          strokeWidth={!showPartitionLines ? 0 : // Hide partition lines when toggled off
+                                      hoveredRegionId === childRegion.id ? 4 : // Thicker border on hover
                                       dragOverRegion === childRegion.id ? 3 : childStrokeWidth}
                           strokeDasharray="3,3"
                           opacity={hoveredRegionId === childRegion.id ? 1.0 : // Full opacity on hover
@@ -10252,9 +10328,9 @@ function App() {
                             const paddingBottomPx = config.padding.bottom * scale;
                             const paddingLeftPx = config.padding.left * scale;
 
-                            // Only show if any padding is greater than 0
-                            if (config.padding.top === 0 && config.padding.right === 0 &&
-                                config.padding.bottom === 0 && config.padding.left === 0) {
+                            // Only show if any padding is greater than 0 and supporting lines are enabled
+                            if (!showSupportingLines || (config.padding.top === 0 && config.padding.right === 0 &&
+                                config.padding.bottom === 0 && config.padding.left === 0)) {
                               return null;
                             }
 
@@ -10356,7 +10432,7 @@ function App() {
             </defs>
 
             {/* Sewing Lines with Dimensions */}
-            {showSewingLines && (() => {
+            {showSewingLines && showSupportingLines && (() => {
               // Check if mid-fold line is enabled - if so, don't show sewing lines
               const objectMidFoldLine = (obj as any).midFoldLine;
               if (objectMidFoldLine && objectMidFoldLine.enabled) {
@@ -10497,7 +10573,7 @@ function App() {
             }
 
             {/* Mid-Fold Line Rendering (New Enhanced System) */}
-            {obj.type?.includes('mother') && (() => {
+            {obj.type?.includes('mother') && showSupportingLines && (() => {
               const objectMidFoldLine = (obj as any).midFoldLine;
               if (!objectMidFoldLine || !objectMidFoldLine.enabled) {
                 return null;
@@ -10668,7 +10744,7 @@ function App() {
           return (
             <>
               {/* Margin Rectangle */}
-              {motherMeta.margins && selectedObject === obj && (
+              {motherMeta.margins && selectedObject === obj && showSupportingLines && (
                 <>
                   <rect
                     x={baseX + (motherMeta.margins.left * scale)}
@@ -11107,21 +11183,35 @@ function App() {
                     👁️ Preview
                   </button>
 
-                  {/* Preview Panel Button - Only show in project mode */}
-                  {isProjectMode && (
-                    <button
-                      onClick={() => setShowPreviewPanel(!showPreviewPanel)}
-                      style={{
-                        ...buttonStyle,
-                        background: showPreviewPanel ? '#e3f2fd' : 'white',
-                        color: showPreviewPanel ? '#1976d2' : '#666',
-                        fontSize: '10px',
-                        padding: '4px 6px'
-                      }}
-                    >
-                      👁️ Preview
-                    </button>
-                  )}
+                  <button
+                    onClick={() => setShowPartitionLines(!showPartitionLines)}
+                    style={{
+                      ...buttonStyle,
+                      background: showPartitionLines ? '#e3f2fd' : 'white',
+                      color: showPartitionLines ? '#1976d2' : '#666',
+                      fontSize: '10px',
+                      padding: '4px 6px'
+                    }}
+                    title="Toggle visibility of region and slice partition lines"
+                  >
+                    📐 Partition Line
+                  </button>
+
+                  <button
+                    onClick={() => setShowSupportingLines(!showSupportingLines)}
+                    style={{
+                      ...buttonStyle,
+                      background: showSupportingLines ? '#e3f2fd' : 'white',
+                      color: showSupportingLines ? '#1976d2' : '#666',
+                      fontSize: '10px',
+                      padding: '4px 6px'
+                    }}
+                    title="Toggle visibility of supporting lines (margin, padding, mid-fold)"
+                  >
+                    ⋯ Supporting Line
+                  </button>
+
+
 
 
                 </div>

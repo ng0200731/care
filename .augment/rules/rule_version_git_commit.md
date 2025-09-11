@@ -11,9 +11,9 @@ unless i tell to do so
 📋 Mandatory Workflow for ALL Code Changes:
 1. Version Increment Strategy:
 ✅ EVERY code change = Version increment (even smallest fixes)
-Patch increment for small fixes: 1.7.1 → 1.7.2
-Minor increment for new features: 1.7.1 → 1.8.0
-Major increment for breaking changes: 1.7.1 → 2.0.0
+Patch increment for small fixes: 1.7.1 → 1.7.2 (verson is an exmaple, follow correpsosing web app version)
+Minor increment for new features: 1.7.1 → 1.8.0 (verson is an exmaple, follow correpsosing web app version)
+Major increment for breaking changes: 1.7.1 → 2.0.0 (verson is an exmaple, follow correpsosing web app version)
 2. Commit Message Format:
 ✅ DETAILED descriptions required
 Format: v#.#.# - [Detailed description of what was changed and why]
