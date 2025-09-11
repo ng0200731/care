@@ -10103,7 +10103,7 @@ function App() {
                         })()}
 
                         {/* Child Region Text Content - Use same advanced rendering as main regions */}
-                        {(() => {
+                        {showPreview && (() => {
                           const sliceContents = regionContents.get(childRegion.id) || [];
                           if (sliceContents.length === 0) return null;
 
