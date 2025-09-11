@@ -10024,18 +10024,51 @@ function App() {
                               hasOverflow = false;
                               optimalFit = { overflow: '' };
                             } else if (content.type === 'new-multi-line') {
-                              // For multi-line content: Use EXACT lines from preview (same as main regions)
-                              console.log('🎯 Child Canvas: Using exact processed lines from preview');
+                              // For multi-line content: Calculate text wrapping for actual child region dimensions
+                              console.log('🎯 Child Canvas: Calculating text wrapping for child region dimensions');
 
-                              // Use the exact processed lines from the preview dialog
-                              if (content.newMultiLineConfig?.processedLines) {
-                                displayLines = [...content.newMultiLineConfig.processedLines];
-                                console.log('✅ Child Canvas: Using saved processed lines:', displayLines);
-                              } else {
-                                // Fallback: if no processed lines, use simple split (shouldn't happen)
-                                displayLines = displayText.split('\n');
-                                console.log('⚠️ Child Canvas: No processed lines found, using fallback split');
-                              }
+                              // Calculate available space for text in child region
+                              const childRegionWidthPx = childRegion.width * scale;
+                              const childRegionHeightPx = childRegion.height * scale;
+                              const childPaddingLeftPx = padding.left * scale;
+                              const childPaddingRightPx = padding.right * scale;
+                              const childPaddingTopPx = padding.top * scale;
+                              const childPaddingBottomPx = padding.bottom * scale;
+
+                              const childAvailableWidthPx = Math.max(0, childRegionWidthPx - childPaddingLeftPx - childPaddingRightPx);
+                              const childAvailableHeightPx = Math.max(0, childRegionHeightPx - childPaddingTopPx - childPaddingBottomPx);
+
+                              // Calculate font size for child region
+                              let childFontSizeInPixels = fontSizeForProcessing;
+                              const childScaledFontSize = Math.max(6, childFontSizeInPixels * zoom);
+
+                              // Process text wrapping for child region dimensions
+                              const childLineSpacing = content.newMultiLineConfig?.lineBreak?.lineSpacing || 1.2;
+                              const childLineHeight = childScaledFontSize * childLineSpacing;
+
+                              // Calculate text wrapping for child region
+                              const childProcessedResult = processTextForWrapping(
+                                displayText,
+                                childAvailableWidthPx,
+                                childAvailableHeightPx,
+                                childScaledFontSize,
+                                childLineHeight,
+                                content.newMultiLineConfig?.lineBreak?.symbol || '\n',
+                                content.newMultiLineConfig?.lineBreak?.lineSpacing || 1.2,
+                                content.newMultiLineConfig?.lineBreak?.lineWidth || 100
+                              );
+
+                              displayLines = childProcessedResult.lines;
+                              hasOverflow = childProcessedResult.hasOverflow;
+                              optimalFit = childProcessedResult.optimalFit;
+
+                              console.log('✅ Child Canvas: Calculated wrapping for child region:', {
+                                availableWidth: childAvailableWidthPx,
+                                availableHeight: childAvailableHeightPx,
+                                fontSize: childScaledFontSize,
+                                lines: displayLines.length,
+                                hasOverflow
+                              });
                             } else {
                               // For other content types: Use simple processing
                               displayLines = [displayText];
@@ -10057,11 +10090,9 @@ function App() {
                             const availableWidthPx = Math.max(0, regionWidthPx - paddingLeftPx - paddingRightPx);
                             const availableHeightPx = Math.max(0, regionHeightPx - paddingTopPx - paddingBottomPx);
 
-                            // Calculate font size in pixels for rendering
+                            // Use the font size and line height calculated during text processing
                             let fontSizeInPixels = fontSizeForProcessing;
                             const scaledFontSize = Math.max(6, fontSizeInPixels * zoom);
-
-                            // Calculate line height and positioning
                             const lineSpacing = content.newMultiLineConfig?.lineBreak?.lineSpacing || 1.2;
                             const lineHeight = scaledFontSize * lineSpacing;
 
