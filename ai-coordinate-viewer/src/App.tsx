@@ -5171,27 +5171,43 @@ function App() {
     if ((contentTypeData as any).isNewCt && contentTypeData.id === 'new-multi-line') {
       console.log('🆕 NEW CT Multi-line - Opening configuration dialog');
 
-      // Find the region to get its dimensions
+      // Find the region to get its dimensions (check both main regions and child regions/slices)
       let region: any = null;
       const currentData = data || webCreationData;
       if (currentData) {
         for (const obj of currentData.objects) {
           if (obj.type?.includes('mother')) {
             const regions = (obj as any).regions || [];
+
+            // First check main regions
             region = regions.find((r: any) => r.id === regionId);
+            if (region) break;
+
+            // If not found in main regions, check child regions (slices)
+            for (const parentRegion of regions) {
+              if (parentRegion.children && parentRegion.children.length > 0) {
+                const childRegion = parentRegion.children.find((child: any) => child.id === regionId);
+                if (childRegion) {
+                  region = childRegion;
+                  break;
+                }
+              }
+            }
             if (region) break;
           }
         }
       }
       if (!region) {
-        setNotification(`❌ Region ${regionId} not found`);
+        setNotification(`❌ Region/Slice ${regionId} not found`);
         setTimeout(() => setNotification(null), 3000);
         return;
       }
 
       // Debug: Check actual region data for new content
+      const isSliceRegion = regionId.includes('_slice_');
       console.log('🔍 REGION DEBUG - Opening NewMultiLineDialog for new content:', {
         regionId: regionId,
+        regionType: isSliceRegion ? 'slice' : 'main region',
         regionData: region,
         actualWidth: region.width,
         actualHeight: region.height,
