@@ -10,6 +10,7 @@ import NewCtMenu from './components/NewCtMenu';
 import UniversalContentDialog, { UniversalContentData } from './components/dialogs/UniversalContentDialog';
 import NewLineTextDialog, { NewLineTextConfig } from './components/NewLineTextDialog';
 import NewMultiLineDialog, { NewMultiLineConfig } from './components/NewMultiLineDialog';
+import NewWashingCareSymbolDialog from './components/NewWashingCareSymbolDialog';
 import jsPDF from 'jspdf';
 // import RegionOccupationDialog, { RegionOccupationData } from './components/dialogs/RegionOccupationDialog';
 // import PreviewControlPanel, { PreviewSettings } from './components/PreviewControlPanel';
@@ -437,6 +438,15 @@ function App() {
     editingContent?: any;
   } | null>(null);
 
+  // New Washing Care Symbol Dialog state
+  const [newWashingCareSymbolDialog, setNewWashingCareSymbolDialog] = useState<{
+    isOpen: boolean;
+    regionId: string;
+    regionWidth: number;
+    regionHeight: number;
+    editingContent?: any;
+  } | null>(null);
+
   // Handle New Line Text Dialog Save
   const handleNewLineTextSave = (config: NewLineTextConfig) => {
     if (!newLineTextDialog) return;
@@ -722,6 +732,75 @@ function App() {
   // Handle New Multi-line Dialog Cancel
   const handleNewMultiLineCancel = () => {
     setNewMultiLineDialog(null);
+  };
+
+  // Handle New Washing Care Symbol Dialog Save
+  const handleNewWashingCareSymbolSave = () => {
+    if (!newWashingCareSymbolDialog) return;
+
+    const { regionId, editingContent } = newWashingCareSymbolDialog;
+
+    if (editingContent) {
+      // For editing existing content, just close dialog (no changes)
+      console.log('🧺 Washing Care Symbol dialog closed - no changes made');
+      setNotification(`🧺 Washing Care Symbol - No changes made`);
+      setTimeout(() => setNotification(null), 3000);
+    } else {
+      // Add new washing care symbol content with default settings
+      const newContent = {
+        id: `washing-care-symbol-${Date.now()}`,
+        type: 'new-washing-care-symbol' as const,
+        content: {
+          text: '🧺' // Default washing care symbol
+        }
+      };
+
+      console.log('💾 Adding new washing care symbol content to region:', regionId, newContent);
+
+      setRegionContents(prevContents => {
+        const newContents = new Map(prevContents);
+        const existingContents = newContents.get(regionId) || [];
+        newContents.set(regionId, [...existingContents, newContent]);
+        return newContents;
+      });
+
+      // Get region name for notification
+      let regionForNotification: any = null;
+      const currentData = data || webCreationData;
+      if (currentData) {
+        for (const obj of currentData.objects) {
+          if (obj.type?.includes('mother')) {
+            const regions = (obj as any).regions || [];
+            regionForNotification = regions.find((r: any) => r.id === regionId);
+            if (regionForNotification) break;
+
+            // Check child regions (slices) if not found in main regions
+            for (const parentRegion of regions) {
+              if (parentRegion.children && parentRegion.children.length > 0) {
+                const childRegion = parentRegion.children.find((child: any) => child.id === regionId);
+                if (childRegion) {
+                  regionForNotification = childRegion;
+                  break;
+                }
+              }
+            }
+            if (regionForNotification) break;
+          }
+        }
+      }
+      const regionName = regionForNotification ? `${regionForNotification.id} (${regionForNotification.width}×${regionForNotification.height}mm)` : regionId;
+
+      setNotification(`✅ Added washing care symbol to ${regionName}`);
+      setTimeout(() => setNotification(null), 3000);
+    }
+
+    // Close dialog
+    setNewWashingCareSymbolDialog(null);
+  };
+
+  // Handle New Washing Care Symbol Dialog Cancel
+  const handleNewWashingCareSymbolCancel = () => {
+    setNewWashingCareSymbolDialog(null);
   };
 
   // Auto-hide menu handlers
@@ -1932,6 +2011,55 @@ function App() {
 
       // Open NewMultiLineDialog for editing with existing content
       setNewMultiLineDialog({
+        isOpen: true,
+        regionId: regionId,
+        regionWidth: region.width,
+        regionHeight: region.height,
+        editingContent: content
+      });
+      return;
+    }
+
+    // Handle new-washing-care-symbol content type - open blank dialog
+    if (content.type === 'new-washing-care-symbol') {
+      console.log('🧺 NEW CT Washing Care Symbol double-clicked - Opening blank dialog');
+
+      // Find the region from current data (check both main regions and child regions/slices)
+      const currentData = data || webCreationData;
+      let region: any = null;
+
+      if (currentData) {
+        for (const obj of currentData.objects) {
+          if (obj.type?.includes('mother')) {
+            const regions = (obj as any).regions || [];
+
+            // First check main regions
+            region = regions.find((r: any) => r.id === regionId);
+            if (region) break;
+
+            // If not found in main regions, check child regions (slices)
+            for (const parentRegion of regions) {
+              if (parentRegion.children && parentRegion.children.length > 0) {
+                const childRegion = parentRegion.children.find((child: any) => child.id === regionId);
+                if (childRegion) {
+                  region = childRegion;
+                  break;
+                }
+              }
+            }
+            if (region) break;
+          }
+        }
+      }
+
+      if (!region) {
+        setNotification(`❌ Region ${regionId} not found`);
+        setTimeout(() => setNotification(null), 3000);
+        return;
+      }
+
+      // Open blank dialog for editing existing content
+      setNewWashingCareSymbolDialog({
         isOpen: true,
         regionId: regionId,
         regionWidth: region.width,
@@ -5357,6 +5485,52 @@ function App() {
 
       // Open configuration dialog
       setNewMultiLineDialog({
+        isOpen: true,
+        regionId: regionId,
+        regionWidth: region.width,
+        regionHeight: region.height
+      });
+      return;
+    }
+
+    // Check if this is the new CT washing care symbol
+    if ((contentTypeData as any).isNewCt && contentTypeData.id === 'new-washing-care-symbol') {
+      console.log('🆕 NEW CT Washing Care Symbol - Opening blank dialog');
+
+      // Find the region to get its dimensions (check both main regions and child regions/slices)
+      let region: any = null;
+      const currentData = data || webCreationData;
+      if (currentData) {
+        for (const obj of currentData.objects) {
+          if (obj.type?.includes('mother')) {
+            const regions = (obj as any).regions || [];
+
+            // First check main regions
+            region = regions.find((r: any) => r.id === regionId);
+            if (region) break;
+
+            // If not found in main regions, check child regions (slices)
+            for (const parentRegion of regions) {
+              if (parentRegion.children && parentRegion.children.length > 0) {
+                const childRegion = parentRegion.children.find((child: any) => child.id === regionId);
+                if (childRegion) {
+                  region = childRegion;
+                  break;
+                }
+              }
+            }
+            if (region) break;
+          }
+        }
+      }
+      if (!region) {
+        setNotification(`❌ Region/Slice ${regionId} not found`);
+        setTimeout(() => setNotification(null), 3000);
+        return;
+      }
+
+      // Open blank dialog
+      setNewWashingCareSymbolDialog({
         isOpen: true,
         regionId: regionId,
         regionWidth: region.width,
@@ -9440,6 +9614,9 @@ function App() {
                         console.log('🎨 new-line-text displayText:', displayText, 'content:', content);
                       } else if (content.type === 'new-multi-line' && content.content?.text) {
                         displayText = content.content.text;
+                      } else if (content.type === 'new-washing-care-symbol' && content.content?.text) {
+                        displayText = content.content.text;
+                        console.log('🧺 new-washing-care-symbol displayText:', displayText, 'content:', content);
                       } else if (content.type === 'pure-english-paragraph' && content.content?.text) {
                         displayText = content.content.text;
                       } else if (content.type === 'translation-paragraph') {
@@ -9504,6 +9681,16 @@ function App() {
 
                         // Skip old word wrapping - new-multi-line uses processed lines from preview
                         console.log('🎨 new-multi-line skipping old word wrapping, will use processed lines from preview');
+                      } else if (content.type === 'new-washing-care-symbol' && content.newWashingCareSymbolConfig) {
+                        const config = content.newWashingCareSymbolConfig;
+                        fontSize = config.typography.fontSize;
+                        fontFamily = config.typography.fontFamily;
+                        fontSizeUnit = config.typography.fontSizeUnit;
+                        textAlign = config.alignment.horizontal;
+                        verticalAlign = config.alignment.vertical;
+                        padding = config.padding;
+
+                        console.log('🧺 new-washing-care-symbol using configuration:', config);
                       }
 
                       // PHASE 1: Use precise text measurement for rendering
@@ -10163,6 +10350,9 @@ function App() {
                             } else if (content.type === 'new-multi-line' && content.content?.text) {
                               displayText = content.content.text;
                               console.log('🎨 child new-multi-line displayText:', displayText, 'content:', content);
+                            } else if (content.type === 'new-washing-care-symbol' && content.content?.text) {
+                              displayText = content.content.text;
+                              console.log('🧺 child new-washing-care-symbol displayText:', displayText, 'content:', content);
                             } else if (content.type === 'pure-english-paragraph' && content.content?.text) {
                               displayText = content.content.text;
                             } else if (content.type === 'translation-paragraph') {
@@ -10223,6 +10413,15 @@ function App() {
                               verticalAlign = config.alignment.vertical;
                               padding = config.padding;
                               console.log('🎨 child new-multi-line using processed lines from preview');
+                            } else if (content.type === 'new-washing-care-symbol' && content.newWashingCareSymbolConfig) {
+                              const config = content.newWashingCareSymbolConfig;
+                              fontSize = config.typography.fontSize;
+                              fontFamily = config.typography.fontFamily;
+                              fontSizeUnit = config.typography.fontSizeUnit;
+                              textAlign = config.alignment.horizontal;
+                              verticalAlign = config.alignment.vertical;
+                              padding = config.padding;
+                              console.log('🧺 child new-washing-care-symbol using configuration:', config);
                             }
 
                             // Advanced text processing (same as main regions)
@@ -14268,6 +14467,32 @@ function App() {
           editingContent={newMultiLineDialog.editingContent}
           onSave={handleNewMultiLineSave}
           onCancel={handleNewMultiLineCancel}
+        />
+      )}
+
+      {/* New Washing Care Symbol Blank Dialog */}
+      {newWashingCareSymbolDialog && (
+        <NewWashingCareSymbolDialog
+          isOpen={newWashingCareSymbolDialog.isOpen}
+          regionId={newWashingCareSymbolDialog.regionId}
+          regionWidth={newWashingCareSymbolDialog.regionWidth}
+          regionHeight={newWashingCareSymbolDialog.regionHeight}
+          editingContent={newWashingCareSymbolDialog.editingContent}
+          onSave={handleNewWashingCareSymbolSave}
+          onCancel={handleNewWashingCareSymbolCancel}
+        />
+      )}
+
+      {/* New Washing Care Symbol Configuration Dialog */}
+      {newWashingCareSymbolDialog && (
+        <NewWashingCareSymbolDialog
+          isOpen={newWashingCareSymbolDialog.isOpen}
+          regionId={newWashingCareSymbolDialog.regionId}
+          regionWidth={newWashingCareSymbolDialog.regionWidth}
+          regionHeight={newWashingCareSymbolDialog.regionHeight}
+          editingContent={newWashingCareSymbolDialog.editingContent}
+          onSave={handleNewWashingCareSymbolSave}
+          onCancel={handleNewWashingCareSymbolCancel}
         />
       )}
 
