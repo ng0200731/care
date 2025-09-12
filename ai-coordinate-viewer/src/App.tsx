@@ -124,7 +124,7 @@ function App() {
     const availableWidthMm = availableWidthPx / 3.779527559;
     const fontSizeMm = fontSizePx / 3.779527559;
 
-    // Text width estimation using canvas measurement
+    // Text width estimation using canvas measurement (EXACT COPY from dialog preview)
     const estimateTextWidth = (text: string): number => {
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
@@ -132,7 +132,14 @@ function App() {
 
       context.font = `${fontSizePx}px ${fontFamily}`;
       const textWidthPx = context.measureText(text).width;
-      return textWidthPx / 3.779527559; // Convert to mm
+      const textWidthMm = textWidthPx / 3.779527559; // Convert to mm
+
+      // Apply the same aggressive optimization factor as dialog preview
+      // Canvas measurement tends to be significantly more conservative than actual SVG rendering
+      const optimizationFactor = 0.85; // Use 85% of measured width for much more aggressive fitting
+      const optimizedWidth = textWidthMm * optimizationFactor;
+
+      return optimizedWidth;
     };
 
     // Word wrapping logic
@@ -143,17 +150,22 @@ function App() {
       manualLines.forEach(line => {
         const trimmedLine = line.trim();
         if (!trimmedLine) {
-          wrappedLines.push('');
+          wrappedLines.push(''); // Preserve empty lines
           return;
         }
 
+        // Check if the entire line fits (with aggressive fitting buffer - SAME AS PREVIEW)
         const lineWidth = estimateTextWidth(trimmedLine);
-        if (lineWidth <= availableWidthMm) {
+        const fittingBuffer = 1.0; // 1.0mm buffer for much more aggressive text fitting (SAME AS PREVIEW)
+        const effectiveAvailableWidth = availableWidthMm + fittingBuffer;
+
+        if (lineWidth <= effectiveAvailableWidth) {
+          // Line fits completely
           wrappedLines.push(trimmedLine);
           return;
         }
 
-        // Line too long, wrap words
+        // Line is too long, need to wrap words
         const words = trimmedLine.split(' ');
         let currentLine = '';
 
@@ -162,13 +174,17 @@ function App() {
           const testLine = currentLine ? `${currentLine} ${word}` : word;
           const testWidth = estimateTextWidth(testLine);
 
-          if (testWidth <= availableWidthMm) {
+          if (testWidth <= effectiveAvailableWidth) {
+            // Word fits on current line
             currentLine = testLine;
           } else {
+            // Word doesn't fit, start new line
             if (currentLine) {
+              // Push current line and start new line with the word that didn't fit
               wrappedLines.push(currentLine);
               currentLine = word;
             } else {
+              // Single word is too long, push it anyway
               wrappedLines.push(word);
             }
           }
