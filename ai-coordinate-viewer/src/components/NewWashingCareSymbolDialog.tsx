@@ -1,11 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 interface NewWashingCareSymbolDialogProps {
   isOpen: boolean;
   regionId: string;
   regionWidth: number;
   regionHeight: number;
-  onSave: () => void;
+  onSave: (selectedSymbols: string[]) => void;
   onCancel: () => void;
   editingContent?: any;
 }
@@ -19,6 +19,47 @@ const NewWashingCareSymbolDialog: React.FC<NewWashingCareSymbolDialogProps> = ({
   onCancel,
   editingContent
 }) => {
+  // State for dropdown selections and checkboxes
+  const [selections, setSelections] = useState({
+    washing: { dropdown: '', checked: false },
+    drying: { dropdown: '', checked: false },
+    ironing: { dropdown: '', checked: false },
+    bleaching: { dropdown: '', checked: false },
+    professional: { dropdown: '', checked: false }
+  });
+
+  // Select All handler
+  const handleSelectAll = () => {
+    setSelections({
+      washing: { dropdown: 'option1', checked: true },
+      drying: { dropdown: 'option1', checked: true },
+      ironing: { dropdown: 'option1', checked: true },
+      bleaching: { dropdown: 'option1', checked: true },
+      professional: { dropdown: 'option1', checked: true }
+    });
+  };
+
+  // Validation and save handler
+  const handleSave = () => {
+    const allSelected = Object.values(selections).every(item => item.checked);
+
+    if (!allSelected) {
+      alert('Please select all 5 care symbols before saving.');
+      return;
+    }
+
+    // Create array of selected symbols for display
+    const selectedSymbols = [
+      '🧺', // Washing symbol
+      '△',  // Drying symbol
+      '⬜', // Ironing symbol
+      '🔄', // Bleaching symbol
+      '⭕'  // Professional symbol
+    ];
+
+    onSave(selectedSymbols);
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -88,8 +129,8 @@ const NewWashingCareSymbolDialog: React.FC<NewWashingCareSymbolDialogProps> = ({
               gap: '8px',
               flex: 1
             }}>
+              {/* Washing Basin Symbol - Black lines, transparent background */}
               <div style={{
-                fontSize: '32px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -97,20 +138,49 @@ const NewWashingCareSymbolDialog: React.FC<NewWashingCareSymbolDialogProps> = ({
                 height: '50px',
                 border: '2px solid #e5e7eb',
                 borderRadius: '8px',
-                backgroundColor: '#f9fafb'
+                backgroundColor: 'transparent'
               }}>
-                🧺
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                  <path d="M8 12 L32 12 L30 32 L10 32 Z" stroke="black" strokeWidth="2" fill="none"/>
+                  <path d="M12 8 L28 8" stroke="black" strokeWidth="2"/>
+                  <path d="M10 8 L10 12" stroke="black" strokeWidth="2"/>
+                  <path d="M30 8 L30 12" stroke="black" strokeWidth="2"/>
+                </svg>
               </div>
-              <select style={{
-                width: '100%',
-                padding: '4px 6px',
-                border: '1px solid #d1d5db',
-                borderRadius: '4px',
-                fontSize: '12px',
-                backgroundColor: 'white'
-              }}>
+              <select
+                value={selections.washing.dropdown}
+                onChange={(e) => setSelections(prev => ({
+                  ...prev,
+                  washing: { ...prev.washing, dropdown: e.target.value }
+                }))}
+                style={{
+                  width: '100%',
+                  padding: '4px 6px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  backgroundColor: 'white'
+                }}
+              >
                 <option value="">Select</option>
               </select>
+              <label style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: '12px',
+                cursor: 'pointer'
+              }}>
+                <input
+                  type="checkbox"
+                  checked={selections.washing.checked}
+                  onChange={(e) => setSelections(prev => ({
+                    ...prev,
+                    washing: { ...prev.washing, checked: e.target.checked }
+                  }))}
+                />
+                Select
+              </label>
             </div>
 
             {/* Drying Icon */}
@@ -121,8 +191,8 @@ const NewWashingCareSymbolDialog: React.FC<NewWashingCareSymbolDialogProps> = ({
               gap: '8px',
               flex: 1
             }}>
+              {/* Drying Triangle Symbol - Black lines, transparent background */}
               <div style={{
-                fontSize: '32px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -130,20 +200,46 @@ const NewWashingCareSymbolDialog: React.FC<NewWashingCareSymbolDialogProps> = ({
                 height: '50px',
                 border: '2px solid #e5e7eb',
                 borderRadius: '8px',
-                backgroundColor: '#f9fafb'
+                backgroundColor: 'transparent'
               }}>
-                △
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                  <path d="M20 8 L32 32 L8 32 Z" stroke="black" strokeWidth="2" fill="none"/>
+                </svg>
               </div>
-              <select style={{
-                width: '100%',
-                padding: '4px 6px',
-                border: '1px solid #d1d5db',
-                borderRadius: '4px',
-                fontSize: '12px',
-                backgroundColor: 'white'
-              }}>
+              <select
+                value={selections.drying.dropdown}
+                onChange={(e) => setSelections(prev => ({
+                  ...prev,
+                  drying: { ...prev.drying, dropdown: e.target.value }
+                }))}
+                style={{
+                  width: '100%',
+                  padding: '4px 6px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  backgroundColor: 'white'
+                }}
+              >
                 <option value="">Select</option>
               </select>
+              <label style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: '12px',
+                cursor: 'pointer'
+              }}>
+                <input
+                  type="checkbox"
+                  checked={selections.drying.checked}
+                  onChange={(e) => setSelections(prev => ({
+                    ...prev,
+                    drying: { ...prev.drying, checked: e.target.checked }
+                  }))}
+                />
+                Select
+              </label>
             </div>
 
             {/* Ironing Icon */}
@@ -154,8 +250,8 @@ const NewWashingCareSymbolDialog: React.FC<NewWashingCareSymbolDialogProps> = ({
               gap: '8px',
               flex: 1
             }}>
+              {/* Ironing Square Symbol - Black lines, transparent background */}
               <div style={{
-                fontSize: '32px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -163,20 +259,46 @@ const NewWashingCareSymbolDialog: React.FC<NewWashingCareSymbolDialogProps> = ({
                 height: '50px',
                 border: '2px solid #e5e7eb',
                 borderRadius: '8px',
-                backgroundColor: '#f9fafb'
+                backgroundColor: 'transparent'
               }}>
-                ⬜
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                  <rect x="10" y="10" width="20" height="20" stroke="black" strokeWidth="2" fill="none"/>
+                </svg>
               </div>
-              <select style={{
-                width: '100%',
-                padding: '4px 6px',
-                border: '1px solid #d1d5db',
-                borderRadius: '4px',
-                fontSize: '12px',
-                backgroundColor: 'white'
-              }}>
+              <select
+                value={selections.ironing.dropdown}
+                onChange={(e) => setSelections(prev => ({
+                  ...prev,
+                  ironing: { ...prev.ironing, dropdown: e.target.value }
+                }))}
+                style={{
+                  width: '100%',
+                  padding: '4px 6px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  backgroundColor: 'white'
+                }}
+              >
                 <option value="">Select</option>
               </select>
+              <label style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: '12px',
+                cursor: 'pointer'
+              }}>
+                <input
+                  type="checkbox"
+                  checked={selections.ironing.checked}
+                  onChange={(e) => setSelections(prev => ({
+                    ...prev,
+                    ironing: { ...prev.ironing, checked: e.target.checked }
+                  }))}
+                />
+                Select
+              </label>
             </div>
 
             {/* Bleaching Icon */}
@@ -187,8 +309,8 @@ const NewWashingCareSymbolDialog: React.FC<NewWashingCareSymbolDialogProps> = ({
               gap: '8px',
               flex: 1
             }}>
+              {/* Bleaching Iron Symbol - Black lines, transparent background */}
               <div style={{
-                fontSize: '32px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -196,20 +318,47 @@ const NewWashingCareSymbolDialog: React.FC<NewWashingCareSymbolDialogProps> = ({
                 height: '50px',
                 border: '2px solid #e5e7eb',
                 borderRadius: '8px',
-                backgroundColor: '#f9fafb'
+                backgroundColor: 'transparent'
               }}>
-                🔄
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                  <path d="M8 15 L25 15 L32 25 L25 32 L8 32 Z" stroke="black" strokeWidth="2" fill="none"/>
+                  <path d="M15 8 L25 8" stroke="black" strokeWidth="2"/>
+                </svg>
               </div>
-              <select style={{
-                width: '100%',
-                padding: '4px 6px',
-                border: '1px solid #d1d5db',
-                borderRadius: '4px',
-                fontSize: '12px',
-                backgroundColor: 'white'
-              }}>
+              <select
+                value={selections.bleaching.dropdown}
+                onChange={(e) => setSelections(prev => ({
+                  ...prev,
+                  bleaching: { ...prev.bleaching, dropdown: e.target.value }
+                }))}
+                style={{
+                  width: '100%',
+                  padding: '4px 6px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  backgroundColor: 'white'
+                }}
+              >
                 <option value="">Select</option>
               </select>
+              <label style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: '12px',
+                cursor: 'pointer'
+              }}>
+                <input
+                  type="checkbox"
+                  checked={selections.bleaching.checked}
+                  onChange={(e) => setSelections(prev => ({
+                    ...prev,
+                    bleaching: { ...prev.bleaching, checked: e.target.checked }
+                  }))}
+                />
+                Select
+              </label>
             </div>
 
             {/* Professional Care Icon */}
@@ -220,8 +369,8 @@ const NewWashingCareSymbolDialog: React.FC<NewWashingCareSymbolDialogProps> = ({
               gap: '8px',
               flex: 1
             }}>
+              {/* Professional Circle Symbol - Black lines, transparent background */}
               <div style={{
-                fontSize: '32px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -229,20 +378,46 @@ const NewWashingCareSymbolDialog: React.FC<NewWashingCareSymbolDialogProps> = ({
                 height: '50px',
                 border: '2px solid #e5e7eb',
                 borderRadius: '8px',
-                backgroundColor: '#f9fafb'
+                backgroundColor: 'transparent'
               }}>
-                ⭕
+                <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                  <circle cx="20" cy="20" r="12" stroke="black" strokeWidth="2" fill="none"/>
+                </svg>
               </div>
-              <select style={{
-                width: '100%',
-                padding: '4px 6px',
-                border: '1px solid #d1d5db',
-                borderRadius: '4px',
-                fontSize: '12px',
-                backgroundColor: 'white'
-              }}>
+              <select
+                value={selections.professional.dropdown}
+                onChange={(e) => setSelections(prev => ({
+                  ...prev,
+                  professional: { ...prev.professional, dropdown: e.target.value }
+                }))}
+                style={{
+                  width: '100%',
+                  padding: '4px 6px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  backgroundColor: 'white'
+                }}
+              >
                 <option value="">Select</option>
               </select>
+              <label style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: '12px',
+                cursor: 'pointer'
+              }}>
+                <input
+                  type="checkbox"
+                  checked={selections.professional.checked}
+                  onChange={(e) => setSelections(prev => ({
+                    ...prev,
+                    professional: { ...prev.professional, checked: e.target.checked }
+                  }))}
+                />
+                Select
+              </label>
             </div>
           </div>
         </div>
@@ -250,42 +425,64 @@ const NewWashingCareSymbolDialog: React.FC<NewWashingCareSymbolDialogProps> = ({
         {/* Action Buttons */}
         <div style={{
           display: 'flex',
-          justifyContent: 'flex-end',
+          justifyContent: 'space-between',
+          alignItems: 'center',
           gap: '12px',
           marginTop: '20px'
         }}>
+          {/* Select All Button */}
           <button
-            onClick={onCancel}
+            onClick={handleSelectAll}
             style={{
-              padding: '10px 20px',
-              border: '2px solid #d1d5db',
+              padding: '8px 16px',
+              border: '2px solid #10b981',
               borderRadius: '6px',
               background: 'white',
-              color: '#374151',
+              color: '#10b981',
               fontSize: '14px',
               fontWeight: '500',
               cursor: 'pointer',
               transition: 'all 0.2s ease'
             }}
           >
-            Cancel
+            Select All
           </button>
-          <button
-            onClick={onSave}
-            style={{
-              padding: '10px 20px',
-              border: '2px solid #6b46c1',
-              borderRadius: '6px',
-              background: '#6b46c1',
-              color: 'white',
-              fontSize: '14px',
-              fontWeight: '500',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            Save
-          </button>
+
+          {/* Cancel and Save buttons */}
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button
+              onClick={onCancel}
+              style={{
+                padding: '10px 20px',
+                border: '2px solid #d1d5db',
+                borderRadius: '6px',
+                background: 'white',
+                color: '#374151',
+                fontSize: '14px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              style={{
+                padding: '10px 20px',
+                border: '2px solid #6b46c1',
+                borderRadius: '6px',
+                background: '#6b46c1',
+                color: 'white',
+                fontSize: '14px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              Save
+            </button>
+          </div>
         </div>
       </div>
     </div>

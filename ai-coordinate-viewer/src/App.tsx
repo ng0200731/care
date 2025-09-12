@@ -135,9 +135,9 @@ function App() {
       const textWidthPx = context.measureText(text).width;
       const textWidthMm = textWidthPx / 3.779527559; // Convert to mm
 
-      // Apply the same aggressive optimization factor as dialog preview
-      // Canvas measurement tends to be significantly more conservative than actual SVG rendering
-      const optimizationFactor = 0.85; // Use 85% of measured width for much more aggressive fitting
+      // Apply a more conservative optimization factor to prevent text cutoff
+      // Canvas measurement tends to be more conservative than actual SVG rendering, but we need to be careful
+      const optimizationFactor = 0.95; // Use 95% of measured width for safer fitting
       const optimizedWidth = textWidthMm * optimizationFactor;
 
       return optimizedWidth;
@@ -163,9 +163,9 @@ function App() {
           return;
         }
 
-        // Check if the entire line fits (with aggressive fitting buffer - SAME AS PREVIEW)
+        // Check if the entire line fits (with conservative fitting buffer to prevent cutoff)
         const lineWidth = estimateTextWidth(trimmedLine);
-        const fittingBuffer = 1.0; // 1.0mm buffer for much more aggressive text fitting (SAME AS PREVIEW)
+        const fittingBuffer = 0.2; // 0.2mm buffer for safer text fitting to prevent cutoff
         const effectiveAvailableWidth = availableWidthMm + fittingBuffer;
 
         if (lineWidth <= effectiveAvailableWidth) {
@@ -759,23 +759,44 @@ function App() {
   };
 
   // Handle New Washing Care Symbol Dialog Save
-  const handleNewWashingCareSymbolSave = () => {
+  const handleNewWashingCareSymbolSave = (selectedSymbols: string[]) => {
     if (!newWashingCareSymbolDialog) return;
 
     const { regionId, editingContent } = newWashingCareSymbolDialog;
 
     if (editingContent) {
-      // For editing existing content, just close dialog (no changes)
-      console.log('🧺 Washing Care Symbol dialog closed - no changes made');
-      setNotification(`🧺 Washing Care Symbol - No changes made`);
+      // Update existing content with all 5 selected symbols
+      console.log('🔄 Updating existing washing care symbol content:', editingContent.id, 'with symbols:', selectedSymbols);
+      setRegionContents(prevContents => {
+        const newContents = new Map(prevContents);
+        const existingContents = newContents.get(regionId) || [];
+        const updatedContents = existingContents.map(content =>
+          content.id === editingContent.id
+            ? {
+                ...content,
+                type: 'new-washing-care-symbol' as const,
+                content: {
+                  ...content.content,
+                  text: selectedSymbols.join(' '), // Display all 5 symbols
+                  symbols: selectedSymbols // Store individual symbols
+                }
+              }
+            : content
+        );
+        newContents.set(regionId, updatedContents);
+        return newContents;
+      });
+
+      setNotification(`✅ Updated washing care symbols`);
       setTimeout(() => setNotification(null), 3000);
     } else {
-      // Add new washing care symbol content with default settings
+      // Add new washing care symbol content with all 5 selected symbols
       const newContent = {
         id: `washing-care-symbol-${Date.now()}`,
         type: 'new-washing-care-symbol' as const,
         content: {
-          text: '🧺' // Default washing care symbol
+          text: selectedSymbols.join(' '), // Display all 5 symbols
+          symbols: selectedSymbols // Store individual symbols
         }
       };
 
@@ -814,7 +835,7 @@ function App() {
       }
       const regionName = regionForNotification ? `${regionForNotification.id} (${regionForNotification.width}×${regionForNotification.height}mm)` : regionId;
 
-      setNotification(`✅ Added washing care symbol to ${regionName}`);
+      setNotification(`✅ Added 5 washing care symbols to ${regionName}`);
       setTimeout(() => setNotification(null), 3000);
     }
 
@@ -3756,6 +3777,9 @@ function App() {
       svgContent += `<rect x="${x}" y="${y}" width="${width}" height="${height}"
         fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}"
         stroke-dasharray="${strokeDasharray}" filter="url(#shadow)"/>`;
+
+      // Note: Canvas thumbnails show basic object shapes only
+      // Detailed content like washing care symbols is shown in the main view
 
       // Small thumbnails - NO folder line for simplicity
       // (Folder line only shown in large detailed view)
@@ -6824,13 +6848,61 @@ function App() {
                         startY = childY + childRegion.height - paddingBottom - totalTextHeight;
                       }
 
-                      // Render each line with EXACT positioning like web view
-                      // Web: const textY = startY + (lineIndex + 1) * lineHeight;
-                      displayLines.forEach((line: string, lineIndex: number) => {
-                        const textY = startY + (lineIndex + 1) * lineHeightMM; // EXACT web formula
-                        const align = textAlign === 'center' ? 'center' : textAlign === 'right' ? 'right' : 'left';
-                        pdf.text(line, textX, textY, { align: align });
-                      });
+                      // Handle washing care symbols or regular text in child regions
+                      if (content.type === 'new-washing-care-symbol') {
+                        // Render washing care symbols in PDF for child regions
+                        const symbols = content.content?.symbols || ['🧺', '△', '⬜', '🔄', '⭕'];
+                        const symbolSize = Math.min(childRegion.width / symbols.length * 0.6, childRegion.height * 0.6, 6); // Scale to fit child region, cap at 6mm
+                        const symbolSpacing = (childRegion.width * 0.8) / symbols.length; // Equal spacing within 80% of region width
+
+                        // Center the container horizontally and vertically in the child region
+                        const childRegionCenterX = childX + childRegion.width / 2;
+                        const childRegionCenterY = childY + childRegion.height / 2;
+                        const containerStartX = childRegionCenterX - (childRegion.width * 0.8) / 2;
+
+                        // For PDF, we'll draw simple shapes that represent the washing care icons
+                        symbols.forEach((symbol: string, symbolIndex: number) => {
+                          const symbolX = containerStartX + symbolIndex * symbolSpacing + symbolSpacing / 2;
+                          const symbolY = childRegionCenterY;
+
+                          // Draw simple shapes for each symbol type
+                          switch (symbolIndex) {
+                            case 0: // Washing basin - draw a trapezoid
+                              pdf.setDrawColor(0, 0, 0);
+                              pdf.setLineWidth(0.2);
+                              pdf.lines([[symbolSize*0.8, 0], [0, symbolSize*0.6], [-symbolSize*0.8, 0], [0, -symbolSize*0.6]], symbolX, symbolY - symbolSize*0.3, [1, 1], 'S');
+                              break;
+                            case 1: // Drying triangle
+                              pdf.setDrawColor(0, 0, 0);
+                              pdf.setLineWidth(0.2);
+                              pdf.triangle(symbolX, symbolY - symbolSize*0.4, symbolX + symbolSize*0.4, symbolY + symbolSize*0.3, symbolX - symbolSize*0.4, symbolY + symbolSize*0.3, 'S');
+                              break;
+                            case 2: // Ironing square
+                              pdf.setDrawColor(0, 0, 0);
+                              pdf.setLineWidth(0.2);
+                              pdf.rect(symbolX - symbolSize*0.3, symbolY - symbolSize*0.3, symbolSize*0.6, symbolSize*0.6, 'S');
+                              break;
+                            case 3: // Bleaching iron - draw pentagon
+                              pdf.setDrawColor(0, 0, 0);
+                              pdf.setLineWidth(0.2);
+                              pdf.lines([[symbolSize*0.6, 0], [symbolSize*0.2, symbolSize*0.4], [-symbolSize*0.6, symbolSize*0.4], [-symbolSize*0.6, -symbolSize*0.2], [symbolSize*0.2, -symbolSize*0.2]], symbolX - symbolSize*0.2, symbolY, [1, 1], 'S');
+                              break;
+                            case 4: // Professional circle
+                              pdf.setDrawColor(0, 0, 0);
+                              pdf.setLineWidth(0.2);
+                              pdf.circle(symbolX, symbolY, symbolSize*0.3, 'S');
+                              break;
+                          }
+                        });
+                      } else {
+                        // Render regular text lines with EXACT positioning like web view
+                        // Web: const textY = startY + (lineIndex + 1) * lineHeight;
+                        displayLines.forEach((line: string, lineIndex: number) => {
+                          const textY = startY + (lineIndex + 1) * lineHeightMM; // EXACT web formula
+                          const align = textAlign === 'center' ? 'center' : textAlign === 'right' ? 'right' : 'left';
+                          pdf.text(line, textX, textY, { align: align });
+                        });
+                      }
                     }
                   }
                 }
@@ -6981,13 +7053,61 @@ function App() {
                     startY = regionY + region.height - paddingBottom - totalTextHeight;
                   }
 
-                  // Render each line with EXACT positioning like web view
-                  // Web: const textY = startY + (lineIndex + 1) * lineHeight;
-                  displayLines.forEach((line: string, lineIndex: number) => {
-                    const textY = startY + (lineIndex + 1) * lineHeightMM; // EXACT web formula
-                    const align = textAlign === 'center' ? 'center' : textAlign === 'right' ? 'right' : 'left';
-                    pdf.text(line, textX, textY, { align: align });
-                  });
+                  // Handle washing care symbols or regular text
+                  if (content.type === 'new-washing-care-symbol') {
+                    // Render washing care symbols in PDF
+                    const symbols = content.content?.symbols || ['🧺', '△', '⬜', '🔄', '⭕'];
+                    const symbolSize = Math.min(region.width / symbols.length * 0.6, region.height * 0.6, 8); // Scale to fit region, cap at 8mm
+                    const symbolSpacing = (region.width * 0.8) / symbols.length; // Equal spacing within 80% of region width
+
+                    // Center the container horizontally and vertically in the region
+                    const regionCenterX = regionX + region.width / 2;
+                    const regionCenterY = regionY + region.height / 2;
+                    const containerStartX = regionCenterX - (region.width * 0.8) / 2;
+
+                    // For PDF, we'll draw simple shapes that represent the washing care icons
+                    symbols.forEach((symbol: string, symbolIndex: number) => {
+                      const symbolX = containerStartX + symbolIndex * symbolSpacing + symbolSpacing / 2;
+                      const symbolY = regionCenterY;
+
+                      // Draw simple shapes for each symbol type
+                      switch (symbolIndex) {
+                        case 0: // Washing basin - draw a trapezoid
+                          pdf.setDrawColor(0, 0, 0);
+                          pdf.setLineWidth(0.3);
+                          pdf.lines([[symbolSize*0.8, 0], [0, symbolSize*0.6], [-symbolSize*0.8, 0], [0, -symbolSize*0.6]], symbolX, symbolY - symbolSize*0.3, [1, 1], 'S');
+                          break;
+                        case 1: // Drying triangle
+                          pdf.setDrawColor(0, 0, 0);
+                          pdf.setLineWidth(0.3);
+                          pdf.triangle(symbolX, symbolY - symbolSize*0.4, symbolX + symbolSize*0.4, symbolY + symbolSize*0.3, symbolX - symbolSize*0.4, symbolY + symbolSize*0.3, 'S');
+                          break;
+                        case 2: // Ironing square
+                          pdf.setDrawColor(0, 0, 0);
+                          pdf.setLineWidth(0.3);
+                          pdf.rect(symbolX - symbolSize*0.3, symbolY - symbolSize*0.3, symbolSize*0.6, symbolSize*0.6, 'S');
+                          break;
+                        case 3: // Bleaching iron - draw pentagon
+                          pdf.setDrawColor(0, 0, 0);
+                          pdf.setLineWidth(0.3);
+                          pdf.lines([[symbolSize*0.6, 0], [symbolSize*0.2, symbolSize*0.4], [-symbolSize*0.6, symbolSize*0.4], [-symbolSize*0.6, -symbolSize*0.2], [symbolSize*0.2, -symbolSize*0.2]], symbolX - symbolSize*0.2, symbolY, [1, 1], 'S');
+                          break;
+                        case 4: // Professional circle
+                          pdf.setDrawColor(0, 0, 0);
+                          pdf.setLineWidth(0.3);
+                          pdf.circle(symbolX, symbolY, symbolSize*0.3, 'S');
+                          break;
+                      }
+                    });
+                  } else {
+                    // Render regular text lines with EXACT positioning like web view
+                    // Web: const textY = startY + (lineIndex + 1) * lineHeight;
+                    displayLines.forEach((line: string, lineIndex: number) => {
+                      const textY = startY + (lineIndex + 1) * lineHeightMM; // EXACT web formula
+                      const align = textAlign === 'center' ? 'center' : textAlign === 'right' ? 'right' : 'left';
+                      pdf.text(line, textX, textY, { align: align });
+                    });
+                  }
                 }
               }
             }
@@ -9940,30 +10060,97 @@ function App() {
                             </clipPath>
                           </defs>
 
-                          {/* Render text lines with clipping */}
+                          {/* Render text lines or washing care symbols with clipping */}
                           <g clipPath={`url(#${clipPathId})`}>
-                            {displayLines.map((line, lineIndex) => {
-                              const textY = startY + (lineIndex + 1) * lineHeight;
+                            {content.type === 'new-washing-care-symbol' ? (
+                              // Render washing care symbols as SVG icons
+                              (() => {
+                                const symbols = content.content?.symbols || ['🧺', '△', '⬜', '🔄', '⭕'];
+                                const symbolSize = Math.min(regionWidthPx / symbols.length * 0.6, regionHeightPx * 0.6, 30); // Scale to fit region
+                                const symbolSpacing = (regionWidthPx * 0.8) / symbols.length; // Equal spacing within 80% of region width
 
-                              return (
-                                <text
-                                  key={`${region.id}-preview-${contentIndex}-line-${lineIndex}`}
-                                  x={textX}
-                                  y={textY}
-                                  fill={fontColor}
-                                  fontSize={scaledFontSize}
-                                  fontFamily={fontFamily}
-                                  textAnchor={textAnchor}
-                                  dominantBaseline="alphabetic"
-                                  opacity="0.9"
-                                  style={{
-                                    pointerEvents: 'none'
-                                  }}
-                                >
-                                  {line}
-                                </text>
-                              );
-                            })}
+                                // Center the container horizontally and vertically in the region
+                                const regionCenterX = baseX + (region.x * scale) + (regionWidthPx / 2);
+                                const regionCenterY = baseY + (region.y * scale) + (regionHeightPx / 2);
+                                const containerStartX = regionCenterX - (regionWidthPx * 0.8) / 2;
+
+                                return (
+                                  <g key="washing-symbols-container">
+                                    {symbols.map((symbol: string, symbolIndex: number) => {
+                                      const symbolX = containerStartX + symbolIndex * symbolSpacing + symbolSpacing / 2;
+                                      const symbolY = regionCenterY;
+
+                                  // Define SVG paths for each washing care symbol
+                                  let symbolPath = '';
+                                  let symbolElements: React.ReactElement[] = [];
+
+                                  switch (symbolIndex) {
+                                    case 0: // Washing basin
+                                      symbolElements = [
+                                        <path key="basin" d={`M${symbolX-15} ${symbolY-8} L${symbolX+15} ${symbolY-8} L${symbolX+12} ${symbolY+8} L${symbolX-12} ${symbolY+8} Z`} stroke="black" strokeWidth="1.5" fill="none"/>,
+                                        <path key="handle1" d={`M${symbolX-12} ${symbolY-12} L${symbolX-8} ${symbolY-12}`} stroke="black" strokeWidth="1.5"/>,
+                                        <path key="handle2" d={`M${symbolX+8} ${symbolY-12} L${symbolX+12} ${symbolY-12}`} stroke="black" strokeWidth="1.5"/>,
+                                        <path key="connect1" d={`M${symbolX-12} ${symbolY-12} L${symbolX-12} ${symbolY-8}`} stroke="black" strokeWidth="1.5"/>,
+                                        <path key="connect2" d={`M${symbolX+12} ${symbolY-12} L${symbolX+12} ${symbolY-8}`} stroke="black" strokeWidth="1.5"/>
+                                      ];
+                                      break;
+                                    case 1: // Drying triangle
+                                      symbolElements = [
+                                        <path key="triangle" d={`M${symbolX} ${symbolY-12} L${symbolX+12} ${symbolY+8} L${symbolX-12} ${symbolY+8} Z`} stroke="black" strokeWidth="1.5" fill="none"/>
+                                      ];
+                                      break;
+                                    case 2: // Ironing square
+                                      symbolElements = [
+                                        <rect key="square" x={symbolX-10} y={symbolY-10} width="20" height="20" stroke="black" strokeWidth="1.5" fill="none"/>
+                                      ];
+                                      break;
+                                    case 3: // Bleaching iron
+                                      symbolElements = [
+                                        <path key="iron" d={`M${symbolX-12} ${symbolY-5} L${symbolX+5} ${symbolY-5} L${symbolX+12} ${symbolY+5} L${symbolX+5} ${symbolY+12} L${symbolX-12} ${symbolY+12} Z`} stroke="black" strokeWidth="1.5" fill="none"/>,
+                                        <path key="handle" d={`M${symbolX-5} ${symbolY-12} L${symbolX+5} ${symbolY-12}`} stroke="black" strokeWidth="1.5"/>
+                                      ];
+                                      break;
+                                    case 4: // Professional circle
+                                      symbolElements = [
+                                        <circle key="circle" cx={symbolX} cy={symbolY} r="12" stroke="black" strokeWidth="1.5" fill="none"/>
+                                      ];
+                                      break;
+                                  }
+
+                                      return (
+                                        <g key={`symbol-${symbolIndex}`}>
+                                          {symbolElements}
+                                        </g>
+                                      );
+                                    })}
+                                  </g>
+                                );
+                              })()
+                            ) : (
+                              // Render regular text lines
+                              displayLines.map((line, lineIndex) => {
+                                const textY = startY + (lineIndex + 1) * lineHeight;
+
+                                return (
+                                  <text
+                                    key={`${region.id}-preview-${contentIndex}-line-${lineIndex}`}
+                                    x={textX}
+                                    y={textY}
+                                    fill={fontColor}
+                                    fontSize={scaledFontSize}
+                                    fontFamily={fontFamily}
+                                    textAnchor={textAnchor}
+                                    dominantBaseline="alphabetic"
+                                    opacity="0.9"
+                                    style={{
+                                      pointerEvents: 'none'
+                                    }}
+                                  >
+                                    {line}
+                                  </text>
+                                );
+                              })
+                            )}
                           </g>
                         </g>
                       );
@@ -10534,22 +10721,88 @@ function App() {
                               textAnchor = 'end';
                             }
 
-                            return displayLines.map((line, lineIndex) => (
-                              <text
-                                key={`child-text-${childRegion.id}-${contentIndex}-${lineIndex}`}
-                                x={textX}
-                                y={textY + (lineIndex + 1) * lineHeight}
-                                fill={fontColor}
-                                fontSize={scaledFontSize}
-                                fontFamily={fontFamily}
-                                textAnchor={textAnchor}
-                                dominantBaseline="alphabetic"
-                                opacity="0.95"
-                                style={{ pointerEvents: 'none' }}
-                              >
-                                {line}
-                              </text>
-                            ));
+                            // Render washing care symbols or regular text
+                            if (content.type === 'new-washing-care-symbol') {
+                              // Render washing care symbols as SVG icons in child regions
+                              const symbols = content.content?.symbols || ['🧺', '△', '⬜', '🔄', '⭕'];
+                              const symbolSize = Math.min(regionWidthPx / symbols.length * 0.6, regionHeightPx * 0.6, 25); // Scale to fit child region
+                              const symbolSpacing = (regionWidthPx * 0.8) / symbols.length; // Equal spacing within 80% of region width
+
+                              // Center the container horizontally and vertically in the child region
+                              const childRegionCenterX = childBaseX + (regionWidthPx / 2);
+                              const childRegionCenterY = childBaseY + (regionHeightPx / 2);
+                              const containerStartX = childRegionCenterX - (regionWidthPx * 0.8) / 2;
+
+                              return (
+                                <g key="child-washing-symbols-container">
+                                  {symbols.map((symbol: string, symbolIndex: number) => {
+                                    const symbolX = containerStartX + symbolIndex * symbolSpacing + symbolSpacing / 2;
+                                    const symbolY = childRegionCenterY;
+
+                                // Define SVG paths for each washing care symbol (smaller for child regions)
+                                let symbolElements: React.ReactElement[] = [];
+                                const size = symbolSize / 2; // Half size for calculations
+
+                                switch (symbolIndex) {
+                                  case 0: // Washing basin
+                                    symbolElements = [
+                                      <path key="basin" d={`M${symbolX-size*0.75} ${symbolY-size*0.4} L${symbolX+size*0.75} ${symbolY-size*0.4} L${symbolX+size*0.6} ${symbolY+size*0.4} L${symbolX-size*0.6} ${symbolY+size*0.4} Z`} stroke="black" strokeWidth="1" fill="none"/>,
+                                      <path key="handle1" d={`M${symbolX-size*0.6} ${symbolY-size*0.6} L${symbolX-size*0.4} ${symbolY-size*0.6}`} stroke="black" strokeWidth="1"/>,
+                                      <path key="handle2" d={`M${symbolX+size*0.4} ${symbolY-size*0.6} L${symbolX+size*0.6} ${symbolY-size*0.6}`} stroke="black" strokeWidth="1"/>,
+                                      <path key="connect1" d={`M${symbolX-size*0.6} ${symbolY-size*0.6} L${symbolX-size*0.6} ${symbolY-size*0.4}`} stroke="black" strokeWidth="1"/>,
+                                      <path key="connect2" d={`M${symbolX+size*0.6} ${symbolY-size*0.6} L${symbolX+size*0.6} ${symbolY-size*0.4}`} stroke="black" strokeWidth="1"/>
+                                    ];
+                                    break;
+                                  case 1: // Drying triangle
+                                    symbolElements = [
+                                      <path key="triangle" d={`M${symbolX} ${symbolY-size*0.6} L${symbolX+size*0.6} ${symbolY+size*0.4} L${symbolX-size*0.6} ${symbolY+size*0.4} Z`} stroke="black" strokeWidth="1" fill="none"/>
+                                    ];
+                                    break;
+                                  case 2: // Ironing square
+                                    symbolElements = [
+                                      <rect key="square" x={symbolX-size*0.5} y={symbolY-size*0.5} width={size} height={size} stroke="black" strokeWidth="1" fill="none"/>
+                                    ];
+                                    break;
+                                  case 3: // Bleaching iron
+                                    symbolElements = [
+                                      <path key="iron" d={`M${symbolX-size*0.6} ${symbolY-size*0.25} L${symbolX+size*0.25} ${symbolY-size*0.25} L${symbolX+size*0.6} ${symbolY+size*0.25} L${symbolX+size*0.25} ${symbolY+size*0.6} L${symbolX-size*0.6} ${symbolY+size*0.6} Z`} stroke="black" strokeWidth="1" fill="none"/>,
+                                      <path key="handle" d={`M${symbolX-size*0.25} ${symbolY-size*0.6} L${symbolX+size*0.25} ${symbolY-size*0.6}`} stroke="black" strokeWidth="1"/>
+                                    ];
+                                    break;
+                                  case 4: // Professional circle
+                                    symbolElements = [
+                                      <circle key="circle" cx={symbolX} cy={symbolY} r={size*0.6} stroke="black" strokeWidth="1" fill="none"/>
+                                    ];
+                                    break;
+                                }
+
+                                    return (
+                                      <g key={`child-symbol-${symbolIndex}`}>
+                                        {symbolElements}
+                                      </g>
+                                    );
+                                  })}
+                                </g>
+                              );
+                            } else {
+                              // Render regular text lines
+                              return displayLines.map((line, lineIndex) => (
+                                <text
+                                  key={`child-text-${childRegion.id}-${contentIndex}-${lineIndex}`}
+                                  x={textX}
+                                  y={textY + (lineIndex + 1) * lineHeight}
+                                  fill={fontColor}
+                                  fontSize={scaledFontSize}
+                                  fontFamily={fontFamily}
+                                  textAnchor={textAnchor}
+                                  dominantBaseline="alphabetic"
+                                  opacity="0.95"
+                                  style={{ pointerEvents: 'none' }}
+                                >
+                                  {line}
+                                </text>
+                              ));
+                            }
                           });
                         })()}
 
