@@ -282,51 +282,136 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
     return wrappedLines;
   };
 
-  // Process text with intelligent word wrapping for preview
+  // Apply Canvas-First Sync logic-slice to popup preview
   const processTextForPreview = (text: string): string[] => {
-    // Test specific phrases to verify calculations
-    const testPhrase = "EN Wash with similar colors";
-    const testWidth = estimateTextWidth(testPhrase, config.typography.fontSize, config.typography.fontSizeUnit, config.typography.fontFamily);
+    // Calculate available space in pixels (same as Canvas-First Sync logic-slice)
+    const regionWidthPx = regionWidth * 3.779527559; // Convert mm to px (96 DPI)
+    const regionHeightPx = regionHeight * 3.779527559;
+    const paddingLeftPx = config.padding.left * 3.779527559;
+    const paddingRightPx = config.padding.right * 3.779527559;
+    const paddingTopPx = config.padding.top * 3.779527559;
+    const paddingBottomPx = config.padding.bottom * 3.779527559;
 
-    console.log('🧪 EXACT TEST for your phrase:', {
-      testPhrase: testPhrase,
-      calculatedWidth: testWidth.toFixed(2) + 'mm',
-      availableWidth: availableWidth.toFixed(2) + 'mm',
-      shouldFitOnOneLine: testWidth <= availableWidth,
-      widthUsagePercentage: ((testWidth / availableWidth) * 100).toFixed(1) + '%'
+    const availableWidthPx = Math.max(0, regionWidthPx - paddingLeftPx - paddingRightPx);
+    const availableHeightPx = Math.max(0, regionHeightPx - paddingTopPx - paddingBottomPx);
+
+    // Convert font size to pixels (same as Canvas-First Sync logic-slice)
+    let fontSizePx = config.typography.fontSize;
+    if (config.typography.fontSizeUnit === 'mm') {
+      fontSizePx = config.typography.fontSize * 3.779527559;
+    } else if (config.typography.fontSizeUnit === 'pt') {
+      fontSizePx = (config.typography.fontSize * 4/3);
+    }
+
+    // Use EXACT Canvas-First Sync logic-slice function
+    const processedResult = processChildRegionTextWrapping(
+      text,
+      availableWidthPx,
+      availableHeightPx,
+      fontSizePx,
+      config.typography.fontFamily,
+      config.lineBreak.symbol,
+      config.lineBreak.lineSpacing
+    );
+
+    console.log('✅ Preview: Applied Canvas-First Sync logic-slice:', {
+      regionId: regionId,
+      availableWidth: availableWidthPx,
+      availableHeight: availableHeightPx,
+      fontSize: fontSizePx,
+      lines: processedResult.lines.length,
+      hasOverflow: processedResult.hasOverflow,
+      text: text.substring(0, 50) + '...'
     });
 
-    const wrappedLines = wrapTextToLines(text);
+    return processedResult.lines;
+  };
 
-    // Debug logging for word wrapping with detailed measurements
-    console.log('📏 DETAILED MEASUREMENTS:');
-    console.log('  Label Width (Region):', regionWidth.toFixed(2) + 'mm');
-    console.log('  Padding Left:', config.padding.left.toFixed(2) + 'mm');
-    console.log('  Padding Right:', config.padding.right.toFixed(2) + 'mm');
-    console.log('  Total Padding:', (config.padding.left + config.padding.right).toFixed(2) + 'mm');
-    console.log('  Width after Padding:', (regionWidth - config.padding.left - config.padding.right).toFixed(2) + 'mm');
-    console.log('  Line Width % (for reference):', config.lineBreak.lineWidth + '%');
-    console.log('  Available Width for Text (full width after padding):', availableWidth.toFixed(2) + 'mm');
-    console.log('  Effective Width with Aggressive Fitting (+1.0mm buffer):', (availableWidth + 1.0).toFixed(2) + 'mm');
-    console.log('  Font:', `${config.typography.fontSize}${config.typography.fontSizeUnit} ${config.typography.fontFamily}`);
+  // Canvas-First Sync logic-slice function (EXACT COPY from App.tsx)
+  const processChildRegionTextWrapping = (
+    text: string,
+    availableWidthPx: number,
+    availableHeightPx: number,
+    fontSizePx: number,
+    fontFamily: string,
+    lineBreakSymbol: string,
+    lineSpacing: number
+  ): { lines: string[]; hasOverflow: boolean } => {
+    // Convert pixels to mm for text measurement (96 DPI: 1mm = 3.779527559px)
+    const availableWidthMm = availableWidthPx / 3.779527559;
+    const fontSizeMm = fontSizePx / 3.779527559;
 
-    console.log('📄 EACH LINE MEASUREMENTS:');
-    wrappedLines.forEach((line, index) => {
-      const lineWidth = estimateTextWidth(line, config.typography.fontSize, config.typography.fontSizeUnit, config.typography.fontFamily);
-      const usage = ((lineWidth / availableWidth) * 100);
-      console.log(`  Line ${index + 1}: "${line}"`);
-      console.log(`    Width: ${lineWidth.toFixed(2)}mm | Available: ${availableWidth.toFixed(2)}mm | Usage: ${usage.toFixed(1)}%`);
-    });
+    // Text width estimation using canvas measurement
+    const estimateTextWidth = (text: string): number => {
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      if (!context) return text.length * 2; // Fallback
 
-    console.log('📄 SUMMARY:', {
-      totalLines: wrappedLines.length,
-      averageUsage: (wrappedLines.reduce((sum, line) => {
-        const lineWidth = estimateTextWidth(line, config.typography.fontSize, config.typography.fontSizeUnit, config.typography.fontFamily);
-        return sum + (lineWidth / availableWidth);
-      }, 0) / wrappedLines.length * 100).toFixed(1) + '%'
-    });
+      context.font = `${fontSizePx}px ${fontFamily}`;
+      const textWidthPx = context.measureText(text).width;
+      return textWidthPx / 3.779527559; // Convert to mm
+    };
 
-    return wrappedLines;
+    // Word wrapping logic
+    const wrapTextToLines = (text: string): string[] => {
+      const manualLines = text.split(lineBreakSymbol);
+      const wrappedLines: string[] = [];
+
+      manualLines.forEach(line => {
+        const trimmedLine = line.trim();
+        if (!trimmedLine) {
+          wrappedLines.push(''); // Preserve empty lines
+          return;
+        }
+
+        const words = trimmedLine.split(' ');
+        let currentLine = '';
+
+        words.forEach((word, index) => {
+          const testLine = currentLine ? `${currentLine} ${word}` : word;
+          const testWidth = estimateTextWidth(testLine);
+
+          if (testWidth <= availableWidthMm) {
+            currentLine = testLine;
+          } else {
+            if (currentLine) {
+              wrappedLines.push(currentLine);
+              currentLine = word;
+            } else {
+              wrappedLines.push(word);
+            }
+          }
+        });
+
+        if (currentLine) {
+          wrappedLines.push(currentLine);
+        }
+      });
+
+      return wrappedLines;
+    };
+
+    const lines = wrapTextToLines(text);
+
+    // Check for height overflow
+    const lineHeightMm = fontSizeMm * lineSpacing;
+    const totalTextHeightMm = lines.length * lineHeightMm;
+    const availableHeightMm = availableHeightPx / 3.779527559;
+    const hasOverflow = totalTextHeightMm > availableHeightMm;
+
+    // Truncate lines if height overflow
+    if (hasOverflow) {
+      const maxVisibleLines = Math.floor(availableHeightMm / lineHeightMm);
+      return {
+        lines: lines.slice(0, maxVisibleLines),
+        hasOverflow: true
+      };
+    }
+
+    return {
+      lines,
+      hasOverflow: false
+    };
   };
 
   const handleSave = () => {
@@ -850,11 +935,11 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
                 });
                 return previewLines.map((line, index) => (
                   <div key={index} style={{
-                    width: '100%', // Use full available width for text display
+                    width: '100%',
                     textAlign: config.alignment.horizontal,
-                    backgroundColor: index % 2 === 0 ? 'rgba(0,255,0,0.1)' : 'rgba(0,0,255,0.1)', // Debug: alternating colors
-                    border: '1px solid red', // Debug: visible border
-                    padding: '2px'
+                    fontSize: config.typography.fontSize + config.typography.fontSizeUnit,
+                    fontFamily: config.typography.fontFamily,
+                    lineHeight: config.lineBreak.lineSpacing
                   }}>
                     {line || '\u00A0'} {/* Non-breaking space for empty lines */}
                   </div>
