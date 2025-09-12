@@ -852,9 +852,10 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
                   <div key={index} style={{
                     width: '100%', // Use full available width for text display
                     textAlign: config.alignment.horizontal,
-                    backgroundColor: index % 2 === 0 ? 'rgba(0,255,0,0.1)' : 'rgba(0,0,255,0.1)', // Debug: alternating colors
-                    border: '1px solid red', // Debug: visible border
-                    padding: '2px'
+                    // Remove debug styling to match canvas appearance
+                    fontSize: `${config.typography.fontSize}${config.typography.fontSizeUnit}`,
+                    fontFamily: config.typography.fontFamily,
+                    lineHeight: config.lineBreak.lineSpacing
                   }}>
                     {line || '\u00A0'} {/* Non-breaking space for empty lines */}
                   </div>
