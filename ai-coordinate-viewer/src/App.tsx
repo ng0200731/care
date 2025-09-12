@@ -11167,13 +11167,11 @@ function App() {
                     v{packageJson.version} • API: {apiStatus}
                   </span>
                 </div>
-                <div style={{ display: 'flex', gap: '5px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                   <button onClick={handleZoomIn} style={buttonStyle}>+</button>
                   <button onClick={handleZoomOut} style={buttonStyle}>-</button>
                   <button onClick={handleZoomReset} style={buttonStyle}>1:1</button>
                   <button onClick={handleFitToScreen} style={buttonStyle}>Fit</button>
-                </div>
-                <div style={{ display: 'flex', gap: '5px', marginTop: '5px' }}>
                   <button
                     onClick={handleFitToScreen}
                     style={{
@@ -11191,7 +11189,7 @@ function App() {
                 </div>
 
 
-                <div style={{ display: 'flex', gap: '5px', marginTop: '5px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginTop: '5px' }}>
                   <button
                     onClick={() => setShowDimensions(!showDimensions)}
                     style={{

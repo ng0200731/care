@@ -63,6 +63,17 @@ const Projects: React.FC = () => {
     }
   };
 
+  const isLatestProject = (project: Project, index: number) => {
+    // Show "Latest" badge for:
+    // 1. Projects updated/created within last 24 hours, OR
+    // 2. Top 3 most recent projects (if no recent activity)
+    const now = new Date();
+    const projectDate = new Date(project.updatedAt || project.createdAt);
+    const hoursDiff = (now.getTime() - projectDate.getTime()) / (1000 * 60 * 60);
+
+    return hoursDiff <= 24 || index < 3;
+  };
+
   // Load customers when create form opens
   const loadCustomers = async () => {
     setLoadingCustomers(true);
@@ -141,11 +152,18 @@ const Projects: React.FC = () => {
     }
   };
 
-  const filteredProjects = projects.filter(project =>
-    project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    project.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    project.description.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredProjects = projects
+    .filter(project =>
+      project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      project.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      project.description.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .sort((a, b) => {
+      // Sort by updatedAt first (most recently updated), then by createdAt (newest first)
+      const dateA = new Date(a.updatedAt || a.createdAt || '1970-01-01');
+      const dateB = new Date(b.updatedAt || b.createdAt || '1970-01-01');
+      return dateB.getTime() - dateA.getTime();
+    });
 
 
 
@@ -278,7 +296,7 @@ const Projects: React.FC = () => {
         gap: '20px',
         marginBottom: '20px'
       }}>
-        {filteredProjects.map(project => (
+        {filteredProjects.map((project, index) => (
           <div
             key={project.id}
             style={{
@@ -288,7 +306,8 @@ const Projects: React.FC = () => {
               backgroundColor: 'white',
               boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
               cursor: 'pointer',
-              transition: 'all 0.3s ease'
+              transition: 'all 0.3s ease',
+              position: 'relative'
             }}
             onClick={() => navigate(`/projects/${project.slug}`)}
             onMouseEnter={(e) => {
@@ -300,6 +319,26 @@ const Projects: React.FC = () => {
               e.currentTarget.style.transform = 'translateY(0)';
             }}
           >
+            {/* Latest Badge - Top Left Corner */}
+            {isLatestProject(project, index) && (
+              <div style={{
+                position: 'absolute',
+                top: '12px',
+                left: '12px',
+                backgroundColor: '#ff4757',
+                color: 'white',
+                padding: '4px 8px',
+                borderRadius: '12px',
+                fontSize: '10px',
+                fontWeight: 'bold',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                boxShadow: '0 2px 4px rgba(255, 71, 87, 0.3)',
+                zIndex: 1
+              }}>
+                ✨ Latest
+              </div>
+            )}
             {/* Project Header */}
             <div style={{ marginBottom: '16px' }}>
               <div style={{
