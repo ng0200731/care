@@ -6267,30 +6267,38 @@ function App() {
         const motherDimensionText = showDimensions ? ` (${mother.width}×${mother.height}mm)` : '';
         pdf.text(`${mother.name}${motherDimensionText}`, mother.x, mother.y + currentY - 3);
 
-        // Draw mother margins if they exist and supporting lines are enabled
+        // Draw mother solid border (black) - matching your image
+        const motherX = mother.x;
+        const motherY = mother.y + currentY;
+        pdf.setDrawColor(0, 0, 0); // Black solid border
+        pdf.setLineWidth(0.5); // Standard line thickness
+        pdf.setLineDashPattern([], 0); // Solid line
+        pdf.rect(motherX, motherY, mother.width, mother.height);
+
+        // Draw mother margin lines (black dotted) if they exist and supporting lines are enabled
         const motherMargins = (mother as any).margins;
         if (motherMargins && showSupportingLines) {
-          pdf.setDrawColor(0, 0, 0); // Black for margins
-          pdf.setLineWidth(0.3); // Standard thickness
-          pdf.setLineDashPattern([1, 1], 0); // Dotted line
+          pdf.setDrawColor(0, 0, 0); // Black for all lines
+          pdf.setLineWidth(0.2); // Fine style - very thin lines
 
-          const motherX = mother.x;
-          const motherY = mother.y + currentY;
-
-          // Top margin
+          // Top margin line (7mm from top) - offset 0
           if (motherMargins.top > 0) {
+            pdf.setLineDashPattern([1, 1], 0); // No offset for horizontal lines
             pdf.line(motherX, motherY + motherMargins.top, motherX + mother.width, motherY + motherMargins.top);
           }
-          // Bottom margin
+          // Bottom margin line (7mm from bottom) - offset 0.5
           if (motherMargins.bottom > 0) {
+            pdf.setLineDashPattern([1, 1], 0.5); // Different offset to prevent overlap
             pdf.line(motherX, motherY + mother.height - motherMargins.bottom, motherX + mother.width, motherY + mother.height - motherMargins.bottom);
           }
-          // Left margin
+          // Left margin line (7mm from left) - offset 0.25
           if (motherMargins.left > 0) {
+            pdf.setLineDashPattern([1, 1], 0.25); // Different offset for vertical lines
             pdf.line(motherX + motherMargins.left, motherY, motherX + motherMargins.left, motherY + mother.height);
           }
-          // Right margin
+          // Right margin line (7mm from right) - offset 0.75
           if (motherMargins.right > 0) {
+            pdf.setLineDashPattern([1, 1], 0.75); // Different offset to prevent overlap
             pdf.line(motherX + mother.width - motherMargins.right, motherY, motherX + mother.width - motherMargins.right, motherY + mother.height);
           }
 
@@ -6318,19 +6326,20 @@ function App() {
             }
 
             // Draw horizontal fold line (black dotted)
-            pdf.setDrawColor(0, 0, 0); // Black for fold lines
-            pdf.setLineWidth(0.3); // Standard thickness
-            pdf.setLineDashPattern([1, 1], 0); // Dotted line
+            pdf.setDrawColor(0, 0, 0); // Black for all lines
+            pdf.setLineWidth(0.2); // Fine style - very thin lines
+            pdf.setLineDashPattern([1, 1], 0.1); // Fine style with unique offset
             pdf.line(motherX, motherY + midFoldY, motherX + mother.width, motherY + midFoldY);
 
             // Draw fold padding margin lines (dotted, no fill)
-            pdf.setDrawColor(0, 0, 0); // Black for padding margins
-            pdf.setLineWidth(0.3); // Standard thickness
-            pdf.setLineDashPattern([1, 1], 0); // Dotted line
+            pdf.setDrawColor(0, 0, 0); // Black for all lines
+            pdf.setLineWidth(0.2); // Fine style - very thin lines
 
-            // Top padding line
+            // Top padding line - different offset
+            pdf.setLineDashPattern([1, 1], 0.3); // Different offset to prevent overlap
             pdf.line(motherX, motherY + midFoldY - padding/2, motherX + mother.width, motherY + midFoldY - padding/2);
-            // Bottom padding line
+            // Bottom padding line - different offset
+            pdf.setLineDashPattern([1, 1], 0.7); // Different offset to prevent overlap
             pdf.line(motherX, motherY + midFoldY + padding/2, motherX + mother.width, motherY + midFoldY + padding/2);
 
             // Add padding dimension labels only if dimensions toggle is enabled
@@ -6354,19 +6363,20 @@ function App() {
             }
 
             // Draw vertical fold line (black dotted)
-            pdf.setDrawColor(0, 0, 0); // Black for fold lines
-            pdf.setLineWidth(0.3); // Standard thickness
-            pdf.setLineDashPattern([1, 1], 0); // Dotted line
+            pdf.setDrawColor(0, 0, 0); // Black for all lines
+            pdf.setLineWidth(0.2); // Fine style - very thin lines
+            pdf.setLineDashPattern([1, 1], 0.2); // Fine style with unique offset
             pdf.line(motherX + midFoldX, motherY, motherX + midFoldX, motherY + mother.height);
 
             // Draw fold padding margin lines (dotted, no fill)
-            pdf.setDrawColor(0, 0, 0); // Black for padding margins
-            pdf.setLineWidth(0.3); // Standard thickness
-            pdf.setLineDashPattern([1, 1], 0); // Dotted line
+            pdf.setDrawColor(0, 0, 0); // Black for all lines
+            pdf.setLineWidth(0.2); // Fine style - very thin lines
 
-            // Left padding line
+            // Left padding line - different offset
+            pdf.setLineDashPattern([1, 1], 0.4); // Different offset to prevent overlap
             pdf.line(motherX + midFoldX - padding/2, motherY, motherX + midFoldX - padding/2, motherY + mother.height);
-            // Right padding line
+            // Right padding line - different offset
+            pdf.setLineDashPattern([1, 1], 0.8); // Different offset to prevent overlap
             pdf.line(motherX + midFoldX + padding/2, motherY, motherX + midFoldX + padding/2, motherY + mother.height);
 
             // Add padding dimension labels only if dimensions toggle is enabled
@@ -6415,11 +6425,20 @@ function App() {
           const hasSlices = region.children && region.children.length > 0;
 
           if (hasSlices) {
-            // Draw parent region outline only if partition lines are enabled
+            // Draw parent region lines - avoid overlapping by choosing one style
             if (showPartitionLines) {
+              // Solid black partition lines when partition lines are enabled
               pdf.setDrawColor(0, 0, 0); // Black for parent
               pdf.setLineWidth(0.3); // Standard thickness
+              pdf.setLineDashPattern([], 0); // Solid line
               pdf.rect(regionX, regionY, region.width, region.height);
+            } else if (showSupportingLines) {
+              // Dotted sewing lines only when partition lines are OFF (to avoid overlap)
+              pdf.setDrawColor(0, 0, 0); // Black for all lines
+              pdf.setLineWidth(0.2); // Fine style - very thin lines
+              pdf.setLineDashPattern([1, 1], 0.5); // Fine style with offset to prevent alignment
+              pdf.rect(regionX, regionY, region.width, region.height);
+              pdf.setLineDashPattern([], 0); // Reset to solid line
             }
 
             // Add parent region label - top-left, bold (only if partition names are enabled)
@@ -6444,6 +6463,16 @@ function App() {
                 pdf.setDrawColor(0, 0, 0); // Black for slices
                 pdf.setLineWidth(0.3); // Standard thickness
                 pdf.rect(childX, childY, childRegion.width, childRegion.height);
+              }
+
+              // Draw slice sewing lines (black dotted) if supporting lines are enabled
+              // Use different offset to prevent overlap with parent region lines
+              if (showSupportingLines) {
+                pdf.setDrawColor(0, 0, 0); // Black for all lines
+                pdf.setLineWidth(0.2); // Fine style - very thin lines
+                pdf.setLineDashPattern([1, 1], 0.25); // Fine style with different offset
+                pdf.rect(childX, childY, childRegion.width, childRegion.height);
+                pdf.setLineDashPattern([], 0); // Reset to solid line
               }
 
               // Add slice label - top-right, regular font (only if partition names are enabled)
@@ -6610,11 +6639,20 @@ function App() {
               }
             });
           } else {
-            // Draw regular region (no slices) only if partition lines are enabled
+            // Draw regular region lines - avoid overlapping by choosing one style
             if (showPartitionLines) {
+              // Solid black partition lines when partition lines are enabled
               pdf.setDrawColor(0, 0, 0); // Black for regions
               pdf.setLineWidth(0.3); // Standard thickness
+              pdf.setLineDashPattern([], 0); // Solid line
               pdf.rect(regionX, regionY, region.width, region.height);
+            } else if (showSupportingLines) {
+              // Dotted sewing lines only when partition lines are OFF (to avoid overlap)
+              pdf.setDrawColor(0, 0, 0); // Black for all lines
+              pdf.setLineWidth(0.2); // Fine style - very thin lines
+              pdf.setLineDashPattern([1, 1], 0.75); // Fine style with different offset
+              pdf.rect(regionX, regionY, region.width, region.height);
+              pdf.setLineDashPattern([], 0); // Reset to solid line
             }
 
             // Add region label - top-left, bold (only if partition names are enabled)
