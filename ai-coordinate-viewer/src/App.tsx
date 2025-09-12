@@ -125,7 +125,7 @@ function App() {
     const availableWidthMm = availableWidthPx / 3.779527559;
     const fontSizeMm = fontSizePx / 3.779527559;
 
-    // Text width estimation using canvas measurement
+    // Text width estimation using canvas measurement (EXACT COPY from dialog preview)
     const estimateTextWidth = (text: string): number => {
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
@@ -133,28 +133,48 @@ function App() {
 
       context.font = `${fontSizePx}px ${fontFamily}`;
       const textWidthPx = context.measureText(text).width;
-      return textWidthPx / 3.779527559; // Convert to mm
+      const textWidthMm = textWidthPx / 3.779527559; // Convert to mm
+
+      // Apply the same aggressive optimization factor as dialog preview
+      // Canvas measurement tends to be significantly more conservative than actual SVG rendering
+      const optimizationFactor = 0.85; // Use 85% of measured width for much more aggressive fitting
+      const optimizedWidth = textWidthMm * optimizationFactor;
+
+      return optimizedWidth;
     };
 
-    // Word wrapping logic
+    // Word wrapping logic (SAME AS PREVIEW DIALOG)
     const wrapTextToLines = (text: string): string[] => {
-      const manualLines = text.split(lineBreakSymbol);
+      // Handle both actual newlines and the configured symbol (SAME AS PREVIEW)
+      let manualLines: string[];
+      if (lineBreakSymbol === '\\n' || lineBreakSymbol === '\n') {
+        // For newline symbols, split by actual newlines
+        manualLines = text.split('\n');
+      } else {
+        // For other symbols, split by the symbol
+        manualLines = text.split(lineBreakSymbol);
+      }
       const wrappedLines: string[] = [];
 
       manualLines.forEach(line => {
         const trimmedLine = line.trim();
         if (!trimmedLine) {
-          wrappedLines.push('');
+          wrappedLines.push(''); // Preserve empty lines
           return;
         }
 
+        // Check if the entire line fits (with aggressive fitting buffer - SAME AS PREVIEW)
         const lineWidth = estimateTextWidth(trimmedLine);
-        if (lineWidth <= availableWidthMm) {
+        const fittingBuffer = 1.0; // 1.0mm buffer for much more aggressive text fitting (SAME AS PREVIEW)
+        const effectiveAvailableWidth = availableWidthMm + fittingBuffer;
+
+        if (lineWidth <= effectiveAvailableWidth) {
+          // Line fits completely
           wrappedLines.push(trimmedLine);
           return;
         }
 
-        // Line too long, wrap words
+        // Line is too long, need to wrap words
         const words = trimmedLine.split(' ');
         let currentLine = '';
 
@@ -163,13 +183,17 @@ function App() {
           const testLine = currentLine ? `${currentLine} ${word}` : word;
           const testWidth = estimateTextWidth(testLine);
 
-          if (testWidth <= availableWidthMm) {
+          if (testWidth <= effectiveAvailableWidth) {
+            // Word fits on current line
             currentLine = testLine;
           } else {
+            // Word doesn't fit, start new line
             if (currentLine) {
+              // Push current line and start new line with the word that didn't fit
               wrappedLines.push(currentLine);
               currentLine = word;
             } else {
+              // Single word is too long, push it anyway
               wrappedLines.push(word);
             }
           }
@@ -9743,79 +9767,46 @@ function App() {
                         hasOverflow = false;
                         optimalFit = { overflow: '' };
                       } else if (content.type === 'new-multi-line') {
-                        // For multi-line content: Use EXACT lines from preview (no re-processing)
-                        console.log('🎯 Canvas: Using exact processed lines from preview');
+                        // Apply Canvas-First Sync logic-slice to regions
+                        console.log('🎯 Canvas: Applying Canvas-First Sync logic-slice to region');
 
-                        // Use the exact processed lines from the preview dialog
-                        if (content.newMultiLineConfig?.processedLines) {
-                          displayLines = [...content.newMultiLineConfig.processedLines];
-                          console.log('✅ Canvas: Using saved processed lines:', displayLines);
-                        } else {
-                          // Fallback: if no processed lines, use simple split (shouldn't happen)
-                          displayLines = displayText.split('\n');
-                          console.log('⚠️ Canvas: No processed lines found, using fallback split');
-                        }
+                        // Calculate available space for text in region (EXACT COPY from slice logic)
+                        const regionWidthPx = region.width * scale;
+                        const regionHeightPx = region.height * scale;
+                        const paddingLeftPx = padding.left * scale;
+                        const paddingRightPx = padding.right * scale;
+                        const paddingTopPx = padding.top * scale;
+                        const paddingBottomPx = padding.bottom * scale;
 
-                        // Calculate available height and check for height truncation (same as preview)
-                        const availableHeightMm = region.height - padding.top - padding.bottom;
+                        const availableWidthPx = Math.max(0, regionWidthPx - paddingLeftPx - paddingRightPx);
+                        const availableHeightPx = Math.max(0, regionHeightPx - paddingTopPx - paddingBottomPx);
 
-                        // Calculate line height in mm (same logic as dialog)
-                        let fontSizeMm = fontSize;
-                        if (fontSizeUnit === 'px') {
-                          fontSizeMm = fontSize / 3.779527559; // Convert px to mm
-                        } else if (fontSizeUnit === 'pt') {
-                          fontSizeMm = (fontSize * 4/3) / 3.779527559; // Convert pt to px, then to mm
-                        }
+                        // Calculate font size for region (EXACT COPY from slice logic)
+                        let regionFontSizeInPixels = fontSizeForProcessing;
+                        const regionScaledFontSize = Math.max(6, regionFontSizeInPixels * zoom);
 
-                        const lineSpacing = content.newMultiLineConfig?.lineBreak?.lineSpacing || 1.2;
-                        const lineHeightMm = fontSizeMm * lineSpacing;
-                        const totalTextHeightMm = displayLines.length * lineHeightMm;
+                        // Process text wrapping using Canvas-First Sync logic-slice
+                        const regionProcessedResult = processChildRegionTextWrapping(
+                          displayText,
+                          availableWidthPx,
+                          availableHeightPx,
+                          regionScaledFontSize,
+                          content.newMultiLineConfig?.typography?.fontFamily || 'Arial',
+                          content.newMultiLineConfig?.lineBreak?.symbol || '\n',
+                          content.newMultiLineConfig?.lineBreak?.lineSpacing || 1.2
+                        );
 
-                        // DETAILED MEASUREMENTS for debugging
-                        console.log('📏 CANVAS DETAILED MEASUREMENTS:');
-                        console.log('  Label Width (Region):', region.width.toFixed(2) + 'mm');
-                        console.log('  Padding Left:', padding.left.toFixed(2) + 'mm');
-                        console.log('  Padding Right:', padding.right.toFixed(2) + 'mm');
-                        console.log('  Total Padding:', (padding.left + padding.right).toFixed(2) + 'mm');
-                        console.log('  Width after Padding:', (region.width - padding.left - padding.right).toFixed(2) + 'mm');
-                        console.log('  Font:', `${fontSize}${fontSizeUnit} ${fontFamily}`);
+                        displayLines = regionProcessedResult.lines;
+                        hasOverflow = regionProcessedResult.hasOverflow;
 
-                        // REGION DATA DEBUG - Show full region object
-                        console.log('🔍 FULL REGION DATA DEBUG:', {
+                        console.log('✅ Canvas: Applied Canvas-First Sync logic-slice to region:', {
                           regionId: region.id,
-                          regionName: region.name,
-                          regionWidth: region.width,
-                          regionHeight: region.height,
-                          regionX: region.x,
-                          regionY: region.y,
-                          fullRegionObject: region,
-                          issue: 'Region width is 33mm but should be 35mm based on mother object'
+                          availableWidth: availableWidthPx,
+                          availableHeight: availableHeightPx,
+                          fontSize: regionScaledFontSize,
+                          lines: displayLines.length,
+                          hasOverflow
                         });
-
-                        console.log('📄 CANVAS EACH LINE MEASUREMENTS:');
-                        displayLines.slice(0, 5).forEach((line, index) => {
-                          console.log(`  Line ${index + 1}: "${line}" (${line.length} chars)`);
-                        });
-
-                        console.log('🎯 Canvas: Using exact preview lines:', {
-                          originalText: displayText.substring(0, 50) + '...',
-                          processedLines: displayLines.length + ' lines',
-                          totalLines: displayLines.length,
-                          availableHeightMm: availableHeightMm.toFixed(2) + 'mm',
-                          lineHeightMm: lineHeightMm.toFixed(2) + 'mm',
-                          totalTextHeightMm: totalTextHeightMm.toFixed(2) + 'mm',
-                          needsHeightTruncation: totalTextHeightMm > availableHeightMm
-                        });
-
-                        // Check for height truncation (same as preview)
-                        if (totalTextHeightMm > availableHeightMm) {
-                          const maxVisibleLines = Math.floor(availableHeightMm / lineHeightMm);
-                          displayLines = displayLines.slice(0, maxVisibleLines);
-                          hasOverflow = true;
-                          console.log('🎯 Canvas: Multi-line text truncated to', maxVisibleLines, 'lines (same as preview)');
-                        } else {
-                          hasOverflow = false;
-                        }
 
                         optimalFit = { overflow: hasOverflow ? 'height-truncated' : '' };
                       } else {
