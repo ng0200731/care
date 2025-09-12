@@ -937,7 +937,7 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
                   <div key={index} style={{
                     width: '100%',
                     textAlign: config.alignment.horizontal,
-                    fontSize: config.typography.fontSize + config.typography.fontSizeUnit,
+                    fontSize: `${config.typography.fontSize}${config.typography.fontSizeUnit}`,
                     fontFamily: config.typography.fontFamily,
                     lineHeight: config.lineBreak.lineSpacing
                   }}>
