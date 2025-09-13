@@ -867,14 +867,15 @@ function App() {
   };
 
   // Handle New Washing Care Symbol Dialog Save
-  const handleNewWashingCareSymbolSave = (selectedSymbols: string[]) => {
+  const handleNewWashingCareSymbolSave = (config: any) => {
     if (!newWashingCareSymbolDialog) return;
 
     const { regionId, editingContent } = newWashingCareSymbolDialog;
+    const selectedSymbols = config.symbols || [];
 
     if (editingContent) {
-      // Update existing content with all 5 selected symbols
-      console.log('🔄 Updating existing washing care symbol content:', editingContent.id, 'with symbols:', selectedSymbols);
+      // Update existing content with all 5 selected symbols and configuration
+      console.log('🔄 Updating existing washing care symbol content:', editingContent.id, 'with config:', config);
       setRegionContents(prevContents => {
         const newContents = new Map(prevContents);
         const existingContents = newContents.get(regionId) || [];
@@ -886,7 +887,16 @@ function App() {
                 content: {
                   ...content.content,
                   text: selectedSymbols.join(' '), // Display all 5 symbols
-                  symbols: selectedSymbols // Store individual symbols
+                  symbols: selectedSymbols, // Store individual symbols
+                  iconSize: config.iconSize,
+                  padding: config.padding,
+                  alignment: config.alignment
+                },
+                layout: {
+                  ...content.layout,
+                  padding: config.padding,
+                  horizontalAlign: config.alignment.horizontal,
+                  verticalAlign: config.alignment.vertical
                 }
               }
             : content
@@ -898,13 +908,21 @@ function App() {
       setNotification(`✅ Updated washing care symbols`);
       setTimeout(() => setNotification(null), 3000);
     } else {
-      // Add new washing care symbol content with all 5 selected symbols
+      // Add new washing care symbol content with all 5 selected symbols and configuration
       const newContent = {
         id: `washing-care-symbol-${Date.now()}`,
         type: 'new-washing-care-symbol' as const,
         content: {
           text: selectedSymbols.join(' '), // Display all 5 symbols
-          symbols: selectedSymbols // Store individual symbols
+          symbols: selectedSymbols, // Store individual symbols
+          iconSize: config.iconSize,
+          padding: config.padding,
+          alignment: config.alignment
+        },
+        layout: {
+          padding: config.padding,
+          horizontalAlign: config.alignment.horizontal,
+          verticalAlign: config.alignment.vertical
         }
       };
 
@@ -6758,16 +6776,18 @@ function App() {
             pdf.setLineDashPattern([1, 1], 0.1); // Fine style with unique offset
             pdf.line(motherX, motherY + midFoldY, motherX + mother.width, motherY + midFoldY);
 
-            // Draw fold padding margin lines (dotted, no fill)
-            pdf.setDrawColor(0, 0, 0); // Black for all lines
-            pdf.setLineWidth(0.2); // Fine style - very thin lines
+            // Draw fold padding margin lines (dotted, no fill) only if supporting lines are enabled
+            if (showSupportingLines) {
+              pdf.setDrawColor(0, 0, 0); // Black for all lines
+              pdf.setLineWidth(0.2); // Fine style - very thin lines
 
-            // Top padding line - different offset
-            pdf.setLineDashPattern([1, 1], 0.3); // Different offset to prevent overlap
-            pdf.line(motherX, motherY + midFoldY - padding/2, motherX + mother.width, motherY + midFoldY - padding/2);
-            // Bottom padding line - different offset
-            pdf.setLineDashPattern([1, 1], 0.7); // Different offset to prevent overlap
-            pdf.line(motherX, motherY + midFoldY + padding/2, motherX + mother.width, motherY + midFoldY + padding/2);
+              // Top padding line - different offset
+              pdf.setLineDashPattern([1, 1], 0.3); // Different offset to prevent overlap
+              pdf.line(motherX, motherY + midFoldY - padding/2, motherX + mother.width, motherY + midFoldY - padding/2);
+              // Bottom padding line - different offset
+              pdf.setLineDashPattern([1, 1], 0.7); // Different offset to prevent overlap
+              pdf.line(motherX, motherY + midFoldY + padding/2, motherX + mother.width, motherY + midFoldY + padding/2);
+            }
 
             // Add padding dimension labels only if dimensions toggle is enabled
             if (showDimensions) {
@@ -6795,16 +6815,18 @@ function App() {
             pdf.setLineDashPattern([1, 1], 0.2); // Fine style with unique offset
             pdf.line(motherX + midFoldX, motherY, motherX + midFoldX, motherY + mother.height);
 
-            // Draw fold padding margin lines (dotted, no fill)
-            pdf.setDrawColor(0, 0, 0); // Black for all lines
-            pdf.setLineWidth(0.2); // Fine style - very thin lines
+            // Draw fold padding margin lines (dotted, no fill) only if supporting lines are enabled
+            if (showSupportingLines) {
+              pdf.setDrawColor(0, 0, 0); // Black for all lines
+              pdf.setLineWidth(0.2); // Fine style - very thin lines
 
-            // Left padding line - different offset
-            pdf.setLineDashPattern([1, 1], 0.4); // Different offset to prevent overlap
-            pdf.line(motherX + midFoldX - padding/2, motherY, motherX + midFoldX - padding/2, motherY + mother.height);
-            // Right padding line - different offset
-            pdf.setLineDashPattern([1, 1], 0.8); // Different offset to prevent overlap
-            pdf.line(motherX + midFoldX + padding/2, motherY, motherX + midFoldX + padding/2, motherY + mother.height);
+              // Left padding line - different offset
+              pdf.setLineDashPattern([1, 1], 0.4); // Different offset to prevent overlap
+              pdf.line(motherX + midFoldX - padding/2, motherY, motherX + midFoldX - padding/2, motherY + mother.height);
+              // Right padding line - different offset
+              pdf.setLineDashPattern([1, 1], 0.8); // Different offset to prevent overlap
+              pdf.line(motherX + midFoldX + padding/2, motherY, motherX + midFoldX + padding/2, motherY + mother.height);
+            }
 
             // Add padding dimension labels only if dimensions toggle is enabled
             if (showDimensions) {
@@ -6852,20 +6874,13 @@ function App() {
           const hasSlices = region.children && region.children.length > 0;
 
           if (hasSlices) {
-            // Draw parent region lines - avoid overlapping by choosing one style
+            // Draw parent region lines only if partition lines are enabled
             if (showPartitionLines) {
               // Solid black partition lines when partition lines are enabled
               pdf.setDrawColor(0, 0, 0); // Black for parent
               pdf.setLineWidth(0.3); // Standard thickness
               pdf.setLineDashPattern([], 0); // Solid line
               pdf.rect(regionX, regionY, region.width, region.height);
-            } else if (showSewingLines) {
-              // Dotted sewing lines only when partition lines are OFF (to avoid overlap)
-              pdf.setDrawColor(0, 0, 0); // Black for all lines
-              pdf.setLineWidth(0.2); // Fine style - very thin lines
-              pdf.setLineDashPattern([1, 1], 0.5); // Fine style with offset to prevent alignment
-              pdf.rect(regionX, regionY, region.width, region.height);
-              pdf.setLineDashPattern([], 0); // Reset to solid line
             }
 
             // Add parent region label - top-left, bold (only if partition names are enabled)
@@ -6892,9 +6907,9 @@ function App() {
                 pdf.rect(childX, childY, childRegion.width, childRegion.height);
               }
 
-              // Draw slice sewing lines (black dotted) if sewing lines are enabled
+              // Draw slice supporting lines (black dotted) if supporting lines are enabled
               // Use different offset to prevent overlap with parent region lines
-              if (showSewingLines) {
+              if (showSupportingLines) {
                 pdf.setDrawColor(0, 0, 0); // Black for all lines
                 pdf.setLineWidth(0.2); // Fine style - very thin lines
                 pdf.setLineDashPattern([1, 1], 0.25); // Fine style with different offset
@@ -7055,29 +7070,48 @@ function App() {
 
                       // Handle washing care symbols or regular text in child regions
                       if (content.type === 'new-washing-care-symbol') {
-                        // Render washing care symbols in PDF for child regions using Wash Care Symbols M54 font
+                        // Render washing care symbols in PDF for child regions using configuration
                         const symbols = content.content?.symbols || ['b', 'G', '5', 'B', 'J'];
-                        const symbolSize = Math.min(childRegion.width / symbols.length * 0.6, childRegion.height * 0.6, 6); // Scale to fit child region, cap at 6mm
-                        const symbolSpacing = (childRegion.width * 0.8) / symbols.length; // Equal spacing within 80% of region width
 
-                        // Center the container horizontally and vertically in the child region
-                        const childRegionCenterX = childX + childRegion.width / 2;
-                        const childRegionCenterY = childY + childRegion.height / 2;
-                        const containerStartX = childRegionCenterX - (childRegion.width * 0.8) / 2;
+                        // Use configuration settings if available
+                        const configIconSize = content.content?.iconSize || 8; // Default 8mm
+                        const configPadding = content.content?.padding || { top: 2, left: 2, bottom: 2, right: 2 };
+                        const configAlignment = content.content?.alignment || { horizontal: 'center', vertical: 'center' };
+
+                        // Calculate available space after padding
+                        const availableWidth = childRegion.width - configPadding.left - configPadding.right;
+                        const availableHeight = childRegion.height - configPadding.top - configPadding.bottom;
+                        const symbolSpacing = availableWidth / symbols.length;
+
+                        // Calculate container position based on alignment
+                        let containerX = childX + configPadding.left;
+                        let containerY = childY + configPadding.top;
+
+                        if (configAlignment.horizontal === 'center') {
+                          containerX = childX + (childRegion.width / 2) - (availableWidth / 2);
+                        } else if (configAlignment.horizontal === 'right') {
+                          containerX = childX + childRegion.width - configPadding.right - availableWidth;
+                        }
+
+                        if (configAlignment.vertical === 'center') {
+                          containerY = childY + (childRegion.height / 2) - (configIconSize / 2);
+                        } else if (configAlignment.vertical === 'bottom') {
+                          containerY = childY + childRegion.height - configPadding.bottom - configIconSize;
+                        }
 
                         // For PDF, use the same font as canvas - embed Wash Care Symbols M54 font (child regions)
                         symbols.forEach((symbol: string, symbolIndex: number) => {
-                          const symbolX = containerStartX + symbolIndex * symbolSpacing + symbolSpacing / 2;
-                          const symbolY = childRegionCenterY;
+                          const symbolX = containerX + symbolIndex * symbolSpacing + symbolSpacing / 2;
+                          const symbolY = containerY + (configIconSize / 2);
 
                           // Try to use embedded font first, then canvas rendering, then vector shapes (child regions)
                           let fontUsed = false;
                           let canvasUsed = false;
 
                           try {
-                            // Try to use the embedded Wash Care Symbols M54 font
+                            // Try to use the embedded Wash Care Symbols M54 font with configured size
                             pdf.setFont('WashCareSymbolsM54', 'normal');
-                            pdf.setFontSize(symbolSize * 2.83); // Convert mm to points
+                            pdf.setFontSize(configIconSize * 2.83); // Convert mm to points
                             pdf.setTextColor(0, 0, 0);
                             pdf.text(symbol, symbolX, symbolY, { align: 'center', baseline: 'middle' });
                             fontUsed = true;
@@ -7088,11 +7122,11 @@ function App() {
 
                           if (!fontUsed) {
                             // Try canvas rendering to capture the actual font symbols
-                            const canvasImage = renderSymbolToCanvas(symbol, symbolSize * 4); // Higher resolution
+                            const canvasImage = renderSymbolToCanvas(symbol, configIconSize * 4); // Higher resolution
                             if (canvasImage) {
                               try {
                                 // Calculate image size in mm (smaller for child regions)
-                                const imageSize = symbolSize * 0.7;
+                                const imageSize = configIconSize * 0.7;
                                 const imageX = symbolX - imageSize / 2;
                                 const imageY = symbolY - imageSize / 2;
 
@@ -7117,8 +7151,8 @@ function App() {
                           switch (symbolIndex) {
                             case 0: // Washing (b) - Basin shape exactly like canvas font
                               // Draw basin with curved bottom like the font symbol
-                              const basinWidth = symbolSize * 0.6;
-                              const basinHeight = symbolSize * 0.4;
+                              const basinWidth = configIconSize * 0.6;
+                              const basinHeight = configIconSize * 0.4;
                               // Top rim
                               pdf.line(symbolX - basinWidth/2, symbolY - basinHeight/2, symbolX + basinWidth/2, symbolY - basinHeight/2);
                               // Left side
@@ -7129,12 +7163,12 @@ function App() {
                               pdf.line(symbolX - basinWidth/3, symbolY + basinHeight/2, symbolX + basinWidth/3, symbolY + basinHeight/2);
                               break;
                             case 1: // Drying (G) - Square exactly like canvas font
-                              const squareSize = symbolSize * 0.5;
+                              const squareSize = configIconSize * 0.5;
                               pdf.rect(symbolX - squareSize/2, symbolY - squareSize/2, squareSize, squareSize, 'S');
                               break;
                             case 2: // Ironing (5) - Iron shape exactly like canvas font
-                              const ironWidth = symbolSize * 0.5;
-                              const ironHeight = symbolSize * 0.4;
+                              const ironWidth = configIconSize * 0.5;
+                              const ironHeight = configIconSize * 0.4;
                               // Iron base (rounded rectangle approximation)
                               pdf.ellipse(symbolX, symbolY + ironHeight/4, ironWidth/2, ironHeight/4, 'S');
                               // Iron point
@@ -7148,11 +7182,11 @@ function App() {
                               ], symbolX, symbolY, [1, 1], 'S');
                               break;
                             case 3: // Bleaching (B) - Triangle exactly like canvas font
-                              const triSize = symbolSize * 0.4;
+                              const triSize = configIconSize * 0.4;
                               pdf.triangle(symbolX, symbolY - triSize/2, symbolX + triSize/2, symbolY + triSize/2, symbolX - triSize/2, symbolY + triSize/2, 'S');
                               break;
                             case 4: // Professional (J) - Circle exactly like canvas font
-                              const circleRadius = symbolSize * 0.25;
+                              const circleRadius = configIconSize * 0.25;
                               pdf.circle(symbolX, symbolY, circleRadius, 'S');
                               break;
                           }
@@ -7173,20 +7207,13 @@ function App() {
               }
             });
           } else {
-            // Draw regular region lines - avoid overlapping by choosing one style
+            // Draw regular region lines only if partition lines are enabled
             if (showPartitionLines) {
               // Solid black partition lines when partition lines are enabled
               pdf.setDrawColor(0, 0, 0); // Black for regions
               pdf.setLineWidth(0.3); // Standard thickness
               pdf.setLineDashPattern([], 0); // Solid line
               pdf.rect(regionX, regionY, region.width, region.height);
-            } else if (showSewingLines) {
-              // Dotted sewing lines only when partition lines are OFF (to avoid overlap)
-              pdf.setDrawColor(0, 0, 0); // Black for all lines
-              pdf.setLineWidth(0.2); // Fine style - very thin lines
-              pdf.setLineDashPattern([1, 1], 0.75); // Fine style with different offset
-              pdf.rect(regionX, regionY, region.width, region.height);
-              pdf.setLineDashPattern([], 0); // Reset to solid line
             }
 
             // Add region label - top-left, bold (only if partition names are enabled)
@@ -7319,29 +7346,48 @@ function App() {
 
                   // Handle washing care symbols or regular text
                   if (content.type === 'new-washing-care-symbol') {
-                    // Render washing care symbols in PDF using Wash Care Symbols M54 font
+                    // Render washing care symbols in PDF using configuration
                     const symbols = content.content?.symbols || ['b', 'G', '5', 'B', 'J'];
-                    const symbolSize = Math.min(region.width / symbols.length * 0.6, region.height * 0.6, 8); // Scale to fit region, cap at 8mm
-                    const symbolSpacing = (region.width * 0.8) / symbols.length; // Equal spacing within 80% of region width
 
-                    // Center the container horizontally and vertically in the region
-                    const regionCenterX = regionX + region.width / 2;
-                    const regionCenterY = regionY + region.height / 2;
-                    const containerStartX = regionCenterX - (region.width * 0.8) / 2;
+                    // Use configuration settings if available
+                    const configIconSize = content.content?.iconSize || 8; // Default 8mm
+                    const configPadding = content.content?.padding || { top: 2, left: 2, bottom: 2, right: 2 };
+                    const configAlignment = content.content?.alignment || { horizontal: 'center', vertical: 'center' };
+
+                    // Calculate available space after padding
+                    const availableWidth = region.width - configPadding.left - configPadding.right;
+                    const availableHeight = region.height - configPadding.top - configPadding.bottom;
+                    const symbolSpacing = availableWidth / symbols.length;
+
+                    // Calculate container position based on alignment
+                    let containerX = regionX + configPadding.left;
+                    let containerY = regionY + configPadding.top;
+
+                    if (configAlignment.horizontal === 'center') {
+                      containerX = regionX + (region.width / 2) - (availableWidth / 2);
+                    } else if (configAlignment.horizontal === 'right') {
+                      containerX = regionX + region.width - configPadding.right - availableWidth;
+                    }
+
+                    if (configAlignment.vertical === 'center') {
+                      containerY = regionY + (region.height / 2) - (configIconSize / 2);
+                    } else if (configAlignment.vertical === 'bottom') {
+                      containerY = regionY + region.height - configPadding.bottom - configIconSize;
+                    }
 
                     // For PDF, use the same font as canvas - embed Wash Care Symbols M54 font
                     symbols.forEach((symbol: string, symbolIndex: number) => {
-                      const symbolX = containerStartX + symbolIndex * symbolSpacing + symbolSpacing / 2;
-                      const symbolY = regionCenterY;
+                      const symbolX = containerX + symbolIndex * symbolSpacing + symbolSpacing / 2;
+                      const symbolY = containerY + (configIconSize / 2);
 
                       // Try to use embedded font first, then canvas rendering, then vector shapes
                       let fontUsed = false;
                       let canvasUsed = false;
 
                       try {
-                        // Try to use the embedded Wash Care Symbols M54 font
+                        // Try to use the embedded Wash Care Symbols M54 font with configured size
                         pdf.setFont('WashCareSymbolsM54', 'normal');
-                        pdf.setFontSize(symbolSize * 2.83); // Convert mm to points
+                        pdf.setFontSize(configIconSize * 2.83); // Convert mm to points
                         pdf.setTextColor(0, 0, 0);
                         pdf.text(symbol, symbolX, symbolY, { align: 'center', baseline: 'middle' });
                         fontUsed = true;
@@ -7352,11 +7398,11 @@ function App() {
 
                       if (!fontUsed) {
                         // Try canvas rendering to capture the actual font symbols
-                        const canvasImage = renderSymbolToCanvas(symbol, symbolSize * 4); // Higher resolution
+                        const canvasImage = renderSymbolToCanvas(symbol, configIconSize * 4); // Higher resolution
                         if (canvasImage) {
                           try {
                             // Calculate image size in mm
-                            const imageSize = symbolSize * 0.8;
+                            const imageSize = configIconSize * 0.8;
                             const imageX = symbolX - imageSize / 2;
                             const imageY = symbolY - imageSize / 2;
 
@@ -7381,8 +7427,8 @@ function App() {
                       switch (symbolIndex) {
                         case 0: // Washing (b) - Basin shape exactly like canvas font
                           // Draw basin with curved bottom like the font symbol
-                          const basinWidth = symbolSize * 0.6;
-                          const basinHeight = symbolSize * 0.4;
+                          const basinWidth = configIconSize * 0.6;
+                          const basinHeight = configIconSize * 0.4;
                           // Top rim
                           pdf.line(symbolX - basinWidth/2, symbolY - basinHeight/2, symbolX + basinWidth/2, symbolY - basinHeight/2);
                           // Left side
@@ -7393,12 +7439,12 @@ function App() {
                           pdf.line(symbolX - basinWidth/3, symbolY + basinHeight/2, symbolX + basinWidth/3, symbolY + basinHeight/2);
                           break;
                         case 1: // Drying (G) - Square exactly like canvas font
-                          const squareSize = symbolSize * 0.5;
+                          const squareSize = configIconSize * 0.5;
                           pdf.rect(symbolX - squareSize/2, symbolY - squareSize/2, squareSize, squareSize, 'S');
                           break;
                         case 2: // Ironing (5) - Iron shape exactly like canvas font
-                          const ironWidth = symbolSize * 0.5;
-                          const ironHeight = symbolSize * 0.4;
+                          const ironWidth = configIconSize * 0.5;
+                          const ironHeight = configIconSize * 0.4;
                           // Iron base (rounded rectangle approximation)
                           pdf.ellipse(symbolX, symbolY + ironHeight/4, ironWidth/2, ironHeight/4, 'S');
                           // Iron point
@@ -7412,11 +7458,11 @@ function App() {
                           ], symbolX, symbolY, [1, 1], 'S');
                           break;
                         case 3: // Bleaching (B) - Triangle exactly like canvas font
-                          const triSize = symbolSize * 0.4;
+                          const triSize = configIconSize * 0.4;
                           pdf.triangle(symbolX, symbolY - triSize/2, symbolX + triSize/2, symbolY + triSize/2, symbolX - triSize/2, symbolY + triSize/2, 'S');
                           break;
                         case 4: // Professional (J) - Circle exactly like canvas font
-                          const circleRadius = symbolSize * 0.25;
+                          const circleRadius = configIconSize * 0.25;
                           pdf.circle(symbolX, symbolY, circleRadius, 'S');
                           break;
                         }
@@ -10382,31 +10428,58 @@ function App() {
                           {/* Render text lines or washing care symbols without clipping */}
                           <g>
                             {content.type === 'new-washing-care-symbol' ? (
-                              // Render washing care symbols using Wash Care Symbols M54 font
+                              // Render washing care symbols using Wash Care Symbols M54 font with configuration
                               (() => {
                                 const symbols = content.content?.symbols || ['b', 'G', '5', 'B', 'J'];
-                                const symbolSize = Math.min(regionWidthPx / symbols.length * 0.6, regionHeightPx * 0.6, 30); // Scale to fit region
-                                const symbolSpacing = (regionWidthPx * 0.8) / symbols.length; // Equal spacing within 80% of region width
 
-                                // Center the container horizontally and vertically in the region
-                                const regionCenterX = baseX + (region.x * scale) + (regionWidthPx / 2);
-                                const regionCenterY = baseY + (region.y * scale) + (regionHeightPx / 2);
-                                const containerStartX = regionCenterX - (regionWidthPx * 0.8) / 2;
+                                // Use configuration settings if available
+                                const configIconSize = content.content?.iconSize || 8; // Default 8mm
+                                const configPadding = content.content?.padding || { top: 2, left: 2, bottom: 2, right: 2 };
+                                const configAlignment = content.content?.alignment || { horizontal: 'center', vertical: 'center' };
+
+                                // Convert mm to pixels for rendering
+                                const mmToPx = 3.78; // 1mm = 3.78px at 96 DPI
+                                const symbolSizePx = configIconSize * mmToPx * zoom;
+                                const paddingTopPx = configPadding.top * mmToPx * zoom;
+                                const paddingLeftPx = configPadding.left * mmToPx * zoom;
+                                const paddingBottomPx = configPadding.bottom * mmToPx * zoom;
+                                const paddingRightPx = configPadding.right * mmToPx * zoom;
+
+                                // Calculate available space after padding
+                                const availableWidth = regionWidthPx - paddingLeftPx - paddingRightPx;
+                                const availableHeight = regionHeightPx - paddingTopPx - paddingBottomPx;
+                                const symbolSpacing = availableWidth / symbols.length;
+
+                                // Calculate container position based on alignment
+                                let containerX = baseX + (region.x * scale) + paddingLeftPx;
+                                let containerY = baseY + (region.y * scale) + paddingTopPx;
+
+                                if (configAlignment.horizontal === 'center') {
+                                  containerX = baseX + (region.x * scale) + (regionWidthPx / 2) - (availableWidth / 2);
+                                } else if (configAlignment.horizontal === 'right') {
+                                  containerX = baseX + (region.x * scale) + regionWidthPx - paddingRightPx - availableWidth;
+                                }
+
+                                if (configAlignment.vertical === 'center') {
+                                  containerY = baseY + (region.y * scale) + (regionHeightPx / 2) - (symbolSizePx / 2);
+                                } else if (configAlignment.vertical === 'bottom') {
+                                  containerY = baseY + (region.y * scale) + regionHeightPx - paddingBottomPx - symbolSizePx;
+                                }
 
                                 return (
                                   <g key="washing-symbols-container">
                                     {symbols.map((symbol: string, symbolIndex: number) => {
-                                      const symbolX = containerStartX + symbolIndex * symbolSpacing + symbolSpacing / 2;
-                                      const symbolY = regionCenterY;
+                                      const symbolX = containerX + symbolIndex * symbolSpacing + symbolSpacing / 2;
+                                      const symbolY = containerY + (symbolSizePx / 2);
 
-                                      // Render symbol using Wash Care Symbols M54 font
+                                      // Render symbol using Wash Care Symbols M54 font with configured size
                                       return (
                                         <text
                                           key={`symbol-${symbolIndex}`}
                                           x={symbolX}
                                           y={symbolY}
                                           fill="black"
-                                          fontSize={symbolSize}
+                                          fontSize={symbolSizePx}
                                           fontFamily="Wash Care Symbols M54"
                                           textAnchor="middle"
                                           dominantBaseline="central"
@@ -11015,30 +11088,57 @@ function App() {
 
                             // Render washing care symbols or regular text
                             if (content.type === 'new-washing-care-symbol') {
-                              // Render washing care symbols using Wash Care Symbols M54 font in child regions
+                              // Render washing care symbols using Wash Care Symbols M54 font in child regions with configuration
                               const symbols = content.content?.symbols || ['b', 'G', '5', 'B', 'J'];
-                              const symbolSize = Math.min(regionWidthPx / symbols.length * 0.6, regionHeightPx * 0.6, 25); // Scale to fit child region
-                              const symbolSpacing = (regionWidthPx * 0.8) / symbols.length; // Equal spacing within 80% of region width
 
-                              // Center the container horizontally and vertically in the child region
-                              const childRegionCenterX = childBaseX + (regionWidthPx / 2);
-                              const childRegionCenterY = childBaseY + (regionHeightPx / 2);
-                              const containerStartX = childRegionCenterX - (regionWidthPx * 0.8) / 2;
+                              // Use configuration settings if available
+                              const configIconSize = content.content?.iconSize || 8; // Default 8mm
+                              const configPadding = content.content?.padding || { top: 2, left: 2, bottom: 2, right: 2 };
+                              const configAlignment = content.content?.alignment || { horizontal: 'center', vertical: 'center' };
+
+                              // Convert mm to pixels for rendering
+                              const mmToPx = 3.78; // 1mm = 3.78px at 96 DPI
+                              const symbolSizePx = configIconSize * mmToPx * zoom;
+                              const paddingTopPx = configPadding.top * mmToPx * zoom;
+                              const paddingLeftPx = configPadding.left * mmToPx * zoom;
+                              const paddingBottomPx = configPadding.bottom * mmToPx * zoom;
+                              const paddingRightPx = configPadding.right * mmToPx * zoom;
+
+                              // Calculate available space after padding
+                              const availableWidth = regionWidthPx - paddingLeftPx - paddingRightPx;
+                              const availableHeight = regionHeightPx - paddingTopPx - paddingBottomPx;
+                              const symbolSpacing = availableWidth / symbols.length;
+
+                              // Calculate container position based on alignment
+                              let containerX = childBaseX + paddingLeftPx;
+                              let containerY = childBaseY + paddingTopPx;
+
+                              if (configAlignment.horizontal === 'center') {
+                                containerX = childBaseX + (regionWidthPx / 2) - (availableWidth / 2);
+                              } else if (configAlignment.horizontal === 'right') {
+                                containerX = childBaseX + regionWidthPx - paddingRightPx - availableWidth;
+                              }
+
+                              if (configAlignment.vertical === 'center') {
+                                containerY = childBaseY + (regionHeightPx / 2) - (symbolSizePx / 2);
+                              } else if (configAlignment.vertical === 'bottom') {
+                                containerY = childBaseY + regionHeightPx - paddingBottomPx - symbolSizePx;
+                              }
 
                               return (
                                 <g key="child-washing-symbols-container">
                                   {symbols.map((symbol: string, symbolIndex: number) => {
-                                    const symbolX = containerStartX + symbolIndex * symbolSpacing + symbolSpacing / 2;
-                                    const symbolY = childRegionCenterY;
+                                    const symbolX = containerX + symbolIndex * symbolSpacing + symbolSpacing / 2;
+                                    const symbolY = containerY + (symbolSizePx / 2);
 
-                                    // Render symbol using Wash Care Symbols M54 font
+                                    // Render symbol using Wash Care Symbols M54 font with configured size
                                     return (
                                       <text
                                         key={`child-symbol-${symbolIndex}`}
                                         x={symbolX}
                                         y={symbolY}
                                         fill="black"
-                                        fontSize={symbolSize}
+                                        fontSize={symbolSizePx}
                                         fontFamily="Wash Care Symbols M54"
                                         textAnchor="middle"
                                         dominantBaseline="central"
@@ -11330,7 +11430,7 @@ function App() {
             }
 
             {/* Mid-Fold Line Rendering (New Enhanced System) */}
-            {obj.type?.includes('mother') && showSewingLines && (() => {
+            {obj.type?.includes('mother') && (() => {
               const objectMidFoldLine = (obj as any).midFoldLine;
               if (!objectMidFoldLine || !objectMidFoldLine.enabled) {
                 return null;
@@ -11369,47 +11469,56 @@ function App() {
 
                 return (
                   <>
-                    {/* Top Padding Area */}
-                    <rect
-                      x={lineStartX}
-                      y={topPaddingY}
-                      width={width}
-                      height={paddingHeight}
-                      fill="#d32f2f"
-                      opacity="0.3"
-                    />
-                    {/* Bottom Padding Area */}
-                    <rect
-                      x={lineStartX}
-                      y={bottomPaddingY}
-                      width={width}
-                      height={paddingHeight}
-                      fill="#d32f2f"
-                      opacity="0.3"
-                    />
-                    {/* Mid Fold Line */}
-                    <line
-                      x1={lineStartX}
-                      y1={lineY}
-                      x2={lineEndX}
-                      y2={lineY}
-                      stroke="#d32f2f"
-                      strokeWidth="3"
-                      strokeDasharray="4,4"
-                      opacity="0.9"
-                    />
-                    <text
-                      x={lineEndX + 5}
-                      y={lineY}
-                      fill="#d32f2f"
-                      fontSize={Math.max(8, Math.min(12, 10 * zoom))}
-                      fontWeight="bold"
-                      textAnchor="start"
-                      dominantBaseline="middle"
-                      opacity="0.9"
-                    >
-                      Mid-Fold H
-                    </text>
+                    {/* Top Padding Area - controlled by supporting lines toggle */}
+                    {showSupportingLines && (
+                      <rect
+                        x={lineStartX}
+                        y={topPaddingY}
+                        width={width}
+                        height={paddingHeight}
+                        fill="#d32f2f"
+                        opacity="0.3"
+                      />
+                    )}
+                    {/* Bottom Padding Area - controlled by supporting lines toggle */}
+                    {showSupportingLines && (
+                      <rect
+                        x={lineStartX}
+                        y={bottomPaddingY}
+                        width={width}
+                        height={paddingHeight}
+                        fill="#d32f2f"
+                        opacity="0.3"
+                      />
+                    )}
+                    {/* Mid Fold Line - controlled by sewing lines toggle */}
+                    {showSewingLines && (
+                      <line
+                        x1={lineStartX}
+                        y1={lineY}
+                        x2={lineEndX}
+                        y2={lineY}
+                        stroke="#d32f2f"
+                        strokeWidth="3"
+                        strokeDasharray="4,4"
+                        opacity="0.9"
+                      />
+                    )}
+                    {/* Mid Fold Line Label - controlled by sewing lines toggle */}
+                    {showSewingLines && (
+                      <text
+                        x={lineEndX + 5}
+                        y={lineY}
+                        fill="#d32f2f"
+                        fontSize={Math.max(8, Math.min(12, 10 * zoom))}
+                        fontWeight="bold"
+                        textAnchor="start"
+                        dominantBaseline="middle"
+                        opacity="0.9"
+                      >
+                        Mid-Fold H
+                      </text>
+                    )}
                   </>
                 );
 
@@ -11438,47 +11547,56 @@ function App() {
 
                 return (
                   <>
-                    {/* Left Padding Area */}
-                    <rect
-                      x={leftPaddingX}
-                      y={lineStartY}
-                      width={paddingWidth}
-                      height={height}
-                      fill="#d32f2f"
-                      opacity="0.3"
-                    />
-                    {/* Right Padding Area */}
-                    <rect
-                      x={rightPaddingX}
-                      y={lineStartY}
-                      width={paddingWidth}
-                      height={height}
-                      fill="#d32f2f"
-                      opacity="0.3"
-                    />
-                    {/* Mid Fold Line */}
-                    <line
-                      x1={lineX}
-                      y1={lineStartY}
-                      x2={lineX}
-                      y2={lineEndY}
-                      stroke="#d32f2f"
-                      strokeWidth="3"
-                      strokeDasharray="4,4"
-                      opacity="0.9"
-                    />
-                    <text
-                      x={lineX}
-                      y={baseY - 5}
-                      fill="#d32f2f"
-                      fontSize={Math.max(8, Math.min(12, 10 * zoom))}
-                      fontWeight="bold"
-                      textAnchor="middle"
-                      dominantBaseline="bottom"
-                      opacity="0.9"
-                    >
-                      Mid-Fold V
-                    </text>
+                    {/* Left Padding Area - controlled by supporting lines toggle */}
+                    {showSupportingLines && (
+                      <rect
+                        x={leftPaddingX}
+                        y={lineStartY}
+                        width={paddingWidth}
+                        height={height}
+                        fill="#d32f2f"
+                        opacity="0.3"
+                      />
+                    )}
+                    {/* Right Padding Area - controlled by supporting lines toggle */}
+                    {showSupportingLines && (
+                      <rect
+                        x={rightPaddingX}
+                        y={lineStartY}
+                        width={paddingWidth}
+                        height={height}
+                        fill="#d32f2f"
+                        opacity="0.3"
+                      />
+                    )}
+                    {/* Mid Fold Line - controlled by sewing lines toggle */}
+                    {showSewingLines && (
+                      <line
+                        x1={lineX}
+                        y1={lineStartY}
+                        x2={lineX}
+                        y2={lineEndY}
+                        stroke="#d32f2f"
+                        strokeWidth="3"
+                        strokeDasharray="4,4"
+                        opacity="0.9"
+                      />
+                    )}
+                    {/* Mid Fold Line Label - controlled by sewing lines toggle */}
+                    {showSewingLines && (
+                      <text
+                        x={lineX}
+                        y={baseY - 5}
+                        fill="#d32f2f"
+                        fontSize={Math.max(8, Math.min(12, 10 * zoom))}
+                        fontWeight="bold"
+                        textAnchor="middle"
+                        dominantBaseline="bottom"
+                        opacity="0.9"
+                      >
+                        Mid-Fold V
+                      </text>
+                    )}
                   </>
                 );
               }
