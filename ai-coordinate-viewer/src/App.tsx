@@ -471,6 +471,80 @@ function App() {
     editingContent?: any;
   } | null>(null);
 
+  // Canvas-based symbol rendering utility for PDF
+  const renderSymbolToCanvas = (symbol: string, size: number = 24): string | null => {
+    try {
+      // Create a temporary canvas
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+
+      // Set canvas size with padding
+      const padding = size * 0.2;
+      canvas.width = size + padding * 2;
+      canvas.height = size + padding * 2;
+
+      // Set font and styling
+      ctx.font = `${size}px "Wash Care Symbols M54", Arial, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#000000';
+
+      // Clear canvas with white background
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#000000';
+
+      // Draw the symbol
+      ctx.fillText(symbol, canvas.width / 2, canvas.height / 2);
+
+      // Convert to base64 data URL
+      return canvas.toDataURL('image/png');
+    } catch (error) {
+      console.error('❌ Failed to render symbol to canvas:', error);
+      return null;
+    }
+  };
+
+  // Font loading and embedding utility for Wash Care Symbols M54
+  const embedWashCareFont = async (pdf: any): Promise<boolean> => {
+    try {
+      console.log('🔄 Loading Wash Care Symbols M54 font...');
+
+      // Fetch the font file from public directory
+      const fontResponse = await fetch('/fonts/Wash_Care_Symbols_M54.ttf');
+      if (!fontResponse.ok) {
+        console.error('❌ Failed to fetch font file:', fontResponse.status);
+        return false;
+      }
+
+      // Convert to ArrayBuffer
+      const fontArrayBuffer = await fontResponse.arrayBuffer();
+
+      // Convert ArrayBuffer to base64
+      const fontBytes = new Uint8Array(fontArrayBuffer);
+      let binaryString = '';
+      for (let i = 0; i < fontBytes.length; i++) {
+        binaryString += String.fromCharCode(fontBytes[i]);
+      }
+      const fontBase64 = btoa(binaryString);
+
+      console.log('✅ Font file loaded, size:', fontBytes.length, 'bytes');
+
+      // Add font to PDF virtual file system
+      pdf.addFileToVFS('WashCareSymbolsM54.ttf', fontBase64);
+
+      // Register the font with jsPDF
+      pdf.addFont('WashCareSymbolsM54.ttf', 'WashCareSymbolsM54', 'normal');
+
+      console.log('✅ Wash Care Symbols M54 font embedded successfully in PDF');
+      return true;
+    } catch (error) {
+      console.error('❌ Font embedding failed:', error);
+      return false;
+    }
+  };
+
   // Handle New Line Text Dialog Save
   const handleNewLineTextSave = (config: NewLineTextConfig) => {
     if (!newLineTextDialog) return;
@@ -4009,7 +4083,7 @@ function App() {
   };
 
   // Generate PDF with visual canvas at 1:1 scale on A4 paper - DIRECT DRAWING
-  const generateMotherPDF = (motherObject: AIObject) => {
+  const generateMotherPDF = async (motherObject: AIObject) => {
     console.log('🖨️ Generating 1:1 scale PDF with visual layout for mother:', motherObject.name);
 
     try {
@@ -4019,6 +4093,9 @@ function App() {
 
       // Create A4 PDF
       const pdf = new jsPDF('portrait', 'mm', 'a4');
+
+      // Try to embed Wash Care Symbols M54 font
+      const fontEmbedded = await embedWashCareFont(pdf);
 
       // Calculate canvas dimensions in mm (1:1 scale)
       const canvasWidthMM = motherObject.width;
@@ -5652,7 +5729,19 @@ function App() {
       const existingTypeName = existingContentType.replace('-', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
 
       // Get the new content type being dropped
-      const contentTypeData = JSON.parse(e.dataTransfer.getData('application/json')) as ContentType;
+      let contentTypeData: ContentType;
+      try {
+        const jsonData = e.dataTransfer.getData('application/json');
+        if (!jsonData || jsonData.trim() === '') {
+          console.error('❌ No JSON data found in drag transfer');
+          return;
+        }
+        contentTypeData = JSON.parse(jsonData) as ContentType;
+      } catch (error) {
+        console.error('❌ Failed to parse drag transfer data:', error);
+        return;
+      }
+
       const newTypeName = contentTypeData.name.replace('-', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
 
       // Show custom warning dialog with red background and yellow text
@@ -5695,11 +5784,18 @@ function App() {
 
     // If no existing content, proceed with drop directly
     try {
-      const contentTypeData = JSON.parse(e.dataTransfer.getData('application/json')) as ContentType;
+      const jsonData = e.dataTransfer.getData('application/json');
+      if (!jsonData || jsonData.trim() === '') {
+        console.error('❌ No JSON data found in drag transfer');
+        return;
+      }
+      const contentTypeData = JSON.parse(jsonData) as ContentType;
       console.log('✅ No existing content, proceeding with drop:', contentTypeData.name);
       proceedWithContentDrop(contentTypeData, regionId);
     } catch (error) {
       console.error('❌ Error parsing dropped data:', error);
+      setNotification('❌ Invalid content data - drop failed');
+      setTimeout(() => setNotification(null), 3000);
     }
   };
 
@@ -6329,7 +6425,7 @@ function App() {
   };
 
   // Function to generate PDF with all mothers
-  const generatePDFAllMothers = () => {
+  const generatePDFAllMothers = async () => {
     const currentData = data || webCreationData;
     if (!currentData) {
       alert('❌ No data to generate PDF');
@@ -6406,6 +6502,14 @@ function App() {
         unit: 'mm',
         format: [paperWidthMM, paperHeightMM]
       });
+
+      // Try to embed Wash Care Symbols M54 font for washing care symbols
+      const fontEmbedded = await embedWashCareFont(pdf);
+      if (fontEmbedded) {
+        console.log('✅ Font embedded successfully for PDF generation');
+      } else {
+        console.log('⚠️ Font embedding failed, will use canvas rendering and fallback shapes');
+      }
 
       // Add title and paper size info
       pdf.setFontSize(16);
@@ -6860,16 +6964,98 @@ function App() {
                         const childRegionCenterY = childY + childRegion.height / 2;
                         const containerStartX = childRegionCenterX - (childRegion.width * 0.8) / 2;
 
-                        // For PDF, render text using Wash Care Symbols M54 font
+                        // For PDF, use the same font as canvas - embed Wash Care Symbols M54 font (child regions)
                         symbols.forEach((symbol: string, symbolIndex: number) => {
                           const symbolX = containerStartX + symbolIndex * symbolSpacing + symbolSpacing / 2;
                           const symbolY = childRegionCenterY;
 
-                          // Render symbol using Wash Care Symbols M54 font
-                          pdf.setFont('Wash Care Symbols M54', 'normal');
-                          pdf.setFontSize(symbolSize * 2.83); // Convert mm to points (1mm = 2.83pt)
-                          pdf.setTextColor(0, 0, 0);
-                          pdf.text(symbol, symbolX, symbolY, { align: 'center', baseline: 'middle' });
+                          // Try to use embedded font first, then canvas rendering, then vector shapes (child regions)
+                          let fontUsed = false;
+                          let canvasUsed = false;
+
+                          try {
+                            // Try to use the embedded Wash Care Symbols M54 font
+                            pdf.setFont('WashCareSymbolsM54', 'normal');
+                            pdf.setFontSize(symbolSize * 2.83); // Convert mm to points
+                            pdf.setTextColor(0, 0, 0);
+                            pdf.text(symbol, symbolX, symbolY, { align: 'center', baseline: 'middle' });
+                            fontUsed = true;
+                          } catch (error) {
+                            // Font not available, try canvas rendering
+                            fontUsed = false;
+                          }
+
+                          if (!fontUsed) {
+                            // Try canvas rendering to capture the actual font symbols
+                            const canvasImage = renderSymbolToCanvas(symbol, symbolSize * 4); // Higher resolution
+                            if (canvasImage) {
+                              try {
+                                // Calculate image size in mm (smaller for child regions)
+                                const imageSize = symbolSize * 0.7;
+                                const imageX = symbolX - imageSize / 2;
+                                const imageY = symbolY - imageSize / 2;
+
+                                // Add the canvas-rendered symbol as image
+                                pdf.addImage(canvasImage, 'PNG', imageX, imageY, imageSize, imageSize);
+                                canvasUsed = true;
+                                console.log('✅ Used canvas rendering for child symbol:', symbol);
+                              } catch (error) {
+                                console.error('❌ Canvas image failed for child:', error);
+                                canvasUsed = false;
+                              }
+                            }
+                          }
+
+                          if (!fontUsed && !canvasUsed) {
+                            // Fallback: Create vector shapes that match the canvas symbols exactly (child regions)
+                            pdf.setDrawColor(0, 0, 0);
+                            pdf.setFillColor(255, 255, 255);
+                            pdf.setLineWidth(0.3);
+
+                          // Create shapes that exactly match the Wash Care Symbols M54 font appearance (smaller for child regions)
+                          switch (symbolIndex) {
+                            case 0: // Washing (b) - Basin shape exactly like canvas font
+                              // Draw basin with curved bottom like the font symbol
+                              const basinWidth = symbolSize * 0.6;
+                              const basinHeight = symbolSize * 0.4;
+                              // Top rim
+                              pdf.line(symbolX - basinWidth/2, symbolY - basinHeight/2, symbolX + basinWidth/2, symbolY - basinHeight/2);
+                              // Left side
+                              pdf.line(symbolX - basinWidth/2, symbolY - basinHeight/2, symbolX - basinWidth/3, symbolY + basinHeight/2);
+                              // Right side
+                              pdf.line(symbolX + basinWidth/2, symbolY - basinHeight/2, symbolX + basinWidth/3, symbolY + basinHeight/2);
+                              // Bottom curve (approximated with line)
+                              pdf.line(symbolX - basinWidth/3, symbolY + basinHeight/2, symbolX + basinWidth/3, symbolY + basinHeight/2);
+                              break;
+                            case 1: // Drying (G) - Square exactly like canvas font
+                              const squareSize = symbolSize * 0.5;
+                              pdf.rect(symbolX - squareSize/2, symbolY - squareSize/2, squareSize, squareSize, 'S');
+                              break;
+                            case 2: // Ironing (5) - Iron shape exactly like canvas font
+                              const ironWidth = symbolSize * 0.5;
+                              const ironHeight = symbolSize * 0.4;
+                              // Iron base (rounded rectangle approximation)
+                              pdf.ellipse(symbolX, symbolY + ironHeight/4, ironWidth/2, ironHeight/4, 'S');
+                              // Iron point
+                              pdf.lines([
+                                [0, -ironHeight/2],
+                                [ironWidth/4, -ironHeight/4],
+                                [ironWidth/4, ironHeight/4],
+                                [-ironWidth/4, ironHeight/4],
+                                [-ironWidth/4, -ironHeight/4],
+                                [0, -ironHeight/2]
+                              ], symbolX, symbolY, [1, 1], 'S');
+                              break;
+                            case 3: // Bleaching (B) - Triangle exactly like canvas font
+                              const triSize = symbolSize * 0.4;
+                              pdf.triangle(symbolX, symbolY - triSize/2, symbolX + triSize/2, symbolY + triSize/2, symbolX - triSize/2, symbolY + triSize/2, 'S');
+                              break;
+                            case 4: // Professional (J) - Circle exactly like canvas font
+                              const circleRadius = symbolSize * 0.25;
+                              pdf.circle(symbolX, symbolY, circleRadius, 'S');
+                              break;
+                          }
+                          } // End of fallback vector shapes (child regions)
                         });
                       } else {
                         // Render regular text lines with EXACT positioning like web view
@@ -7042,16 +7228,98 @@ function App() {
                     const regionCenterY = regionY + region.height / 2;
                     const containerStartX = regionCenterX - (region.width * 0.8) / 2;
 
-                    // For PDF, render text using Wash Care Symbols M54 font
+                    // For PDF, use the same font as canvas - embed Wash Care Symbols M54 font
                     symbols.forEach((symbol: string, symbolIndex: number) => {
                       const symbolX = containerStartX + symbolIndex * symbolSpacing + symbolSpacing / 2;
                       const symbolY = regionCenterY;
 
-                      // Render symbol using Wash Care Symbols M54 font
-                      pdf.setFont('Wash Care Symbols M54', 'normal');
-                      pdf.setFontSize(symbolSize * 2.83); // Convert mm to points (1mm = 2.83pt)
-                      pdf.setTextColor(0, 0, 0);
-                      pdf.text(symbol, symbolX, symbolY, { align: 'center', baseline: 'middle' });
+                      // Try to use embedded font first, then canvas rendering, then vector shapes
+                      let fontUsed = false;
+                      let canvasUsed = false;
+
+                      try {
+                        // Try to use the embedded Wash Care Symbols M54 font
+                        pdf.setFont('WashCareSymbolsM54', 'normal');
+                        pdf.setFontSize(symbolSize * 2.83); // Convert mm to points
+                        pdf.setTextColor(0, 0, 0);
+                        pdf.text(symbol, symbolX, symbolY, { align: 'center', baseline: 'middle' });
+                        fontUsed = true;
+                      } catch (error) {
+                        // Font not available, try canvas rendering
+                        fontUsed = false;
+                      }
+
+                      if (!fontUsed) {
+                        // Try canvas rendering to capture the actual font symbols
+                        const canvasImage = renderSymbolToCanvas(symbol, symbolSize * 4); // Higher resolution
+                        if (canvasImage) {
+                          try {
+                            // Calculate image size in mm
+                            const imageSize = symbolSize * 0.8;
+                            const imageX = symbolX - imageSize / 2;
+                            const imageY = symbolY - imageSize / 2;
+
+                            // Add the canvas-rendered symbol as image
+                            pdf.addImage(canvasImage, 'PNG', imageX, imageY, imageSize, imageSize);
+                            canvasUsed = true;
+                            console.log('✅ Used canvas rendering for symbol:', symbol);
+                          } catch (error) {
+                            console.error('❌ Canvas image failed:', error);
+                            canvasUsed = false;
+                          }
+                        }
+                      }
+
+                      if (!fontUsed && !canvasUsed) {
+                        // Fallback: Create vector shapes that match the canvas symbols exactly
+                        pdf.setDrawColor(0, 0, 0);
+                        pdf.setFillColor(255, 255, 255);
+                        pdf.setLineWidth(0.4);
+
+                      // Create shapes that exactly match the Wash Care Symbols M54 font appearance
+                      switch (symbolIndex) {
+                        case 0: // Washing (b) - Basin shape exactly like canvas font
+                          // Draw basin with curved bottom like the font symbol
+                          const basinWidth = symbolSize * 0.6;
+                          const basinHeight = symbolSize * 0.4;
+                          // Top rim
+                          pdf.line(symbolX - basinWidth/2, symbolY - basinHeight/2, symbolX + basinWidth/2, symbolY - basinHeight/2);
+                          // Left side
+                          pdf.line(symbolX - basinWidth/2, symbolY - basinHeight/2, symbolX - basinWidth/3, symbolY + basinHeight/2);
+                          // Right side
+                          pdf.line(symbolX + basinWidth/2, symbolY - basinHeight/2, symbolX + basinWidth/3, symbolY + basinHeight/2);
+                          // Bottom curve (approximated with line)
+                          pdf.line(symbolX - basinWidth/3, symbolY + basinHeight/2, symbolX + basinWidth/3, symbolY + basinHeight/2);
+                          break;
+                        case 1: // Drying (G) - Square exactly like canvas font
+                          const squareSize = symbolSize * 0.5;
+                          pdf.rect(symbolX - squareSize/2, symbolY - squareSize/2, squareSize, squareSize, 'S');
+                          break;
+                        case 2: // Ironing (5) - Iron shape exactly like canvas font
+                          const ironWidth = symbolSize * 0.5;
+                          const ironHeight = symbolSize * 0.4;
+                          // Iron base (rounded rectangle approximation)
+                          pdf.ellipse(symbolX, symbolY + ironHeight/4, ironWidth/2, ironHeight/4, 'S');
+                          // Iron point
+                          pdf.lines([
+                            [0, -ironHeight/2],
+                            [ironWidth/4, -ironHeight/4],
+                            [ironWidth/4, ironHeight/4],
+                            [-ironWidth/4, ironHeight/4],
+                            [-ironWidth/4, -ironHeight/4],
+                            [0, -ironHeight/2]
+                          ], symbolX, symbolY, [1, 1], 'S');
+                          break;
+                        case 3: // Bleaching (B) - Triangle exactly like canvas font
+                          const triSize = symbolSize * 0.4;
+                          pdf.triangle(symbolX, symbolY - triSize/2, symbolX + triSize/2, symbolY + triSize/2, symbolX - triSize/2, symbolY + triSize/2, 'S');
+                          break;
+                        case 4: // Professional (J) - Circle exactly like canvas font
+                          const circleRadius = symbolSize * 0.25;
+                          pdf.circle(symbolX, symbolY, circleRadius, 'S');
+                          break;
+                        }
+                      } // End of fallback vector shapes
                     });
                   } else {
                     // Render regular text lines with EXACT positioning like web view
@@ -7527,7 +7795,7 @@ function App() {
           })()}
 
           <button
-            onClick={generatePDFAllMothers}
+            onClick={() => generatePDFAllMothers()}
             onMouseEnter={(e) => {
               e.currentTarget.style.background = 'linear-gradient(135deg, #d32f2f 0%, #f44336 100%)';
               e.currentTarget.style.transform = 'scale(1.05)';
