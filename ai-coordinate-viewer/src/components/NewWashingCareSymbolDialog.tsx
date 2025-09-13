@@ -48,13 +48,13 @@ const NewWashingCareSymbolDialog: React.FC<NewWashingCareSymbolDialogProps> = ({
       return;
     }
 
-    // Create array of selected symbols for display
+    // Create array of selected symbols for display using Wash Care Symbols M54 font
     const selectedSymbols = [
-      '🧺', // Washing symbol
-      '△',  // Drying symbol
-      '⬜', // Ironing symbol
-      '🔄', // Bleaching symbol
-      '⭕'  // Professional symbol
+      'b', // Washing symbol
+      'G', // Drying symbol
+      '5', // Ironing symbol
+      'B', // Bleaching symbol
+      'J'  // Professional symbol
     ];
 
     onSave(selectedSymbols);
@@ -129,7 +129,7 @@ const NewWashingCareSymbolDialog: React.FC<NewWashingCareSymbolDialogProps> = ({
               gap: '8px',
               flex: 1
             }}>
-              {/* Washing Basin Symbol - Black lines, transparent background */}
+              {/* Washing Symbol using Wash Care Symbols M54 font */}
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -138,14 +138,12 @@ const NewWashingCareSymbolDialog: React.FC<NewWashingCareSymbolDialogProps> = ({
                 height: '50px',
                 border: '2px solid #e5e7eb',
                 borderRadius: '8px',
-                backgroundColor: 'transparent'
+                backgroundColor: 'transparent',
+                fontFamily: 'Wash Care Symbols M54',
+                fontSize: '32px',
+                color: 'black'
               }}>
-                <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-                  <path d="M8 12 L32 12 L30 32 L10 32 Z" stroke="black" strokeWidth="2" fill="none"/>
-                  <path d="M12 8 L28 8" stroke="black" strokeWidth="2"/>
-                  <path d="M10 8 L10 12" stroke="black" strokeWidth="2"/>
-                  <path d="M30 8 L30 12" stroke="black" strokeWidth="2"/>
-                </svg>
+                b
               </div>
               <select
                 value={selections.washing.dropdown}
@@ -191,7 +189,7 @@ const NewWashingCareSymbolDialog: React.FC<NewWashingCareSymbolDialogProps> = ({
               gap: '8px',
               flex: 1
             }}>
-              {/* Drying Triangle Symbol - Black lines, transparent background */}
+              {/* Drying Symbol using Wash Care Symbols M54 font */}
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -200,11 +198,12 @@ const NewWashingCareSymbolDialog: React.FC<NewWashingCareSymbolDialogProps> = ({
                 height: '50px',
                 border: '2px solid #e5e7eb',
                 borderRadius: '8px',
-                backgroundColor: 'transparent'
+                backgroundColor: 'transparent',
+                fontFamily: 'Wash Care Symbols M54',
+                fontSize: '32px',
+                color: 'black'
               }}>
-                <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-                  <path d="M20 8 L32 32 L8 32 Z" stroke="black" strokeWidth="2" fill="none"/>
-                </svg>
+                G
               </div>
               <select
                 value={selections.drying.dropdown}
@@ -250,7 +249,7 @@ const NewWashingCareSymbolDialog: React.FC<NewWashingCareSymbolDialogProps> = ({
               gap: '8px',
               flex: 1
             }}>
-              {/* Ironing Square Symbol - Black lines, transparent background */}
+              {/* Ironing Symbol using Wash Care Symbols M54 font */}
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -259,11 +258,12 @@ const NewWashingCareSymbolDialog: React.FC<NewWashingCareSymbolDialogProps> = ({
                 height: '50px',
                 border: '2px solid #e5e7eb',
                 borderRadius: '8px',
-                backgroundColor: 'transparent'
+                backgroundColor: 'transparent',
+                fontFamily: 'Wash Care Symbols M54',
+                fontSize: '32px',
+                color: 'black'
               }}>
-                <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-                  <rect x="10" y="10" width="20" height="20" stroke="black" strokeWidth="2" fill="none"/>
-                </svg>
+                5
               </div>
               <select
                 value={selections.ironing.dropdown}
@@ -309,7 +309,7 @@ const NewWashingCareSymbolDialog: React.FC<NewWashingCareSymbolDialogProps> = ({
               gap: '8px',
               flex: 1
             }}>
-              {/* Bleaching Iron Symbol - Black lines, transparent background */}
+              {/* Bleaching Symbol using Wash Care Symbols M54 font */}
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -318,12 +318,12 @@ const NewWashingCareSymbolDialog: React.FC<NewWashingCareSymbolDialogProps> = ({
                 height: '50px',
                 border: '2px solid #e5e7eb',
                 borderRadius: '8px',
-                backgroundColor: 'transparent'
+                backgroundColor: 'transparent',
+                fontFamily: 'Wash Care Symbols M54',
+                fontSize: '32px',
+                color: 'black'
               }}>
-                <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-                  <path d="M8 15 L25 15 L32 25 L25 32 L8 32 Z" stroke="black" strokeWidth="2" fill="none"/>
-                  <path d="M15 8 L25 8" stroke="black" strokeWidth="2"/>
-                </svg>
+                B
               </div>
               <select
                 value={selections.bleaching.dropdown}
@@ -369,7 +369,7 @@ const NewWashingCareSymbolDialog: React.FC<NewWashingCareSymbolDialogProps> = ({
               gap: '8px',
               flex: 1
             }}>
-              {/* Professional Circle Symbol - Black lines, transparent background */}
+              {/* Professional Symbol using Wash Care Symbols M54 font */}
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -378,11 +378,12 @@ const NewWashingCareSymbolDialog: React.FC<NewWashingCareSymbolDialogProps> = ({
                 height: '50px',
                 border: '2px solid #e5e7eb',
                 borderRadius: '8px',
-                backgroundColor: 'transparent'
+                backgroundColor: 'transparent',
+                fontFamily: 'Wash Care Symbols M54',
+                fontSize: '32px',
+                color: 'black'
               }}>
-                <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-                  <circle cx="20" cy="20" r="12" stroke="black" strokeWidth="2" fill="none"/>
-                </svg>
+                J
               </div>
               <select
                 value={selections.professional.dropdown}

@@ -6850,8 +6850,8 @@ function App() {
 
                       // Handle washing care symbols or regular text in child regions
                       if (content.type === 'new-washing-care-symbol') {
-                        // Render washing care symbols in PDF for child regions
-                        const symbols = content.content?.symbols || ['🧺', '△', '⬜', '🔄', '⭕'];
+                        // Render washing care symbols in PDF for child regions using Wash Care Symbols M54 font
+                        const symbols = content.content?.symbols || ['b', 'G', '5', 'B', 'J'];
                         const symbolSize = Math.min(childRegion.width / symbols.length * 0.6, childRegion.height * 0.6, 6); // Scale to fit child region, cap at 6mm
                         const symbolSpacing = (childRegion.width * 0.8) / symbols.length; // Equal spacing within 80% of region width
 
@@ -6860,39 +6860,16 @@ function App() {
                         const childRegionCenterY = childY + childRegion.height / 2;
                         const containerStartX = childRegionCenterX - (childRegion.width * 0.8) / 2;
 
-                        // For PDF, we'll draw simple shapes that represent the washing care icons
+                        // For PDF, render text using Wash Care Symbols M54 font
                         symbols.forEach((symbol: string, symbolIndex: number) => {
                           const symbolX = containerStartX + symbolIndex * symbolSpacing + symbolSpacing / 2;
                           const symbolY = childRegionCenterY;
 
-                          // Draw simple shapes for each symbol type
-                          switch (symbolIndex) {
-                            case 0: // Washing basin - draw a trapezoid
-                              pdf.setDrawColor(0, 0, 0);
-                              pdf.setLineWidth(0.2);
-                              pdf.lines([[symbolSize*0.8, 0], [0, symbolSize*0.6], [-symbolSize*0.8, 0], [0, -symbolSize*0.6]], symbolX, symbolY - symbolSize*0.3, [1, 1], 'S');
-                              break;
-                            case 1: // Drying triangle
-                              pdf.setDrawColor(0, 0, 0);
-                              pdf.setLineWidth(0.2);
-                              pdf.triangle(symbolX, symbolY - symbolSize*0.4, symbolX + symbolSize*0.4, symbolY + symbolSize*0.3, symbolX - symbolSize*0.4, symbolY + symbolSize*0.3, 'S');
-                              break;
-                            case 2: // Ironing square
-                              pdf.setDrawColor(0, 0, 0);
-                              pdf.setLineWidth(0.2);
-                              pdf.rect(symbolX - symbolSize*0.3, symbolY - symbolSize*0.3, symbolSize*0.6, symbolSize*0.6, 'S');
-                              break;
-                            case 3: // Bleaching iron - draw pentagon
-                              pdf.setDrawColor(0, 0, 0);
-                              pdf.setLineWidth(0.2);
-                              pdf.lines([[symbolSize*0.6, 0], [symbolSize*0.2, symbolSize*0.4], [-symbolSize*0.6, symbolSize*0.4], [-symbolSize*0.6, -symbolSize*0.2], [symbolSize*0.2, -symbolSize*0.2]], symbolX - symbolSize*0.2, symbolY, [1, 1], 'S');
-                              break;
-                            case 4: // Professional circle
-                              pdf.setDrawColor(0, 0, 0);
-                              pdf.setLineWidth(0.2);
-                              pdf.circle(symbolX, symbolY, symbolSize*0.3, 'S');
-                              break;
-                          }
+                          // Render symbol using Wash Care Symbols M54 font
+                          pdf.setFont('Wash Care Symbols M54', 'normal');
+                          pdf.setFontSize(symbolSize * 2.83); // Convert mm to points (1mm = 2.83pt)
+                          pdf.setTextColor(0, 0, 0);
+                          pdf.text(symbol, symbolX, symbolY, { align: 'center', baseline: 'middle' });
                         });
                       } else {
                         // Render regular text lines with EXACT positioning like web view
@@ -7055,8 +7032,8 @@ function App() {
 
                   // Handle washing care symbols or regular text
                   if (content.type === 'new-washing-care-symbol') {
-                    // Render washing care symbols in PDF
-                    const symbols = content.content?.symbols || ['🧺', '△', '⬜', '🔄', '⭕'];
+                    // Render washing care symbols in PDF using Wash Care Symbols M54 font
+                    const symbols = content.content?.symbols || ['b', 'G', '5', 'B', 'J'];
                     const symbolSize = Math.min(region.width / symbols.length * 0.6, region.height * 0.6, 8); // Scale to fit region, cap at 8mm
                     const symbolSpacing = (region.width * 0.8) / symbols.length; // Equal spacing within 80% of region width
 
@@ -7065,39 +7042,16 @@ function App() {
                     const regionCenterY = regionY + region.height / 2;
                     const containerStartX = regionCenterX - (region.width * 0.8) / 2;
 
-                    // For PDF, we'll draw simple shapes that represent the washing care icons
+                    // For PDF, render text using Wash Care Symbols M54 font
                     symbols.forEach((symbol: string, symbolIndex: number) => {
                       const symbolX = containerStartX + symbolIndex * symbolSpacing + symbolSpacing / 2;
                       const symbolY = regionCenterY;
 
-                      // Draw simple shapes for each symbol type
-                      switch (symbolIndex) {
-                        case 0: // Washing basin - draw a trapezoid
-                          pdf.setDrawColor(0, 0, 0);
-                          pdf.setLineWidth(0.3);
-                          pdf.lines([[symbolSize*0.8, 0], [0, symbolSize*0.6], [-symbolSize*0.8, 0], [0, -symbolSize*0.6]], symbolX, symbolY - symbolSize*0.3, [1, 1], 'S');
-                          break;
-                        case 1: // Drying triangle
-                          pdf.setDrawColor(0, 0, 0);
-                          pdf.setLineWidth(0.3);
-                          pdf.triangle(symbolX, symbolY - symbolSize*0.4, symbolX + symbolSize*0.4, symbolY + symbolSize*0.3, symbolX - symbolSize*0.4, symbolY + symbolSize*0.3, 'S');
-                          break;
-                        case 2: // Ironing square
-                          pdf.setDrawColor(0, 0, 0);
-                          pdf.setLineWidth(0.3);
-                          pdf.rect(symbolX - symbolSize*0.3, symbolY - symbolSize*0.3, symbolSize*0.6, symbolSize*0.6, 'S');
-                          break;
-                        case 3: // Bleaching iron - draw pentagon
-                          pdf.setDrawColor(0, 0, 0);
-                          pdf.setLineWidth(0.3);
-                          pdf.lines([[symbolSize*0.6, 0], [symbolSize*0.2, symbolSize*0.4], [-symbolSize*0.6, symbolSize*0.4], [-symbolSize*0.6, -symbolSize*0.2], [symbolSize*0.2, -symbolSize*0.2]], symbolX - symbolSize*0.2, symbolY, [1, 1], 'S');
-                          break;
-                        case 4: // Professional circle
-                          pdf.setDrawColor(0, 0, 0);
-                          pdf.setLineWidth(0.3);
-                          pdf.circle(symbolX, symbolY, symbolSize*0.3, 'S');
-                          break;
-                      }
+                      // Render symbol using Wash Care Symbols M54 font
+                      pdf.setFont('Wash Care Symbols M54', 'normal');
+                      pdf.setFontSize(symbolSize * 2.83); // Convert mm to points (1mm = 2.83pt)
+                      pdf.setTextColor(0, 0, 0);
+                      pdf.text(symbol, symbolX, symbolY, { align: 'center', baseline: 'middle' });
                     });
                   } else {
                     // Render regular text lines with EXACT positioning like web view
@@ -10063,9 +10017,9 @@ function App() {
                           {/* Render text lines or washing care symbols with clipping */}
                           <g clipPath={`url(#${clipPathId})`}>
                             {content.type === 'new-washing-care-symbol' ? (
-                              // Render washing care symbols as SVG icons
+                              // Render washing care symbols using Wash Care Symbols M54 font
                               (() => {
-                                const symbols = content.content?.symbols || ['🧺', '△', '⬜', '🔄', '⭕'];
+                                const symbols = content.content?.symbols || ['b', 'G', '5', 'B', 'J'];
                                 const symbolSize = Math.min(regionWidthPx / symbols.length * 0.6, regionHeightPx * 0.6, 30); // Scale to fit region
                                 const symbolSpacing = (regionWidthPx * 0.8) / symbols.length; // Equal spacing within 80% of region width
 
@@ -10080,47 +10034,20 @@ function App() {
                                       const symbolX = containerStartX + symbolIndex * symbolSpacing + symbolSpacing / 2;
                                       const symbolY = regionCenterY;
 
-                                  // Define SVG paths for each washing care symbol
-                                  let symbolPath = '';
-                                  let symbolElements: React.ReactElement[] = [];
-
-                                  switch (symbolIndex) {
-                                    case 0: // Washing basin
-                                      symbolElements = [
-                                        <path key="basin" d={`M${symbolX-15} ${symbolY-8} L${symbolX+15} ${symbolY-8} L${symbolX+12} ${symbolY+8} L${symbolX-12} ${symbolY+8} Z`} stroke="black" strokeWidth="1.5" fill="none"/>,
-                                        <path key="handle1" d={`M${symbolX-12} ${symbolY-12} L${symbolX-8} ${symbolY-12}`} stroke="black" strokeWidth="1.5"/>,
-                                        <path key="handle2" d={`M${symbolX+8} ${symbolY-12} L${symbolX+12} ${symbolY-12}`} stroke="black" strokeWidth="1.5"/>,
-                                        <path key="connect1" d={`M${symbolX-12} ${symbolY-12} L${symbolX-12} ${symbolY-8}`} stroke="black" strokeWidth="1.5"/>,
-                                        <path key="connect2" d={`M${symbolX+12} ${symbolY-12} L${symbolX+12} ${symbolY-8}`} stroke="black" strokeWidth="1.5"/>
-                                      ];
-                                      break;
-                                    case 1: // Drying triangle
-                                      symbolElements = [
-                                        <path key="triangle" d={`M${symbolX} ${symbolY-12} L${symbolX+12} ${symbolY+8} L${symbolX-12} ${symbolY+8} Z`} stroke="black" strokeWidth="1.5" fill="none"/>
-                                      ];
-                                      break;
-                                    case 2: // Ironing square
-                                      symbolElements = [
-                                        <rect key="square" x={symbolX-10} y={symbolY-10} width="20" height="20" stroke="black" strokeWidth="1.5" fill="none"/>
-                                      ];
-                                      break;
-                                    case 3: // Bleaching iron
-                                      symbolElements = [
-                                        <path key="iron" d={`M${symbolX-12} ${symbolY-5} L${symbolX+5} ${symbolY-5} L${symbolX+12} ${symbolY+5} L${symbolX+5} ${symbolY+12} L${symbolX-12} ${symbolY+12} Z`} stroke="black" strokeWidth="1.5" fill="none"/>,
-                                        <path key="handle" d={`M${symbolX-5} ${symbolY-12} L${symbolX+5} ${symbolY-12}`} stroke="black" strokeWidth="1.5"/>
-                                      ];
-                                      break;
-                                    case 4: // Professional circle
-                                      symbolElements = [
-                                        <circle key="circle" cx={symbolX} cy={symbolY} r="12" stroke="black" strokeWidth="1.5" fill="none"/>
-                                      ];
-                                      break;
-                                  }
-
+                                      // Render symbol using Wash Care Symbols M54 font
                                       return (
-                                        <g key={`symbol-${symbolIndex}`}>
-                                          {symbolElements}
-                                        </g>
+                                        <text
+                                          key={`symbol-${symbolIndex}`}
+                                          x={symbolX}
+                                          y={symbolY}
+                                          fill="black"
+                                          fontSize={symbolSize}
+                                          fontFamily="Wash Care Symbols M54"
+                                          textAnchor="middle"
+                                          dominantBaseline="central"
+                                        >
+                                          {symbol}
+                                        </text>
                                       );
                                     })}
                                   </g>
@@ -10723,8 +10650,8 @@ function App() {
 
                             // Render washing care symbols or regular text
                             if (content.type === 'new-washing-care-symbol') {
-                              // Render washing care symbols as SVG icons in child regions
-                              const symbols = content.content?.symbols || ['🧺', '△', '⬜', '🔄', '⭕'];
+                              // Render washing care symbols using Wash Care Symbols M54 font in child regions
+                              const symbols = content.content?.symbols || ['b', 'G', '5', 'B', 'J'];
                               const symbolSize = Math.min(regionWidthPx / symbols.length * 0.6, regionHeightPx * 0.6, 25); // Scale to fit child region
                               const symbolSpacing = (regionWidthPx * 0.8) / symbols.length; // Equal spacing within 80% of region width
 
@@ -10739,47 +10666,20 @@ function App() {
                                     const symbolX = containerStartX + symbolIndex * symbolSpacing + symbolSpacing / 2;
                                     const symbolY = childRegionCenterY;
 
-                                // Define SVG paths for each washing care symbol (smaller for child regions)
-                                let symbolElements: React.ReactElement[] = [];
-                                const size = symbolSize / 2; // Half size for calculations
-
-                                switch (symbolIndex) {
-                                  case 0: // Washing basin
-                                    symbolElements = [
-                                      <path key="basin" d={`M${symbolX-size*0.75} ${symbolY-size*0.4} L${symbolX+size*0.75} ${symbolY-size*0.4} L${symbolX+size*0.6} ${symbolY+size*0.4} L${symbolX-size*0.6} ${symbolY+size*0.4} Z`} stroke="black" strokeWidth="1" fill="none"/>,
-                                      <path key="handle1" d={`M${symbolX-size*0.6} ${symbolY-size*0.6} L${symbolX-size*0.4} ${symbolY-size*0.6}`} stroke="black" strokeWidth="1"/>,
-                                      <path key="handle2" d={`M${symbolX+size*0.4} ${symbolY-size*0.6} L${symbolX+size*0.6} ${symbolY-size*0.6}`} stroke="black" strokeWidth="1"/>,
-                                      <path key="connect1" d={`M${symbolX-size*0.6} ${symbolY-size*0.6} L${symbolX-size*0.6} ${symbolY-size*0.4}`} stroke="black" strokeWidth="1"/>,
-                                      <path key="connect2" d={`M${symbolX+size*0.6} ${symbolY-size*0.6} L${symbolX+size*0.6} ${symbolY-size*0.4}`} stroke="black" strokeWidth="1"/>
-                                    ];
-                                    break;
-                                  case 1: // Drying triangle
-                                    symbolElements = [
-                                      <path key="triangle" d={`M${symbolX} ${symbolY-size*0.6} L${symbolX+size*0.6} ${symbolY+size*0.4} L${symbolX-size*0.6} ${symbolY+size*0.4} Z`} stroke="black" strokeWidth="1" fill="none"/>
-                                    ];
-                                    break;
-                                  case 2: // Ironing square
-                                    symbolElements = [
-                                      <rect key="square" x={symbolX-size*0.5} y={symbolY-size*0.5} width={size} height={size} stroke="black" strokeWidth="1" fill="none"/>
-                                    ];
-                                    break;
-                                  case 3: // Bleaching iron
-                                    symbolElements = [
-                                      <path key="iron" d={`M${symbolX-size*0.6} ${symbolY-size*0.25} L${symbolX+size*0.25} ${symbolY-size*0.25} L${symbolX+size*0.6} ${symbolY+size*0.25} L${symbolX+size*0.25} ${symbolY+size*0.6} L${symbolX-size*0.6} ${symbolY+size*0.6} Z`} stroke="black" strokeWidth="1" fill="none"/>,
-                                      <path key="handle" d={`M${symbolX-size*0.25} ${symbolY-size*0.6} L${symbolX+size*0.25} ${symbolY-size*0.6}`} stroke="black" strokeWidth="1"/>
-                                    ];
-                                    break;
-                                  case 4: // Professional circle
-                                    symbolElements = [
-                                      <circle key="circle" cx={symbolX} cy={symbolY} r={size*0.6} stroke="black" strokeWidth="1" fill="none"/>
-                                    ];
-                                    break;
-                                }
-
+                                    // Render symbol using Wash Care Symbols M54 font
                                     return (
-                                      <g key={`child-symbol-${symbolIndex}`}>
-                                        {symbolElements}
-                                      </g>
+                                      <text
+                                        key={`child-symbol-${symbolIndex}`}
+                                        x={symbolX}
+                                        y={symbolY}
+                                        fill="black"
+                                        fontSize={symbolSize}
+                                        fontFamily="Wash Care Symbols M54"
+                                        textAnchor="middle"
+                                        dominantBaseline="central"
+                                      >
+                                        {symbol}
+                                      </text>
                                     );
                                   })}
                                 </g>
