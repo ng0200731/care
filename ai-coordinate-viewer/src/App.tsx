@@ -6647,6 +6647,61 @@ function App() {
         pdf.setLineDashPattern([], 0); // Solid line
         pdf.rect(motherX, motherY, mother.width, mother.height);
 
+        // Draw sewing position lines if sewing lines are enabled
+        if (showSewingLines) {
+          const objectSewingPosition = (mother as any).sewingPosition || 'top';
+          const objectSewingOffset = (mother as any).sewingOffset || 5;
+          const objectMidFoldLine = (mother as any).midFoldLine;
+
+          // Only draw sewing lines if mid-fold is not enabled
+          if (!objectMidFoldLine || !objectMidFoldLine.enabled) {
+            // Set red color for sewing lines
+            pdf.setDrawColor(211, 47, 47); // Red color (#d32f2f)
+            pdf.setLineWidth(0.3);
+            pdf.setLineDashPattern([2, 2], 0); // Dashed line
+
+            switch (objectSewingPosition) {
+              case 'top':
+                // Draw horizontal line at offset from top
+                pdf.line(motherX, motherY + objectSewingOffset, motherX + mother.width, motherY + objectSewingOffset);
+                // Add dimension text
+                pdf.setTextColor(211, 47, 47); // Red text
+                pdf.setFontSize(8);
+                pdf.text(`${objectSewingOffset}mm`, motherX + mother.width + 2, motherY + objectSewingOffset + 1);
+                break;
+              case 'left':
+                // Draw vertical line at offset from left
+                pdf.line(motherX + objectSewingOffset, motherY, motherX + objectSewingOffset, motherY + mother.height);
+                // Add dimension text
+                pdf.setTextColor(211, 47, 47); // Red text
+                pdf.setFontSize(8);
+                pdf.text(`${objectSewingOffset}mm`, motherX + objectSewingOffset + 2, motherY - 2);
+                break;
+              case 'right':
+                // Draw vertical line at offset from right
+                pdf.line(motherX + mother.width - objectSewingOffset, motherY, motherX + mother.width - objectSewingOffset, motherY + mother.height);
+                // Add dimension text
+                pdf.setTextColor(211, 47, 47); // Red text
+                pdf.setFontSize(8);
+                pdf.text(`${objectSewingOffset}mm`, motherX + mother.width - objectSewingOffset + 2, motherY - 2);
+                break;
+              case 'bottom':
+                // Draw horizontal line at offset from bottom
+                pdf.line(motherX, motherY + mother.height - objectSewingOffset, motherX + mother.width, motherY + mother.height - objectSewingOffset);
+                // Add dimension text
+                pdf.setTextColor(211, 47, 47); // Red text
+                pdf.setFontSize(8);
+                pdf.text(`${objectSewingOffset}mm`, motherX + mother.width + 2, motherY + mother.height - objectSewingOffset + 1);
+                break;
+            }
+
+            // Reset to black for other elements
+            pdf.setDrawColor(0, 0, 0);
+            pdf.setTextColor(0, 0, 0);
+            pdf.setLineDashPattern([], 0); // Reset to solid line
+          }
+        }
+
         // Draw mother margin lines (black dotted) if they exist and supporting lines are enabled
         const motherMargins = (mother as any).margins;
         if (motherMargins && showSupportingLines) {
@@ -6677,9 +6732,9 @@ function App() {
           pdf.setLineDashPattern([], 0); // Reset to solid line
         }
 
-        // Draw mid fold lines if they exist and supporting lines are enabled
+        // Draw mid fold lines if they exist and sewing lines are enabled
         const midFoldLine = (mother as any).midFoldLine;
-        if (midFoldLine && midFoldLine.enabled && showSupportingLines) {
+        if (midFoldLine && midFoldLine.enabled && showSewingLines) {
           const motherX = mother.x;
           const motherY = mother.y + currentY;
           const padding = midFoldLine.padding || 3;
@@ -6804,7 +6859,7 @@ function App() {
               pdf.setLineWidth(0.3); // Standard thickness
               pdf.setLineDashPattern([], 0); // Solid line
               pdf.rect(regionX, regionY, region.width, region.height);
-            } else if (showSupportingLines) {
+            } else if (showSewingLines) {
               // Dotted sewing lines only when partition lines are OFF (to avoid overlap)
               pdf.setDrawColor(0, 0, 0); // Black for all lines
               pdf.setLineWidth(0.2); // Fine style - very thin lines
@@ -6837,9 +6892,9 @@ function App() {
                 pdf.rect(childX, childY, childRegion.width, childRegion.height);
               }
 
-              // Draw slice sewing lines (black dotted) if supporting lines are enabled
+              // Draw slice sewing lines (black dotted) if sewing lines are enabled
               // Use different offset to prevent overlap with parent region lines
-              if (showSupportingLines) {
+              if (showSewingLines) {
                 pdf.setDrawColor(0, 0, 0); // Black for all lines
                 pdf.setLineWidth(0.2); // Fine style - very thin lines
                 pdf.setLineDashPattern([1, 1], 0.25); // Fine style with different offset
@@ -7125,7 +7180,7 @@ function App() {
               pdf.setLineWidth(0.3); // Standard thickness
               pdf.setLineDashPattern([], 0); // Solid line
               pdf.rect(regionX, regionY, region.width, region.height);
-            } else if (showSupportingLines) {
+            } else if (showSewingLines) {
               // Dotted sewing lines only when partition lines are OFF (to avoid overlap)
               pdf.setDrawColor(0, 0, 0); // Black for all lines
               pdf.setLineWidth(0.2); // Fine style - very thin lines
