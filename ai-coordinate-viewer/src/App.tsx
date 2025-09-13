@@ -125,19 +125,25 @@ function App() {
     const availableWidthMm = availableWidthPx / 3.779527559;
     const fontSizeMm = fontSizePx / 3.779527559;
 
-    // Text width estimation using canvas measurement (EXACT COPY from dialog preview)
+    // Enhanced text width estimation with SVG-Canvas alignment correction
     const estimateTextWidth = (text: string): number => {
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
       if (!context) return text.length * 2; // Fallback
 
+      // Set exact font properties to match SVG rendering
       context.font = `${fontSizePx}px ${fontFamily}`;
+      context.textAlign = 'start'; // Match SVG textAnchor="start"
+      context.textBaseline = 'alphabetic'; // Match SVG dominantBaseline="alphabetic"
+
       const textWidthPx = context.measureText(text).width;
       const textWidthMm = textWidthPx / 3.779527559; // Convert to mm
 
-      // Apply a more conservative optimization factor to prevent text cutoff
-      // Canvas measurement tends to be more conservative than actual SVG rendering, but we need to be careful
-      const optimizationFactor = 0.95; // Use 95% of measured width for safer fitting
+      // Apply more aggressive optimization factor to account for:
+      // 1. Canvas vs SVG rendering differences
+      // 2. Character positioning and font metrics
+      // 3. Padding boundary safety margin
+      const optimizationFactor = 0.85; // Use 85% of measured width for safer fitting
       const optimizedWidth = textWidthMm * optimizationFactor;
 
       return optimizedWidth;
@@ -163,10 +169,19 @@ function App() {
           return;
         }
 
-        // Check if the entire line fits (with conservative fitting buffer to prevent cutoff)
+        // Check if the entire line fits with enhanced boundary safety
         const lineWidth = estimateTextWidth(trimmedLine);
-        const fittingBuffer = 0.2; // 0.2mm buffer for safer text fitting to prevent cutoff
-        const effectiveAvailableWidth = availableWidthMm + fittingBuffer;
+
+        // Enhanced safety margin calculation:
+        // 1. Base safety margin for font metrics and character positioning
+        const baseSafetyMargin = fontSizeMm * 0.1; // 10% of font size
+        // 2. Additional margin for Canvas-SVG rendering differences
+        const renderingMargin = 0.5; // 0.5mm for rendering discrepancies
+        // 3. Total effective available width with comprehensive safety
+        const totalSafetyMargin = baseSafetyMargin + renderingMargin;
+        const effectiveAvailableWidth = Math.max(0, availableWidthMm - totalSafetyMargin);
+
+        console.log(`📏 Line width analysis: "${trimmedLine.substring(0, 30)}..." | Width: ${lineWidth.toFixed(2)}mm | Available: ${effectiveAvailableWidth.toFixed(2)}mm | Safety: ${totalSafetyMargin.toFixed(2)}mm`);
 
         if (lineWidth <= effectiveAvailableWidth) {
           // Line fits completely
@@ -174,7 +189,7 @@ function App() {
           return;
         }
 
-        // Line is too long, need to wrap words
+        // Line is too long, need to wrap words with enhanced safety
         const words = trimmedLine.split(' ');
         let currentLine = '';
 
@@ -191,9 +206,11 @@ function App() {
             if (currentLine) {
               // Push current line and start new line with the word that didn't fit
               wrappedLines.push(currentLine);
+              console.log(`📄 Wrapped line: "${currentLine}" | Width: ${estimateTextWidth(currentLine).toFixed(2)}mm`);
               currentLine = word;
             } else {
-              // Single word is too long, push it anyway
+              // Single word is too long, push it anyway (but log warning)
+              console.warn(`⚠️ Single word exceeds available width: "${word}" | Width: ${testWidth.toFixed(2)}mm | Available: ${effectiveAvailableWidth.toFixed(2)}mm`);
               wrappedLines.push(word);
             }
           }
@@ -209,9 +226,12 @@ function App() {
 
     const wrappedLines = wrapTextToLines(text);
 
-    // Check for overflow based on available height
+    // Check for overflow based on available height (with conservative calculation)
     const lineHeight = fontSizePx * lineSpacing;
-    const maxLines = Math.floor(availableHeightPx / lineHeight);
+    // Account for baseline offset and add safety margin for text positioning
+    const textBaselineOffset = fontSizePx * 0.8; // Account for text baseline positioning
+    const safeAvailableHeight = availableHeightPx - textBaselineOffset;
+    const maxLines = Math.floor(safeAvailableHeight / lineHeight);
     const hasOverflow = wrappedLines.length > maxLines;
 
     // Trim lines if overflow
@@ -220,8 +240,10 @@ function App() {
     console.log('🎯 Child region text wrapping:', {
       availableWidthMm: availableWidthMm.toFixed(2),
       availableHeightPx: availableHeightPx.toFixed(2),
+      safeAvailableHeight: safeAvailableHeight.toFixed(2),
       fontSizePx,
       lineHeight,
+      textBaselineOffset: textBaselineOffset.toFixed(2),
       maxLines,
       totalLines: wrappedLines.length,
       finalLines: finalLines.length,
@@ -10233,20 +10255,31 @@ function App() {
                         }
                       }
 
-                      // Calculate text anchor and position based on alignment
+                      // Enhanced text anchor and position calculation with safety margins
                       let textAnchor: 'start' | 'middle' | 'end' = 'start';
-                      let textX = baseX + (region.x * scale) + paddingLeftPx;
+
+                      // Calculate safety margins consistent with text wrapping logic
+                      const fontSizeMm = scaledFontSize / 3.779527559; // Convert px to mm
+                      const baseSafetyMargin = fontSizeMm * 0.1; // 10% of font size
+                      const renderingMargin = 0.5; // 0.5mm for rendering discrepancies
+                      const totalSafetyMargin = baseSafetyMargin + renderingMargin;
+                      const safetyMarginPx = totalSafetyMargin * 3.779527559; // Convert to pixels
+
+                      // Apply safety margins to text positioning
+                      let textX = baseX + (region.x * scale) + paddingLeftPx + safetyMarginPx;
 
                       if (textAlign === 'center') {
                         textAnchor = 'middle';
-                        // Center within the available area (respecting padding)
-                        const availableAreaX = baseX + (region.x * scale) + paddingLeftPx;
-                        const availableAreaWidth = regionWidthPx - paddingLeftPx - paddingRightPx;
+                        // Center within the available area (respecting padding and safety margins)
+                        const availableAreaX = baseX + (region.x * scale) + paddingLeftPx + safetyMarginPx;
+                        const availableAreaWidth = regionWidthPx - paddingLeftPx - paddingRightPx - (2 * safetyMarginPx);
                         textX = availableAreaX + availableAreaWidth / 2;
                       } else if (textAlign === 'right') {
                         textAnchor = 'end';
-                        textX = baseX + (region.x * scale) + regionWidthPx - paddingRightPx;
+                        textX = baseX + (region.x * scale) + regionWidthPx - paddingRightPx - safetyMarginPx;
                       }
+
+                      console.log(`🎯 Text positioning: Anchor=${textAnchor}, X=${textX.toFixed(1)}px, SafetyMargin=${safetyMarginPx.toFixed(1)}px`);
 
                       // Calculate vertical starting position based on vertical alignment
                       let startY = baseY + (region.y * scale) + paddingTopPx;
@@ -10261,8 +10294,9 @@ function App() {
                         startY = baseY + (region.y * scale) + regionHeightPx - paddingBottomPx - totalTextHeight;
                       }
 
-                      // Create clipping path to ensure text stays within region boundaries
+                      // Create enhanced clipping path aligned with text positioning safety margins
                       const clipPathId = `clip-${region.id}-${contentIndex}`;
+                      // Clipping path should match the actual text rendering area
                       const clipX = baseX + (region.x * scale) + paddingLeftPx;
                       const clipY = baseY + (region.y * scale) + paddingTopPx;
                       const clipWidth = regionWidthPx - paddingLeftPx - paddingRightPx;
