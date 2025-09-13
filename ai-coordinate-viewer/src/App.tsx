@@ -422,6 +422,7 @@ function App() {
   const [showDimensions, setShowDimensions] = useState(true);
   const [showPreview, setShowPreview] = useState(true); // Toggle to show/hide input values in regions
   const [showPartitionLines, setShowPartitionLines] = useState(true); // Toggle to show/hide region and slice solid lines
+  const [showContentTypeNames, setShowContentTypeNames] = useState(true); // Toggle to show/hide content type names like "new-multiline-line", "new-washing-care-symbol"
   const [showSupportingLines, setShowSupportingLines] = useState(true); // Toggle to show/hide dotted lines (margin, padding, mid-fold)
   const [showPartitionNames, setShowPartitionNames] = useState(true); // Toggle to show/hide region and slice labels (R1, R2, S1, S2)
   const [autoFitNotification, setAutoFitNotification] = useState(false);
@@ -4954,6 +4955,11 @@ function App() {
         console.log('✅ Overflow numbers state restored:', projectState.showOverflowNumbers);
       }
 
+      if (projectState.showContentTypeNames !== undefined) {
+        setShowContentTypeNames(projectState.showContentTypeNames);
+        console.log('✅ Content type names state restored:', projectState.showContentTypeNames);
+      }
+
       // Restore overflow connection settings
       if (projectState.overflowSettings) {
         const restoredOverflowSettings = new Map<string, boolean>();
@@ -6290,6 +6296,7 @@ function App() {
           },
           // Canvas settings - including overflow state
           showOverflowNumbers: showOverflowNumbers,
+          showContentTypeNames: showContentTypeNames,
           expandedMothers: Array.from(expandedMothers),
           selectedObject: selectedObject,
 
@@ -7577,6 +7584,7 @@ function App() {
 
         // Canvas state and settings
         showOverflowNumbers: showOverflowNumbers,
+        showContentTypeNames: showContentTypeNames,
         expandedMothers: Array.from(expandedMothers),
         selectedObject: selectedObject,
 
@@ -7642,6 +7650,7 @@ function App() {
 
         // Canvas state and settings
         showOverflowNumbers: showOverflowNumbers,
+        showContentTypeNames: showContentTypeNames,
         expandedMothers: Array.from(expandedMothers),
         selectedObject: selectedObject,
 
@@ -9966,7 +9975,7 @@ function App() {
                   })()}
 
                   {/* Content Type Name Overlay - Center of parent region (only if no children) */}
-                  {(() => {
+                  {showContentTypeNames && (() => {
                     // Only show content type for parent regions without children (slices)
                     if (region.children && region.children.length > 0) return null;
 
@@ -10698,7 +10707,7 @@ function App() {
                         })()}
 
                         {/* Content Type Name Overlay - Center of slice */}
-                        {(() => {
+                        {showContentTypeNames && (() => {
                           const sliceContents = regionContents.get(childRegion.id) || [];
                           if (sliceContents.length === 0) return null;
 
@@ -11905,6 +11914,20 @@ function App() {
                     title="Toggle visibility of partition names (R1, R2, S1, S2)"
                   >
                     🏷️ Partition Name
+                  </button>
+
+                  <button
+                    onClick={() => setShowContentTypeNames(!showContentTypeNames)}
+                    style={{
+                      ...buttonStyle,
+                      background: showContentTypeNames ? '#e3f2fd' : 'white',
+                      color: showContentTypeNames ? '#1976d2' : '#666',
+                      fontSize: '10px',
+                      padding: '4px 6px'
+                    }}
+                    title="Toggle visibility of content type names (new-multiline-line, new-washing-care-symbol)"
+                  >
+                    📝 Content Type
                   </button>
 
                 </div>
