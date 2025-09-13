@@ -424,6 +424,7 @@ function App() {
   const [showPartitionLines, setShowPartitionLines] = useState(true); // Toggle to show/hide region and slice solid lines
   const [showContentTypeNames, setShowContentTypeNames] = useState(true); // Toggle to show/hide content type names like "new-multiline-line", "new-washing-care-symbol"
   const [showSupportingLines, setShowSupportingLines] = useState(true); // Toggle to show/hide dotted lines (margin, padding, mid-fold)
+  const [showSewingLines, setShowSewingLines] = useState(true); // Toggle to show/hide sewing lines (top, left, bottom, right) and mid-fold lines
   const [showPartitionNames, setShowPartitionNames] = useState(true); // Toggle to show/hide region and slice labels (R1, R2, S1, S2)
   const [autoFitNotification, setAutoFitNotification] = useState(false);
   // Removed unused capture mode states
@@ -3522,7 +3523,7 @@ function App() {
 
   // Derived states - show sewing lines and mid-fold lines based on object properties
   const showMarginRectangles = true; // Show margin dotted lines
-  const showSewingLines = true; // Always show sewing lines based on object properties
+  // showSewingLines is now a state variable controlled by toggle button
 
   // Sewing offset dialog state
   const [showSewingOffsetDialog, setShowSewingOffsetDialog] = useState(false);
@@ -4960,6 +4961,11 @@ function App() {
         console.log('✅ Content type names state restored:', projectState.showContentTypeNames);
       }
 
+      if (projectState.showSewingLines !== undefined) {
+        setShowSewingLines(projectState.showSewingLines);
+        console.log('✅ Sewing lines state restored:', projectState.showSewingLines);
+      }
+
       // Restore overflow connection settings
       if (projectState.overflowSettings) {
         const restoredOverflowSettings = new Map<string, boolean>();
@@ -6297,6 +6303,7 @@ function App() {
           // Canvas settings - including overflow state
           showOverflowNumbers: showOverflowNumbers,
           showContentTypeNames: showContentTypeNames,
+          showSewingLines: showSewingLines,
           expandedMothers: Array.from(expandedMothers),
           selectedObject: selectedObject,
 
@@ -7585,6 +7592,7 @@ function App() {
         // Canvas state and settings
         showOverflowNumbers: showOverflowNumbers,
         showContentTypeNames: showContentTypeNames,
+        showSewingLines: showSewingLines,
         expandedMothers: Array.from(expandedMothers),
         selectedObject: selectedObject,
 
@@ -7651,6 +7659,7 @@ function App() {
         // Canvas state and settings
         showOverflowNumbers: showOverflowNumbers,
         showContentTypeNames: showContentTypeNames,
+        showSewingLines: showSewingLines,
         expandedMothers: Array.from(expandedMothers),
         selectedObject: selectedObject,
 
@@ -11125,7 +11134,7 @@ function App() {
             </defs>
 
             {/* Sewing Lines with Dimensions */}
-            {showSewingLines && showSupportingLines && (() => {
+            {showSewingLines && (() => {
               // Check if mid-fold line is enabled - if so, don't show sewing lines
               const objectMidFoldLine = (obj as any).midFoldLine;
               if (objectMidFoldLine && objectMidFoldLine.enabled) {
@@ -11266,7 +11275,7 @@ function App() {
             }
 
             {/* Mid-Fold Line Rendering (New Enhanced System) */}
-            {obj.type?.includes('mother') && showSupportingLines && (() => {
+            {obj.type?.includes('mother') && showSewingLines && (() => {
               const objectMidFoldLine = (obj as any).midFoldLine;
               if (!objectMidFoldLine || !objectMidFoldLine.enabled) {
                 return null;
@@ -11928,6 +11937,20 @@ function App() {
                     title="Toggle visibility of content type names (new-multiline-line, new-washing-care-symbol)"
                   >
                     📝 Content Type
+                  </button>
+
+                  <button
+                    onClick={() => setShowSewingLines(!showSewingLines)}
+                    style={{
+                      ...buttonStyle,
+                      background: showSewingLines ? '#fff3e0' : 'white',
+                      color: showSewingLines ? '#ff5722' : '#666',
+                      fontSize: '10px',
+                      padding: '4px 6px'
+                    }}
+                    title="Toggle visibility of sewing lines (top, left, bottom, right) and mid-fold lines"
+                  >
+                    🧵 Sewing Line
                   </button>
 
                 </div>
