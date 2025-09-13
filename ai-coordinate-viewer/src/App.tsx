@@ -10294,30 +10294,10 @@ function App() {
                         startY = baseY + (region.y * scale) + regionHeightPx - paddingBottomPx - totalTextHeight;
                       }
 
-                      // Create enhanced clipping path aligned with text positioning safety margins
-                      const clipPathId = `clip-${region.id}-${contentIndex}`;
-                      // Clipping path should match the actual text rendering area
-                      const clipX = baseX + (region.x * scale) + paddingLeftPx;
-                      const clipY = baseY + (region.y * scale) + paddingTopPx;
-                      const clipWidth = regionWidthPx - paddingLeftPx - paddingRightPx;
-                      const clipHeight = regionHeightPx - paddingTopPx - paddingBottomPx;
-
                       return (
                         <g key={`${region.id}-text-group-${contentIndex}`}>
-                          {/* Define clipping path */}
-                          <defs>
-                            <clipPath id={clipPathId}>
-                              <rect
-                                x={clipX}
-                                y={clipY}
-                                width={clipWidth}
-                                height={clipHeight}
-                              />
-                            </clipPath>
-                          </defs>
-
-                          {/* Render text lines or washing care symbols with clipping */}
-                          <g clipPath={`url(#${clipPathId})`}>
+                          {/* Render text lines or washing care symbols without clipping */}
+                          <g>
                             {content.type === 'new-washing-care-symbol' ? (
                               // Render washing care symbols using Wash Care Symbols M54 font
                               (() => {
