@@ -125,7 +125,7 @@ function App() {
     const availableWidthMm = availableWidthPx / 3.779527559;
     const fontSizeMm = fontSizePx / 3.779527559;
 
-    // Enhanced text width estimation with SVG-Canvas alignment correction
+    // Accurate text width estimation with special character detection
     const estimateTextWidth = (text: string): number => {
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
@@ -139,14 +139,20 @@ function App() {
       const textWidthPx = context.measureText(text).width;
       const textWidthMm = textWidthPx / 3.779527559; // Convert to mm
 
-      // Apply more aggressive optimization factor to account for:
-      // 1. Canvas vs SVG rendering differences
-      // 2. Character positioning and font metrics
-      // 3. Padding boundary safety margin
-      const optimizationFactor = 0.85; // Use 85% of measured width for safer fitting
-      const optimizedWidth = textWidthMm * optimizationFactor;
+      // Check for wide characters that need extra space
+      const wideCharacters = /[AVMW]/g;
+      const wideCharCount = (text.match(wideCharacters) || []).length;
 
-      return optimizedWidth;
+      // Add extra space for wide characters (0.2mm per wide character)
+      const wideCharacterBuffer = wideCharCount * 0.2;
+
+      // Use ACTUAL measured width + buffer for wide characters
+      // NO reduction - we want the real width to ensure no boundary crossing
+      const actualWidth = textWidthMm + wideCharacterBuffer;
+
+      console.log(`📐 Text measurement: "${text.substring(0, 20)}..." | Canvas: ${textWidthMm.toFixed(2)}mm | Wide chars: ${wideCharCount} | Final: ${actualWidth.toFixed(2)}mm`);
+
+      return actualWidth;
     };
 
     // Word wrapping logic (SAME AS PREVIEW DIALOG)
@@ -169,27 +175,30 @@ function App() {
           return;
         }
 
-        // Check if the entire line fits with enhanced boundary safety
+        // Check if the entire line fits within HARD BOUNDARIES
         const lineWidth = estimateTextWidth(trimmedLine);
 
-        // Enhanced safety margin calculation:
-        // 1. Base safety margin for font metrics and character positioning
-        const baseSafetyMargin = fontSizeMm * 0.1; // 10% of font size
-        // 2. Additional margin for Canvas-SVG rendering differences
-        const renderingMargin = 0.5; // 0.5mm for rendering discrepancies
-        // 3. Total effective available width with comprehensive safety
-        const totalSafetyMargin = baseSafetyMargin + renderingMargin;
-        const effectiveAvailableWidth = Math.max(0, availableWidthMm - totalSafetyMargin);
+        // User-controlled safety buffer (default 1.5mm, user can adjust 1-2mm)
+        // This buffer is WITHIN the available space, not added to text width
+        const userSafetyBuffer = 1.5; // TODO: Make this user-configurable in popup
+        const effectiveAvailableWidth = Math.max(0, availableWidthMm - userSafetyBuffer);
 
-        console.log(`📏 Line width analysis: "${trimmedLine.substring(0, 30)}..." | Width: ${lineWidth.toFixed(2)}mm | Available: ${effectiveAvailableWidth.toFixed(2)}mm | Safety: ${totalSafetyMargin.toFixed(2)}mm`);
+        // Check for wide characters and warn user
+        const wideCharacters = /[AVMW]/g;
+        const wideCharCount = (trimmedLine.match(wideCharacters) || []).length;
+        if (wideCharCount > 0) {
+          console.warn(`⚠️ Wide characters detected: ${wideCharCount} characters (${trimmedLine.match(wideCharacters)?.join(', ')}) in "${trimmedLine.substring(0, 30)}..."`);
+        }
+
+        console.log(`🎯 Boundary check: "${trimmedLine.substring(0, 30)}..." | Text: ${lineWidth.toFixed(2)}mm | Available: ${effectiveAvailableWidth.toFixed(2)}mm | Buffer: ${userSafetyBuffer}mm | ${lineWidth <= effectiveAvailableWidth ? '✅ FITS' : '❌ EXCEEDS'}`);
 
         if (lineWidth <= effectiveAvailableWidth) {
-          // Line fits completely
+          // Line fits within boundaries - SAFE to use
           wrappedLines.push(trimmedLine);
           return;
         }
 
-        // Line is too long, need to wrap words with enhanced safety
+        // Line exceeds boundaries - MUST break to respect hard limits
         const words = trimmedLine.split(' ');
         let currentLine = '';
 
@@ -199,19 +208,20 @@ function App() {
           const testWidth = estimateTextWidth(testLine);
 
           if (testWidth <= effectiveAvailableWidth) {
-            // Word fits on current line
+            // Word fits within boundaries
             currentLine = testLine;
           } else {
-            // Word doesn't fit, start new line
+            // Word would exceed boundaries - MUST break line
             if (currentLine) {
               // Push current line and start new line with the word that didn't fit
               wrappedLines.push(currentLine);
-              console.log(`📄 Wrapped line: "${currentLine}" | Width: ${estimateTextWidth(currentLine).toFixed(2)}mm`);
+              console.log(`✅ Line within boundaries: "${currentLine}" | Width: ${estimateTextWidth(currentLine).toFixed(2)}mm`);
               currentLine = word;
             } else {
-              // Single word is too long, push it anyway (but log warning)
-              console.warn(`⚠️ Single word exceeds available width: "${word}" | Width: ${testWidth.toFixed(2)}mm | Available: ${effectiveAvailableWidth.toFixed(2)}mm`);
-              wrappedLines.push(word);
+              // Single word exceeds boundaries - CRITICAL ERROR
+              console.error(`🚨 BOUNDARY VIOLATION: Single word "${word}" exceeds available width: ${testWidth.toFixed(2)}mm > ${effectiveAvailableWidth.toFixed(2)}mm`);
+              console.error(`🚨 USER MUST: 1) Increase buffer space, 2) Use smaller font, or 3) Shorten text`);
+              wrappedLines.push(word); // Push anyway but flag as violation
             }
           }
         }
