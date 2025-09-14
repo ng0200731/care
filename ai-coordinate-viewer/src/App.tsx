@@ -6526,7 +6526,7 @@ function App() {
 
     // Add proper margins (minimum 10mm on all sides) + header space
     const margin = 20; // 10mm on each side
-    const headerSpace = 80; // Estimated space needed for header (hierarchy info)
+    const headerSpace = 40; // Reduced space needed for header (no hierarchy section)
     const contentWidthMM = maxWidth;
     const contentHeightMM = totalHeight;
     const totalWidthMM = contentWidthMM + margin;
@@ -6670,63 +6670,8 @@ function App() {
       pdf.text(`Paper Size: ${paperSize} (${paperWidthMM/10}cm × ${paperHeightMM/10}cm)`, 10, 25);
       pdf.text(`Generated: ${new Date().toLocaleString()}`, 10, 30);
 
-      // Add Objects Hierarchy information if hierarchy panel is visible
+      // Start content immediately after header (no hierarchy section)
       let currentY = 40; // Start position for content
-      if (showHierarchyMenu || pinnedHierarchyMenu) {
-        pdf.setFontSize(12);
-        pdf.setTextColor(0, 0, 0);
-        pdf.text('📋 Objects Hierarchy:', 10, currentY);
-        currentY += 8;
-
-        // Build hierarchy for PDF
-        const { mothers: hierarchyMothers, orphans } = buildHierarchy(currentData.objects);
-
-        pdf.setFontSize(9);
-        hierarchyMothers.forEach((mother, index) => {
-          // Mother information - access properties through mother.object
-          const motherName = mother.object?.name || 'Unknown';
-          const motherWidth = mother.object?.width || 0;
-          const motherHeight = mother.object?.height || 0;
-          // Show dimensions only if dimensions toggle is enabled
-          const dimensionText = showDimensions ? ` (${motherWidth}×${motherHeight}mm)` : '';
-          pdf.text(`👑 ${motherName}${dimensionText}`, 15, currentY);
-          currentY += 5;
-
-          // Sons information - access through mother.children
-          if (mother.children && mother.children.length > 0) {
-            mother.children.forEach((son, sonIndex) => {
-              const sonName = son?.name || 'Unknown';
-              const sonWidth = son?.width || 0;
-              const sonHeight = son?.height || 0;
-              // Show dimensions only if dimensions toggle is enabled
-              const dimensionText = showDimensions ? ` (${sonWidth}×${sonHeight}mm)` : '';
-              pdf.text(`   └ ${sonName}${dimensionText}`, 20, currentY);
-              currentY += 4;
-            });
-          } else {
-            pdf.text(`   └ No sons`, 20, currentY);
-            currentY += 4;
-          }
-          currentY += 2; // Extra space between mothers
-        });
-
-        // Orphans information
-        if (orphans && orphans.length > 0) {
-          pdf.text('🔸 Orphan Objects:', 15, currentY);
-          currentY += 5;
-          orphans.forEach((orphan) => {
-            const orphanName = orphan?.name || 'Unknown';
-            const orphanWidth = orphan?.width || 0;
-            const orphanHeight = orphan?.height || 0;
-            // Show dimensions only if dimensions toggle is enabled
-            const dimensionText = showDimensions ? ` (${orphanWidth}×${orphanHeight}mm)` : '';
-            pdf.text(`   └ ${orphanName}${dimensionText}`, 20, currentY);
-            currentY += 4;
-          });
-        }
-
-        currentY += 10; // Extra space before mothers drawing
-      }
 
       // Calculate content offset with proper margins and ensure no cutting
       const minMargin = 10; // Minimum 10mm margin on all sides
