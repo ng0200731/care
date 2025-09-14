@@ -1,8 +1,47 @@
 # Care Label Layout System - Version History
 
-## Version 2.1.60 - Added Missing Material Translations (NYLON, WOOL, SILK, LINEN)
+## Version 2.1.63 - Added Missing Textile Materials (BAMBOO, CASHMERE, ALPACA)
 **Release Date:** 2025-01-14
 **Commit:** TBD
+
+### 🎯 Complete Database Schema Overhaul
+- **Database Schema Updated**: Extended composition table from 9 to 27 columns
+- **Full Language Support**: Added dedicated columns for all 18 languages
+- **Excel Import Fixed**: Updated import script to handle all 19 Excel columns (ELEMENT + 18 languages)
+- **Migration Success**: Successfully imported 221 material records with complete translations
+- **Database Structure**:
+  - `material` = Material name (ELEMENT)
+  - `spanish`, `french`, `english`, `portuguese`, `dutch`, `italian`, `greek`, `japanese`
+  - `german`, `danish`, `slovenian`, `chinese`, `korean`, `indonesian`, `arabic`
+  - `galician`, `catalan`, `basque` = Individual language columns
+
+### 🧪 Additional Textile Materials Added
+- **BAMBOO**: ['bambú', 'bambou', 'bamboo', 'bambu', 'bamboe', 'bambù', 'ΜΠΑΜΠΟΥ', '竹材', 'bambus', 'bambus', 'bambus', '竹', '대나무', 'bambu', 'الخيزران', 'bambú', 'bambú', 'banbu']
+- **CASHMERE**: ['cachemira', 'cachemire', 'cashmere', 'caxemira', 'kasjmier', 'cashmere', 'ΚΑΣΜΙΡΙ', 'カシミア', 'kaschmir', 'kashmir', 'kašmir', '山羊绒', '캐시미어', 'kasmir', 'كشمير', 'caxemira', 'caixmir', 'kaxmirra']
+- **ALPACA**: ['alpaca', 'alpaga', 'alpaca', 'alpaca', 'alpaca', 'alpaca', 'ΑΛΠΑΚΑΣ', 'アルパカ', 'alpaka', 'alpaka', 'alpaka', '羊驼毛', '알파카', 'domba', 'الألبكة', 'alpaca', 'alpaca', 'alpaka']
+- **SPANDEX**: Not found in Excel source file (confirmed missing from database)
+
+### 🔍 Database Integration Results
+- **Total Records**: 221 composition records with complete translations, 18 language records
+- **Available Materials**: All materials from Excel file now have full 18-language support
+- **Database Size**: 27 columns per composition record (material + 18 languages + metadata)
+- **Import Success**: 100% successful import of all Excel data
+
+### 🛠️ Technical Implementation
+- **Schema Migration**: Added 18 language columns to existing composition table
+- **Import Script Enhancement**: Updated to handle all 19 Excel columns dynamically
+- **Data Integrity**: Preserved existing data while adding new language columns
+- **Performance**: Efficient column-based storage for fast translation lookups
+
+### 🎯 User Experience Enhancement
+- **Complete Language Coverage**: All supported materials now have authentic translations
+- **Database-Driven**: Translations sourced directly from authoritative Excel file
+- **Consistency**: Eliminates discrepancy between hardcoded and database translations
+- **Scalability**: Easy to add new materials by updating Excel file and re-importing
+
+## Version 2.1.60 - Added Missing Material Translations (NYLON, WOOL, SILK, LINEN)
+**Release Date:** 2025-01-14
+**Commit:** ed71e21
 
 ### 🧪 Material Translation Expansion
 - **Problem Identified**: NYLON and other common materials were missing from translation mappings
