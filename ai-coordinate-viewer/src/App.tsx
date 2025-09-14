@@ -7393,7 +7393,7 @@ function App() {
                 pdf.setTextColor(color.r, color.g, color.b);
 
                 // Calculate text area with exact padding like web view
-                const paddingTop = (padding.top || 0) + 3; // Add space for region label
+                const paddingTop = padding.top || 0; // Use exact padding from content configuration
                 const paddingRight = padding.right || 0;
                 const paddingBottom = padding.bottom || 0;
                 const paddingLeft = padding.left || 0;
