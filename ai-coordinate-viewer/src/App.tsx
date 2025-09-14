@@ -10801,10 +10801,7 @@ function App() {
                       const paddingLeftPx = config.padding.left * scale;
 
                       // Only show if any padding is greater than 0 and supporting lines are enabled
-                      // Also check if margins are not default values (2mm all sides)
-                      const isDefaultMargins = config.padding.top === 2 && config.padding.bottom === 2 &&
-                                             config.padding.left === 2 && config.padding.right === 2;
-                      if (!showSupportingLines || isDefaultMargins ||
+                      if (!showSupportingLines ||
                           (config.padding.top === 0 && config.padding.right === 0 &&
                            config.padding.bottom === 0 && config.padding.left === 0)) {
                         return null;
@@ -11452,10 +11449,7 @@ function App() {
                             const paddingLeftPx = config.padding.left * scale;
 
                             // Only show if any padding is greater than 0 and supporting lines are enabled
-                            // Also check if margins are not default values (2mm all sides)
-                            const isDefaultMargins = config.padding.top === 2 && config.padding.bottom === 2 &&
-                                                   config.padding.left === 2 && config.padding.right === 2;
-                            if (!showSupportingLines || isDefaultMargins ||
+                            if (!showSupportingLines ||
                                 (config.padding.top === 0 && config.padding.right === 0 &&
                                  config.padding.bottom === 0 && config.padding.left === 0)) {
                               return null;
