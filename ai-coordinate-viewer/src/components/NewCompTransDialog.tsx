@@ -42,6 +42,15 @@ const commonMaterials = [
   'ALPACA'
 ];
 
+// Material translations mapping (from composition table)
+// Order: ES, FR, EN, PT, DU, IT, GR, JA, DE, DA, SL, CH, KO, ID, AR, GA, CA, BS
+const materialTranslations: { [key: string]: string[] } = {
+  'COTTON': ['algodón', 'coton', 'cotton', 'algodão', 'katoen', 'cotone', 'ΒΑΜΒΑΚΙ', 'コットン', 'baumwolle', 'bomuld', 'bombaž', '棉', '면', 'katun', 'قطن', 'algodón', 'cotó', 'kotoia'],
+  'POLYESTER': ['poliéster', 'polyester', 'polyester', 'poliéster', 'polyester', 'poliestere', 'ΠΟΛΥΕΣΤΕΡΑΣ', 'ポリエステル', 'polyester', 'polyester', 'poliester', '聚酯纤维', '폴리에스터', 'poliester', 'بوليستير', 'poliéster', 'polièster', 'poliesterra'],
+  'ELASTANE': ['elastano', 'élasthanne', 'elastane', 'elastano', 'elastaan', 'elastan', 'ΕΛΑΣΤΑΝΗ', 'エラスタン', 'elastan', 'elastan', 'elastan', '氨纶', '엘라스탄', 'elastan', 'إيلاستان', 'elastano', 'elastà', 'elastanoa'],
+  'VISCOSE': ['viscosa', 'viscose', 'viscose', 'viscose', 'viscose', 'viscosa', 'ΒΙΣΚΟΖΗ', 'ビスコース', 'viskose', 'viskose', 'viskoza', '粘胶纤维', '비스코스', 'viskosa', 'فيسكوز', 'viscosa', 'viscosa', 'biskosea']
+};
+
 export interface MaterialComposition {
   id: string;
   percentage: number;
@@ -66,6 +75,10 @@ export interface NewCompTransConfig {
   };
   selectedLanguages: string[];
   materialCompositions: MaterialComposition[];
+  textContent: {
+    separator: string;
+    generatedText: string;
+  };
 }
 
 interface NewCompTransDialogProps {
@@ -106,7 +119,11 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     selectedLanguages: ['EN'], // Default to English
     materialCompositions: [
       { id: '1', percentage: 100, material: 'COTTON' }
-    ]
+    ],
+    textContent: {
+      separator: ' - ',
+      generatedText: ''
+    }
   });
 
   const [isLanguageDropdownOpen, setIsLanguageDropdownOpen] = useState(false);
@@ -129,6 +146,44 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
   const areControlsDisabled = () => {
     const total = getTotalPercentage();
     return total > 100;
+  };
+
+  // Material inputs should always be active so users can fix over-100% situations
+  const areInputsDisabled = () => {
+    return false; // Always keep inputs active for editing
+  };
+
+  // Generate text content based on material compositions and selected languages
+  const generateTextContent = () => {
+    if (config.materialCompositions.length === 0 || config.selectedLanguages.length === 0) {
+      return '';
+    }
+
+    const lines: string[] = [];
+
+    config.materialCompositions.forEach(composition => {
+      if (composition.material && composition.percentage > 0) {
+        const translations = materialTranslations[composition.material];
+        if (translations) {
+          const materialTexts: string[] = [];
+
+          // Map selected language codes to translation indices
+          config.selectedLanguages.forEach(langCode => {
+            const langIndex = availableLanguages.findIndex(lang => lang.code === langCode);
+            if (langIndex !== -1 && translations[langIndex]) {
+              materialTexts.push(translations[langIndex]);
+            }
+          });
+
+          if (materialTexts.length > 0) {
+            const line = `${composition.percentage}% ${materialTexts.join(config.textContent.separator)}`;
+            lines.push(line);
+          }
+        }
+      }
+    });
+
+    return lines.join('\n\n');
   };
 
   // Add new material composition row
@@ -176,7 +231,11 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         selectedLanguages: editingContent.newCompTransConfig.selectedLanguages || ['EN'],
         materialCompositions: editingContent.newCompTransConfig.materialCompositions || [
           { id: '1', percentage: 100, material: 'COTTON' }
-        ]
+        ],
+        textContent: editingContent.newCompTransConfig.textContent || {
+          separator: ' - ',
+          generatedText: ''
+        }
       };
     }
 
@@ -199,7 +258,11 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       selectedLanguages: ['EN'], // Default to English
       materialCompositions: [
         { id: '1', percentage: 100, material: 'COTTON' }
-      ]
+      ],
+      textContent: {
+        separator: ' - ',
+        generatedText: ''
+      }
     };
   };
 
@@ -208,6 +271,18 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       setConfig(getInitialConfig());
     }
   }, [isOpen, editingContent]);
+
+  // Auto-generate text content when compositions or languages change
+  useEffect(() => {
+    const generatedText = generateTextContent();
+    setConfig(prev => ({
+      ...prev,
+      textContent: {
+        ...prev.textContent,
+        generatedText
+      }
+    }));
+  }, [config.materialCompositions, config.selectedLanguages, config.textContent.separator]);
 
   const handleSave = () => {
     onSave(config);
@@ -770,14 +845,14 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
                     type="number"
                     value={composition.percentage}
                     onChange={(e) => updateMaterialComposition(composition.id, 'percentage', e.target.value)}
-                    disabled={areControlsDisabled()}
+                    disabled={areInputsDisabled()}
                     style={{
                       width: '100%',
                       padding: '6px',
                       border: '1px solid #ddd',
                       borderRadius: '4px',
                       fontSize: '12px',
-                      backgroundColor: areControlsDisabled() ? '#f5f5f5' : 'white'
+                      backgroundColor: areInputsDisabled() ? '#f5f5f5' : 'white'
                     }}
                     min="0"
                     max="100"
@@ -798,14 +873,14 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
                   <select
                     value={composition.material}
                     onChange={(e) => updateMaterialComposition(composition.id, 'material', e.target.value)}
-                    disabled={areControlsDisabled()}
+                    disabled={areInputsDisabled()}
                     style={{
                       width: '100%',
                       padding: '6px',
                       border: '1px solid #ddd',
                       borderRadius: '4px',
                       fontSize: '12px',
-                      backgroundColor: areControlsDisabled() ? '#f5f5f5' : 'white'
+                      backgroundColor: areInputsDisabled() ? '#f5f5f5' : 'white'
                     }}
                   >
                     <option value="">Select material...</option>
@@ -838,6 +913,85 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
                 </div>
               </div>
             ))}
+          </div>
+
+          {/* Text Content Section */}
+          <div style={{
+            marginTop: '16px',
+            padding: '12px',
+            border: '1px solid #ddd',
+            borderRadius: '8px',
+            backgroundColor: '#f8f9fa'
+          }}>
+            <div style={{
+              fontSize: '12px',
+              fontWeight: '600',
+              marginBottom: '12px',
+              color: '#333'
+            }}>
+              Text Content:
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 3fr', gap: '16px' }}>
+              {/* Separator Input */}
+              <div>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '4px',
+                  fontSize: '11px',
+                  fontWeight: '500'
+                }}>
+                  Separator:
+                </label>
+                <input
+                  type="text"
+                  value={config.textContent.separator}
+                  onChange={(e) => setConfig(prev => ({
+                    ...prev,
+                    textContent: {
+                      ...prev.textContent,
+                      separator: e.target.value
+                    }
+                  }))}
+                  style={{
+                    width: '100%',
+                    padding: '6px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    fontSize: '12px'
+                  }}
+                  placeholder="e.g., ' - '"
+                />
+              </div>
+
+              {/* Generated Text Display */}
+              <div>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '4px',
+                  fontSize: '11px',
+                  fontWeight: '500'
+                }}>
+                  Text Value:
+                </label>
+                <textarea
+                  value={config.textContent.generatedText}
+                  readOnly
+                  style={{
+                    width: '100%',
+                    height: '120px',
+                    padding: '8px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    fontSize: '11px',
+                    backgroundColor: '#f9f9f9',
+                    resize: 'vertical',
+                    fontFamily: 'monospace'
+                  }}
+                  placeholder="Generated text will appear here based on material compositions and selected languages..."
+                />
+              </div>
+            </div>
           </div>
         </div>
 

@@ -1,8 +1,48 @@
 # Care Label Layout System - Version History
 
-## Version 2.1.53 - Enhanced Material Composition with Dynamic Validation
+## Version 2.1.55 - Added Text Content Generation with Multi-Language Material Translations
 **Release Date:** 2025-01-14
 **Commit:** TBD
+
+### 📝 Text Content Generation Feature
+- **New Text Content Section**: Added below Material Composition section
+  - **Separator Input**: Customizable separator for material translations (default: " - ")
+  - **Text Value Display**: Read-only textarea showing generated composition text
+  - **Auto-Generation**: Real-time text generation based on material compositions and selected languages
+  - **Multi-Language Support**: Displays material names in all selected languages
+- **Material Translation System**:
+  - **18-Language Support**: Complete translations for COTTON, POLYESTER, ELASTANE, VISCOSE
+  - **Language Order**: ES, FR, EN, PT, DU, IT, GR, JA, DE, DA, SL, CH, KO, ID, AR, GA, CA, BS
+  - **Example Output**: "100% algodón - coton - cotton - algodão - katoen - cotone - ΒΑΜΒΑΚΙ - コットン - baumwolle - bomuld - bombaž - 棉 - 면 - katun - قطن - algodón - cotó - kotoia"
+- **Dynamic Text Generation**:
+  - **Multi-Material Support**: Each material composition on separate line
+  - **Percentage Display**: Shows percentage with translated material names
+  - **Line Breaks**: Automatic line breaks between different materials
+  - **Real-Time Updates**: Text updates instantly when compositions or languages change
+- **Enhanced User Experience**:
+  - **2-Column Layout**: Separator input | Text value display
+  - **Monospace Font**: Better readability for generated text
+  - **Resizable Textarea**: Users can adjust height as needed
+  - **Visual Feedback**: Clear separation and styling
+
+## Version 2.1.54 - Fixed Material Input Accessibility for Over-100% Corrections
+**Release Date:** 2025-01-14
+**Commit:** TBD
+
+### 🔧 Critical UX Fix
+- **Always Active Material Inputs**: Fixed issue where material inputs were disabled when total > 100%
+  - **Problem**: Users couldn't edit percentages to fix over-100% situations
+  - **Solution**: Material inputs (percentage and dropdown) remain always active
+  - **Benefit**: Users can now correct over-100% compositions by editing values
+  - **Validation**: Only "+" button and "Save" button are disabled when total > 100%
+- **Improved User Experience**:
+  - **Editable Inputs**: Percentage and material dropdowns always accessible
+  - **Clear Workflow**: Users can fix over-100% by reducing existing percentages
+  - **Logical Behavior**: Only prevent adding more materials or saving when over 100%
+
+## Version 2.1.53 - Enhanced Material Composition with Dynamic Validation
+**Release Date:** 2025-01-14
+**Commit:** ea7c2d4
 
 ### 🧪 Enhanced Material Composition System
 - **Dynamic Material Composition**: Multiple material rows with percentage validation
