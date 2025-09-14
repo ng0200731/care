@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import NewCompTransDialog from '../NewCompTransDialog';
 
 // Universal content data interface
 export interface UniversalContentData {
@@ -1201,8 +1202,41 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
             </div>
           )}
 
+          {/* Composition Translation Content */}
+          {contentType.id === 'new-comp-trans' && (
+            <NewCompTransDialog
+              isOpen={true}
+              regionId={regionId}
+              regionWidth={regionWidth}
+              regionHeight={regionHeight}
+              editingContent={formData}
+              onSave={(newCompTransConfig) => {
+                console.log('🧪 Composition Translation saved:', newCompTransConfig);
+                // Update formData with the new composition translation config
+                setFormData(prev => ({
+                  ...prev,
+                  newCompTransConfig: newCompTransConfig,
+                  content: {
+                    ...prev.content,
+                    text: newCompTransConfig.textContent?.generatedText || '',
+                    materialCompositions: newCompTransConfig.materialCompositions || [],
+                    selectedLanguages: newCompTransConfig.selectedLanguages || [],
+                    lineBreakSettings: newCompTransConfig.lineBreakSettings || {
+                      lineBreakSymbol: '\n',
+                      lineSpacing: 1.2,
+                      lineWidth: 100
+                    }
+                  }
+                }));
+                // Call handleSave without arguments
+                handleSave();
+              }}
+              onCancel={onCancel}
+            />
+          )}
+
           {/* Placeholder for unknown content types */}
-          {!['line-text', 'translation-paragraph', 'pure-english-paragraph', 'washing-symbol', 'image', 'coo'].includes(contentType.id) && (
+          {!['line-text', 'translation-paragraph', 'pure-english-paragraph', 'washing-symbol', 'image', 'coo', 'new-comp-trans'].includes(contentType.id) && (
             <div style={{
               padding: '20px',
               textAlign: 'center',

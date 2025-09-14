@@ -10606,8 +10606,8 @@ function App() {
                       } else if (content.type === 'new-washing-care-symbol' && content.content?.text) {
                         displayText = content.content.text;
                         console.log('🧺 new-washing-care-symbol displayText:', displayText, 'content:', content);
-                      } else if (content.type === 'new-comp-trans' && content.content?.text) {
-                        displayText = content.content.text;
+                      } else if (content.type === 'new-comp-trans' && content.newCompTransConfig?.textContent?.generatedText) {
+                        displayText = content.newCompTransConfig.textContent.generatedText;
                         console.log('🌐 new-comp-trans displayText:', displayText, 'content:', content);
                       } else if (content.type === 'pure-english-paragraph' && content.content?.text) {
                         displayText = content.content.text;
@@ -10744,6 +10744,34 @@ function App() {
                         }
                         
                         displayLines = [displayText];
+                        hasOverflow = false;
+                        optimalFit = { overflow: '' };
+                      } else if (content.type === 'new-comp-trans') {
+                        // Handle composition translation with line break settings
+                        console.log('🧪 Processing composition translation text with line break settings');
+
+                        if (content.newCompTransConfig?.lineBreakSettings) {
+                          const lineBreakSettings = content.newCompTransConfig.lineBreakSettings;
+                          const lineBreakSymbol = lineBreakSettings.lineBreakSymbol || '\n';
+
+                          // Split text by the configured line break symbol
+                          if (lineBreakSymbol === '\n') {
+                            displayLines = displayText.split('\n');
+                          } else if (lineBreakSymbol === '\r\n') {
+                            displayLines = displayText.split('\r\n');
+                          } else if (lineBreakSymbol === '<br>') {
+                            displayLines = displayText.split('<br>');
+                          } else {
+                            // For other symbols like pipe or slash, split by them
+                            displayLines = displayText.split(lineBreakSymbol);
+                          }
+
+                          console.log('🧪 Composition translation split into lines:', displayLines);
+                        } else {
+                          // Fallback to simple line splitting
+                          displayLines = displayText.split('\n');
+                        }
+
                         hasOverflow = false;
                         optimalFit = { overflow: '' };
                       } else if (content.type === 'new-multi-line') {
@@ -11473,8 +11501,8 @@ function App() {
                             } else if (content.type === 'new-washing-care-symbol' && content.content?.text) {
                               displayText = content.content.text;
                               console.log('🧺 child new-washing-care-symbol displayText:', displayText, 'content:', content);
-                            } else if (content.type === 'new-comp-trans' && content.content?.text) {
-                              displayText = content.content.text;
+                            } else if (content.type === 'new-comp-trans' && content.newCompTransConfig?.textContent?.generatedText) {
+                              displayText = content.newCompTransConfig.textContent.generatedText;
                               console.log('🌐 child new-comp-trans displayText:', displayText, 'content:', content);
                             } else if (content.type === 'pure-english-paragraph' && content.content?.text) {
                               displayText = content.content.text;
@@ -11621,6 +11649,34 @@ function App() {
                                 lines: displayLines.length,
                                 hasOverflow
                               });
+                            } else if (content.type === 'new-comp-trans') {
+                              // Handle composition translation with line break settings in child regions
+                              console.log('🧪 Child: Processing composition translation text with line break settings');
+
+                              if (content.newCompTransConfig?.lineBreakSettings) {
+                                const lineBreakSettings = content.newCompTransConfig.lineBreakSettings;
+                                const lineBreakSymbol = lineBreakSettings.lineBreakSymbol || '\n';
+
+                                // Split text by the configured line break symbol
+                                if (lineBreakSymbol === '\n') {
+                                  displayLines = displayText.split('\n');
+                                } else if (lineBreakSymbol === '\r\n') {
+                                  displayLines = displayText.split('\r\n');
+                                } else if (lineBreakSymbol === '<br>') {
+                                  displayLines = displayText.split('<br>');
+                                } else {
+                                  // For other symbols like pipe or slash, split by them
+                                  displayLines = displayText.split(lineBreakSymbol);
+                                }
+
+                                console.log('🧪 Child: Composition translation split into lines:', displayLines);
+                              } else {
+                                // Fallback to simple line splitting
+                                displayLines = displayText.split('\n');
+                              }
+
+                              hasOverflow = false;
+                              optimalFit = { overflow: '' };
                             } else {
                               // For other content types: Use simple processing
                               displayLines = [displayText];

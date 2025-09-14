@@ -1,8 +1,91 @@
 # Care Label Layout System - Version History
 
-## Version 2.1.55 - Added Text Content Generation with Multi-Language Material Translations
+## Version 2.1.57 - Integrated Composition Translation with Canvas Rendering System
 **Release Date:** 2025-01-14
 **Commit:** TBD
+
+### 🎨 Canvas Rendering Integration
+- **Content Type Integration**: Added `new-comp-trans` content type to ContentMenu
+  - **Icon**: 🧪 Composition Translation
+  - **Description**: Multi-language material composition text
+  - **Full Canvas Support**: Integrated with existing canvas rendering system
+- **Universal Content Dialog Integration**:
+  - **Embedded NewCompTransDialog**: Composition translation dialog opens within universal content dialog
+  - **Seamless Save Process**: Configuration automatically saved to content object
+  - **Property Mapping**: Uses `newCompTransConfig` property expected by canvas system
+- **Canvas Rendering Features**:
+  - **Text Rendering**: Generated composition text displays in canvas regions
+  - **Typography Support**: Font family, size, and color from configuration
+  - **Alignment Support**: Horizontal and vertical alignment from configuration
+  - **Padding Support**: Configurable padding around text content
+  - **Multi-Line Support**: Handles line breaks and text wrapping
+  - **PDF Export**: Full support in PDF generation system
+- **Real-Time Preview**: Canvas immediately shows composition text after saving
+- **Error Prevention**: Proper null checks and fallback values throughout system
+
+## Version 2.1.57 - Integrated Composition Translation with Canvas Rendering System
+**Release Date:** 2025-01-14
+**Commit:** TBD
+
+### 🎨 Canvas Rendering Integration
+- **Content Type Integration**: Added `new-comp-trans` content type to ContentMenu
+  - Icon: 🧪 (Chemistry flask representing material composition)
+  - Description: "Multi-language material composition text"
+  - Full integration with existing canvas rendering system
+- **UniversalContentDialog Integration**:
+  - Added composition translation content handling in dialog system
+  - Proper state management with `setFormData` and `handleSave()` integration
+  - Seamless transition from dialog configuration to canvas rendering
+- **Canvas Text Rendering**: Fixed text extraction and rendering logic
+  - **Text Source Fix**: Changed from `content.content?.text` to `content.newCompTransConfig.textContent.generatedText`
+  - **Line Break Processing**: Added intelligent line break handling based on user settings
+  - **Multi-Line Support**: Proper splitting of composition text using configured line break symbols
+- **Advanced Text Processing**:
+  - **Line Break Symbol Support**: Handles `\n`, `\r\n`, `<br>`, `|`, `/` symbols
+  - **Main Regions**: Full text processing with line break settings
+  - **Child Regions**: Identical processing logic for sliced regions
+  - **Real-Time Rendering**: Text appears immediately after saving configuration
+- **Configuration Preservation**: All dialog settings (padding, alignment, typography, line breaks) properly applied to canvas rendering
+
+### 🔧 Technical Implementation
+- **Content Type ID**: Uses `new-comp-trans` to match existing canvas rendering system
+- **Property Structure**: Maintains `newCompTransConfig` property for configuration storage
+- **Text Processing Logic**: Added dedicated processing sections in both main and child region rendering
+- **Error Prevention**: Proper null checks and fallback handling for missing configurations
+- **Console Logging**: Enhanced debugging with composition translation specific logs
+
+## Version 2.1.56 - Added Line Break Settings and Preview with Text Wrapping
+**Release Date:** 2025-01-14
+**Commit:** TBD
+
+### 📐 Line Break Settings & Preview System
+- **New Line Break Settings Row**: Added comprehensive text formatting controls
+  - **Line Break Symbol Dropdown**: Multiple options for line breaks
+    * `\n (Standard)` - Default newline character
+    * `\r\n (Windows)` - Windows-style line breaks
+    * `<br> (HTML)` - HTML line breaks for web display
+    * ` | (Pipe)` - Pipe separator for inline display
+    * ` / (Slash)` - Slash separator alternative
+  - **Line Spacing Input**: Adjustable line height (0.5-3.0, default: 1.2)
+  - **Line Width (%) Input**: Text wrapping width control (10-100%, default: 100%)
+  - **3-Column Layout**: Line Break Symbol | Line Spacing | Line Width
+- **Enhanced Preview Section**: Real-time text rendering with formatting
+  - **Live Preview**: Shows exactly how text will appear with current settings
+  - **Text Wrapping**: Intelligent word-based line wrapping based on line width
+  - **Typography Integration**: Uses selected font family and size from typography settings
+  - **Line Spacing**: Applies configured line spacing for accurate preview
+  - **Canvas-Ready**: Preview matches final canvas rendering
+- **Smart Text Processing**:
+  - **Word-Based Wrapping**: Breaks lines at word boundaries, not mid-word
+  - **Character Limit Calculation**: Dynamic character limits based on line width percentage
+  - **Multi-Line Support**: Handles multiple material compositions with proper spacing
+  - **Symbol Integration**: Uses selected line break symbols in wrapped text
+- **Error Prevention**: Added null checks and default values for all line break settings
+- **Real-Time Updates**: Preview updates instantly when any setting changes
+
+## Version 2.1.55 - Added Text Content Generation with Multi-Language Material Translations
+**Release Date:** 2025-01-14
+**Commit:** 052dcd9
 
 ### 📝 Text Content Generation Feature
 - **New Text Content Section**: Added below Material Composition section

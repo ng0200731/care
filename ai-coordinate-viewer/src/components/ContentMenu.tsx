@@ -43,6 +43,12 @@ export const contentTypes: ContentType[] = [
     name: 'COO',
     icon: '🏷️',
     description: 'Country of Origin'
+  },
+  {
+    id: 'new-comp-trans',
+    name: 'Composition Translation',
+    icon: '🧪',
+    description: 'Multi-language material composition text'
   }
 ];
 
