@@ -7514,7 +7514,7 @@ function App() {
                           textY = childY + childRegion.height - configPadding.bottom;
                         }
 
-                        // Set font and render text
+                        // Set font and render text with proper wrapping
                         pdf.setFont('helvetica', 'normal');
                         let fontSize = configTypography.fontSize;
                         if (configTypography.fontSizeUnit === 'pt') {
@@ -7525,11 +7525,32 @@ function App() {
                         pdf.setFontSize(fontSize * 2.83); // Convert mm to points for jsPDF
                         pdf.setTextColor(0, 0, 0);
 
-                        const textContent = content.content?.text || 'Composition Translation';
+                        const textContent = content.newCompTransConfig?.textContent?.generatedText || 'Composition Translation';
+
+                        // Apply text wrapping using the same logic as canvas
+                        const availableWidthPx = availableWidth * 3.779527559; // Convert mm to px
+                        const availableHeightPx = availableHeight * 3.779527559;
+                        const fontSizePx = fontSize * 3.779527559; // Convert mm to px
+
+                        const wrappedResult = processChildRegionTextWrapping(
+                          textContent,
+                          availableWidthPx,
+                          availableHeightPx,
+                          fontSizePx,
+                          configTypography.fontFamily,
+                          content.newCompTransConfig?.lineBreakSettings?.lineBreakSymbol || '\n',
+                          content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2
+                        );
+
+                        // Render each line with proper spacing
+                        const lineHeightMM = fontSize * (content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2);
                         const alignOption = configAlignment.horizontal === 'center' ? 'center' :
                                            configAlignment.horizontal === 'right' ? 'right' : 'left';
 
-                        pdf.text(textContent, textX, textY, { align: alignOption });
+                        wrappedResult.lines.forEach((line: string, lineIndex: number) => {
+                          const lineY = textY + (lineIndex * lineHeightMM);
+                          pdf.text(line, textX, lineY, { align: alignOption });
+                        });
                       } else {
                         // Render regular text lines with EXACT positioning like web view
                         // Web: const textY = startY + (lineIndex + 1) * lineHeight;
@@ -7881,7 +7902,7 @@ function App() {
                       textY = regionY + region.height - configPadding.bottom;
                     }
 
-                    // Set font and render text
+                    // Set font and render text with proper wrapping
                     pdf.setFont('helvetica', 'normal');
                     let fontSize = configTypography.fontSize;
                     if (configTypography.fontSizeUnit === 'pt') {
@@ -7892,11 +7913,32 @@ function App() {
                     pdf.setFontSize(fontSize * 2.83); // Convert mm to points for jsPDF
                     pdf.setTextColor(0, 0, 0);
 
-                    const textContent = content.content?.text || 'Composition Translation';
+                    const textContent = content.newCompTransConfig?.textContent?.generatedText || 'Composition Translation';
+
+                    // Apply text wrapping using the same logic as canvas
+                    const availableWidthPx = availableWidth * 3.779527559; // Convert mm to px
+                    const availableHeightPx = availableHeight * 3.779527559;
+                    const fontSizePx = fontSize * 3.779527559; // Convert mm to px
+
+                    const wrappedResult = processChildRegionTextWrapping(
+                      textContent,
+                      availableWidthPx,
+                      availableHeightPx,
+                      fontSizePx,
+                      configTypography.fontFamily,
+                      content.newCompTransConfig?.lineBreakSettings?.lineBreakSymbol || '\n',
+                      content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2
+                    );
+
+                    // Render each line with proper spacing
+                    const lineHeightMM = fontSize * (content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2);
                     const alignOption = configAlignment.horizontal === 'center' ? 'center' :
                                        configAlignment.horizontal === 'right' ? 'right' : 'left';
 
-                    pdf.text(textContent, textX, textY, { align: alignOption });
+                    wrappedResult.lines.forEach((line: string, lineIndex: number) => {
+                      const lineY = textY + (lineIndex * lineHeightMM);
+                      pdf.text(line, textX, lineY, { align: alignOption });
+                    });
                   } else {
                     // Render regular text lines with EXACT positioning like web view
                     // Web: const textY = startY + (lineIndex + 1) * lineHeight;

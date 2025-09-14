@@ -1,6 +1,18 @@
 # Care Label Layout System - Version History
 
-## Version 2.1.63 - Added Missing Textile Materials (BAMBOO, CASHMERE, ALPACA)
+## Version 2.1.65 - Fixed PDF Text Wrapping for Composition Translation Content
+**Release Date:** 2025-01-14
+**Commit:** TBD
+
+### 🖨️ PDF Text Wrapping Fix
+- **Problem Identified**: Composition translation content showed in canvas but appeared as single unwrapped line in PDF
+- **Root Cause**: PDF generation was using simple single-line text rendering instead of advanced text wrapping
+- **Solution Applied**: Implemented same `processChildRegionTextWrapping` logic used by canvas rendering
+- **Coverage**: Fixed both main regions and child regions PDF generation
+- **Text Processing**: Applied proper line breaking, spacing, and alignment matching canvas behavior
+- **Result**: PDF now shows properly wrapped multi-line composition translation text identical to canvas display
+
+## Version 2.1.64 - Fixed Composition Translation PDF Rendering Issue
 **Release Date:** 2025-01-14
 **Commit:** TBD
 
