@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import MovableDialog from './MovableDialog';
 
 export interface NewCompTransConfig {
   padding: {
@@ -94,42 +95,18 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     onCancel();
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 10000
-    }}>
-      <div style={{
-        backgroundColor: 'white',
-        borderRadius: '8px',
-        padding: '24px',
-        width: '500px',
-        maxHeight: '80vh',
-        overflowY: 'auto',
-        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
-      }}>
-        <h2 style={{ 
-          margin: '0 0 20px 0', 
-          fontSize: '20px', 
-          fontWeight: '600',
-          color: '#333'
-        }}>
-          🌐 Composition Translation Settings
-        </h2>
-
-        <div style={{ marginBottom: '16px', fontSize: '14px', color: '#666' }}>
-          Region: {regionId} ({regionWidth}×{regionHeight}mm)
-        </div>
+    <MovableDialog
+      isOpen={isOpen}
+      title="Composition Translation Settings"
+      icon="🌐"
+      width="500px"
+      storageKey="comp-trans-dialog"
+      onClose={handleCancel}
+    >
+      <div style={{ marginBottom: '16px', fontSize: '14px', color: '#666' }}>
+        Region: {regionId} ({regionWidth}×{regionHeight}mm)
+      </div>
 
         {/* Padding Section */}
         <div style={{ marginBottom: '24px' }}>
@@ -438,8 +415,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
             {editingContent ? 'Update' : 'Add'} Composition Translation
           </button>
         </div>
-      </div>
-    </div>
+    </MovableDialog>
   );
 };
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import MovableDialog from './MovableDialog';
 
 export interface NewWashingCareSymbolConfig {
   symbols: string[];
@@ -140,33 +141,16 @@ const NewWashingCareSymbolDialog: React.FC<NewWashingCareSymbolDialogProps> = ({
     onSave(config);
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 10000
-    }}>
-      <div style={{
-        backgroundColor: 'white',
-        borderRadius: '12px',
-        padding: '24px',
-        width: '700px',
-        height: '600px',
-        boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
-        display: 'flex',
-        flexDirection: 'column',
-        maxHeight: '90vh',
-        overflowY: 'auto'
-      }}>
+    <MovableDialog
+      isOpen={isOpen}
+      title="Washing Care Symbol Settings"
+      icon="🧺"
+      width="700px"
+      height="600px"
+      storageKey="washing-care-dialog"
+      onClose={onCancel}
+    >
         <h2 style={{
           margin: '0 0 20px 0',
           fontSize: '24px',
@@ -769,8 +753,7 @@ const NewWashingCareSymbolDialog: React.FC<NewWashingCareSymbolDialogProps> = ({
             </button>
           </div>
         </div>
-      </div>
-    </div>
+    </MovableDialog>
   );
 };
 

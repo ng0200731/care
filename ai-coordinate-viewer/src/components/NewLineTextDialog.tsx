@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import MovableDialog from './MovableDialog';
 
 interface NewLineTextDialogProps {
   isOpen: boolean;
@@ -198,31 +199,15 @@ const NewLineTextDialog: React.FC<NewLineTextDialogProps> = ({
     onSave(config);
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      background: 'rgba(0,0,0,0.5)',
-      zIndex: 3000,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center'
-    }}>
-      <div style={{
-        background: 'white',
-        borderRadius: '12px',
-        padding: '24px',
-        minWidth: '500px',
-        maxWidth: '600px',
-        maxHeight: '80vh',
-        overflow: 'auto',
-        boxShadow: '0 10px 30px rgba(0,0,0,0.3)'
-      }}>
+    <MovableDialog
+      isOpen={isOpen}
+      title="Line Text Settings"
+      icon="📄"
+      width="600px"
+      storageKey="line-text-dialog"
+      onClose={onCancel}
+    >
         {/* Header */}
         <div style={{
           borderBottom: '2px solid #f0f0f0',
@@ -673,8 +658,7 @@ const NewLineTextDialog: React.FC<NewLineTextDialogProps> = ({
             {editingContent ? 'Update Text' : 'Save & Apply'}
           </button>
         </div>
-      </div>
-    </div>
+    </MovableDialog>
   );
 };
 
