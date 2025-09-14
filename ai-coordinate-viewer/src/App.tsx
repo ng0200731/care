@@ -7263,6 +7263,35 @@ function App() {
                           pdf.text(line, textX, textY, { align: align });
                         });
                       }
+
+                      // Draw content padding boundaries (green dotted lines) for child regions if supporting lines are enabled
+                      if (showSupportingLines && (paddingTop > 0 || paddingRight > 0 || paddingBottom > 0 || paddingLeft > 0)) {
+                        pdf.setDrawColor(76, 175, 80); // Green color (#4CAF50)
+                        pdf.setLineWidth(0.2); // Fine style - very thin lines
+
+                        // Top padding line
+                        if (paddingTop > 0) {
+                          pdf.setLineDashPattern([1, 1], 0.15); // Fine dotted with offset
+                          pdf.line(childX, childY + paddingTop, childX + childRegion.width, childY + paddingTop);
+                        }
+                        // Bottom padding line
+                        if (paddingBottom > 0) {
+                          pdf.setLineDashPattern([1, 1], 0.35); // Different offset to prevent overlap
+                          pdf.line(childX, childY + childRegion.height - paddingBottom, childX + childRegion.width, childY + childRegion.height - paddingBottom);
+                        }
+                        // Left padding line
+                        if (paddingLeft > 0) {
+                          pdf.setLineDashPattern([1, 1], 0.55); // Different offset for vertical lines
+                          pdf.line(childX + paddingLeft, childY, childX + paddingLeft, childY + childRegion.height);
+                        }
+                        // Right padding line
+                        if (paddingRight > 0) {
+                          pdf.setLineDashPattern([1, 1], 0.75); // Different offset to prevent overlap
+                          pdf.line(childX + childRegion.width - paddingRight, childY, childX + childRegion.width - paddingRight, childY + childRegion.height);
+                        }
+
+                        pdf.setLineDashPattern([], 0); // Reset to solid line
+                      }
                     }
                   }
                 }
@@ -7567,6 +7596,35 @@ function App() {
                       const align = textAlign === 'center' ? 'center' : textAlign === 'right' ? 'right' : 'left';
                       pdf.text(line, textX, textY, { align: align });
                     });
+                  }
+
+                  // Draw content padding boundaries (green dotted lines) if supporting lines are enabled
+                  if (showSupportingLines && (paddingTop > 0 || paddingRight > 0 || paddingBottom > 0 || paddingLeft > 0)) {
+                    pdf.setDrawColor(76, 175, 80); // Green color (#4CAF50)
+                    pdf.setLineWidth(0.2); // Fine style - very thin lines
+
+                    // Top padding line
+                    if (paddingTop > 0) {
+                      pdf.setLineDashPattern([1, 1], 0.1); // Fine dotted with offset
+                      pdf.line(regionX, regionY + paddingTop, regionX + region.width, regionY + paddingTop);
+                    }
+                    // Bottom padding line
+                    if (paddingBottom > 0) {
+                      pdf.setLineDashPattern([1, 1], 0.3); // Different offset to prevent overlap
+                      pdf.line(regionX, regionY + region.height - paddingBottom, regionX + region.width, regionY + region.height - paddingBottom);
+                    }
+                    // Left padding line
+                    if (paddingLeft > 0) {
+                      pdf.setLineDashPattern([1, 1], 0.5); // Different offset for vertical lines
+                      pdf.line(regionX + paddingLeft, regionY, regionX + paddingLeft, regionY + region.height);
+                    }
+                    // Right padding line
+                    if (paddingRight > 0) {
+                      pdf.setLineDashPattern([1, 1], 0.7); // Different offset to prevent overlap
+                      pdf.line(regionX + region.width - paddingRight, regionY, regionX + region.width - paddingRight, regionY + region.height);
+                    }
+
+                    pdf.setLineDashPattern([], 0); // Reset to solid line
                   }
                 }
               }
