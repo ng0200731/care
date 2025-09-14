@@ -1,8 +1,21 @@
 # Care Label Layout System - Version History
 
-## Version 2.1.51 - Improved Alignment Layout and Doubled Dialog Width
+## Version 2.1.52 - Added Material Composition Controls
 **Release Date:** 2025-01-14
 **Commit:** TBD
+
+### 🧪 Material Composition Feature
+- **New Material Composition Row**: Added under Selected Languages section
+  - **Percentage Input**: Numeric input for material percentage (0-100%)
+  - **Material Dropdown**: Single selection from composition table elements
+  - **Common Materials**: COTTON, POLYESTER, ELASTANE, VISCOSE, NYLON, WOOL, SILK, LINEN, ACRYLIC, POLYAMIDE, SPANDEX, MODAL, BAMBOO, CASHMERE, ALPACA
+  - **Grid Layout**: 2-column layout (Percentage | Material Element)
+  - **Styled Section**: Bordered container with light background
+  - **Default Values**: 100% COTTON as default selection
+
+## Version 2.1.51 - Improved Alignment Layout and Doubled Dialog Width
+**Release Date:** 2025-01-14
+**Commit:** 4e9d1da
 
 ### 🎨 UI Enhancements
 - **Improved Language Display**: Updated language selection with database codes

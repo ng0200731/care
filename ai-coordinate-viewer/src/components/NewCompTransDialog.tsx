@@ -23,6 +23,25 @@ const availableLanguages = [
   { code: 'ES', name: 'Spanish' }
 ];
 
+// Common materials from composition table (will be fetched from API)
+const commonMaterials = [
+  'COTTON',
+  'POLYESTER',
+  'ELASTANE',
+  'VISCOSE',
+  'NYLON',
+  'WOOL',
+  'SILK',
+  'LINEN',
+  'ACRYLIC',
+  'POLYAMIDE',
+  'SPANDEX',
+  'MODAL',
+  'BAMBOO',
+  'CASHMERE',
+  'ALPACA'
+];
+
 export interface NewCompTransConfig {
   padding: {
     top: number;
@@ -40,6 +59,8 @@ export interface NewCompTransConfig {
     vertical: 'top' | 'center' | 'bottom';
   };
   selectedLanguages: string[];
+  materialPercentage: number;
+  selectedMaterial: string;
 }
 
 interface NewCompTransDialogProps {
@@ -77,7 +98,9 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       horizontal: 'left',
       vertical: 'top'
     },
-    selectedLanguages: ['EN'] // Default to English
+    selectedLanguages: ['EN'], // Default to English
+    materialPercentage: 100,
+    selectedMaterial: 'COTTON'
   });
 
   const [isLanguageDropdownOpen, setIsLanguageDropdownOpen] = useState(false);
@@ -88,7 +111,9 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       // Ensure selectedLanguages exists in existing config
       return {
         ...editingContent.newCompTransConfig,
-        selectedLanguages: editingContent.newCompTransConfig.selectedLanguages || ['EN']
+        selectedLanguages: editingContent.newCompTransConfig.selectedLanguages || ['EN'],
+        materialPercentage: editingContent.newCompTransConfig.materialPercentage || 100,
+        selectedMaterial: editingContent.newCompTransConfig.selectedMaterial || 'COTTON'
       };
     }
 
@@ -108,7 +133,9 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         horizontal: 'left',
         vertical: 'top'
       },
-      selectedLanguages: ['EN'] // Default to English
+      selectedLanguages: ['EN'], // Default to English
+      materialPercentage: 100,
+      selectedMaterial: 'COTTON'
     };
   };
 
@@ -616,6 +643,89 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
               </div>
             </div>
           )}
+
+          {/* Material Composition Row */}
+          <div style={{
+            marginTop: '16px',
+            padding: '12px',
+            border: '1px solid #ddd',
+            borderRadius: '8px',
+            backgroundColor: '#f8f9fa'
+          }}>
+            <div style={{
+              fontSize: '12px',
+              fontWeight: '600',
+              marginBottom: '12px',
+              color: '#333'
+            }}>
+              Material Composition:
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '16px' }}>
+              {/* Percentage Input */}
+              <div>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '4px',
+                  fontSize: '11px',
+                  fontWeight: '500'
+                }}>
+                  Percentage (%):
+                </label>
+                <input
+                  type="number"
+                  value={config.materialPercentage}
+                  onChange={(e) => setConfig(prev => ({
+                    ...prev,
+                    materialPercentage: parseFloat(e.target.value) || 0
+                  }))}
+                  style={{
+                    width: '100%',
+                    padding: '6px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    fontSize: '12px'
+                  }}
+                  min="0"
+                  max="100"
+                  step="1"
+                />
+              </div>
+
+              {/* Material Dropdown */}
+              <div>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '4px',
+                  fontSize: '11px',
+                  fontWeight: '500'
+                }}>
+                  Material Element:
+                </label>
+                <select
+                  value={config.selectedMaterial}
+                  onChange={(e) => setConfig(prev => ({
+                    ...prev,
+                    selectedMaterial: e.target.value
+                  }))}
+                  style={{
+                    width: '100%',
+                    padding: '6px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    fontSize: '12px'
+                  }}
+                >
+                  <option value="">Select material...</option>
+                  {commonMaterials.map(material => (
+                    <option key={material} value={material}>
+                      {material}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Action Buttons */}
