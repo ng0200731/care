@@ -86,3 +86,32 @@ model Order {
 
   @@map("orders")
 }
+
+// Washing Care Symbols - Short Form table
+model ShortForm {
+  id        String   @id @default(cuid())
+  symbol    String?  // Symbol character
+  code      String?  // Symbol code
+  name      String?  // Symbol name
+  category  String?  // Symbol category
+  description String? // Symbol description
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("shortform")
+}
+
+// Washing Care Symbols - Composition table
+model Composition {
+  id        String   @id @default(cuid())
+  material  String?  // Material name
+  percentage String? // Material percentage
+  code      String?  // Material code
+  category  String?  // Material category
+  properties String? // Material properties
+  notes     String?  // Additional notes
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("composition")
+}
