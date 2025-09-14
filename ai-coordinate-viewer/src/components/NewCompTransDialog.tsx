@@ -48,8 +48,23 @@ const materialTranslations: { [key: string]: string[] } = {
   'COTTON': ['algodón', 'coton', 'cotton', 'algodão', 'katoen', 'cotone', 'ΒΑΜΒΑΚΙ', 'コットン', 'baumwolle', 'bomuld', 'bombaž', '棉', '면', 'katun', 'قطن', 'algodón', 'cotó', 'kotoia'],
   'POLYESTER': ['poliéster', 'polyester', 'polyester', 'poliéster', 'polyester', 'poliestere', 'ΠΟΛΥΕΣΤΕΡΑΣ', 'ポリエステル', 'polyester', 'polyester', 'poliester', '聚酯纤维', '폴리에스터', 'poliester', 'بوليستير', 'poliéster', 'polièster', 'poliesterra'],
   'ELASTANE': ['elastano', 'élasthanne', 'elastane', 'elastano', 'elastaan', 'elastan', 'ΕΛΑΣΤΑΝΗ', 'エラスタン', 'elastan', 'elastan', 'elastan', '氨纶', '엘라스탄', 'elastan', 'إيلاستان', 'elastano', 'elastà', 'elastanoa'],
-  'VISCOSE': ['viscosa', 'viscose', 'viscose', 'viscose', 'viscose', 'viscosa', 'ΒΙΣΚΟΖΗ', 'ビスコース', 'viskose', 'viskose', 'viskoza', '粘胶纤维', '비스코스', 'viskosa', 'فيسكوز', 'viscosa', 'viscosa', 'biskosea']
+  'VISCOSE': ['viscosa', 'viscose', 'viscose', 'viscose', 'viscose', 'viscosa', 'ΒΙΣΚΟΖΗ', 'ビスコース', 'viskose', 'viskose', 'viskoza', '粘胶纤维', '비스코스', 'viskosa', 'فيسكوز', 'viscosa', 'viscosa', 'biskosea'],
+  'NYLON': ['nailon', 'nylon', 'nylon', 'nylon (so p/o Brasil poliamida)', 'nylon', 'nailon', 'ΝΑΪΛΟΝ', 'ナイロン', 'nylon', 'nylon', 'najlon', '锦纶', '나일론', 'nilon', 'نايلون', 'nailon', 'niló', 'nylona'],
+  // Note: Add more materials as translations become available from the composition table
+  // For materials without translations, they will display as the original material name
+  'WOOL': ['lana', 'laine', 'wool', 'lã', 'wol', 'lana', 'ΜΑΛΛΙ', 'ウール', 'wolle', 'uld', 'volna', '羊毛', '울', 'wol', 'صوف', 'la', 'llana', 'artilea'],
+  'SILK': ['seda', 'soie', 'silk', 'seda', 'zijde', 'seta', 'ΜΕΤΑΞΙ', 'シルク', 'seide', 'silke', 'svila', '丝绸', '실크', 'sutra', 'حرير', 'seda', 'seda', 'zetaa'],
+  'LINEN': ['lino', 'lin', 'linen', 'linho', 'linnen', 'lino', 'ΛΙΝΑΡΙ', 'リネン', 'leinen', 'hør', 'lan', '亚麻', '린넨', 'linen', 'كتان', 'liño', 'lli', 'lihoaren']
 };
+
+// Line break symbol options
+const lineBreakSymbols = [
+  { value: '\n', label: '\\n (Standard)' },
+  { value: '\r\n', label: '\\r\\n (Windows)' },
+  { value: '<br>', label: '<br> (HTML)' },
+  { value: ' | ', label: ' | (Pipe)' },
+  { value: ' / ', label: ' / (Slash)' }
+];
 
 export interface MaterialComposition {
   id: string;
@@ -78,6 +93,11 @@ export interface NewCompTransConfig {
   textContent: {
     separator: string;
     generatedText: string;
+  };
+  lineBreakSettings: {
+    lineBreakSymbol: string;
+    lineSpacing: number;
+    lineWidth: number;
   };
 }
 
@@ -123,6 +143,11 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     textContent: {
       separator: ' - ',
       generatedText: ''
+    },
+    lineBreakSettings: {
+      lineBreakSymbol: '\n',
+      lineSpacing: 1.2,
+      lineWidth: 100
     }
   });
 
@@ -186,6 +211,51 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     return lines.join('\n\n');
   };
 
+  // Generate wrapped text for preview based on line break settings
+  const generateWrappedPreview = () => {
+    const baseText = generateTextContent();
+    if (!baseText) return '';
+
+    // Split into lines and apply line width wrapping
+    const lines = baseText.split('\n\n');
+    const wrappedLines: string[] = [];
+
+    lines.forEach(line => {
+      if (line.trim()) {
+        // Simple character-based wrapping based on line width percentage
+        const maxCharsPerLine = Math.floor(((config.lineBreakSettings?.lineWidth || 100) / 100) * 80); // Approximate chars per line
+
+        if (line.length <= maxCharsPerLine) {
+          wrappedLines.push(line);
+        } else {
+          // Split long lines at word boundaries
+          const words = line.split(' ');
+          let currentLine = '';
+
+          words.forEach(word => {
+            if ((currentLine + ' ' + word).length <= maxCharsPerLine) {
+              currentLine = currentLine ? currentLine + ' ' + word : word;
+            } else {
+              if (currentLine) {
+                wrappedLines.push(currentLine);
+                currentLine = word;
+              } else {
+                wrappedLines.push(word);
+              }
+            }
+          });
+
+          if (currentLine) {
+            wrappedLines.push(currentLine);
+          }
+        }
+      }
+    });
+
+    // Join with the selected line break symbol
+    return wrappedLines.join(config.lineBreakSettings?.lineBreakSymbol || '\n');
+  };
+
   // Add new material composition row
   const addMaterialComposition = () => {
     if (canAddMore()) {
@@ -235,6 +305,11 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         textContent: editingContent.newCompTransConfig.textContent || {
           separator: ' - ',
           generatedText: ''
+        },
+        lineBreakSettings: editingContent.newCompTransConfig.lineBreakSettings || {
+          lineBreakSymbol: '\n',
+          lineSpacing: 1.2,
+          lineWidth: 100
         }
       };
     }
@@ -262,6 +337,11 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       textContent: {
         separator: ' - ',
         generatedText: ''
+      },
+      lineBreakSettings: {
+        lineBreakSymbol: '\n',
+        lineSpacing: 1.2,
+        lineWidth: 100
       }
     };
   };
@@ -991,6 +1071,160 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
                   placeholder="Generated text will appear here based on material compositions and selected languages..."
                 />
               </div>
+            </div>
+          </div>
+
+          {/* Line Break Settings Section */}
+          <div style={{
+            marginTop: '16px',
+            padding: '12px',
+            border: '1px solid #ddd',
+            borderRadius: '8px',
+            backgroundColor: '#f8f9fa'
+          }}>
+            <div style={{
+              fontSize: '12px',
+              fontWeight: '600',
+              marginBottom: '12px',
+              color: '#333'
+            }}>
+              Line Break Settings:
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+              {/* Line Break Symbol */}
+              <div>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '4px',
+                  fontSize: '11px',
+                  fontWeight: '500'
+                }}>
+                  Line Break Symbol:
+                </label>
+                <select
+                  value={config.lineBreakSettings?.lineBreakSymbol || '\n'}
+                  onChange={(e) => setConfig(prev => ({
+                    ...prev,
+                    lineBreakSettings: {
+                      ...(prev.lineBreakSettings || {}),
+                      lineBreakSymbol: e.target.value
+                    }
+                  }))}
+                  style={{
+                    width: '100%',
+                    padding: '6px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    fontSize: '12px'
+                  }}
+                >
+                  {lineBreakSymbols.map(symbol => (
+                    <option key={symbol.value} value={symbol.value}>
+                      {symbol.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Line Spacing */}
+              <div>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '4px',
+                  fontSize: '11px',
+                  fontWeight: '500'
+                }}>
+                  Line Spacing:
+                </label>
+                <input
+                  type="number"
+                  value={config.lineBreakSettings?.lineSpacing || 1.2}
+                  onChange={(e) => setConfig(prev => ({
+                    ...prev,
+                    lineBreakSettings: {
+                      ...(prev.lineBreakSettings || {}),
+                      lineSpacing: parseFloat(e.target.value) || 1.0
+                    }
+                  }))}
+                  style={{
+                    width: '100%',
+                    padding: '6px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    fontSize: '12px'
+                  }}
+                  min="0.5"
+                  max="3.0"
+                  step="0.1"
+                />
+              </div>
+
+              {/* Line Width */}
+              <div>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '4px',
+                  fontSize: '11px',
+                  fontWeight: '500'
+                }}>
+                  Line Width (%):
+                </label>
+                <input
+                  type="number"
+                  value={config.lineBreakSettings?.lineWidth || 100}
+                  onChange={(e) => setConfig(prev => ({
+                    ...prev,
+                    lineBreakSettings: {
+                      ...(prev.lineBreakSettings || {}),
+                      lineWidth: parseInt(e.target.value) || 100
+                    }
+                  }))}
+                  style={{
+                    width: '100%',
+                    padding: '6px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    fontSize: '12px'
+                  }}
+                  min="10"
+                  max="100"
+                  step="5"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Preview Section */}
+          <div style={{
+            marginTop: '16px',
+            padding: '12px',
+            border: '1px solid #ddd',
+            borderRadius: '8px',
+            backgroundColor: '#f8f9fa'
+          }}>
+            <div style={{
+              fontSize: '12px',
+              fontWeight: '600',
+              marginBottom: '12px',
+              color: '#333'
+            }}>
+              Preview:
+            </div>
+
+            <div style={{
+              padding: '12px',
+              border: '1px solid #ccc',
+              borderRadius: '4px',
+              backgroundColor: 'white',
+              minHeight: '100px',
+              fontFamily: config.typography.fontFamily,
+              fontSize: `${config.typography.fontSize}${config.typography.fontSizeUnit}`,
+              lineHeight: config.lineBreakSettings?.lineSpacing || 1.2,
+              whiteSpace: 'pre-wrap',
+              overflow: 'auto'
+            }}>
+              {generateWrappedPreview() || 'Preview will appear here based on your material compositions and settings...'}
             </div>
           </div>
         </div>

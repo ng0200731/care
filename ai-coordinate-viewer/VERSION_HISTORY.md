@@ -1,8 +1,43 @@
 # Care Label Layout System - Version History
 
-## Version 2.1.59 - Enhanced Composition Translation Text Wrapping with Canvas-First Sync Logic
+## Version 2.1.60 - Added Missing Material Translations (NYLON, WOOL, SILK, LINEN)
 **Release Date:** 2025-01-14
 **Commit:** TBD
+
+### 🧪 Material Translation Expansion
+- **Problem Identified**: NYLON and other common materials were missing from translation mappings
+- **NYLON Translation Added**: Complete 18-language translation support
+  - **Spanish**: nailon
+  - **French**: nylon
+  - **English**: nylon
+  - **Portuguese**: nylon (so p/o Brasil poliamida)
+  - **Dutch**: nylon
+  - **Italian**: nailon
+  - **Greek**: ΝΑΪΛΟΝ
+  - **Japanese**: ナイロン
+  - **German**: nylon
+  - **Danish**: nylon
+  - **Slovenian**: najlon
+  - **Chinese**: 锦纶
+  - **Korean**: 나일론
+  - **Indonesian**: nilon
+  - **Arabic**: نايلون
+  - **Galician**: nailon
+  - **Catalan**: niló
+  - **Basque**: nylona
+- **Additional Materials Added**: WOOL, SILK, LINEN with comprehensive translations
+- **Translation Source**: Based on composition table data structure
+- **Fallback Handling**: Materials without translations display original material name
+
+### 🌍 Multi-Language Material Support
+- **Total Materials**: Now supports 8 materials with full translations (COTTON, POLYESTER, ELASTANE, VISCOSE, NYLON, WOOL, SILK, LINEN)
+- **Language Coverage**: All 18 supported languages for each material
+- **User Experience**: Complete material composition text generation with proper translations
+- **Extensibility**: Framework ready for additional materials as translations become available
+
+## Version 2.1.59 - Enhanced Composition Translation Text Wrapping with Canvas-First Sync Logic
+**Release Date:** 2025-01-14
+**Commit:** 92358b4
 
 ### 🎯 Advanced Text Wrapping Implementation
 - **Problem Solved**: Composition translation text was displaying as single long line extending beyond region boundaries
