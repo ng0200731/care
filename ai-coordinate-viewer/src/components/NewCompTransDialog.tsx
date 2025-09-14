@@ -1,26 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import MovableDialog from './MovableDialog';
 
-// Available languages from composition table (18 languages)
+// Available languages from composition table (18 languages) - Database codes
 const availableLanguages = [
-  { code: 'AR', name: 'Arabic', flag: '🇸🇦' },
-  { code: 'BS', name: 'Basque', flag: '🏴' },
-  { code: 'CA', name: 'Catalan', flag: '🏴' },
-  { code: 'CH', name: 'Chinese', flag: '🇨🇳' },
-  { code: 'DA', name: 'Danish', flag: '🇩🇰' },
-  { code: 'DU', name: 'Dutch', flag: '🇳🇱' },
-  { code: 'EN', name: 'English', flag: '🇺🇸' },
-  { code: 'FR', name: 'French', flag: '🇫🇷' },
-  { code: 'GA', name: 'Galician', flag: '🏴' },
-  { code: 'DE', name: 'German', flag: '🇩🇪' },
-  { code: 'GR', name: 'Greek', flag: '🇬🇷' },
-  { code: 'ID', name: 'Indonesian', flag: '🇮🇩' },
-  { code: 'IT', name: 'Italian', flag: '🇮🇹' },
-  { code: 'JA', name: 'Japanese', flag: '🇯🇵' },
-  { code: 'KO', name: 'Korean', flag: '🇰🇷' },
-  { code: 'PT', name: 'Portuguese', flag: '🇵🇹' },
-  { code: 'SL', name: 'Slovenian', flag: '🇸🇮' },
-  { code: 'ES', name: 'Spanish', flag: '🇪🇸' }
+  { code: 'AR', name: 'Arabic' },
+  { code: 'BS', name: 'Basque' },
+  { code: 'CA', name: 'Catalan' },
+  { code: 'CH', name: 'Chinese' },
+  { code: 'DA', name: 'Danish' },
+  { code: 'DU', name: 'Dutch' },
+  { code: 'EN', name: 'English' },
+  { code: 'FR', name: 'French' },
+  { code: 'GA', name: 'Galician' },
+  { code: 'DE', name: 'German' },
+  { code: 'GR', name: 'Greek' },
+  { code: 'ID', name: 'Indonesian' },
+  { code: 'IT', name: 'Italian' },
+  { code: 'JA', name: 'Japanese' },
+  { code: 'KO', name: 'Korean' },
+  { code: 'PT', name: 'Portuguese' },
+  { code: 'SL', name: 'Slovenian' },
+  { code: 'ES', name: 'Spanish' }
 ];
 
 export interface NewCompTransConfig {
@@ -157,7 +157,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       isOpen={isOpen}
       title="Composition Translation Settings"
       icon="🌐"
-      width="500px"
+      width="1000px"
       storageKey="comp-trans-dialog"
       onClose={handleCancel}
     >
@@ -296,103 +296,107 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
               📐 Alignment
             </h3>
 
-            <div style={{ marginBottom: '12px' }}>
-              <label style={{ display: 'block', marginBottom: '6px', fontSize: '11px', fontWeight: '500' }}>
-                Horizontal:
-              </label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px' }}>
-                  <input
-                    type="radio"
-                    name="horizontal"
-                    value="left"
-                    checked={config.alignment.horizontal === 'left'}
-                    onChange={(e) => setConfig(prev => ({
-                      ...prev,
-                      alignment: { ...prev.alignment, horizontal: e.target.value as 'left' | 'center' | 'right' }
-                    }))}
-                    style={{ margin: 0 }}
-                  />
-                  Left
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              {/* Left Side - Horizontal Alignment */}
+              <div>
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '11px', fontWeight: '500' }}>
+                  Horizontal:
                 </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px' }}>
-                  <input
-                    type="radio"
-                    name="horizontal"
-                    value="center"
-                    checked={config.alignment.horizontal === 'center'}
-                    onChange={(e) => setConfig(prev => ({
-                      ...prev,
-                      alignment: { ...prev.alignment, horizontal: e.target.value as 'left' | 'center' | 'right' }
-                    }))}
-                    style={{ margin: 0 }}
-                  />
-                  Center
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px' }}>
-                  <input
-                    type="radio"
-                    name="horizontal"
-                    value="right"
-                    checked={config.alignment.horizontal === 'right'}
-                    onChange={(e) => setConfig(prev => ({
-                      ...prev,
-                      alignment: { ...prev.alignment, horizontal: e.target.value as 'left' | 'center' | 'right' }
-                    }))}
-                    style={{ margin: 0 }}
-                  />
-                  Right
-                </label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px' }}>
+                    <input
+                      type="radio"
+                      name="horizontal"
+                      value="left"
+                      checked={config.alignment.horizontal === 'left'}
+                      onChange={(e) => setConfig(prev => ({
+                        ...prev,
+                        alignment: { ...prev.alignment, horizontal: e.target.value as 'left' | 'center' | 'right' }
+                      }))}
+                      style={{ margin: 0 }}
+                    />
+                    Left
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px' }}>
+                    <input
+                      type="radio"
+                      name="horizontal"
+                      value="center"
+                      checked={config.alignment.horizontal === 'center'}
+                      onChange={(e) => setConfig(prev => ({
+                        ...prev,
+                        alignment: { ...prev.alignment, horizontal: e.target.value as 'left' | 'center' | 'right' }
+                      }))}
+                      style={{ margin: 0 }}
+                    />
+                    Center
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px' }}>
+                    <input
+                      type="radio"
+                      name="horizontal"
+                      value="right"
+                      checked={config.alignment.horizontal === 'right'}
+                      onChange={(e) => setConfig(prev => ({
+                        ...prev,
+                        alignment: { ...prev.alignment, horizontal: e.target.value as 'left' | 'center' | 'right' }
+                      }))}
+                      style={{ margin: 0 }}
+                    />
+                    Right
+                  </label>
+                </div>
               </div>
-            </div>
 
-            <div>
-              <label style={{ display: 'block', marginBottom: '6px', fontSize: '11px', fontWeight: '500' }}>
-                Vertical:
-              </label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px' }}>
-                  <input
-                    type="radio"
-                    name="vertical"
-                    value="top"
-                    checked={config.alignment.vertical === 'top'}
-                    onChange={(e) => setConfig(prev => ({
-                      ...prev,
-                      alignment: { ...prev.alignment, vertical: e.target.value as 'top' | 'center' | 'bottom' }
-                    }))}
-                    style={{ margin: 0 }}
-                  />
-                  Top
+              {/* Right Side - Vertical Alignment */}
+              <div>
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '11px', fontWeight: '500' }}>
+                  Vertical:
                 </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px' }}>
-                  <input
-                    type="radio"
-                    name="vertical"
-                    value="center"
-                    checked={config.alignment.vertical === 'center'}
-                    onChange={(e) => setConfig(prev => ({
-                      ...prev,
-                      alignment: { ...prev.alignment, vertical: e.target.value as 'top' | 'center' | 'bottom' }
-                    }))}
-                    style={{ margin: 0 }}
-                  />
-                  Center
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px' }}>
-                  <input
-                    type="radio"
-                    name="vertical"
-                    value="bottom"
-                    checked={config.alignment.vertical === 'bottom'}
-                    onChange={(e) => setConfig(prev => ({
-                      ...prev,
-                      alignment: { ...prev.alignment, vertical: e.target.value as 'top' | 'center' | 'bottom' }
-                    }))}
-                    style={{ margin: 0 }}
-                  />
-                  Bottom
-                </label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px' }}>
+                    <input
+                      type="radio"
+                      name="vertical"
+                      value="top"
+                      checked={config.alignment.vertical === 'top'}
+                      onChange={(e) => setConfig(prev => ({
+                        ...prev,
+                        alignment: { ...prev.alignment, vertical: e.target.value as 'top' | 'center' | 'bottom' }
+                      }))}
+                      style={{ margin: 0 }}
+                    />
+                    Top
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px' }}>
+                    <input
+                      type="radio"
+                      name="vertical"
+                      value="center"
+                      checked={config.alignment.vertical === 'center'}
+                      onChange={(e) => setConfig(prev => ({
+                        ...prev,
+                        alignment: { ...prev.alignment, vertical: e.target.value as 'top' | 'center' | 'bottom' }
+                      }))}
+                      style={{ margin: 0 }}
+                    />
+                    Center
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px' }}>
+                    <input
+                      type="radio"
+                      name="vertical"
+                      value="bottom"
+                      checked={config.alignment.vertical === 'bottom'}
+                      onChange={(e) => setConfig(prev => ({
+                        ...prev,
+                        alignment: { ...prev.alignment, vertical: e.target.value as 'top' | 'center' | 'bottom' }
+                      }))}
+                      style={{ margin: 0 }}
+                    />
+                    Bottom
+                  </label>
+                </div>
               </div>
             </div>
           </div>
@@ -569,7 +573,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
                     onChange={() => handleLanguageToggle(language.code)}
                     style={{ margin: 0, transform: 'scale(0.9)' }}
                   />
-                  <span style={{ fontSize: '14px' }}>{language.flag}</span>
+                  <span style={{ fontWeight: '600', marginRight: '4px' }}>{language.code}</span>
                   <span>{language.name}</span>
                 </label>
               ))}
@@ -605,7 +609,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
                         fontWeight: '500'
                       }}
                     >
-                      {language.flag} {language.name}
+                      {language.code} {language.name}
                     </span>
                   ) : null;
                 })}

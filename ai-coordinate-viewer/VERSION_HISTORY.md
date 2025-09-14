@@ -1,8 +1,29 @@
 # Care Label Layout System - Version History
 
-## Version 2.1.50 - Enhanced Composition Translation Dialog with 3-Column Layout
+## Version 2.1.51 - Improved Alignment Layout and Doubled Dialog Width
 **Release Date:** 2025-01-14
 **Commit:** TBD
+
+### 🎨 UI Enhancements
+- **Improved Language Display**: Updated language selection with database codes
+  - **Correct Database Codes**: Using proper 2-letter codes (AR, BS, CA, CH, DA, DU, EN, FR, GA, DE, GR, ID, IT, JA, KO, PT, SL, ES)
+  - **Removed Flag Emojis**: Eliminated confusing flag icons that didn't match properly
+  - **Clean Format**: Display as "CODE Language" (e.g., "AR Arabic", "EN English")
+  - **Bold Codes**: Language codes displayed in bold for better readability
+- **Improved Alignment Layout**: Redesigned alignment section with side-by-side layout
+  - **Horizontal Alignment**: Left side - Left/Center/Right radio buttons
+  - **Vertical Alignment**: Right side - Top/Center/Bottom radio buttons
+  - **Better Space Usage**: More efficient use of column width
+  - **Cleaner Organization**: Logical grouping of related controls
+- **Doubled Dialog Width**: Increased popup menu width from 500px to 1000px
+  - **Better Space Utilization**: More room for 3-column layout
+  - **Improved Readability**: Less cramped controls and text
+  - **Enhanced Language Grid**: Better display of all 18 languages
+  - **Comfortable Layout**: More breathing room for all sections
+
+## Version 2.1.50 - Enhanced Composition Translation Dialog with 3-Column Layout
+**Release Date:** 2025-01-14
+**Commit:** a22a3b6
 
 ### 🌐 Composition Translation Improvements
 - **New 3-Column Layout**: Completely redesigned composition translation popup menu
