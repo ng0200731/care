@@ -6663,6 +6663,7 @@ function App() {
       }
 
       // Add title and paper size info
+      pdf.setFont('helvetica', 'normal'); // Ensure Arial font for header
       pdf.setFontSize(16);
       const titleText = isProjectMode ? `Project: All Content (${mothers.length} mothers)` : `Master File: All Mothers (${mothers.length})`;
       pdf.text(titleText, 10, 15);
@@ -6863,6 +6864,7 @@ function App() {
 
             // Add padding dimension labels only if dimensions toggle is enabled
             if (showDimensions) {
+              pdf.setFont('helvetica', 'normal'); // Ensure Arial font for labels
               pdf.setFontSize(8); // Standard font size
               pdf.setTextColor(0, 0, 0); // Black text
               pdf.text(`${padding}mm`, motherX + mother.width + 2, motherY + midFoldY);
@@ -6902,6 +6904,7 @@ function App() {
 
             // Add padding dimension labels only if dimensions toggle is enabled
             if (showDimensions) {
+              pdf.setFont('helvetica', 'normal'); // Ensure Arial font for labels
               pdf.setFontSize(8); // Standard font size
               pdf.setTextColor(0, 0, 0); // Black text
               pdf.text(`${padding}mm`, motherX + midFoldX - 5, motherY + mother.height + 8);
@@ -6913,6 +6916,7 @@ function App() {
 
         // Add mother margin dimension labels only if dimensions toggle is enabled
         if (motherMargins && showDimensions) {
+          pdf.setFont('helvetica', 'normal'); // Ensure Arial font for labels
           pdf.setFontSize(8); // Standard font size
           pdf.setTextColor(0, 0, 0); // Black text
 
@@ -7191,6 +7195,8 @@ function App() {
                             pdf.setTextColor(0, 0, 0);
                             pdf.text(symbol, symbolX, symbolY, { align: 'center', baseline: 'middle' });
                             fontUsed = true;
+                            // Reset font back to Arial/Helvetica for subsequent text rendering
+                            pdf.setFont('helvetica', 'normal');
                           } catch (error) {
                             // Font not available, try canvas rendering
                             fontUsed = false;
@@ -7508,6 +7514,8 @@ function App() {
                         pdf.setTextColor(0, 0, 0);
                         pdf.text(symbol, symbolX, symbolY, { align: 'center', baseline: 'middle' });
                         fontUsed = true;
+                        // Reset font back to Arial/Helvetica for subsequent text rendering
+                        pdf.setFont('helvetica', 'normal');
                       } catch (error) {
                         // Font not available, try canvas rendering
                         fontUsed = false;
