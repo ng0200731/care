@@ -11,6 +11,7 @@ import UniversalContentDialog, { UniversalContentData } from './components/dialo
 import NewLineTextDialog, { NewLineTextConfig } from './components/NewLineTextDialog';
 import NewMultiLineDialog, { NewMultiLineConfig } from './components/NewMultiLineDialog';
 import NewWashingCareSymbolDialog, { NewWashingCareSymbolConfig } from './components/NewWashingCareSymbolDialog';
+import NewCompTransDialog, { NewCompTransConfig } from './components/NewCompTransDialog';
 import jsPDF from 'jspdf';
 // import RegionOccupationDialog, { RegionOccupationData } from './components/dialogs/RegionOccupationDialog';
 // import PreviewControlPanel, { PreviewSettings } from './components/PreviewControlPanel';
@@ -505,6 +506,15 @@ function App() {
     editingContent?: any;
   } | null>(null);
 
+  // New Comp Trans Dialog state
+  const [newCompTransDialog, setNewCompTransDialog] = useState<{
+    isOpen: boolean;
+    regionId: string;
+    regionWidth: number;
+    regionHeight: number;
+    editingContent?: any;
+  } | null>(null);
+
   // Canvas-based symbol rendering utility for PDF
   const renderSymbolToCanvas = (symbol: string, size: number = 24): string | null => {
     try {
@@ -925,7 +935,11 @@ function App() {
         layout: {
           padding: config.padding,
           horizontalAlign: config.alignment.horizontal,
-          verticalAlign: config.alignment.vertical
+          verticalAlign: config.alignment.vertical,
+          width: { value: 100, unit: '%' },
+          height: { value: 100, unit: '%' },
+          fullWidth: true,
+          fullHeight: true
         },
         newWashingCareSymbolConfig: config // Store complete configuration
       };
@@ -976,6 +990,105 @@ function App() {
   // Handle New Washing Care Symbol Dialog Cancel
   const handleNewWashingCareSymbolCancel = () => {
     setNewWashingCareSymbolDialog(null);
+  };
+
+  // Handle New Comp Trans Dialog Save
+  const handleNewCompTransSave = (config: NewCompTransConfig) => {
+    if (!newCompTransDialog) return;
+
+    const { regionId, editingContent } = newCompTransDialog;
+
+    if (editingContent) {
+      // Update existing content with configuration
+      console.log('🔄 Updating existing comp trans content:', editingContent.id, 'with config:', config);
+      setRegionContents(prevContents => {
+        const newContents = new Map(prevContents);
+        const existingContents = newContents.get(regionId) || [];
+        const updatedContents = existingContents.map(content =>
+          content.id === editingContent.id
+            ? {
+                ...content,
+                type: 'new-comp-trans' as const,
+                content: {
+                  ...content.content,
+                  text: content.content?.text || 'Composition Translation',
+                  padding: config.padding,
+                  alignment: config.alignment
+                },
+                typography: config.typography,
+                layout: {
+                  ...content.layout,
+                  padding: config.padding,
+                  horizontalAlign: config.alignment.horizontal,
+                  verticalAlign: config.alignment.vertical
+                },
+                newCompTransConfig: config // Store complete configuration
+              }
+            : content
+        );
+        newContents.set(regionId, updatedContents);
+        return newContents;
+      });
+
+      setNotification(`✅ Updated composition translation`);
+      setTimeout(() => setNotification(null), 3000);
+    } else {
+      // Add new comp trans content with configuration
+      const newContent = {
+        id: `comp-trans-${Date.now()}`,
+        type: 'new-comp-trans' as const,
+        content: {
+          text: 'Composition Translation',
+          padding: config.padding,
+          alignment: config.alignment
+        },
+        typography: config.typography,
+        layout: {
+          padding: config.padding,
+          horizontalAlign: config.alignment.horizontal,
+          verticalAlign: config.alignment.vertical,
+          width: { value: 100, unit: '%' },
+          height: { value: 100, unit: '%' },
+          fullWidth: true,
+          fullHeight: true
+        },
+        newCompTransConfig: config // Store complete configuration
+      };
+
+      console.log('💾 Adding new comp trans content to region:', regionId, newContent);
+
+      setRegionContents(prevContents => {
+        const newContents = new Map(prevContents);
+        const existingContents = newContents.get(regionId) || [];
+        newContents.set(regionId, [...existingContents, newContent]);
+        return newContents;
+      });
+
+      // Get region name for notification
+      let regionForNotification: any = null;
+      const currentData = data || webCreationData;
+      if (currentData) {
+        for (const obj of currentData.objects) {
+          if (obj.type?.includes('mother')) {
+            const regions = (obj as any).regions || [];
+            regionForNotification = regions.find((r: any) => r.id === regionId);
+            if (regionForNotification) break;
+          }
+        }
+      }
+      const regionName = regionForNotification ? `${regionForNotification.id} (${regionForNotification.width}×${regionForNotification.height}mm)` : regionId;
+
+      setNotification(`✅ Added composition translation to ${regionName}`);
+      setTimeout(() => setNotification(null), 3000);
+    }
+
+    // Close dialog
+    setNewCompTransDialog(null);
+  };
+
+  // Handle New Comp Trans Dialog Cancel
+  const handleNewCompTransCancel = () => {
+    setNewCompTransDialog(null);
   };
 
   // Auto-hide menu handlers
@@ -2235,6 +2348,55 @@ function App() {
 
       // Open blank dialog for editing existing content
       setNewWashingCareSymbolDialog({
+        isOpen: true,
+        regionId: regionId,
+        regionWidth: region.width,
+        regionHeight: region.height,
+        editingContent: content
+      });
+      return;
+    }
+
+    // Handle new-comp-trans content type - open blank dialog
+    if (content.type === 'new-comp-trans') {
+      console.log('🌐 NEW CT Comp Trans double-clicked - Opening blank dialog');
+
+      // Find the region from current data (check both main regions and child regions/slices)
+      const currentData = data || webCreationData;
+      let region: any = null;
+
+      if (currentData) {
+        for (const obj of currentData.objects) {
+          if (obj.type?.includes('mother')) {
+            const regions = (obj as any).regions || [];
+
+            // First check main regions
+            region = regions.find((r: any) => r.id === regionId);
+            if (region) break;
+
+            // If not found in main regions, check child regions (slices)
+            for (const parentRegion of regions) {
+              if (parentRegion.children && parentRegion.children.length > 0) {
+                const childRegion = parentRegion.children.find((child: any) => child.id === regionId);
+                if (childRegion) {
+                  region = childRegion;
+                  break;
+                }
+              }
+            }
+            if (region) break;
+          }
+        }
+      }
+
+      if (!region) {
+        setNotification(`❌ Region ${regionId} not found`);
+        setTimeout(() => setNotification(null), 3000);
+        return;
+      }
+
+      // Open blank dialog for editing existing content
+      setNewCompTransDialog({
         isOpen: true,
         regionId: regionId,
         regionWidth: region.width,
@@ -5730,6 +5892,52 @@ function App() {
       return;
     }
 
+    // Check if this is the new CT comp trans
+    if ((contentTypeData as any).isNewCt && contentTypeData.id === 'new-comp-trans') {
+      console.log('🆕 NEW CT Comp Trans - Opening blank dialog');
+
+      // Find the region to get its dimensions (check both main regions and child regions/slices)
+      let region: any = null;
+      const currentData = data || webCreationData;
+      if (currentData) {
+        for (const obj of currentData.objects) {
+          if (obj.type?.includes('mother')) {
+            const regions = (obj as any).regions || [];
+
+            // First check main regions
+            region = regions.find((r: any) => r.id === regionId);
+            if (region) break;
+
+            // If not found in main regions, check child regions (slices)
+            for (const parentRegion of regions) {
+              if (parentRegion.children && parentRegion.children.length > 0) {
+                const childRegion = parentRegion.children.find((child: any) => child.id === regionId);
+                if (childRegion) {
+                  region = childRegion;
+                  break;
+                }
+              }
+            }
+            if (region) break;
+          }
+        }
+      }
+      if (!region) {
+        setNotification(`❌ Region/Slice ${regionId} not found`);
+        setTimeout(() => setNotification(null), 3000);
+        return;
+      }
+
+      // Open blank dialog
+      setNewCompTransDialog({
+        isOpen: true,
+        regionId: regionId,
+        regionWidth: region.width,
+        regionHeight: region.height
+      });
+      return;
+    }
+
     // For all other content types, open universal content dialog
     setUniversalDialog({
       isOpen: true,
@@ -7274,6 +7482,54 @@ function App() {
                           }
                           } // End of fallback vector shapes (child regions)
                         });
+                      } else if (content.type === 'new-comp-trans') {
+                        // Render composition translation text in PDF for child regions using configuration
+                        const config = content.newCompTransConfig;
+                        if (!config || !config.padding || !config.alignment || !config.typography) {
+                          console.warn('🌐 child new-comp-trans missing configuration, skipping PDF render');
+                          return;
+                        }
+
+                        const configPadding = config.padding;
+                        const configAlignment = config.alignment;
+                        const configTypography = config.typography;
+
+                        // Calculate available space after padding
+                        const availableWidth = childRegion.width - configPadding.left - configPadding.right;
+                        const availableHeight = childRegion.height - configPadding.top - configPadding.bottom;
+
+                        // Calculate text position based on alignment
+                        let textX = childX + configPadding.left;
+                        let textY = childY + configPadding.top;
+
+                        if (configAlignment.horizontal === 'center') {
+                          textX = childX + (childRegion.width / 2);
+                        } else if (configAlignment.horizontal === 'right') {
+                          textX = childX + childRegion.width - configPadding.right;
+                        }
+
+                        if (configAlignment.vertical === 'center') {
+                          textY = childY + (childRegion.height / 2);
+                        } else if (configAlignment.vertical === 'bottom') {
+                          textY = childY + childRegion.height - configPadding.bottom;
+                        }
+
+                        // Set font and render text
+                        pdf.setFont('helvetica', 'normal');
+                        let fontSize = configTypography.fontSize;
+                        if (configTypography.fontSizeUnit === 'pt') {
+                          fontSize = fontSize * 0.352778; // Convert pt to mm
+                        } else if (configTypography.fontSizeUnit === 'px') {
+                          fontSize = fontSize * 0.264583; // Convert px to mm
+                        }
+                        pdf.setFontSize(fontSize * 2.83); // Convert mm to points for jsPDF
+                        pdf.setTextColor(0, 0, 0);
+
+                        const textContent = content.content?.text || 'Composition Translation';
+                        const alignOption = configAlignment.horizontal === 'center' ? 'center' :
+                                           configAlignment.horizontal === 'right' ? 'right' : 'left';
+
+                        pdf.text(textContent, textX, textY, { align: alignOption });
                       } else {
                         // Render regular text lines with EXACT positioning like web view
                         // Web: const textY = startY + (lineIndex + 1) * lineHeight;
@@ -7593,6 +7849,54 @@ function App() {
                         }
                       } // End of fallback vector shapes
                     });
+                  } else if (content.type === 'new-comp-trans') {
+                    // Render composition translation text in PDF using configuration
+                    const config = content.newCompTransConfig;
+                    if (!config || !config.padding || !config.alignment || !config.typography) {
+                      console.warn('🌐 new-comp-trans missing configuration, skipping PDF render');
+                      return;
+                    }
+
+                    const configPadding = config.padding;
+                    const configAlignment = config.alignment;
+                    const configTypography = config.typography;
+
+                    // Calculate available space after padding
+                    const availableWidth = region.width - configPadding.left - configPadding.right;
+                    const availableHeight = region.height - configPadding.top - configPadding.bottom;
+
+                    // Calculate text position based on alignment
+                    let textX = regionX + configPadding.left;
+                    let textY = regionY + configPadding.top;
+
+                    if (configAlignment.horizontal === 'center') {
+                      textX = regionX + (region.width / 2);
+                    } else if (configAlignment.horizontal === 'right') {
+                      textX = regionX + region.width - configPadding.right;
+                    }
+
+                    if (configAlignment.vertical === 'center') {
+                      textY = regionY + (region.height / 2);
+                    } else if (configAlignment.vertical === 'bottom') {
+                      textY = regionY + region.height - configPadding.bottom;
+                    }
+
+                    // Set font and render text
+                    pdf.setFont('helvetica', 'normal');
+                    let fontSize = configTypography.fontSize;
+                    if (configTypography.fontSizeUnit === 'pt') {
+                      fontSize = fontSize * 0.352778; // Convert pt to mm
+                    } else if (configTypography.fontSizeUnit === 'px') {
+                      fontSize = fontSize * 0.264583; // Convert px to mm
+                    }
+                    pdf.setFontSize(fontSize * 2.83); // Convert mm to points for jsPDF
+                    pdf.setTextColor(0, 0, 0);
+
+                    const textContent = content.content?.text || 'Composition Translation';
+                    const alignOption = configAlignment.horizontal === 'center' ? 'center' :
+                                       configAlignment.horizontal === 'right' ? 'right' : 'left';
+
+                    pdf.text(textContent, textX, textY, { align: alignOption });
                   } else {
                     // Render regular text lines with EXACT positioning like web view
                     // Web: const textY = startY + (lineIndex + 1) * lineHeight;
@@ -10302,6 +10606,9 @@ function App() {
                       } else if (content.type === 'new-washing-care-symbol' && content.content?.text) {
                         displayText = content.content.text;
                         console.log('🧺 new-washing-care-symbol displayText:', displayText, 'content:', content);
+                      } else if (content.type === 'new-comp-trans' && content.content?.text) {
+                        displayText = content.content.text;
+                        console.log('🌐 new-comp-trans displayText:', displayText, 'content:', content);
                       } else if (content.type === 'pure-english-paragraph' && content.content?.text) {
                         displayText = content.content.text;
                       } else if (content.type === 'translation-paragraph') {
@@ -10376,6 +10683,18 @@ function App() {
                         padding = config.padding;
 
                         console.log('🧺 new-washing-care-symbol using configuration:', config);
+                      } else if (content.type === 'new-comp-trans' && content.newCompTransConfig) {
+                        const config = content.newCompTransConfig;
+                        if (config && config.typography && config.alignment && config.padding) {
+                          fontSize = config.typography.fontSize;
+                          fontFamily = config.typography.fontFamily;
+                          fontSizeUnit = config.typography.fontSizeUnit;
+                          textAlign = config.alignment.horizontal;
+                          verticalAlign = config.alignment.vertical;
+                          padding = config.padding;
+
+                          console.log('🌐 new-comp-trans using configuration:', config);
+                        }
                       }
 
                       // PHASE 1: Use precise text measurement for rendering
@@ -10862,14 +11181,17 @@ function App() {
                     });
                   })()}
 
-                  {/* Padding boundaries visualization for new-washing-care-symbol content */}
+                  {/* Padding boundaries visualization for new-washing-care-symbol and new-comp-trans content */}
                   {(() => {
                     const regionContentsArray = regionContents.get(region.id) || [];
                     if (!regionContentsArray || regionContentsArray.length === 0) return null;
                     return regionContentsArray.map((content: any, contentIndex: number) => {
-                      if (content.type !== 'new-washing-care-symbol' || !content.newWashingCareSymbolConfig) return null;
+                      if ((content.type !== 'new-washing-care-symbol' || !content.newWashingCareSymbolConfig) &&
+                          (content.type !== 'new-comp-trans' || !content.newCompTransConfig)) return null;
 
-                      const config = content.newWashingCareSymbolConfig;
+                      const config = content.newWashingCareSymbolConfig || content.newCompTransConfig;
+                      if (!config || !config.padding) return null;
+
                       const regionWidthPx = region.width * scale;
                       const regionHeightPx = region.height * scale;
                       const paddingTopPx = config.padding.top * scale;
@@ -11151,6 +11473,9 @@ function App() {
                             } else if (content.type === 'new-washing-care-symbol' && content.content?.text) {
                               displayText = content.content.text;
                               console.log('🧺 child new-washing-care-symbol displayText:', displayText, 'content:', content);
+                            } else if (content.type === 'new-comp-trans' && content.content?.text) {
+                              displayText = content.content.text;
+                              console.log('🌐 child new-comp-trans displayText:', displayText, 'content:', content);
                             } else if (content.type === 'pure-english-paragraph' && content.content?.text) {
                               displayText = content.content.text;
                             } else if (content.type === 'translation-paragraph') {
@@ -11220,6 +11545,17 @@ function App() {
                               verticalAlign = config.alignment.vertical;
                               padding = config.padding;
                               console.log('🧺 child new-washing-care-symbol using configuration:', config);
+                            } else if (content.type === 'new-comp-trans' && content.newCompTransConfig) {
+                              const config = content.newCompTransConfig;
+                              if (config && config.typography && config.alignment && config.padding) {
+                                fontSize = config.typography.fontSize;
+                                fontFamily = config.typography.fontFamily;
+                                fontSizeUnit = config.typography.fontSizeUnit;
+                                textAlign = config.alignment.horizontal;
+                                verticalAlign = config.alignment.vertical;
+                                padding = config.padding;
+                                console.log('🌐 child new-comp-trans using configuration:', config);
+                              }
                             }
 
                             // Advanced text processing (same as main regions)
@@ -11511,13 +11847,16 @@ function App() {
                           });
                         })()}
 
-                        {/* Padding boundaries visualization for new-washing-care-symbol content in child regions */}
+                        {/* Padding boundaries visualization for new-washing-care-symbol and new-comp-trans content in child regions */}
                         {(() => {
                           const childContentItems = regionContents.get(childRegion.id) || [];
                           return childContentItems.map((content: any, contentIndex: number) => {
-                            if (content.type !== 'new-washing-care-symbol' || !content.newWashingCareSymbolConfig) return null;
+                            if ((content.type !== 'new-washing-care-symbol' || !content.newWashingCareSymbolConfig) &&
+                                (content.type !== 'new-comp-trans' || !content.newCompTransConfig)) return null;
 
-                            const config = content.newWashingCareSymbolConfig;
+                            const config = content.newWashingCareSymbolConfig || content.newCompTransConfig;
+                            if (!config || !config.padding) return null;
+
                             const childWidthPx = childRegion.width * scale;
                             const childHeightPx = childRegion.height * scale;
                             const paddingTopPx = config.padding.top * scale;
@@ -15476,6 +15815,19 @@ function App() {
           editingContent={newWashingCareSymbolDialog.editingContent}
           onSave={handleNewWashingCareSymbolSave}
           onCancel={handleNewWashingCareSymbolCancel}
+        />
+      )}
+
+      {/* New Comp Trans Dialog */}
+      {newCompTransDialog && (
+        <NewCompTransDialog
+          isOpen={newCompTransDialog.isOpen}
+          regionId={newCompTransDialog.regionId}
+          regionWidth={newCompTransDialog.regionWidth}
+          regionHeight={newCompTransDialog.regionHeight}
+          editingContent={newCompTransDialog.editingContent}
+          onSave={handleNewCompTransSave}
+          onCancel={handleNewCompTransCancel}
         />
       )}
 

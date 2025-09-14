@@ -69,6 +69,24 @@ const NewCtMenu: React.FC<NewCtMenuProps> = ({
     e.currentTarget.style.opacity = '0.5';
   };
 
+  // Drag handlers for Comp Trans
+  const handleCompTransDragStart = (e: React.DragEvent<HTMLButtonElement>) => {
+    const compTransContentType = {
+      id: 'new-comp-trans',
+      name: 'Comp Trans',
+      icon: '🌐',
+      description: 'New style composition translation content',
+      isNewCt: true // Flag to identify this as new CT content
+    };
+
+    console.log('🚀 NEW CT DRAG START:', compTransContentType.name, 'ID:', compTransContentType.id);
+    e.dataTransfer.setData('application/json', JSON.stringify(compTransContentType));
+    e.dataTransfer.effectAllowed = 'copy';
+
+    // Add visual feedback
+    e.currentTarget.style.opacity = '0.5';
+  };
+
   const handleDragEnd = (e: React.DragEvent<HTMLButtonElement>) => {
     // Reset visual feedback
     e.currentTarget.style.opacity = '1';
@@ -243,6 +261,56 @@ const NewCtMenu: React.FC<NewCtMenuProps> = ({
       >
         <span style={{ fontSize: '18px' }}>🧺</span>
         Washing Care Symbol
+      </button>
+
+      {/* Comp Trans Button - Draggable */}
+      <button
+        draggable
+        onDragStart={handleCompTransDragStart}
+        onDragEnd={handleDragEnd}
+        style={{
+          width: '100%',
+          padding: '15px 20px',
+          backgroundColor: 'rgba(255, 255, 255, 0.1)',
+          border: '2px solid rgba(255, 255, 255, 0.2)',
+          borderRadius: '8px',
+          color: 'white',
+          fontSize: '16px',
+          fontWeight: '600',
+          cursor: 'grab',
+          transition: 'all 0.2s ease',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '8px',
+          userSelect: 'none',
+          marginTop: '12px'
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.4)';
+          e.currentTarget.style.transform = 'translateY(-2px)';
+          e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.2)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+          e.currentTarget.style.transform = 'translateY(0)';
+          e.currentTarget.style.boxShadow = 'none';
+        }}
+        onMouseDown={(e) => {
+          e.currentTarget.style.cursor = 'grabbing';
+        }}
+        onMouseUp={(e) => {
+          e.currentTarget.style.cursor = 'grab';
+        }}
+        onClick={() => {
+          console.log('Comp Trans button clicked');
+          // Add functionality here later
+        }}
+      >
+        <span style={{ fontSize: '18px' }}>🌐</span>
+        Comp Trans
       </button>
     </div>
   );
