@@ -6524,33 +6524,116 @@ function App() {
       totalHeight = Math.max(totalHeight, mother.y + mother.height);
     });
 
-    // Add margins
-    const margin = 20;
-    const totalWidthMM = maxWidth + margin;
-    const totalHeightMM = totalHeight + margin;
+    // Add proper margins (minimum 10mm on all sides) + header space
+    const margin = 20; // 10mm on each side
+    const headerSpace = 80; // Estimated space needed for header (hierarchy info)
+    const contentWidthMM = maxWidth;
+    const contentHeightMM = totalHeight;
+    const totalWidthMM = contentWidthMM + margin;
+    const totalHeightMM = contentHeightMM + margin + headerSpace; // Include header space
 
-    // Determine paper size (A4: 210×297, A3: 297×420, A2: 420×594, A1: 594×841)
-    let paperSize = 'A4';
-    let paperWidthMM = 210;
-    let paperHeightMM = 297;
+    console.log('📐 PDF Dimensions Debug:', {
+      contentWidthMM,
+      contentHeightMM,
+      margin,
+      headerSpace,
+      totalWidthMM,
+      totalHeightMM,
+      breakdown: {
+        contentHeight: contentHeightMM,
+        margins: margin,
+        header: headerSpace,
+        total: totalHeightMM
+      },
+      mothersCount: mothers.length,
+      motherPositions: mothers.map(m => ({ name: m.name, x: m.x, y: m.y, width: m.width, height: m.height, bottom: m.y + m.height }))
+    });
 
-    if (totalWidthMM > 210 || totalHeightMM > 297) {
-      paperSize = 'A3';
-      paperWidthMM = 297;
-      paperHeightMM = 420;
-    }
-    if (totalWidthMM > 297 || totalHeightMM > 420) {
-      paperSize = 'A2';
-      paperWidthMM = 420;
-      paperHeightMM = 594;
-    }
-    if (totalWidthMM > 420 || totalHeightMM > 594) {
-      paperSize = 'A1';
-      paperWidthMM = 594;
-      paperHeightMM = 841;
+    // Paper size options (base sizes only)
+    const basePaperSizes = [
+      { name: 'A4', width: 210, height: 297 },
+      { name: 'A3', width: 297, height: 420 },
+      { name: 'A2', width: 420, height: 594 },
+      { name: 'A1', width: 594, height: 841 }
+    ];
+
+    // Generate both portrait and landscape options for each size
+    const paperOptions: Array<{
+      name: string;
+      width: number;
+      height: number;
+      orientation: 'portrait' | 'landscape';
+    }> = [];
+
+    basePaperSizes.forEach(size => {
+      // Portrait
+      paperOptions.push({
+        name: size.name,
+        width: size.width,
+        height: size.height,
+        orientation: 'portrait'
+      });
+      // Landscape
+      paperOptions.push({
+        name: size.name + 'L',
+        width: size.height,
+        height: size.width,
+        orientation: 'landscape'
+      });
+    });
+
+    // Find the optimal paper size and orientation based on area utilization
+    let bestOption = null;
+    let bestUtilization = 0;
+
+    console.log('🔍 Testing paper options for content:', { totalWidthMM, totalHeightMM });
+
+    for (const option of paperOptions) {
+      // Check if content fits with margins
+      const fitsWidth = totalWidthMM <= option.width;
+      const fitsHeight = totalHeightMM <= option.height;
+      const fits = fitsWidth && fitsHeight;
+
+      if (fits) {
+        // Calculate area utilization percentage (content area / paper area)
+        const contentArea = totalWidthMM * totalHeightMM;
+        const paperArea = option.width * option.height;
+        const utilization = contentArea / paperArea;
+
+        console.log(`📄 ${option.name}: ${option.width}×${option.height}mm (${option.orientation}) - Utilization: ${(utilization * 100).toFixed(1)}%`);
+
+        if (utilization > bestUtilization) {
+          bestUtilization = utilization;
+          bestOption = option;
+        }
+      } else {
+        console.log(`❌ ${option.name}: ${option.width}×${option.height}mm - TOO SMALL (needs ${totalWidthMM}×${totalHeightMM}mm)`);
+      }
     }
 
-    console.log(`📄 Using paper size: ${paperSize} (${paperWidthMM}×${paperHeightMM}mm)`);
+    // Fallback to largest size if nothing fits
+    if (!bestOption) {
+      bestOption = paperOptions[paperOptions.length - 1]; // A1 Landscape
+      console.warn('⚠️ Content too large for standard paper sizes, using A1 Landscape');
+      bestUtilization = (totalWidthMM * totalHeightMM) / (bestOption.width * bestOption.height);
+    }
+
+    const paperSize = bestOption.name;
+    const paperWidthMM = bestOption.width;
+    const paperHeightMM = bestOption.height;
+    const orientation = bestOption.orientation;
+
+    console.log(`📄 OPTIMAL PAPER SELECTION:`, {
+      paperSize,
+      dimensions: `${paperWidthMM}×${paperHeightMM}mm`,
+      orientation,
+      utilization: `${(bestUtilization * 100).toFixed(1)}%`,
+      contentArea: `${totalWidthMM}×${totalHeightMM}mm`,
+      paperArea: `${paperWidthMM}×${paperHeightMM}mm`,
+      contentFits: totalWidthMM <= paperWidthMM && totalHeightMM <= paperHeightMM,
+      marginLeft: (paperWidthMM - totalWidthMM) / 2,
+      marginTop: (paperHeightMM - totalHeightMM) / 2
+    });
 
     // Generate PDF with paper size info
     const pdfData = {
@@ -6564,9 +6647,9 @@ function App() {
     try {
       const { jsPDF } = require('jspdf');
 
-      // Create PDF with calculated paper size
+      // Create PDF with optimized paper size and orientation
       const pdf = new jsPDF({
-        orientation: paperWidthMM > paperHeightMM ? 'landscape' : 'portrait',
+        orientation: orientation,
         unit: 'mm',
         format: [paperWidthMM, paperHeightMM]
       });
@@ -6645,25 +6728,66 @@ function App() {
         currentY += 10; // Extra space before mothers drawing
       }
 
+      // Calculate content offset with proper margins and ensure no cutting
+      const minMargin = 10; // Minimum 10mm margin on all sides
+      const availableWidth = paperWidthMM - (2 * minMargin);
+      const availableHeight = paperHeightMM - currentY - (2 * minMargin); // Account for header space and margins
+
+      // Check if content fits in available space
+      const contentFitsWidth = contentWidthMM <= availableWidth;
+      const contentFitsHeight = contentHeightMM <= availableHeight;
+
+      if (!contentFitsWidth || !contentFitsHeight) {
+        console.warn('⚠️ CONTENT TOO LARGE FOR SELECTED PAPER SIZE!', {
+          contentSize: `${contentWidthMM}×${contentHeightMM}mm`,
+          availableSpace: `${availableWidth}×${availableHeight}mm`,
+          paperSize: `${paperWidthMM}×${paperHeightMM}mm`,
+          headerSpace: currentY,
+          fitsWidth: contentFitsWidth,
+          fitsHeight: contentFitsHeight
+        });
+      }
+
+      // Position content with proper margins (don't center if it causes cutting)
+      const contentOffsetX = minMargin;
+      const contentOffsetY = currentY + minMargin;
+
+      console.log('📐 Content positioning (SAFE):', {
+        paperSize: `${paperWidthMM}×${paperHeightMM}mm`,
+        contentSize: `${contentWidthMM}×${contentHeightMM}mm`,
+        headerSpace: currentY,
+        availableSpace: `${availableWidth}×${availableHeight}mm`,
+        offset: `${contentOffsetX.toFixed(1)}, ${contentOffsetY.toFixed(1)}mm`,
+        margins: {
+          left: `${minMargin}mm`,
+          right: `${(paperWidthMM - contentWidthMM - minMargin).toFixed(1)}mm`,
+          top: `${minMargin}mm`,
+          bottom: `${(paperHeightMM - currentY - contentHeightMM - minMargin).toFixed(1)}mm`
+        },
+        contentFits: contentFitsWidth && contentFitsHeight
+      });
+
       // Draw each mother and its regions
       mothers.forEach((mother, motherIndex) => {
         const motherRegions = (mother as any).regions || [];
 
+        // Calculate mother position with proper margins
+        const motherX = mother.x + contentOffsetX;
+        const motherY = mother.y + contentOffsetY;
+
         // Draw mother outline
         pdf.setDrawColor(0, 0, 0); // Black
         pdf.setLineWidth(0.3); // Standard thickness
-        pdf.rect(mother.x, mother.y + currentY, mother.width, mother.height); // Use dynamic Y position
+        pdf.rect(motherX, motherY, mother.width, mother.height);
 
         // Add mother label
         pdf.setFontSize(8);
         pdf.setTextColor(0, 0, 0); // Black text
         // Show dimensions only if dimensions toggle is enabled
         const motherDimensionText = showDimensions ? ` (${mother.width}×${mother.height}mm)` : '';
-        pdf.text(`${mother.name}${motherDimensionText}`, mother.x, mother.y + currentY - 3);
+        pdf.text(`${mother.name}${motherDimensionText}`, motherX, motherY - 3);
 
         // Draw mother solid border (black) - matching your image
-        const motherX = mother.x;
-        const motherY = mother.y + currentY;
         pdf.setDrawColor(0, 0, 0); // Black solid border
         pdf.setLineWidth(0.5); // Standard line thickness
         pdf.setLineDashPattern([], 0); // Solid line
@@ -6757,8 +6881,7 @@ function App() {
         // Draw mid fold lines if they exist and sewing lines are enabled
         const midFoldLine = (mother as any).midFoldLine;
         if (midFoldLine && midFoldLine.enabled && showSewingLines) {
-          const motherX = mother.x;
-          const motherY = mother.y + currentY;
+          // Use the properly offset motherX and motherY coordinates
           const padding = midFoldLine.padding || 3;
 
           if (midFoldLine.type === 'horizontal') {
@@ -6848,9 +6971,7 @@ function App() {
           pdf.setFontSize(8); // Standard font size
           pdf.setTextColor(0, 0, 0); // Black text
 
-          const motherX = mother.x;
-          const motherY = mother.y + currentY;
-
+          // Use the properly offset motherX and motherY coordinates
           // Top margin label
           if (motherMargins.top > 0) {
             pdf.text(`${motherMargins.top}mm`, motherX - 15, motherY + motherMargins.top);
@@ -6871,8 +6992,8 @@ function App() {
 
         // Draw regions with content and slices
         motherRegions.forEach((region: any, regionIndex: number) => {
-          const regionX = mother.x + region.x;
-          const regionY = mother.y + region.y + currentY;
+          const regionX = motherX + region.x;
+          const regionY = motherY + region.y;
 
           // Check if region has child slices
           const hasSlices = region.children && region.children.length > 0;
@@ -7220,22 +7341,24 @@ function App() {
                         // Top padding line
                         if (paddingTop > 0) {
                           pdf.setLineDashPattern([1, 1], 0.15); // Fine dotted with offset
-                          pdf.line(childX, childY + paddingTop, childX + childRegion.width, childY + paddingTop);
+                          pdf.line(childX + paddingLeft, childY + paddingTop, childX + childRegion.width - paddingRight, childY + paddingTop);
                         }
-                        // Bottom padding line
-                        if (paddingBottom > 0) {
+                        // Bottom padding line - FORCE DRAW if any other padding exists
+                        if (paddingBottom > 0 || (paddingTop > 0 || paddingLeft > 0 || paddingRight > 0)) {
                           pdf.setLineDashPattern([1, 1], 0.35); // Different offset to prevent overlap
-                          pdf.line(childX, childY + childRegion.height - paddingBottom, childX + childRegion.width, childY + childRegion.height - paddingBottom);
+                          const bottomY = childY + childRegion.height - (paddingBottom > 0 ? paddingBottom : 3); // Use 3mm default if paddingBottom is 0
+                          pdf.line(childX + paddingLeft, bottomY, childX + childRegion.width - paddingRight, bottomY);
+                          console.log('✅ Drew CHILD BOTTOM padding line at Y:', bottomY, 'paddingBottom:', paddingBottom);
                         }
                         // Left padding line
                         if (paddingLeft > 0) {
                           pdf.setLineDashPattern([1, 1], 0.55); // Different offset for vertical lines
-                          pdf.line(childX + paddingLeft, childY, childX + paddingLeft, childY + childRegion.height);
+                          pdf.line(childX + paddingLeft, childY + paddingTop, childX + paddingLeft, childY + childRegion.height - paddingBottom);
                         }
                         // Right padding line
                         if (paddingRight > 0) {
                           pdf.setLineDashPattern([1, 1], 0.75); // Different offset to prevent overlap
-                          pdf.line(childX + childRegion.width - paddingRight, childY, childX + childRegion.width - paddingRight, childY + childRegion.height);
+                          pdf.line(childX + childRegion.width - paddingRight, childY + paddingTop, childX + childRegion.width - paddingRight, childY + childRegion.height - paddingBottom);
                         }
 
                         pdf.setLineDashPattern([], 0); // Reset to solid line
@@ -7267,6 +7390,13 @@ function App() {
             }
 
             // Add content type for region - use full text like slices
+            console.log(`🔍 REGION CHECK R${regionIndex + 1}:`, {
+              isProjectMode,
+              width: region.width,
+              height: region.height,
+              sizeOK: region.width > 10 && region.height > 5,
+              willProcess: isProjectMode && region.width > 10 && region.height > 5
+            });
             if (isProjectMode && region.width > 10 && region.height > 5) {
               const regionContentsForRegion = regionContents.get(region.id) || [];
               console.log(`🔍 Region R${regionIndex + 1} (${region.id}):`, {
@@ -7525,25 +7655,39 @@ function App() {
                     pdf.setDrawColor(76, 175, 80); // Green color (#4CAF50)
                     pdf.setLineWidth(0.2); // Fine style - very thin lines
 
+                    console.log('🔍 PDF Content Padding Debug:', {
+                      regionName: region.name,
+                      contentType: content.type,
+                      paddingTop, paddingRight, paddingBottom, paddingLeft,
+                      regionX, regionY, regionWidth: region.width, regionHeight: region.height
+                    });
+
                     // Top padding line
                     if (paddingTop > 0) {
                       pdf.setLineDashPattern([1, 1], 0.1); // Fine dotted with offset
-                      pdf.line(regionX, regionY + paddingTop, regionX + region.width, regionY + paddingTop);
+                      pdf.line(regionX + paddingLeft, regionY + paddingTop, regionX + region.width - paddingRight, regionY + paddingTop);
+                      console.log('✅ Drew TOP padding line');
                     }
-                    // Bottom padding line
-                    if (paddingBottom > 0) {
+                    // Bottom padding line - FORCE DRAW if any other padding exists
+                    if (paddingBottom > 0 || (paddingTop > 0 || paddingLeft > 0 || paddingRight > 0)) {
                       pdf.setLineDashPattern([1, 1], 0.3); // Different offset to prevent overlap
-                      pdf.line(regionX, regionY + region.height - paddingBottom, regionX + region.width, regionY + region.height - paddingBottom);
+                      const bottomY = regionY + region.height - (paddingBottom > 0 ? paddingBottom : 3); // Use 3mm default if paddingBottom is 0
+                      pdf.line(regionX + paddingLeft, bottomY, regionX + region.width - paddingRight, bottomY);
+                      console.log('✅ Drew BOTTOM padding line at Y:', bottomY, 'paddingBottom:', paddingBottom);
+                    } else {
+                      console.log('❌ SKIPPED BOTTOM padding line - no padding at all');
                     }
                     // Left padding line
                     if (paddingLeft > 0) {
                       pdf.setLineDashPattern([1, 1], 0.5); // Different offset for vertical lines
-                      pdf.line(regionX + paddingLeft, regionY, regionX + paddingLeft, regionY + region.height);
+                      pdf.line(regionX + paddingLeft, regionY + paddingTop, regionX + paddingLeft, regionY + region.height - paddingBottom);
+                      console.log('✅ Drew LEFT padding line');
                     }
                     // Right padding line
                     if (paddingRight > 0) {
                       pdf.setLineDashPattern([1, 1], 0.7); // Different offset to prevent overlap
-                      pdf.line(regionX + region.width - paddingRight, regionY, regionX + region.width - paddingRight, regionY + region.height);
+                      pdf.line(regionX + region.width - paddingRight, regionY + paddingTop, regionX + region.width - paddingRight, regionY + region.height - paddingBottom);
+                      console.log('✅ Drew RIGHT padding line');
                     }
 
                     pdf.setLineDashPattern([], 0); // Reset to solid line
