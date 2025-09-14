@@ -1,5 +1,36 @@
 # Care Label Layout System - Version History
 
+## Version 2.1.50 - Enhanced Composition Translation Dialog with 3-Column Layout
+**Release Date:** 2025-01-14
+**Commit:** TBD
+
+### 🌐 Composition Translation Improvements
+- **New 3-Column Layout**: Completely redesigned composition translation popup menu
+  - **Row 1 - Column 1**: 📏 Padding (mm) - Left, Top, Right, Bottom inputs
+  - **Row 1 - Column 2**: 📐 Alignment - Horizontal (Left/Center/Right) and Vertical (Top/Center/Bottom) radio buttons
+  - **Row 1 - Column 3**: ✏️ Typography - Font Family dropdown and Font Size with unit selector
+  - **Row 2**: Comprehensive language selection from composition table
+  - **Multi-Select Languages**: Users can select multiple languages with checkboxes
+  - **Quick Actions**: "Select All" and "Deselect All" buttons for convenience
+  - **Visual Feedback**: Selected languages displayed with flags and names
+  - **Language Options**: All 18 languages from composition table (Arabic, Basque, Catalan, Chinese, Danish, Dutch, English, French, Galician, German, Greek, Indonesian, Italian, Japanese, Korean, Portuguese, Slovenian, Spanish)
+
+### 🎨 UI Enhancements
+- **3-Column Grid Layout**: Efficient use of horizontal space with bordered sections
+- **Compact Controls**: Smaller input fields and labels to fit 3-column design
+- **Visual Language Selection**: Flag icons and clear language names for all 18 supported languages in 4-column grid
+- **Selection Counter**: Shows number of selected languages in header
+- **Selected Languages Display**: Visual confirmation of current selections with badges
+- **Consistent Styling**: All sections have matching borders and background colors
+
+### 🔧 Technical Improvements
+- **Enhanced Config Interface**: Added `selectedLanguages` array to configuration
+- **Language Management**: Functions for toggle, select all, and deselect all
+- **3-Column Grid System**: CSS Grid layout for optimal space utilization
+- **Integrated Alignment Controls**: Moved alignment controls into main layout
+- **State Management**: Proper handling of language selection state
+- **Error Prevention**: Added null checks and default values for all arrays
+
 ## Version 2.1.49 - Enhanced Mother Edit Button Visibility
 **Release Date:** 2025-01-12
 **Commit:** TBD
