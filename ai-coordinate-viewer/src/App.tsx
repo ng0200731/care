@@ -6883,6 +6883,35 @@ function App() {
               pdf.rect(regionX, regionY, region.width, region.height);
             }
 
+            // Draw parent region margin lines (green dotted) if supporting lines are enabled
+            if (showSupportingLines && region.margins) {
+              pdf.setDrawColor(76, 175, 80); // Green color (#4CAF50)
+              pdf.setLineWidth(0.2); // Fine style - very thin lines
+
+              // Top margin line
+              if (region.margins.top > 0) {
+                pdf.setLineDashPattern([1, 1], 0.1); // Fine dotted with offset
+                pdf.line(regionX, regionY + region.margins.top, regionX + region.width, regionY + region.margins.top);
+              }
+              // Bottom margin line
+              if (region.margins.bottom > 0) {
+                pdf.setLineDashPattern([1, 1], 0.3); // Different offset to prevent overlap
+                pdf.line(regionX, regionY + region.height - region.margins.bottom, regionX + region.width, regionY + region.height - region.margins.bottom);
+              }
+              // Left margin line
+              if (region.margins.left > 0) {
+                pdf.setLineDashPattern([1, 1], 0.5); // Different offset for vertical lines
+                pdf.line(regionX + region.margins.left, regionY, regionX + region.margins.left, regionY + region.height);
+              }
+              // Right margin line
+              if (region.margins.right > 0) {
+                pdf.setLineDashPattern([1, 1], 0.7); // Different offset to prevent overlap
+                pdf.line(regionX + region.width - region.margins.right, regionY, regionX + region.width - region.margins.right, regionY + region.height);
+              }
+
+              pdf.setLineDashPattern([], 0); // Reset to solid line
+            }
+
             // Add parent region label - top-left, bold (only if partition names are enabled)
             if (showPartitionNames) {
               pdf.setFontSize(8);
@@ -6914,6 +6943,35 @@ function App() {
                 pdf.setLineWidth(0.2); // Fine style - very thin lines
                 pdf.setLineDashPattern([1, 1], 0.25); // Fine style with different offset
                 pdf.rect(childX, childY, childRegion.width, childRegion.height);
+                pdf.setLineDashPattern([], 0); // Reset to solid line
+              }
+
+              // Draw slice margin lines (green dotted) if supporting lines are enabled
+              if (showSupportingLines && childRegion.margins) {
+                pdf.setDrawColor(76, 175, 80); // Green color (#4CAF50)
+                pdf.setLineWidth(0.2); // Fine style - very thin lines
+
+                // Top margin line
+                if (childRegion.margins.top > 0) {
+                  pdf.setLineDashPattern([1, 1], 0.15); // Fine dotted with offset
+                  pdf.line(childX, childY + childRegion.margins.top, childX + childRegion.width, childY + childRegion.margins.top);
+                }
+                // Bottom margin line
+                if (childRegion.margins.bottom > 0) {
+                  pdf.setLineDashPattern([1, 1], 0.35); // Different offset to prevent overlap
+                  pdf.line(childX, childY + childRegion.height - childRegion.margins.bottom, childX + childRegion.width, childY + childRegion.height - childRegion.margins.bottom);
+                }
+                // Left margin line
+                if (childRegion.margins.left > 0) {
+                  pdf.setLineDashPattern([1, 1], 0.55); // Different offset for vertical lines
+                  pdf.line(childX + childRegion.margins.left, childY, childX + childRegion.margins.left, childY + childRegion.height);
+                }
+                // Right margin line
+                if (childRegion.margins.right > 0) {
+                  pdf.setLineDashPattern([1, 1], 0.75); // Different offset to prevent overlap
+                  pdf.line(childX + childRegion.width - childRegion.margins.right, childY, childX + childRegion.width - childRegion.margins.right, childY + childRegion.height);
+                }
+
                 pdf.setLineDashPattern([], 0); // Reset to solid line
               }
 
@@ -7214,6 +7272,35 @@ function App() {
               pdf.setLineWidth(0.3); // Standard thickness
               pdf.setLineDashPattern([], 0); // Solid line
               pdf.rect(regionX, regionY, region.width, region.height);
+            }
+
+            // Draw regular region margin lines (green dotted) if supporting lines are enabled
+            if (showSupportingLines && region.margins) {
+              pdf.setDrawColor(76, 175, 80); // Green color (#4CAF50)
+              pdf.setLineWidth(0.2); // Fine style - very thin lines
+
+              // Top margin line
+              if (region.margins.top > 0) {
+                pdf.setLineDashPattern([1, 1], 0.2); // Fine dotted with offset
+                pdf.line(regionX, regionY + region.margins.top, regionX + region.width, regionY + region.margins.top);
+              }
+              // Bottom margin line
+              if (region.margins.bottom > 0) {
+                pdf.setLineDashPattern([1, 1], 0.4); // Different offset to prevent overlap
+                pdf.line(regionX, regionY + region.height - region.margins.bottom, regionX + region.width, regionY + region.height - region.margins.bottom);
+              }
+              // Left margin line
+              if (region.margins.left > 0) {
+                pdf.setLineDashPattern([1, 1], 0.6); // Different offset for vertical lines
+                pdf.line(regionX + region.margins.left, regionY, regionX + region.margins.left, regionY + region.height);
+              }
+              // Right margin line
+              if (region.margins.right > 0) {
+                pdf.setLineDashPattern([1, 1], 0.8); // Different offset to prevent overlap
+                pdf.line(regionX + region.width - region.margins.right, regionY, regionX + region.width - region.margins.right, regionY + region.height);
+              }
+
+              pdf.setLineDashPattern([], 0); // Reset to solid line
             }
 
             // Add region label - top-left, bold (only if partition names are enabled)
