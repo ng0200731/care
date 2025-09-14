@@ -10747,33 +10747,48 @@ function App() {
                         hasOverflow = false;
                         optimalFit = { overflow: '' };
                       } else if (content.type === 'new-comp-trans') {
-                        // Handle composition translation with line break settings
-                        console.log('🧪 Processing composition translation text with line break settings');
+                        // Apply Canvas-First Sync logic-slice to composition translation (same as new-multi-line)
+                        console.log('🧪 Canvas: Applying Canvas-First Sync logic-slice to composition translation');
 
-                        if (content.newCompTransConfig?.lineBreakSettings) {
-                          const lineBreakSettings = content.newCompTransConfig.lineBreakSettings;
-                          const lineBreakSymbol = lineBreakSettings.lineBreakSymbol || '\n';
+                        // Calculate available space for text in region (EXACT COPY from new-multi-line logic)
+                        const regionWidthPx = region.width * scale;
+                        const regionHeightPx = region.height * scale;
+                        const paddingLeftPx = padding.left * scale;
+                        const paddingRightPx = padding.right * scale;
+                        const paddingTopPx = padding.top * scale;
+                        const paddingBottomPx = padding.bottom * scale;
 
-                          // Split text by the configured line break symbol
-                          if (lineBreakSymbol === '\n') {
-                            displayLines = displayText.split('\n');
-                          } else if (lineBreakSymbol === '\r\n') {
-                            displayLines = displayText.split('\r\n');
-                          } else if (lineBreakSymbol === '<br>') {
-                            displayLines = displayText.split('<br>');
-                          } else {
-                            // For other symbols like pipe or slash, split by them
-                            displayLines = displayText.split(lineBreakSymbol);
-                          }
+                        const availableWidthPx = Math.max(0, regionWidthPx - paddingLeftPx - paddingRightPx);
+                        const availableHeightPx = Math.max(0, regionHeightPx - paddingTopPx - paddingBottomPx);
 
-                          console.log('🧪 Composition translation split into lines:', displayLines);
-                        } else {
-                          // Fallback to simple line splitting
-                          displayLines = displayText.split('\n');
-                        }
+                        // Calculate font size for region (EXACT COPY from new-multi-line logic)
+                        let regionFontSizeInPixels = fontSizeForProcessing;
+                        const regionScaledFontSize = Math.max(6, regionFontSizeInPixels * zoom);
 
-                        hasOverflow = false;
-                        optimalFit = { overflow: '' };
+                        // Process text wrapping using Canvas-First Sync logic-slice (same as new-multi-line)
+                        const regionProcessedResult = processChildRegionTextWrapping(
+                          displayText,
+                          availableWidthPx,
+                          availableHeightPx,
+                          regionScaledFontSize,
+                          content.newCompTransConfig?.typography?.fontFamily || 'Arial',
+                          content.newCompTransConfig?.lineBreakSettings?.lineBreakSymbol || '\n',
+                          content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2
+                        );
+
+                        displayLines = regionProcessedResult.lines;
+                        hasOverflow = regionProcessedResult.hasOverflow;
+
+                        console.log('✅ Canvas: Applied Canvas-First Sync logic-slice to composition translation:', {
+                          regionId: region.id,
+                          availableWidth: availableWidthPx,
+                          availableHeight: availableHeightPx,
+                          fontSize: regionScaledFontSize,
+                          lines: displayLines.length,
+                          hasOverflow
+                        });
+
+                        optimalFit = { overflow: hasOverflow ? 'height-truncated' : '' };
                       } else if (content.type === 'new-multi-line') {
                         // Apply Canvas-First Sync logic-slice to regions
                         console.log('🎯 Canvas: Applying Canvas-First Sync logic-slice to region');
@@ -11650,33 +11665,45 @@ function App() {
                                 hasOverflow
                               });
                             } else if (content.type === 'new-comp-trans') {
-                              // Handle composition translation with line break settings in child regions
-                              console.log('🧪 Child: Processing composition translation text with line break settings');
+                              // Apply Canvas-First Sync logic-slice to composition translation in child regions (same as new-multi-line)
+                              console.log('🧪 Child Canvas: Applying Canvas-First Sync logic-slice to composition translation');
 
-                              if (content.newCompTransConfig?.lineBreakSettings) {
-                                const lineBreakSettings = content.newCompTransConfig.lineBreakSettings;
-                                const lineBreakSymbol = lineBreakSettings.lineBreakSymbol || '\n';
+                              // Calculate available space for text in child region (EXACT COPY from new-multi-line logic)
+                              const childRegionWidthPx = childRegion.width * scale;
+                              const childRegionHeightPx = childRegion.height * scale;
+                              const childPaddingLeftPx = padding.left * scale;
+                              const childPaddingRightPx = padding.right * scale;
+                              const childPaddingTopPx = padding.top * scale;
+                              const childPaddingBottomPx = padding.bottom * scale;
 
-                                // Split text by the configured line break symbol
-                                if (lineBreakSymbol === '\n') {
-                                  displayLines = displayText.split('\n');
-                                } else if (lineBreakSymbol === '\r\n') {
-                                  displayLines = displayText.split('\r\n');
-                                } else if (lineBreakSymbol === '<br>') {
-                                  displayLines = displayText.split('<br>');
-                                } else {
-                                  // For other symbols like pipe or slash, split by them
-                                  displayLines = displayText.split(lineBreakSymbol);
-                                }
+                              const childAvailableWidthPx = Math.max(0, childRegionWidthPx - childPaddingLeftPx - childPaddingRightPx);
+                              const childAvailableHeightPx = Math.max(0, childRegionHeightPx - childPaddingTopPx - childPaddingBottomPx);
 
-                                console.log('🧪 Child: Composition translation split into lines:', displayLines);
-                              } else {
-                                // Fallback to simple line splitting
-                                displayLines = displayText.split('\n');
-                              }
+                              // Calculate font size for child region (EXACT COPY from new-multi-line logic)
+                              let childFontSizeInPixels = fontSizeForProcessing;
+                              const childScaledFontSize = Math.max(6, childFontSizeInPixels * zoom);
 
-                              hasOverflow = false;
-                              optimalFit = { overflow: '' };
+                              // Process text wrapping for child region using canvas measurement (same as new-multi-line)
+                              const childProcessedResult = processChildRegionTextWrapping(
+                                displayText,
+                                childAvailableWidthPx,
+                                childAvailableHeightPx,
+                                childScaledFontSize,
+                                content.newCompTransConfig?.typography?.fontFamily || 'Arial',
+                                content.newCompTransConfig?.lineBreakSettings?.lineBreakSymbol || '\n',
+                                content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2
+                              );
+
+                              displayLines = childProcessedResult.lines;
+                              hasOverflow = childProcessedResult.hasOverflow;
+
+                              console.log('✅ Child Canvas: Applied Canvas-First Sync logic-slice to composition translation:', {
+                                availableWidth: childAvailableWidthPx,
+                                availableHeight: childAvailableHeightPx,
+                                fontSize: childScaledFontSize,
+                                lines: displayLines.length,
+                                hasOverflow
+                              });
                             } else {
                               // For other content types: Use simple processing
                               displayLines = [displayText];

@@ -1,5 +1,65 @@
 # Care Label Layout System - Version History
 
+## Version 2.1.59 - Enhanced Composition Translation Text Wrapping with Canvas-First Sync Logic
+**Release Date:** 2025-01-14
+**Commit:** TBD
+
+### 🎯 Advanced Text Wrapping Implementation
+- **Problem Solved**: Composition translation text was displaying as single long line extending beyond region boundaries
+- **Solution**: Implemented exact Canvas-First Sync logic-slice text wrapping algorithm (identical to `new-multi-line` processing)
+- **Text Processing Enhancement**:
+  - **Main Regions**: Applied `processChildRegionTextWrapping()` function with precise canvas measurements
+  - **Child Regions**: Identical advanced text wrapping logic for sliced regions
+  - **Dynamic Font Scaling**: Proper font size calculation with zoom factor integration (`Math.max(6, fontSizeInPixels * zoom)`)
+  - **Available Space Calculation**: Accurate padding-aware width/height calculations
+  - **Overflow Detection**: Smart overflow handling with height truncation detection
+- **Configuration Integration**:
+  - **Font Family**: Uses `content.newCompTransConfig.typography.fontFamily` or defaults to 'Arial'
+  - **Line Break Symbol**: Respects `content.newCompTransConfig.lineBreakSettings.lineBreakSymbol` or defaults to '\n'
+  - **Line Spacing**: Applies `content.newCompTransConfig.lineBreakSettings.lineSpacing` or defaults to 1.2
+- **Canvas Measurement Precision**: Utilizes exact same text measurement algorithms as proven `new-multi-line` system
+- **Real-Time Wrapping**: Text automatically wraps to fit region boundaries with intelligent line breaks
+- **Multi-Language Compatibility**: Advanced wrapping works seamlessly with all 18 supported languages
+
+### 🔧 Technical Implementation
+- **Function**: `processChildRegionTextWrapping(displayText, availableWidthPx, availableHeightPx, scaledFontSize, fontFamily, lineBreakSymbol, lineSpacing)`
+- **Return**: `{ lines: string[], hasOverflow: boolean }` for precise rendering control
+- **Performance**: Identical performance characteristics to existing `new-multi-line` system
+- **Debugging**: Enhanced console logging with Canvas-First Sync logic-slice status messages
+
+## Version 2.1.58 - Fixed Composition Translation Text Wrapping with Advanced Canvas Logic
+**Release Date:** 2025-01-14
+**Commit:** TBD
+
+### 🎯 Text Wrapping Fix
+- **Problem Identified**: Composition translation text was not wrapping properly, showing as single long line extending beyond region boundaries
+- **Solution Applied**: Replaced simple line splitting with advanced Canvas-First Sync text wrapping logic
+- **Logic Source**: Copied exact same text wrapping algorithm from `new-multi-line` content type
+- **Function Used**: `processChildRegionTextWrapping()` for precise text measurement and wrapping
+- **Coverage**: Applied to both main regions and child regions for consistent behavior
+
+### 🔧 Advanced Text Processing Implementation
+- **Canvas-First Sync Logic**: Identical text processing as `new-multi-line` content type
+- **Precise Measurements**: Uses canvas text measurement for accurate character width calculation
+- **Region Calculations**: Proper available space calculation considering padding and scaling
+- **Font Size Processing**: Correct font size scaling with zoom factor
+- **Line Break Integration**: Respects user-configured line break symbols and spacing
+- **Overflow Detection**: Proper overflow detection and handling
+- **Multi-Language Support**: Accurate text wrapping for all 18 supported languages
+
+### 📐 Technical Details
+- **Main Regions**: Uses `processChildRegionTextWrapping()` with region dimensions
+- **Child Regions**: Identical logic applied to sliced regions
+- **Parameters Passed**:
+  - `displayText`: Generated composition text
+  - `availableWidthPx`: Region width minus padding
+  - `availableHeightPx`: Region height minus padding
+  - `scaledFontSize`: Font size adjusted for zoom
+  - `fontFamily`: From typography configuration
+  - `lineBreakSymbol`: From line break settings
+  - `lineSpacing`: From line break settings
+- **Result Processing**: `displayLines` array with proper line breaks and `hasOverflow` detection
+
 ## Version 2.1.57 - Integrated Composition Translation with Canvas Rendering System
 **Release Date:** 2025-01-14
 **Commit:** TBD
