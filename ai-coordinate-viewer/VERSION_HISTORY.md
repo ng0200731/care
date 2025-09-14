@@ -1,17 +1,28 @@
 # Care Label Layout System - Version History
 
-## Version 2.1.52 - Added Material Composition Controls
+## Version 2.1.53 - Enhanced Material Composition with Dynamic Validation
 **Release Date:** 2025-01-14
 **Commit:** TBD
 
-### 🧪 Material Composition Feature
-- **New Material Composition Row**: Added under Selected Languages section
-  - **Percentage Input**: Numeric input for material percentage (0-100%)
-  - **Material Dropdown**: Single selection from composition table elements
-  - **Common Materials**: COTTON, POLYESTER, ELASTANE, VISCOSE, NYLON, WOOL, SILK, LINEN, ACRYLIC, POLYAMIDE, SPANDEX, MODAL, BAMBOO, CASHMERE, ALPACA
-  - **Grid Layout**: 2-column layout (Percentage | Material Element)
-  - **Styled Section**: Bordered container with light background
-  - **Default Values**: 100% COTTON as default selection
+### 🧪 Enhanced Material Composition System
+- **Dynamic Material Composition**: Multiple material rows with percentage validation
+  - **"+" Button**: Add new material composition rows (enabled when total < 100%)
+  - **Remove Button**: Delete individual material rows (× button)
+  - **Real-time Total**: Display current percentage total in header
+  - **Smart Validation**: Three validation states based on total percentage:
+    * **>100%**: Disable material elements, "+" button, and "Save" button
+    * **=100%**: Enable material elements, disable "+" button, enable "Save" button
+    * **<100%**: Enable material elements, enable "+" button, disable "Save" button
+- **Enhanced Interface**:
+  - **"Save" Button**: Changed from "Add Composition Trans" to "Save"
+  - **Green Save Button**: Color changes to green (#28a745) when enabled
+  - **Disabled States**: Visual feedback for disabled controls
+  - **3-Column Grid**: Percentage | Material | Remove button layout
+- **Improved User Experience**:
+  - **Multiple Materials**: Support for complex material compositions
+  - **Percentage Validation**: Ensures total equals exactly 100%
+  - **Visual Feedback**: Clear indication of validation state
+  - **Dynamic Controls**: Buttons enable/disable based on composition state
 
 ## Version 2.1.51 - Improved Alignment Layout and Doubled Dialog Width
 **Release Date:** 2025-01-14

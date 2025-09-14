@@ -42,6 +42,12 @@ const commonMaterials = [
   'ALPACA'
 ];
 
+export interface MaterialComposition {
+  id: string;
+  percentage: number;
+  material: string;
+}
+
 export interface NewCompTransConfig {
   padding: {
     top: number;
@@ -59,8 +65,7 @@ export interface NewCompTransConfig {
     vertical: 'top' | 'center' | 'bottom';
   };
   selectedLanguages: string[];
-  materialPercentage: number;
-  selectedMaterial: string;
+  materialCompositions: MaterialComposition[];
 }
 
 interface NewCompTransDialogProps {
@@ -99,11 +104,68 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       vertical: 'top'
     },
     selectedLanguages: ['EN'], // Default to English
-    materialPercentage: 100,
-    selectedMaterial: 'COTTON'
+    materialCompositions: [
+      { id: '1', percentage: 100, material: 'COTTON' }
+    ]
   });
 
   const [isLanguageDropdownOpen, setIsLanguageDropdownOpen] = useState(false);
+
+  // Helper functions for material composition validation
+  const getTotalPercentage = () => {
+    return config.materialCompositions.reduce((sum, comp) => sum + comp.percentage, 0);
+  };
+
+  const canAddMore = () => {
+    const total = getTotalPercentage();
+    return total < 100;
+  };
+
+  const canSave = () => {
+    const total = getTotalPercentage();
+    return total === 100;
+  };
+
+  const areControlsDisabled = () => {
+    const total = getTotalPercentage();
+    return total > 100;
+  };
+
+  // Add new material composition row
+  const addMaterialComposition = () => {
+    if (canAddMore()) {
+      const newId = Date.now().toString();
+      setConfig(prev => ({
+        ...prev,
+        materialCompositions: [
+          ...prev.materialCompositions,
+          { id: newId, percentage: 0, material: '' }
+        ]
+      }));
+    }
+  };
+
+  // Update material composition
+  const updateMaterialComposition = (id: string, field: 'percentage' | 'material', value: number | string) => {
+    setConfig(prev => ({
+      ...prev,
+      materialCompositions: prev.materialCompositions.map(comp =>
+        comp.id === id
+          ? { ...comp, [field]: field === 'percentage' ? Number(value) : value }
+          : comp
+      )
+    }));
+  };
+
+  // Remove material composition
+  const removeMaterialComposition = (id: string) => {
+    if (config.materialCompositions.length > 1) {
+      setConfig(prev => ({
+        ...prev,
+        materialCompositions: prev.materialCompositions.filter(comp => comp.id !== id)
+      }));
+    }
+  };
 
   // Initialize config from editing content or defaults
   const getInitialConfig = (): NewCompTransConfig => {
@@ -112,8 +174,9 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       return {
         ...editingContent.newCompTransConfig,
         selectedLanguages: editingContent.newCompTransConfig.selectedLanguages || ['EN'],
-        materialPercentage: editingContent.newCompTransConfig.materialPercentage || 100,
-        selectedMaterial: editingContent.newCompTransConfig.selectedMaterial || 'COTTON'
+        materialCompositions: editingContent.newCompTransConfig.materialCompositions || [
+          { id: '1', percentage: 100, material: 'COTTON' }
+        ]
       };
     }
 
@@ -134,8 +197,9 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         vertical: 'top'
       },
       selectedLanguages: ['EN'], // Default to English
-      materialPercentage: 100,
-      selectedMaterial: 'COTTON'
+      materialCompositions: [
+        { id: '1', percentage: 100, material: 'COTTON' }
+      ]
     };
   };
 
@@ -644,7 +708,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
             </div>
           )}
 
-          {/* Material Composition Row */}
+          {/* Material Composition Section */}
           <div style={{
             marginTop: '16px',
             padding: '12px',
@@ -653,78 +717,127 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
             backgroundColor: '#f8f9fa'
           }}>
             <div style={{
-              fontSize: '12px',
-              fontWeight: '600',
-              marginBottom: '12px',
-              color: '#333'
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '12px'
             }}>
-              Material Composition:
+              <div style={{
+                fontSize: '12px',
+                fontWeight: '600',
+                color: '#333'
+              }}>
+                Material Composition: ({getTotalPercentage()}%)
+              </div>
+              <button
+                onClick={addMaterialComposition}
+                disabled={!canAddMore()}
+                style={{
+                  padding: '4px 8px',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  border: '1px solid #007bff',
+                  borderRadius: '4px',
+                  backgroundColor: canAddMore() ? '#007bff' : '#ccc',
+                  color: canAddMore() ? 'white' : '#666',
+                  cursor: canAddMore() ? 'pointer' : 'not-allowed'
+                }}
+              >
+                +
+              </button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '16px' }}>
-              {/* Percentage Input */}
-              <div>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '4px',
-                  fontSize: '11px',
-                  fontWeight: '500'
-                }}>
-                  Percentage (%):
-                </label>
-                <input
-                  type="number"
-                  value={config.materialPercentage}
-                  onChange={(e) => setConfig(prev => ({
-                    ...prev,
-                    materialPercentage: parseFloat(e.target.value) || 0
-                  }))}
-                  style={{
-                    width: '100%',
-                    padding: '6px',
-                    border: '1px solid #ddd',
-                    borderRadius: '4px',
-                    fontSize: '12px'
-                  }}
-                  min="0"
-                  max="100"
-                  step="1"
-                />
-              </div>
+            {/* Dynamic Material Composition Rows */}
+            {config.materialCompositions.map((composition, index) => (
+              <div key={composition.id} style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 2fr auto',
+                gap: '12px',
+                marginBottom: index < config.materialCompositions.length - 1 ? '12px' : '0',
+                alignItems: 'end'
+              }}>
+                {/* Percentage Input */}
+                <div>
+                  <label style={{
+                    display: 'block',
+                    marginBottom: '4px',
+                    fontSize: '11px',
+                    fontWeight: '500'
+                  }}>
+                    Percentage (%):
+                  </label>
+                  <input
+                    type="number"
+                    value={composition.percentage}
+                    onChange={(e) => updateMaterialComposition(composition.id, 'percentage', e.target.value)}
+                    disabled={areControlsDisabled()}
+                    style={{
+                      width: '100%',
+                      padding: '6px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      backgroundColor: areControlsDisabled() ? '#f5f5f5' : 'white'
+                    }}
+                    min="0"
+                    max="100"
+                    step="1"
+                  />
+                </div>
 
-              {/* Material Dropdown */}
-              <div>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '4px',
-                  fontSize: '11px',
-                  fontWeight: '500'
-                }}>
-                  Material Element:
-                </label>
-                <select
-                  value={config.selectedMaterial}
-                  onChange={(e) => setConfig(prev => ({
-                    ...prev,
-                    selectedMaterial: e.target.value
-                  }))}
-                  style={{
-                    width: '100%',
-                    padding: '6px',
-                    border: '1px solid #ddd',
-                    borderRadius: '4px',
-                    fontSize: '12px'
-                  }}
-                >
-                  <option value="">Select material...</option>
-                  {commonMaterials.map(material => (
-                    <option key={material} value={material}>
-                      {material}
-                    </option>
-                  ))}
-                </select>
+                {/* Material Dropdown */}
+                <div>
+                  <label style={{
+                    display: 'block',
+                    marginBottom: '4px',
+                    fontSize: '11px',
+                    fontWeight: '500'
+                  }}>
+                    Material Element:
+                  </label>
+                  <select
+                    value={composition.material}
+                    onChange={(e) => updateMaterialComposition(composition.id, 'material', e.target.value)}
+                    disabled={areControlsDisabled()}
+                    style={{
+                      width: '100%',
+                      padding: '6px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      backgroundColor: areControlsDisabled() ? '#f5f5f5' : 'white'
+                    }}
+                  >
+                    <option value="">Select material...</option>
+                    {commonMaterials.map(material => (
+                      <option key={material} value={material}>
+                        {material}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Remove Button */}
+                <div>
+                  {config.materialCompositions.length > 1 && (
+                    <button
+                      onClick={() => removeMaterialComposition(composition.id)}
+                      style={{
+                        padding: '6px 8px',
+                        fontSize: '12px',
+                        border: '1px solid #dc3545',
+                        borderRadius: '4px',
+                        backgroundColor: '#dc3545',
+                        color: 'white',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
+            ))}
           </div>
         </div>
 
@@ -747,18 +860,19 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
           </button>
           <button
             onClick={handleSave}
+            disabled={!canSave()}
             style={{
               padding: '10px 20px',
               border: 'none',
               borderRadius: '4px',
-              backgroundColor: '#007bff',
-              color: 'white',
+              backgroundColor: canSave() ? '#28a745' : '#ccc',
+              color: canSave() ? 'white' : '#666',
               fontSize: '14px',
               fontWeight: '500',
-              cursor: 'pointer'
+              cursor: canSave() ? 'pointer' : 'not-allowed'
             }}
           >
-            {editingContent ? 'Update' : 'Add'} Composition Translation
+            Save
           </button>
         </div>
     </MovableDialog>
