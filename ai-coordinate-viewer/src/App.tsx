@@ -10785,6 +10785,96 @@ function App() {
                     });
                   })()}
 
+                  {/* Padding boundaries visualization for new-washing-care-symbol content */}
+                  {(() => {
+                    const regionContentsArray = regionContents.get(region.id) || [];
+                    if (!regionContentsArray || regionContentsArray.length === 0) return null;
+                    return regionContentsArray.map((content: any, contentIndex: number) => {
+                      if (content.type !== 'new-washing-care-symbol' || !content.newWashingCareSymbolConfig) return null;
+
+                      const config = content.newWashingCareSymbolConfig;
+                      const regionWidthPx = region.width * scale;
+                      const regionHeightPx = region.height * scale;
+                      const paddingTopPx = config.padding.top * scale;
+                      const paddingRightPx = config.padding.right * scale;
+                      const paddingBottomPx = config.padding.bottom * scale;
+                      const paddingLeftPx = config.padding.left * scale;
+
+                      // Only show if any padding is greater than 0 and supporting lines are enabled
+                      // Also check if margins are not default values (2mm all sides)
+                      const isDefaultMargins = config.padding.top === 2 && config.padding.bottom === 2 &&
+                                             config.padding.left === 2 && config.padding.right === 2;
+                      if (!showSupportingLines || isDefaultMargins ||
+                          (config.padding.top === 0 && config.padding.right === 0 &&
+                           config.padding.bottom === 0 && config.padding.left === 0)) {
+                        return null;
+                      }
+
+                      const regionX = baseX + (region.x * scale);
+                      const regionY = baseY + (region.y * scale);
+
+                      return (
+                        <g key={`${region.id}-washing-padding-${contentIndex}`}>
+                          {/* Top padding line */}
+                          {config.padding.top > 0 && (
+                            <line
+                              x1={regionX + paddingLeftPx}
+                              y1={regionY + paddingTopPx}
+                              x2={regionX + regionWidthPx - paddingRightPx}
+                              y2={regionY + paddingTopPx}
+                              stroke="#4CAF50"
+                              strokeWidth="1"
+                              strokeDasharray="3,3"
+                              opacity="0.7"
+                            />
+                          )}
+
+                          {/* Bottom padding line */}
+                          {config.padding.bottom > 0 && (
+                            <line
+                              x1={regionX + paddingLeftPx}
+                              y1={regionY + regionHeightPx - paddingBottomPx}
+                              x2={regionX + regionWidthPx - paddingRightPx}
+                              y2={regionY + regionHeightPx - paddingBottomPx}
+                              stroke="#4CAF50"
+                              strokeWidth="1"
+                              strokeDasharray="3,3"
+                              opacity="0.7"
+                            />
+                          )}
+
+                          {/* Left padding line */}
+                          {config.padding.left > 0 && (
+                            <line
+                              x1={regionX + paddingLeftPx}
+                              y1={regionY + paddingTopPx}
+                              x2={regionX + paddingLeftPx}
+                              y2={regionY + regionHeightPx - paddingBottomPx}
+                              stroke="#4CAF50"
+                              strokeWidth="1"
+                              strokeDasharray="3,3"
+                              opacity="0.7"
+                            />
+                          )}
+
+                          {/* Right padding line */}
+                          {config.padding.right > 0 && (
+                            <line
+                              x1={regionX + regionWidthPx - paddingRightPx}
+                              y1={regionY + paddingTopPx}
+                              x2={regionX + regionWidthPx - paddingRightPx}
+                              y2={regionY + regionHeightPx - paddingBottomPx}
+                              stroke="#4CAF50"
+                              strokeWidth="1"
+                              strokeDasharray="3,3"
+                              opacity="0.7"
+                            />
+                          )}
+                        </g>
+                      );
+                    });
+                  })()}
+
                   {/* Content Placeholders removed - only show centered content type labels in overlays above */}
                 </g>
                 );
@@ -11337,6 +11427,95 @@ function App() {
                                     x2={childX + childWidthPx - paddingRightPx}
                                     y2={childY + childHeightPx - paddingBottomPx}
                                     stroke="#22c55e"
+                                    strokeWidth="1"
+                                    strokeDasharray="3,3"
+                                    opacity="0.7"
+                                  />
+                                )}
+                              </g>
+                            );
+                          });
+                        })()}
+
+                        {/* Padding boundaries visualization for new-washing-care-symbol content in child regions */}
+                        {(() => {
+                          const childContentItems = regionContents.get(childRegion.id) || [];
+                          return childContentItems.map((content: any, contentIndex: number) => {
+                            if (content.type !== 'new-washing-care-symbol' || !content.newWashingCareSymbolConfig) return null;
+
+                            const config = content.newWashingCareSymbolConfig;
+                            const childWidthPx = childRegion.width * scale;
+                            const childHeightPx = childRegion.height * scale;
+                            const paddingTopPx = config.padding.top * scale;
+                            const paddingRightPx = config.padding.right * scale;
+                            const paddingBottomPx = config.padding.bottom * scale;
+                            const paddingLeftPx = config.padding.left * scale;
+
+                            // Only show if any padding is greater than 0 and supporting lines are enabled
+                            // Also check if margins are not default values (2mm all sides)
+                            const isDefaultMargins = config.padding.top === 2 && config.padding.bottom === 2 &&
+                                                   config.padding.left === 2 && config.padding.right === 2;
+                            if (!showSupportingLines || isDefaultMargins ||
+                                (config.padding.top === 0 && config.padding.right === 0 &&
+                                 config.padding.bottom === 0 && config.padding.left === 0)) {
+                              return null;
+                            }
+
+                            const childX = baseX + (childRegion.x * scale);
+                            const childY = baseY + (childRegion.y * scale);
+
+                            return (
+                              <g key={`${childRegion.id}-washing-padding-${contentIndex}`}>
+                                {/* Top padding line */}
+                                {config.padding.top > 0 && (
+                                  <line
+                                    x1={childX + paddingLeftPx}
+                                    y1={childY + paddingTopPx}
+                                    x2={childX + childWidthPx - paddingRightPx}
+                                    y2={childY + paddingTopPx}
+                                    stroke="#4CAF50"
+                                    strokeWidth="1"
+                                    strokeDasharray="3,3"
+                                    opacity="0.7"
+                                  />
+                                )}
+
+                                {/* Bottom padding line */}
+                                {config.padding.bottom > 0 && (
+                                  <line
+                                    x1={childX + paddingLeftPx}
+                                    y1={childY + childHeightPx - paddingBottomPx}
+                                    x2={childX + childWidthPx - paddingRightPx}
+                                    y2={childY + childHeightPx - paddingBottomPx}
+                                    stroke="#4CAF50"
+                                    strokeWidth="1"
+                                    strokeDasharray="3,3"
+                                    opacity="0.7"
+                                  />
+                                )}
+
+                                {/* Left padding line */}
+                                {config.padding.left > 0 && (
+                                  <line
+                                    x1={childX + paddingLeftPx}
+                                    y1={childY + paddingTopPx}
+                                    x2={childX + paddingLeftPx}
+                                    y2={childY + childHeightPx - paddingBottomPx}
+                                    stroke="#4CAF50"
+                                    strokeWidth="1"
+                                    strokeDasharray="3,3"
+                                    opacity="0.7"
+                                  />
+                                )}
+
+                                {/* Right padding line */}
+                                {config.padding.right > 0 && (
+                                  <line
+                                    x1={childX + childWidthPx - paddingRightPx}
+                                    y1={childY + paddingTopPx}
+                                    x2={childX + childWidthPx - paddingRightPx}
+                                    y2={childY + childHeightPx - paddingBottomPx}
+                                    stroke="#4CAF50"
                                     strokeWidth="1"
                                     strokeDasharray="3,3"
                                     opacity="0.7"
