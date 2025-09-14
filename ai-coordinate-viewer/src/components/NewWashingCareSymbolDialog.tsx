@@ -1,11 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+
+export interface NewWashingCareSymbolConfig {
+  symbols: string[];
+  padding: {
+    left: number;
+    top: number;
+    right: number;
+    bottom: number;
+  };
+  alignment: {
+    horizontal: 'left' | 'center' | 'right';
+    vertical: 'top' | 'center' | 'bottom';
+  };
+  typography: {
+    fontFamily: string;
+    fontSize: number;
+    fontSizeUnit: 'px' | 'pt' | 'mm';
+  };
+  iconSize: number;
+}
 
 interface NewWashingCareSymbolDialogProps {
   isOpen: boolean;
   regionId: string;
   regionWidth: number;
   regionHeight: number;
-  onSave: (selectedSymbols: string[]) => void;
+  onSave: (config: NewWashingCareSymbolConfig) => void;
   onCancel: () => void;
   editingContent?: any;
 }
@@ -19,14 +39,82 @@ const NewWashingCareSymbolDialog: React.FC<NewWashingCareSymbolDialogProps> = ({
   onCancel,
   editingContent
 }) => {
-  // State for dropdown selections and checkboxes
+  // Initialize config based on editing content or defaults
+  const getInitialConfig = (): NewWashingCareSymbolConfig => {
+    if (editingContent && editingContent.newWashingCareSymbolConfig) {
+      return editingContent.newWashingCareSymbolConfig;
+    } else if (editingContent) {
+      // Convert from existing content structure
+      return {
+        symbols: editingContent.content?.symbols || ['b', 'G', '5', 'B', 'J'],
+        padding: editingContent.layout?.padding || { left: 2, top: 2, right: 2, bottom: 2 },
+        alignment: {
+          horizontal: editingContent.layout?.horizontalAlign || 'center',
+          vertical: editingContent.layout?.verticalAlign || 'center'
+        },
+        typography: {
+          fontFamily: 'Wash Care Symbols M54',
+          fontSize: editingContent.content?.iconSize || 8,
+          fontSizeUnit: 'mm' as const
+        },
+        iconSize: editingContent.content?.iconSize || 8
+      };
+    } else {
+      // Default values for new content
+      return {
+        symbols: ['b', 'G', '5', 'B', 'J'], // Default all 5 symbols
+        padding: { left: 2, top: 2, right: 2, bottom: 2 },
+        alignment: { horizontal: 'center', vertical: 'center' },
+        typography: {
+          fontFamily: 'Wash Care Symbols M54',
+          fontSize: 8,
+          fontSizeUnit: 'mm' as const
+        },
+        iconSize: 8
+      };
+    }
+  };
+
+  const [config, setConfig] = useState<NewWashingCareSymbolConfig>(getInitialConfig());
+
+  // State for "For all size" padding sync
+  const [syncAllPadding, setSyncAllPadding] = useState(false);
+
+  // State for dropdown selections and checkboxes (derived from config)
   const [selections, setSelections] = useState({
-    washing: { dropdown: '', checked: false },
-    drying: { dropdown: '', checked: false },
-    ironing: { dropdown: '', checked: false },
-    bleaching: { dropdown: '', checked: false },
-    professional: { dropdown: '', checked: false }
+    washing: { dropdown: 'option1', checked: true },
+    drying: { dropdown: 'option1', checked: true },
+    ironing: { dropdown: 'option1', checked: true },
+    bleaching: { dropdown: 'option1', checked: true },
+    professional: { dropdown: 'option1', checked: true }
   });
+
+  // Update config when editing content changes
+  useEffect(() => {
+    setConfig(getInitialConfig());
+  }, [editingContent]);
+
+  // Handle synchronized padding changes
+  const handlePaddingChange = (side: 'left' | 'top' | 'right' | 'bottom', value: number) => {
+    if (syncAllPadding) {
+      // Update all sides with the same value
+      setConfig(prev => ({
+        ...prev,
+        padding: {
+          left: value,
+          top: value,
+          right: value,
+          bottom: value
+        }
+      }));
+    } else {
+      // Update only the specific side
+      setConfig(prev => ({
+        ...prev,
+        padding: { ...prev.padding, [side]: value }
+      }));
+    }
+  };
 
   // Select All handler
   const handleSelectAll = () => {
@@ -48,16 +136,8 @@ const NewWashingCareSymbolDialog: React.FC<NewWashingCareSymbolDialogProps> = ({
       return;
     }
 
-    // Create array of selected symbols for display using Wash Care Symbols M54 font
-    const selectedSymbols = [
-      'b', // Washing symbol
-      'G', // Drying symbol
-      '5', // Ironing symbol
-      'B', // Bleaching symbol
-      'J'  // Professional symbol
-    ];
-
-    onSave(selectedSymbols);
+    // Save the complete configuration
+    onSave(config);
   };
 
   if (!isOpen) return null;
@@ -79,11 +159,13 @@ const NewWashingCareSymbolDialog: React.FC<NewWashingCareSymbolDialogProps> = ({
         backgroundColor: 'white',
         borderRadius: '12px',
         padding: '24px',
-        width: '600px',
-        height: '350px',
+        width: '700px',
+        height: '600px',
         boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
         display: 'flex',
-        flexDirection: 'column'
+        flexDirection: 'column',
+        maxHeight: '90vh',
+        overflowY: 'auto'
       }}>
         <h2 style={{
           margin: '0 0 20px 0',
@@ -419,6 +501,208 @@ const NewWashingCareSymbolDialog: React.FC<NewWashingCareSymbolDialogProps> = ({
                 />
                 Select
               </label>
+            </div>
+          </div>
+        </div>
+
+        {/* Configuration Section */}
+        <div style={{
+          marginTop: '20px',
+          padding: '16px',
+          backgroundColor: '#f8fafc',
+          borderRadius: '8px',
+          border: '1px solid #e2e8f0'
+        }}>
+          <h3 style={{
+            margin: '0 0 16px 0',
+            fontSize: '16px',
+            fontWeight: '600',
+            color: '#374151'
+          }}>
+            Configuration
+          </h3>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+            {/* Left Column - Padding */}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                <label style={{
+                  display: 'block',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  color: '#374151'
+                }}>
+                  Padding (mm):
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={syncAllPadding}
+                    onChange={(e) => setSyncAllPadding(e.target.checked)}
+                    style={{ cursor: 'pointer' }}
+                  />
+                  <span style={{ fontSize: '12px', color: '#666' }}>For all size</span>
+                </label>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
+                <div>
+                  <label style={{ fontSize: '12px', color: '#666' }}>Top</label>
+                  <input
+                    type="number"
+                    value={config.padding.top}
+                    onChange={(e) => handlePaddingChange('top', Number(e.target.value))}
+                    style={{
+                      width: '100%',
+                      padding: '6px 8px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '4px',
+                      fontSize: '12px'
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '12px', color: '#666' }}>Right</label>
+                  <input
+                    type="number"
+                    value={config.padding.right}
+                    onChange={(e) => handlePaddingChange('right', Number(e.target.value))}
+                    style={{
+                      width: '100%',
+                      padding: '6px 8px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      backgroundColor: syncAllPadding ? '#f5f5f5' : 'white',
+                      cursor: syncAllPadding ? 'not-allowed' : 'text'
+                    }}
+                    disabled={syncAllPadding}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '12px', color: '#666' }}>Bottom</label>
+                  <input
+                    type="number"
+                    value={config.padding.bottom}
+                    onChange={(e) => handlePaddingChange('bottom', Number(e.target.value))}
+                    style={{
+                      width: '100%',
+                      padding: '6px 8px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      backgroundColor: syncAllPadding ? '#f5f5f5' : 'white',
+                      cursor: syncAllPadding ? 'not-allowed' : 'text'
+                    }}
+                    disabled={syncAllPadding}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '12px', color: '#666' }}>Left</label>
+                  <input
+                    type="number"
+                    value={config.padding.left}
+                    onChange={(e) => handlePaddingChange('left', Number(e.target.value))}
+                    style={{
+                      width: '100%',
+                      padding: '6px 8px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      backgroundColor: syncAllPadding ? '#f5f5f5' : 'white',
+                      cursor: syncAllPadding ? 'not-allowed' : 'text'
+                    }}
+                    disabled={syncAllPadding}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column - Alignment & Icon Size */}
+            <div>
+              <label style={{
+                display: 'block',
+                marginBottom: '8px',
+                fontSize: '14px',
+                fontWeight: '500',
+                color: '#374151'
+              }}>
+                Alignment & Size:
+              </label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {/* Horizontal Alignment */}
+                <div>
+                  <label style={{ fontSize: '12px', color: '#666', marginBottom: '4px', display: 'block' }}>Horizontal</label>
+                  <select
+                    value={config.alignment.horizontal}
+                    onChange={(e) => setConfig(prev => ({
+                      ...prev,
+                      alignment: { ...prev.alignment, horizontal: e.target.value as 'left' | 'center' | 'right' }
+                    }))}
+                    style={{
+                      width: '100%',
+                      padding: '6px 8px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '4px',
+                      fontSize: '12px'
+                    }}
+                  >
+                    <option value="left">Left</option>
+                    <option value="center">Center</option>
+                    <option value="right">Right</option>
+                  </select>
+                </div>
+                {/* Vertical Alignment */}
+                <div>
+                  <label style={{ fontSize: '12px', color: '#666', marginBottom: '4px', display: 'block' }}>Vertical</label>
+                  <select
+                    value={config.alignment.vertical}
+                    onChange={(e) => setConfig(prev => ({
+                      ...prev,
+                      alignment: { ...prev.alignment, vertical: e.target.value as 'top' | 'center' | 'bottom' }
+                    }))}
+                    style={{
+                      width: '100%',
+                      padding: '6px 8px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '4px',
+                      fontSize: '12px'
+                    }}
+                  >
+                    <option value="top">Top</option>
+                    <option value="center">Center</option>
+                    <option value="bottom">Bottom</option>
+                  </select>
+                </div>
+                {/* Icon Size */}
+                <div>
+                  <label style={{ fontSize: '12px', color: '#666', marginBottom: '4px', display: 'block' }}>Icon Size (mm)</label>
+                  <input
+                    type="number"
+                    value={config.iconSize}
+                    onChange={(e) => {
+                      const newSize = Number(e.target.value);
+                      setConfig(prev => ({
+                        ...prev,
+                        iconSize: newSize,
+                        typography: {
+                          ...prev.typography,
+                          fontSize: newSize
+                        }
+                      }));
+                    }}
+                    min="4"
+                    max="20"
+                    step="0.5"
+                    style={{
+                      width: '100%',
+                      padding: '6px 8px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '4px',
+                      fontSize: '12px'
+                    }}
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </div>

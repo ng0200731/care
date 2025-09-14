@@ -10,7 +10,7 @@ import NewCtMenu from './components/NewCtMenu';
 import UniversalContentDialog, { UniversalContentData } from './components/dialogs/UniversalContentDialog';
 import NewLineTextDialog, { NewLineTextConfig } from './components/NewLineTextDialog';
 import NewMultiLineDialog, { NewMultiLineConfig } from './components/NewMultiLineDialog';
-import NewWashingCareSymbolDialog from './components/NewWashingCareSymbolDialog';
+import NewWashingCareSymbolDialog, { NewWashingCareSymbolConfig } from './components/NewWashingCareSymbolDialog';
 import jsPDF from 'jspdf';
 // import RegionOccupationDialog, { RegionOccupationData } from './components/dialogs/RegionOccupationDialog';
 // import PreviewControlPanel, { PreviewSettings } from './components/PreviewControlPanel';
@@ -867,7 +867,7 @@ function App() {
   };
 
   // Handle New Washing Care Symbol Dialog Save
-  const handleNewWashingCareSymbolSave = (config: any) => {
+  const handleNewWashingCareSymbolSave = (config: NewWashingCareSymbolConfig) => {
     if (!newWashingCareSymbolDialog) return;
 
     const { regionId, editingContent } = newWashingCareSymbolDialog;
@@ -892,12 +892,14 @@ function App() {
                   padding: config.padding,
                   alignment: config.alignment
                 },
+                typography: config.typography,
                 layout: {
                   ...content.layout,
                   padding: config.padding,
                   horizontalAlign: config.alignment.horizontal,
                   verticalAlign: config.alignment.vertical
-                }
+                },
+                newWashingCareSymbolConfig: config // Store complete configuration
               }
             : content
         );
@@ -919,11 +921,13 @@ function App() {
           padding: config.padding,
           alignment: config.alignment
         },
+        typography: config.typography,
         layout: {
           padding: config.padding,
           horizontalAlign: config.alignment.horizontal,
           verticalAlign: config.alignment.vertical
-        }
+        },
+        newWashingCareSymbolConfig: config // Store complete configuration
       };
 
       console.log('💾 Adding new washing care symbol content to region:', regionId, newContent);
@@ -15225,18 +15229,7 @@ function App() {
         />
       )}
 
-      {/* New Washing Care Symbol Configuration Dialog */}
-      {newWashingCareSymbolDialog && (
-        <NewWashingCareSymbolDialog
-          isOpen={newWashingCareSymbolDialog.isOpen}
-          regionId={newWashingCareSymbolDialog.regionId}
-          regionWidth={newWashingCareSymbolDialog.regionWidth}
-          regionHeight={newWashingCareSymbolDialog.regionHeight}
-          editingContent={newWashingCareSymbolDialog.editingContent}
-          onSave={handleNewWashingCareSymbolSave}
-          onCancel={handleNewWashingCareSymbolCancel}
-        />
-      )}
+
 
       {/* Version Footer */}
       <div style={{
