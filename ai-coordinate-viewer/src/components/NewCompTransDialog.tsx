@@ -106,6 +106,7 @@ export interface NewCompTransConfig {
     lineSpacing: number;
     lineWidth: number;
   };
+  overflowOption: 'keep-flowing' | 'truncate' | 'shrink';
 }
 
 interface NewCompTransDialogProps {
@@ -157,10 +158,14 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       lineBreakSymbol: '\n',
       lineSpacing: 1.2,
       lineWidth: 100
-    }
+    },
+    overflowOption: 'truncate'
   });
 
   const [isLanguageDropdownOpen, setIsLanguageDropdownOpen] = useState(false);
+
+  // Overflow handling state
+  const [overflowOption, setOverflowOption] = useState<'keep-flowing' | 'truncate' | 'shrink'>('truncate');
 
   // Helper function to generate a unique signature for a composition
   const generateCompositionSignature = (compositions: MaterialComposition[]): string => {
@@ -422,7 +427,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
           lineBreakSymbol: '\n',
           lineSpacing: 1.2,
           lineWidth: 100
-        }
+        },
+        overflowOption: editingContent.newCompTransConfig.overflowOption || 'truncate'
       };
     }
 
@@ -454,15 +460,26 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         lineBreakSymbol: '\n',
         lineSpacing: 1.2,
         lineWidth: 100
-      }
+      },
+      overflowOption: 'truncate'
     };
   };
 
   useEffect(() => {
     if (isOpen) {
-      setConfig(getInitialConfig());
+      const initialConfig = getInitialConfig();
+      setConfig(initialConfig);
+      setOverflowOption(initialConfig.overflowOption);
     }
   }, [isOpen, editingContent]);
+
+  // Sync overflow option with config
+  useEffect(() => {
+    setConfig(prev => ({
+      ...prev,
+      overflowOption: overflowOption
+    }));
+  }, [overflowOption]);
 
   // Auto-generate text content when compositions or languages change
   useEffect(() => {
@@ -1408,6 +1425,111 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
               overflow: 'auto'
             }}>
               {generateWrappedPreview() || 'Preview will appear here based on your material compositions and settings...'}
+            </div>
+
+            {/* Overflow Handling Row */}
+            <div style={{
+              marginTop: '12px',
+              padding: '8px',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '4px',
+              border: '1px solid #e9ecef'
+            }}>
+              <div style={{
+                fontSize: '12px',
+                fontWeight: '600',
+                marginBottom: '8px',
+                color: '#333'
+              }}>
+                Overflow:
+              </div>
+
+              <div style={{
+                display: 'flex',
+                gap: '8px',
+                flexWrap: 'wrap'
+              }}>
+                {/* Keep Flowing */}
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  cursor: 'pointer',
+                  padding: '6px 10px',
+                  border: '2px solid',
+                  borderColor: overflowOption === 'keep-flowing' ? '#007bff' : '#ddd',
+                  borderRadius: '4px',
+                  backgroundColor: overflowOption === 'keep-flowing' ? '#e3f2fd' : 'white',
+                  fontSize: '11px',
+                  fontWeight: '500',
+                  minWidth: '90px',
+                  justifyContent: 'center'
+                }}>
+                  <input
+                    type="radio"
+                    name="overflowOption"
+                    value="keep-flowing"
+                    checked={overflowOption === 'keep-flowing'}
+                    onChange={(e) => setOverflowOption(e.target.value as any)}
+                    style={{ margin: 0, marginRight: '4px' }}
+                  />
+                  Keep Flowing
+                </label>
+
+                {/* Truncate */}
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  cursor: 'pointer',
+                  padding: '6px 10px',
+                  border: '2px solid',
+                  borderColor: overflowOption === 'truncate' ? '#007bff' : '#ddd',
+                  borderRadius: '4px',
+                  backgroundColor: overflowOption === 'truncate' ? '#e3f2fd' : 'white',
+                  fontSize: '11px',
+                  fontWeight: '500',
+                  minWidth: '90px',
+                  justifyContent: 'center'
+                }}>
+                  <input
+                    type="radio"
+                    name="overflowOption"
+                    value="truncate"
+                    checked={overflowOption === 'truncate'}
+                    onChange={(e) => setOverflowOption(e.target.value as any)}
+                    style={{ margin: 0, marginRight: '4px' }}
+                  />
+                  Truncate
+                </label>
+
+                {/* Shrink */}
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  cursor: 'pointer',
+                  padding: '6px 10px',
+                  border: '2px solid',
+                  borderColor: overflowOption === 'shrink' ? '#007bff' : '#ddd',
+                  borderRadius: '4px',
+                  backgroundColor: overflowOption === 'shrink' ? '#e3f2fd' : 'white',
+                  fontSize: '11px',
+                  fontWeight: '500',
+                  minWidth: '90px',
+                  justifyContent: 'center'
+                }}>
+                  <input
+                    type="radio"
+                    name="overflowOption"
+                    value="shrink"
+                    checked={overflowOption === 'shrink'}
+                    onChange={(e) => setOverflowOption(e.target.value as any)}
+                    style={{ margin: 0, marginRight: '4px' }}
+                  />
+                  Shrink
+                </label>
+              </div>
             </div>
           </div>
         </div>
