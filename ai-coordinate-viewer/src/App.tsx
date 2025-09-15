@@ -578,7 +578,10 @@ function App() {
       // Add font to PDF virtual file system
       pdf.addFileToVFS('WashCareSymbolsM54.ttf', fontBase64);
 
-      // Register the font with jsPDF
+      // Register the font with jsPDF - use exact name match
+      pdf.addFont('WashCareSymbolsM54.ttf', 'Wash Care Symbols M54', 'normal');
+
+      // Also register with shorter alias for compatibility
       pdf.addFont('WashCareSymbolsM54.ttf', 'WashCareSymbolsM54', 'normal');
 
       console.log('✅ Wash Care Symbols M54 font embedded successfully in PDF');
@@ -7584,15 +7587,21 @@ function App() {
 
                           try {
                             // Try to use the embedded Wash Care Symbols M54 font with configured size
-                            pdf.setFont('WashCareSymbolsM54', 'normal');
+                            try {
+                              pdf.setFont('Wash Care Symbols M54', 'normal');
+                            } catch {
+                              pdf.setFont('WashCareSymbolsM54', 'normal');
+                            }
                             pdf.setFontSize(configIconSize * 2.83); // Convert mm to points
                             pdf.setTextColor(0, 0, 0);
                             pdf.text(symbol, symbolX, symbolY, { align: 'center', baseline: 'middle' });
                             fontUsed = true;
+                            console.log(`✅ Used embedded font for symbol: ${symbol}`);
                             // Reset font back to Arial/Helvetica for subsequent text rendering
                             pdf.setFont('helvetica', 'normal');
                           } catch (error) {
                             // Font not available, try canvas rendering
+                            console.log(`⚠️ Font not available for symbol: ${symbol}, error:`, error);
                             fontUsed = false;
                           }
 
@@ -8165,15 +8174,21 @@ function App() {
 
                       try {
                         // Try to use the embedded Wash Care Symbols M54 font with configured size
-                        pdf.setFont('WashCareSymbolsM54', 'normal');
+                        try {
+                          pdf.setFont('Wash Care Symbols M54', 'normal');
+                        } catch {
+                          pdf.setFont('WashCareSymbolsM54', 'normal');
+                        }
                         pdf.setFontSize(configIconSize * 2.83); // Convert mm to points
                         pdf.setTextColor(0, 0, 0);
                         pdf.text(symbol, symbolX, symbolY, { align: 'center', baseline: 'middle' });
                         fontUsed = true;
+                        console.log(`✅ Used embedded font for symbol: ${symbol}`);
                         // Reset font back to Arial/Helvetica for subsequent text rendering
                         pdf.setFont('helvetica', 'normal');
                       } catch (error) {
                         // Font not available, try canvas rendering
+                        console.log(`⚠️ Font not available for symbol: ${symbol}, error:`, error);
                         fontUsed = false;
                       }
 

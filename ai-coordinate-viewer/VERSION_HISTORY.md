@@ -1,8 +1,23 @@
 # Care Label Layout System - Version History
 
-## Version 2.9.110 - Fixed Mother 3+ Canvas Image Placement in PDF
+## Version 2.9.111 - Fixed Washing Care Symbols Font Embedding in PDF
 **Release Date:** 2025-01-15
 **Commit:** TBD
+
+### 🔤 Washing Care Symbols Font Fix
+- **Issue**: Mother 2 washing care symbols "b G 5 B J" appearing as regular text instead of proper care symbols in PDF
+- **Root Cause**: Font registration name mismatch between embedded font and usage in PDF text rendering
+- **Solution**: Fixed font registration to use exact font name "Wash Care Symbols M54" and added fallback alias
+- **Implementation**:
+  - Updated `embedWashCareFont()` to register font with both exact name and alias
+  - Added fallback font selection in PDF text rendering (try exact name first, then alias)
+  - Added debug logging to track font usage success/failure
+  - Mother 2 uses text method (not canvas) so embedded font should work directly
+- **Technical Details**: Mother 1&2 use text-based PDF rendering where embedded fonts work directly, Mother 3+ use canvas method
+
+## Version 2.9.110 - Fixed Mother 3+ Canvas Image Placement in PDF
+**Release Date:** 2025-01-15
+**Commit:** 048a277
 
 ### 🎯 Canvas Image Placement Fix
 - **Issue**: Mother 3+ composition translation text was positioned too far right in PDF compared to Mother 1&2
