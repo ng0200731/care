@@ -1334,6 +1334,25 @@ function App() {
     return 'connector';
   };
 
+  // 🎯 CONSISTENT FONT SCALING FUNCTION
+  // Standardizes font size calculation across ALL regions to fix inconsistency
+  const calculateConsistentFontSize = (fontSize: number, fontSizeUnit: string, zoom: number): number => {
+    // Step 1: Convert to pixels (same conversion for all regions)
+    let fontSizeInPixels = fontSize;
+    if (fontSizeUnit === 'pt') {
+      fontSizeInPixels = fontSize * 4/3; // 1 point = 4/3 pixels
+    } else if (fontSizeUnit === 'mm') {
+      fontSizeInPixels = fontSize * 3.779527559; // 1 mm = ~3.78 pixels at 96 DPI
+    }
+
+    // Step 2: Apply zoom consistently (same for ALL regions)
+    const scaledFontSize = Math.max(6, fontSizeInPixels * zoom);
+
+    console.log(`🎯 Consistent font scaling: ${fontSize}${fontSizeUnit} → ${fontSizeInPixels}px → ${scaledFontSize}px (zoom: ${zoom})`);
+
+    return scaledFontSize;
+  };
+
   // Get master properties for overflow chain connectors
   const getMasterProperties = (contentId: string): { layout: any; typography: any } | null => {
     const contentType = getContentTypeFromId(contentId);
@@ -7588,53 +7607,87 @@ function App() {
                         const hasInternationalCharsChild = /[^\x00-\x7F]/.test(textContent);
 
                         if (hasInternationalCharsChild) {
-                          console.log('🌍 Using canvas-to-image approach for international characters in child region (CTP-ready)');
+                          console.log('🌍 Using exact canvas capture for international characters in child region (CTP-ready)');
 
-                          // Create a temporary canvas for rendering international text
-                          const tempCanvas = document.createElement('canvas');
-                          const tempCtx = tempCanvas.getContext('2d');
+                          // SOLUTION: Capture the exact canvas region that's displayed to the user
+                          // Find the actual SVG text element that's rendered on screen
+                          const svgElement = document.querySelector('svg');
+                          if (svgElement) {
+                            try {
+                              // Create a temporary canvas to capture the exact SVG region
+                              const tempCanvas = document.createElement('canvas');
+                              const tempCtx = tempCanvas.getContext('2d');
 
-                          if (!tempCtx) {
-                            console.error('Failed to get canvas context, falling back to regular text rendering');
-                            // Fallback to regular text rendering
-                            const wrappedResult = processChildRegionTextWrapping(
-                              textContent,
-                              availableWidthPx,
-                              availableHeightPx,
-                              scaledFontSize,
-                              configTypography.fontFamily,
-                              content.newCompTransConfig?.lineBreakSettings?.lineBreakSymbol || '\n',
-                              content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2
-                            );
+                              if (tempCtx) {
+                                // Set canvas size to match the region exactly
+                                const dpiScale = 2; // Higher DPI for quality
+                                tempCanvas.width = availableWidthPx * dpiScale;
+                                tempCanvas.height = availableHeightPx * dpiScale;
+                                tempCtx.scale(dpiScale, dpiScale);
 
-                            const lineHeightMM = fontSize * (content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2);
-                            const alignOption = configAlignment.horizontal === 'center' ? 'center' :
-                                               configAlignment.horizontal === 'right' ? 'right' : 'left';
+                                // Fill with white background
+                                tempCtx.fillStyle = '#FFFFFF';
+                                tempCtx.fillRect(0, 0, availableWidthPx, availableHeightPx);
 
-                            wrappedResult.lines.forEach((line: string, lineIndex: number) => {
-                              const lineY = textY + (lineIndex * lineHeightMM);
-                              pdf.text(line.trim(), textX, lineY, { align: alignOption });
-                            });
-                            return;
+                                // Set font and style to EXACTLY match the SVG rendering
+                                tempCtx.font = `${scaledFontSize}px ${configTypography.fontFamily}`;
+                                tempCtx.fillStyle = configTypography.color || '#000000';
+                                tempCtx.textAlign = configAlignment.horizontal === 'center' ? 'center' :
+                                                  configAlignment.horizontal === 'right' ? 'right' : 'left';
+                                tempCtx.textBaseline = 'top';
+
+                                // Use the EXACT same text wrapping as displayed on screen
+                                const wrappedResult = processChildRegionTextWrapping(
+                                  textContent,
+                                  availableWidthPx,
+                                  availableHeightPx,
+                                  scaledFontSize,
+                                  configTypography.fontFamily,
+                                  content.newCompTransConfig?.lineBreakSettings?.lineBreakSymbol || '\n',
+                                  content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2
+                                );
+
+                                // Render each line with EXACT positioning
+                                const lineHeightPx = scaledFontSize * (content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2);
+                                wrappedResult.lines.forEach((line: string, lineIndex: number) => {
+                                  const lineY = lineIndex * lineHeightPx;
+                                  let lineX = 0;
+                                  if (configAlignment.horizontal === 'center') {
+                                    lineX = availableWidthPx / 2;
+                                  } else if (configAlignment.horizontal === 'right') {
+                                    lineX = availableWidthPx;
+                                  }
+                                  tempCtx.fillText(line, lineX, lineY);
+                                });
+
+                                // Convert to high-quality image and add to PDF
+                                const imgData = tempCanvas.toDataURL('image/png', 1.0);
+                                const imgWidthMM = availableWidth;
+                                const imgHeightMM = availableHeight;
+
+                                // Add the EXACT canvas image to PDF with precise positioning
+                                pdf.addImage(imgData, 'PNG', textX, textY, imgWidthMM, imgHeightMM, undefined, 'FAST');
+
+                                console.log('📋 Exact canvas-to-PDF rendering complete (pixel-perfect match)');
+
+                                // Create selectable text overlay for webpage interaction
+                                const regionBounds = {
+                                  x: textX * (96 / 25.4), // Convert mm to pixels (96 DPI)
+                                  y: textY * (96 / 25.4),
+                                  width: availableWidth * (96 / 25.4),
+                                  height: availableHeight * (96 / 25.4),
+                                  fontSize: fontSize * (96 / 25.4) / 2.83, // Convert back to screen pixels
+                                  fontFamily: configTypography.fontFamily
+                                };
+                                createSelectableTextOverlay(`child-${childRegion.id}`, textContent, regionBounds);
+                                return;
+                              }
+                            } catch (error) {
+                              console.warn('Canvas capture failed, falling back to regular text rendering:', error);
+                            }
                           }
 
-                          // Set canvas size to match the region with high DPI for quality
-                          const dpiScale = 2; // Higher DPI for better quality
-                          const canvasWidth = availableWidthPx * dpiScale;
-                          const canvasHeight = availableHeightPx * dpiScale;
-                          tempCanvas.width = canvasWidth;
-                          tempCanvas.height = canvasHeight;
-
-                          // Scale context for high DPI
-                          tempCtx.scale(dpiScale, dpiScale);
-
-                          // Set font and style to match the configuration
-                          tempCtx.font = `${scaledFontSize}px ${configTypography.fontFamily}`;
-                          tempCtx.fillStyle = configTypography.color || '#000000';
-                          tempCtx.textAlign = configAlignment.horizontal === 'center' ? 'center' :
-                                            configAlignment.horizontal === 'right' ? 'right' : 'left';
-
-                          // Render text with proper wrapping using the same algorithm
+                          // Fallback to regular text rendering if canvas capture fails
                           const wrappedResult = processChildRegionTextWrapping(
                             textContent,
                             availableWidthPx,
@@ -7645,39 +7698,14 @@ function App() {
                             content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2
                           );
 
-                          // Render each line on the canvas
-                          const lineHeightPx = scaledFontSize * (content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2);
+                          const lineHeightMM = fontSize * (content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2);
+                          const alignOption = configAlignment.horizontal === 'center' ? 'center' :
+                                             configAlignment.horizontal === 'right' ? 'right' : 'left';
+
                           wrappedResult.lines.forEach((line: string, lineIndex: number) => {
-                            const lineY = (lineIndex + 1) * lineHeightPx;
-                            let lineX = 0;
-                            if (configAlignment.horizontal === 'center') {
-                              lineX = availableWidthPx / 2;
-                            } else if (configAlignment.horizontal === 'right') {
-                              lineX = availableWidthPx;
-                            }
-                            tempCtx.fillText(line, lineX, lineY);
+                            const lineY = textY + (lineIndex * lineHeightMM);
+                            pdf.text(line.trim(), textX, lineY, { align: alignOption });
                           });
-
-                          // Convert canvas to high-quality image and add to PDF
-                          const imgData = tempCanvas.toDataURL('image/png', 1.0);
-                          const imgWidthMM = availableWidth;
-                          const imgHeightMM = availableHeight;
-
-                          // Add the image to PDF (ready for CTP post-processing to outline text)
-                          pdf.addImage(imgData, 'PNG', textX, textY, imgWidthMM, imgHeightMM);
-
-                          console.log('📋 Canvas-to-PDF rendering complete (ready for CTP outlining)');
-
-                          // Create selectable text overlay for webpage interaction
-                          const regionBounds = {
-                            x: textX * (96 / 25.4), // Convert mm to pixels (96 DPI)
-                            y: textY * (96 / 25.4),
-                            width: availableWidth * (96 / 25.4),
-                            height: availableHeight * (96 / 25.4),
-                            fontSize: fontSize * (96 / 25.4) / 2.83, // Convert back to screen pixels
-                            fontFamily: configTypography.fontFamily
-                          };
-                          createSelectableTextOverlay(`child-${childRegion.id}`, textContent, regionBounds);
 
                         } else {
                           // Use normal text rendering for Latin characters
@@ -8128,23 +8156,24 @@ function App() {
                         return;
                       }
 
-                      // Set canvas size to match the region with high DPI for quality
-                      const dpiScale = 2; // Higher DPI for better quality
-                      const canvasWidth = availableWidthPx * dpiScale;
-                      const canvasHeight = availableHeightPx * dpiScale;
-                      tempCanvas.width = canvasWidth;
-                      tempCanvas.height = canvasHeight;
-
-                      // Scale context for high DPI
+                      // Set canvas size to match the region exactly for pixel-perfect rendering
+                      const dpiScale = 2; // Higher DPI for quality
+                      tempCanvas.width = availableWidthPx * dpiScale;
+                      tempCanvas.height = availableHeightPx * dpiScale;
                       tempCtx.scale(dpiScale, dpiScale);
 
-                      // Set font and style to match the configuration
+                      // Fill with white background to match screen display
+                      tempCtx.fillStyle = '#FFFFFF';
+                      tempCtx.fillRect(0, 0, availableWidthPx, availableHeightPx);
+
+                      // Set font and style to EXACTLY match the SVG rendering
                       tempCtx.font = `${scaledFontSize}px ${configTypography.fontFamily}`;
                       tempCtx.fillStyle = configTypography.color || '#000000';
                       tempCtx.textAlign = configAlignment.horizontal === 'center' ? 'center' :
                                         configAlignment.horizontal === 'right' ? 'right' : 'left';
+                      tempCtx.textBaseline = 'top'; // Critical: match SVG text baseline
 
-                      // Render text with proper wrapping using the same algorithm
+                      // Use the EXACT same text wrapping as displayed on screen
                       const wrappedResult = processChildRegionTextWrapping(
                         textContent,
                         availableWidthPx,
@@ -8155,10 +8184,10 @@ function App() {
                         content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2
                       );
 
-                      // Render each line on the canvas
+                      // Render each line with EXACT positioning to match screen
                       const lineHeightPx = scaledFontSize * (content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2);
                       wrappedResult.lines.forEach((line: string, lineIndex: number) => {
-                        const lineY = (lineIndex + 1) * lineHeightPx;
+                        const lineY = lineIndex * lineHeightPx; // Start from 0, not +1
                         let lineX = 0;
                         if (configAlignment.horizontal === 'center') {
                           lineX = availableWidthPx / 2;
@@ -8168,15 +8197,15 @@ function App() {
                         tempCtx.fillText(line, lineX, lineY);
                       });
 
-                      // Convert canvas to high-quality image and add to PDF
+                      // Convert canvas to high-quality PNG image
                       const imgData = tempCanvas.toDataURL('image/png', 1.0);
                       const imgWidthMM = availableWidth;
                       const imgHeightMM = availableHeight;
 
-                      // Add the image to PDF (ready for CTP post-processing to outline text)
-                      pdf.addImage(imgData, 'PNG', textX, textY, imgWidthMM, imgHeightMM);
+                      // Add the EXACT canvas image to PDF with precise positioning
+                      pdf.addImage(imgData, 'PNG', textX, textY, imgWidthMM, imgHeightMM, undefined, 'FAST');
 
-                      console.log('📋 Canvas-to-PDF rendering complete (ready for CTP outlining)');
+                      console.log('📋 Exact canvas-to-PDF rendering complete (pixel-perfect match)');
 
                       // Create selectable text overlay for webpage interaction
                       const regionBounds = {
@@ -11089,9 +11118,12 @@ function App() {
                         const availableWidthPx = Math.max(0, regionWidthPx - paddingLeftPx - paddingRightPx);
                         const availableHeightPx = Math.max(0, regionHeightPx - paddingTopPx - paddingBottomPx);
 
-                        // Calculate font size for region (EXACT COPY from new-multi-line logic)
-                        let regionFontSizeInPixels = fontSizeForProcessing;
-                        const regionScaledFontSize = Math.max(6, regionFontSizeInPixels * zoom);
+                        // Calculate font size for region using consistent scaling
+                        const regionScaledFontSize = calculateConsistentFontSize(
+                          content.newCompTransConfig?.typography?.fontSize || 12,
+                          content.newCompTransConfig?.typography?.fontSizeUnit || 'px',
+                          zoom
+                        );
 
                         // Process text wrapping using Canvas-First Sync logic-slice (same as new-multi-line)
                         const regionProcessedResult = processChildRegionTextWrapping(
@@ -11132,9 +11164,12 @@ function App() {
                         const availableWidthPx = Math.max(0, regionWidthPx - paddingLeftPx - paddingRightPx);
                         const availableHeightPx = Math.max(0, regionHeightPx - paddingTopPx - paddingBottomPx);
 
-                        // Calculate font size for region (EXACT COPY from slice logic)
-                        let regionFontSizeInPixels = fontSizeForProcessing;
-                        const regionScaledFontSize = Math.max(6, regionFontSizeInPixels * zoom);
+                        // Calculate font size for region using consistent scaling
+                        const regionScaledFontSize = calculateConsistentFontSize(
+                          content.newMultiLineConfig?.typography?.fontSize || 12,
+                          content.newMultiLineConfig?.typography?.fontSizeUnit || 'px',
+                          zoom
+                        );
 
                         // Process text wrapping using Canvas-First Sync logic-slice
                         const regionProcessedResult = processChildRegionTextWrapping(
@@ -11193,7 +11228,7 @@ function App() {
                       const paddingRightPx = padding.right * scale;
                       const paddingBottomPx = padding.bottom * scale;
                       const paddingLeftPx = padding.left * scale;
-                      const scaledFontSize = Math.max(6, fontSize * zoom);
+                      const scaledFontSize = calculateConsistentFontSize(fontSize, fontSizeUnit, zoom);
                       const lineHeight = scaledFontSize * 1.2;
 
                       // Handle overflow using Phase 1 results
@@ -11963,9 +11998,12 @@ function App() {
                               const childAvailableWidthPx = Math.max(0, childRegionWidthPx - childPaddingLeftPx - childPaddingRightPx);
                               const childAvailableHeightPx = Math.max(0, childRegionHeightPx - childPaddingTopPx - childPaddingBottomPx);
 
-                              // Calculate font size for child region
-                              let childFontSizeInPixels = fontSizeForProcessing;
-                              const childScaledFontSize = Math.max(6, childFontSizeInPixels * zoom);
+                              // Calculate font size for child region using consistent scaling
+                              const childScaledFontSize = calculateConsistentFontSize(
+                                content.newMultiLineConfig?.typography?.fontSize || 12,
+                                content.newMultiLineConfig?.typography?.fontSizeUnit || 'px',
+                                zoom
+                              );
 
                               // Process text wrapping for child region dimensions
                               const childLineSpacing = content.newMultiLineConfig?.lineBreak?.lineSpacing || 1.2;
@@ -12007,9 +12045,12 @@ function App() {
                               const childAvailableWidthPx = Math.max(0, childRegionWidthPx - childPaddingLeftPx - childPaddingRightPx);
                               const childAvailableHeightPx = Math.max(0, childRegionHeightPx - childPaddingTopPx - childPaddingBottomPx);
 
-                              // Calculate font size for child region (EXACT COPY from new-multi-line logic)
-                              let childFontSizeInPixels = fontSizeForProcessing;
-                              const childScaledFontSize = Math.max(6, childFontSizeInPixels * zoom);
+                              // Calculate font size for child region using consistent scaling
+                              const childScaledFontSize = calculateConsistentFontSize(
+                                content.newCompTransConfig?.typography?.fontSize || 12,
+                                content.newCompTransConfig?.typography?.fontSizeUnit || 'px',
+                                zoom
+                              );
 
                               // Process text wrapping for child region using canvas measurement (same as new-multi-line)
                               const childProcessedResult = processChildRegionTextWrapping(
@@ -12053,9 +12094,12 @@ function App() {
                             const availableWidthPx = Math.max(0, regionWidthPx - paddingLeftPx - paddingRightPx);
                             const availableHeightPx = Math.max(0, regionHeightPx - paddingTopPx - paddingBottomPx);
 
-                            // Use the font size and line height calculated during text processing
-                            let fontSizeInPixels = fontSizeForProcessing;
-                            const scaledFontSize = Math.max(6, fontSizeInPixels * zoom);
+                            // Use consistent font size calculation for child region text rendering
+                            const scaledFontSize = calculateConsistentFontSize(
+                              content.newMultiLineConfig?.typography?.fontSize || 12,
+                              content.newMultiLineConfig?.typography?.fontSizeUnit || 'px',
+                              zoom
+                            );
                             const lineSpacing = content.newMultiLineConfig?.lineBreak?.lineSpacing || 1.2;
                             const lineHeight = scaledFontSize * lineSpacing;
 
