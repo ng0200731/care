@@ -4361,6 +4361,126 @@ function App() {
     return svgContent;
   };
 
+  // Generate PDF from current canvas image - CTP (Canvas to PDF) method
+  const generateCanvasToPDF = async () => {
+    console.log('🖨️ Generating PDF from current canvas image using CTP method');
+
+    try {
+      // Find the main SVG canvas element
+      const svgElement = document.querySelector('svg') as SVGElement;
+      if (!svgElement) {
+        alert('❌ No canvas found to convert to PDF');
+        return;
+      }
+
+      // Get SVG dimensions
+      const svgRect = svgElement.getBoundingClientRect();
+      const svgWidth = svgRect.width;
+      const svgHeight = svgRect.height;
+
+      console.log('📐 Canvas dimensions:', `${svgWidth}×${svgHeight}px`);
+
+      // Create a temporary canvas to capture the SVG
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        alert('❌ Canvas context not available');
+        return;
+      }
+
+      // Set canvas size to match SVG (high resolution for quality)
+      const scale = 2; // 2x resolution for better quality
+      canvas.width = svgWidth * scale;
+      canvas.height = svgHeight * scale;
+      ctx.scale(scale, scale);
+
+      // Convert SVG to string
+      const svgData = new XMLSerializer().serializeToString(svgElement);
+      const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+      const svgUrl = URL.createObjectURL(svgBlob);
+
+      // Create image from SVG
+      const img = new Image();
+      img.onload = async () => {
+        try {
+          // Draw SVG image to canvas
+          ctx.fillStyle = 'white';
+          ctx.fillRect(0, 0, svgWidth, svgHeight);
+          ctx.drawImage(img, 0, 0, svgWidth, svgHeight);
+
+          // Convert canvas to high-quality image data
+          const imageData = canvas.toDataURL('image/png', 1.0);
+
+          // Calculate PDF dimensions (convert pixels to mm at 96 DPI)
+          const pdfWidthMM = svgWidth * 0.264583; // Convert px to mm
+          const pdfHeightMM = svgHeight * 0.264583;
+
+          // Create PDF with appropriate size
+          const pdf = new jsPDF({
+            orientation: pdfWidthMM > pdfHeightMM ? 'landscape' : 'portrait',
+            unit: 'mm',
+            format: [pdfWidthMM, pdfHeightMM]
+          });
+
+          // Try to embed Wash Care Symbols M54 font
+          const fontEmbedded = await embedWashCareFont(pdf);
+          if (fontEmbedded) {
+            console.log('✅ Font embedded successfully for canvas PDF');
+          }
+
+          // Add the canvas image to PDF (full page)
+          pdf.addImage(imageData, 'PNG', 0, 0, pdfWidthMM, pdfHeightMM, undefined, 'FAST');
+
+          // Add metadata
+          const currentDate = new Date();
+          const dateString = currentDate.toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+          });
+          const timeString = currentDate.toLocaleTimeString('en-GB', {
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+
+          // Add small watermark in corner
+          pdf.setFontSize(6);
+          pdf.setTextColor(150, 150, 150);
+          pdf.text(`Canvas-to-PDF: ${dateString} ${timeString}`, 2, pdfHeightMM - 2);
+
+          // Generate filename
+          const fileName = `Canvas_${dateString.replace(/\//g, '-')}_${timeString.replace(/:/g, '-')}.pdf`;
+
+          // Save PDF
+          pdf.save(fileName);
+
+          console.log('✅ Canvas-to-PDF conversion complete:', fileName);
+          alert(`✅ Canvas converted to PDF successfully!\nFile: ${fileName}`);
+
+          // Clean up
+          URL.revokeObjectURL(svgUrl);
+
+        } catch (error) {
+          console.error('❌ Error converting canvas to PDF:', error);
+          alert('❌ Error converting canvas to PDF. Check console for details.');
+          URL.revokeObjectURL(svgUrl);
+        }
+      };
+
+      img.onerror = () => {
+        console.error('❌ Failed to load SVG image');
+        alert('❌ Failed to load canvas image for PDF conversion');
+        URL.revokeObjectURL(svgUrl);
+      };
+
+      img.src = svgUrl;
+
+    } catch (error) {
+      console.error('❌ Canvas-to-PDF conversion failed:', error);
+      alert('❌ Canvas-to-PDF conversion failed. Check console for details.');
+    }
+  };
+
   // Generate PDF with visual canvas at 1:1 scale on A4 paper - DIRECT DRAWING
   const generateMotherPDF = async (motherObject: AIObject) => {
     console.log('🖨️ Generating 1:1 scale PDF with visual layout for mother:', motherObject.name);
@@ -7745,69 +7865,45 @@ function App() {
                           });
                         }
                       } else {
-                        // 🎯 FORCE CTP METHOD: Use canvas-to-image for ALL other content types too
-                        console.log('🎯 Using CTP method for ALL text content types (child regions)');
+                        // 🎯 SIMPLE CTP: Just use canvas-to-image for clean text rendering
+                        console.log('🎯 Simple CTP method for child regions');
 
-                        try {
-                          // Create a temporary canvas to render text exactly like the canvas display
-                          const tempCanvas = document.createElement('canvas');
-                          const tempCtx = tempCanvas.getContext('2d');
+                        // Create simple canvas
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
 
-                          if (tempCtx) {
-                            // Calculate available space for text
-                            const availableWidthPx = Math.max(0, (childRegion.width - paddingLeft - paddingRight) * 3.779527559);
-                            const availableHeightPx = Math.max(0, (childRegion.height - paddingTop - paddingBottom) * 3.779527559);
+                        if (ctx) {
+                          // Simple canvas size
+                          const width = (childRegion.width - paddingLeft - paddingRight) * 4;
+                          const height = (childRegion.height - paddingTop - paddingBottom) * 4;
+                          canvas.width = width;
+                          canvas.height = height;
 
-                            // Set canvas size to match the region exactly
-                            const dpiScale = 2; // Higher DPI for quality
-                            tempCanvas.width = availableWidthPx * dpiScale;
-                            tempCanvas.height = availableHeightPx * dpiScale;
-                            tempCtx.scale(dpiScale, dpiScale);
+                          // White background
+                          ctx.fillStyle = 'white';
+                          ctx.fillRect(0, 0, width, height);
 
-                            // Fill with white background
-                            tempCtx.fillStyle = '#FFFFFF';
-                            tempCtx.fillRect(0, 0, availableWidthPx, availableHeightPx);
+                          // Simple font setup
+                          ctx.font = `${fontSize * 4}px ${fontFamily}`;
+                          ctx.fillStyle = 'black';
+                          ctx.textAlign = textAlign === 'center' ? 'center' : textAlign === 'right' ? 'right' : 'left';
 
-                            // Set font and style to match the display
-                            const fontSizePx = fontSize * 3.779527559; // Convert mm to px
-                            tempCtx.font = `${fontSizePx}px ${fontFamily}`;
-                            tempCtx.fillStyle = '#000000';
-                            tempCtx.textAlign = textAlign === 'center' ? 'center' : textAlign === 'right' ? 'right' : 'left';
-                            tempCtx.textBaseline = 'top';
+                          // Draw text lines
+                          displayLines.forEach((line: string, i: number) => {
+                            const y = (i + 1) * lineHeightMM * 4;
+                            let x = 0;
+                            if (textAlign === 'center') x = width / 2;
+                            else if (textAlign === 'right') x = width;
+                            ctx.fillText(line, x, y);
+                          });
 
-                            // Render each line with exact positioning
-                            const lineHeightPx = lineHeightMM * 3.779527559; // Convert mm to px
-                            displayLines.forEach((line: string, lineIndex: number) => {
-                              const lineY = lineIndex * lineHeightPx;
-                              let lineX = 0;
-                              if (textAlign === 'center') {
-                                lineX = availableWidthPx / 2;
-                              } else if (textAlign === 'right') {
-                                lineX = availableWidthPx;
-                              }
-                              tempCtx.fillText(line, lineX, lineY);
-                            });
-
-                            // Convert to high-quality image and add to PDF
-                            const imgData = tempCanvas.toDataURL('image/png', 1.0);
-                            const imgWidthMM = childRegion.width - paddingLeft - paddingRight;
-                            const imgHeightMM = childRegion.height - paddingTop - paddingBottom;
-
-                            // Add the canvas image to PDF with precise positioning
-                            pdf.addImage(imgData, 'PNG', textX, startY, imgWidthMM, imgHeightMM, undefined, 'FAST');
-
-                            console.log('📋 CTP method applied to child region content type:', content.type);
-                          } else {
-                            // Fallback to regular text if canvas fails
-                            displayLines.forEach((line: string, lineIndex: number) => {
-                              const textY = startY + (lineIndex + 1) * lineHeightMM;
-                              const align = textAlign === 'center' ? 'center' : textAlign === 'right' ? 'right' : 'left';
-                              pdf.text(line, textX, textY, { align: align });
-                            });
-                          }
-                        } catch (error) {
-                          console.warn('CTP method failed for child region, falling back to regular text:', error);
-                          // Fallback to regular text rendering
+                          // Add to PDF
+                          const imgData = canvas.toDataURL('image/png');
+                          pdf.addImage(imgData, 'PNG', textX, startY,
+                            childRegion.width - paddingLeft - paddingRight,
+                            childRegion.height - paddingTop - paddingBottom);
+                        } else {
+                          // Simple fallback
                           displayLines.forEach((line: string, lineIndex: number) => {
                             const textY = startY + (lineIndex + 1) * lineHeightMM;
                             const align = textAlign === 'center' ? 'center' : textAlign === 'right' ? 'right' : 'left';
@@ -8319,69 +8415,45 @@ function App() {
                       });
                     }
                   } else {
-                    // 🎯 FORCE CTP METHOD: Use canvas-to-image for ALL other content types too (main regions)
-                    console.log('🎯 Using CTP method for ALL text content types (main regions)');
+                    // 🎯 SIMPLE CTP: Just use canvas-to-image for clean text rendering
+                    console.log('🎯 Simple CTP method for main regions');
 
-                    try {
-                      // Create a temporary canvas to render text exactly like the canvas display
-                      const tempCanvas = document.createElement('canvas');
-                      const tempCtx = tempCanvas.getContext('2d');
+                    // Create simple canvas
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
 
-                      if (tempCtx) {
-                        // Calculate available space for text
-                        const availableWidthPx = Math.max(0, (region.width - paddingLeft - paddingRight) * 3.779527559);
-                        const availableHeightPx = Math.max(0, (region.height - paddingTop - paddingBottom) * 3.779527559);
+                    if (ctx) {
+                      // Simple canvas size
+                      const width = (region.width - paddingLeft - paddingRight) * 4;
+                      const height = (region.height - paddingTop - paddingBottom) * 4;
+                      canvas.width = width;
+                      canvas.height = height;
 
-                        // Set canvas size to match the region exactly
-                        const dpiScale = 2; // Higher DPI for quality
-                        tempCanvas.width = availableWidthPx * dpiScale;
-                        tempCanvas.height = availableHeightPx * dpiScale;
-                        tempCtx.scale(dpiScale, dpiScale);
+                      // White background
+                      ctx.fillStyle = 'white';
+                      ctx.fillRect(0, 0, width, height);
 
-                        // Fill with white background
-                        tempCtx.fillStyle = '#FFFFFF';
-                        tempCtx.fillRect(0, 0, availableWidthPx, availableHeightPx);
+                      // Simple font setup
+                      ctx.font = `${fontSize * 4}px ${fontFamily}`;
+                      ctx.fillStyle = 'black';
+                      ctx.textAlign = textAlign === 'center' ? 'center' : textAlign === 'right' ? 'right' : 'left';
 
-                        // Set font and style to match the display
-                        const fontSizePx = fontSize * 3.779527559; // Convert mm to px
-                        tempCtx.font = `${fontSizePx}px ${fontFamily}`;
-                        tempCtx.fillStyle = '#000000';
-                        tempCtx.textAlign = textAlign === 'center' ? 'center' : textAlign === 'right' ? 'right' : 'left';
-                        tempCtx.textBaseline = 'top';
+                      // Draw text lines
+                      displayLines.forEach((line: string, i: number) => {
+                        const y = (i + 1) * lineHeightMM * 4;
+                        let x = 0;
+                        if (textAlign === 'center') x = width / 2;
+                        else if (textAlign === 'right') x = width;
+                        ctx.fillText(line, x, y);
+                      });
 
-                        // Render each line with exact positioning
-                        const lineHeightPx = lineHeightMM * 3.779527559; // Convert mm to px
-                        displayLines.forEach((line: string, lineIndex: number) => {
-                          const lineY = lineIndex * lineHeightPx;
-                          let lineX = 0;
-                          if (textAlign === 'center') {
-                            lineX = availableWidthPx / 2;
-                          } else if (textAlign === 'right') {
-                            lineX = availableWidthPx;
-                          }
-                          tempCtx.fillText(line, lineX, lineY);
-                        });
-
-                        // Convert to high-quality image and add to PDF
-                        const imgData = tempCanvas.toDataURL('image/png', 1.0);
-                        const imgWidthMM = region.width - paddingLeft - paddingRight;
-                        const imgHeightMM = region.height - paddingTop - paddingBottom;
-
-                        // Add the canvas image to PDF with precise positioning
-                        pdf.addImage(imgData, 'PNG', textX, startY, imgWidthMM, imgHeightMM, undefined, 'FAST');
-
-                        console.log('📋 CTP method applied to main region content type:', content.type);
-                      } else {
-                        // Fallback to regular text if canvas fails
-                        displayLines.forEach((line: string, lineIndex: number) => {
-                          const textY = startY + (lineIndex + 1) * lineHeightMM;
-                          const align = textAlign === 'center' ? 'center' : textAlign === 'right' ? 'right' : 'left';
-                          pdf.text(line, textX, textY, { align: align });
-                        });
-                      }
-                    } catch (error) {
-                      console.warn('CTP method failed for main region, falling back to regular text:', error);
-                      // Fallback to regular text rendering
+                      // Add to PDF
+                      const imgData = canvas.toDataURL('image/png');
+                      pdf.addImage(imgData, 'PNG', textX, startY,
+                        region.width - paddingLeft - paddingRight,
+                        region.height - paddingTop - paddingBottom);
+                    } else {
+                      // Simple fallback
                       displayLines.forEach((line: string, lineIndex: number) => {
                         const textY = startY + (lineIndex + 1) * lineHeightMM;
                         const align = textAlign === 'center' ? 'center' : textAlign === 'right' ? 'right' : 'left';
@@ -8925,6 +8997,34 @@ function App() {
             title="Print everything as PDF (auto paper size)"
           >
             🖨️ PRINT AS PDF
+          </button>
+
+          <button
+            onClick={() => generateCanvasToPDF()}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(135deg, #1976d2 0%, #2196f3 100%)';
+              e.currentTarget.style.transform = 'scale(1.05)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(135deg, #2196f3 0%, #1976d2 100%)';
+              e.currentTarget.style.transform = 'scale(1)';
+            }}
+            style={{
+              background: 'linear-gradient(135deg, #2196f3 0%, #1976d2 100%)',
+              border: '2px solid #2196f3',
+              color: 'white',
+              fontSize: '12px',
+              padding: '8px 16px',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              transition: 'all 0.2s ease',
+              boxShadow: '0 3px 6px rgba(33, 150, 243, 0.3)',
+              marginLeft: '10px'
+            }}
+            title="Convert current canvas view to PDF (CTP method)"
+          >
+            📸 CANVAS TO PDF
           </button>
         </div>
 

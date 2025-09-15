@@ -1,5 +1,31 @@
 # Care Label Layout System - Version History
 
+## Version 2.9.101 - Added Canvas-to-PDF Direct Conversion Feature
+**Release Date:** 2025-01-15
+**Commit:** TBD
+
+### 📸 Canvas-to-PDF Direct Conversion (CTP Method)
+- **New Feature**: Added direct Canvas-to-PDF conversion functionality following existing CTP logic
+- **Implementation**: Created `generateCanvasToPDF()` function that captures current canvas view and converts to PDF
+- **Technical Details**:
+  - **SVG Capture**: Captures the current SVG canvas element using `XMLSerializer`
+  - **High Resolution**: Uses 2x scaling for better image quality in PDF
+  - **Canvas Rendering**: Converts SVG to canvas, then canvas to high-quality PNG image
+  - **PDF Integration**: Uses jsPDF library with automatic paper size based on canvas dimensions
+  - **Font Support**: Includes Wash Care Symbols M54 font embedding for symbol compatibility
+  - **Metadata**: Adds timestamp watermark and proper filename generation
+- **User Interface**:
+  - **New Button**: Added "📸 CANVAS TO PDF" button next to existing "🖨️ PRINT AS PDF" button
+  - **Blue Styling**: Uses blue gradient to distinguish from red PDF print button
+  - **Hover Effects**: Includes smooth hover animations and visual feedback
+  - **Tooltip**: Clear description "Convert current canvas view to PDF (CTP method)"
+- **Benefits**:
+  - **Perfect Rendering**: Captures exactly what user sees on canvas
+  - **No Layout Issues**: Avoids complex PDF drawing logic by using image conversion
+  - **Fast Processing**: Direct image-to-PDF conversion is faster than element-by-element drawing
+  - **Consistent Output**: Guarantees PDF matches canvas appearance exactly
+- **File Naming**: Auto-generates filename with date/time: `Canvas_DD-MM-YYYY_HH-MM.pdf`
+
 ## Version 2.9.83 - Fixed PDF Text Wrapping for Composition Translation Content (PROPER FIX)
 **Release Date:** 2025-01-14
 **Commit:** TBD
