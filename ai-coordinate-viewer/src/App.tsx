@@ -7723,12 +7723,15 @@ function App() {
                         }
                         const scaledFontSize = Math.max(6, fontSizeForProcessing); // No zoom in PDF, but keep minimum
 
-                        // 🎯 FORCE CTP METHOD: Use canvas-to-image approach for ALL text (not just international)
-                        // This ensures consistent rendering between canvas and PDF for all content types
-                        const forceCanvasToImageMethod = true; // Always use CTP method
+                        // 🎯 SELECTIVE CTP METHOD: Use different rendering based on mother type
+                        // Mother 1 & 2: Use old method (text-based, copyable)
+                        // Mother 3+: Use CTP method (image-based) for composition translation content
+                        const motherName = mother.name || '';
+                        const motherNumber = parseInt(motherName.match(/Mother_(\d+)/)?.[1] || '1');
+                        const forceCanvasToImageMethod = motherNumber >= 3; // CTP method only for Mother 3+
 
                         if (forceCanvasToImageMethod) {
-                          console.log('🎯 Using CTP method for ALL text in child region (forced canvas-to-image)');
+                          console.log(`🎯 Using CTP method for ${motherName} (Mother ${motherNumber}) - composition translation as image`);
 
                           // SOLUTION: Capture the exact canvas region that's displayed to the user
                           // Find the actual SVG text element that's rendered on screen
@@ -7829,7 +7832,8 @@ function App() {
                           });
 
                         } else {
-                          // Use normal text rendering for Latin characters
+                          // Use normal text rendering for Mother 1 & 2 (copyable text)
+                          console.log(`📝 Using text method for ${motherName} (Mother ${motherNumber}) - copyable text`);
                           const wrappedResult = processChildRegionTextWrapping(
                             textContent,
                             availableWidthPx,
@@ -7865,8 +7869,13 @@ function App() {
                           });
                         }
                       } else {
-                        // 🎯 SIMPLE CTP: Just use canvas-to-image for clean text rendering
-                        console.log('🎯 Simple CTP method for child regions');
+                        // 🎯 SELECTIVE RENDERING: Use different methods based on mother type
+                        const motherName = mother.name || '';
+                        const motherNumber = parseInt(motherName.match(/Mother_(\d+)/)?.[1] || '1');
+                        const useCanvasMethod = motherNumber >= 3; // Canvas method only for Mother 3+
+
+                        if (useCanvasMethod) {
+                          console.log(`🎯 Using canvas method for ${motherName} (Mother ${motherNumber}) - child region as image`);
 
                         // Create simple canvas
                         const canvas = document.createElement('canvas');
@@ -7903,7 +7912,17 @@ function App() {
                             childRegion.width - paddingLeft - paddingRight,
                             childRegion.height - paddingTop - paddingBottom);
                         } else {
-                          // Simple fallback
+                          // Simple fallback for canvas method
+                          displayLines.forEach((line: string, lineIndex: number) => {
+                            const textY = startY + (lineIndex + 1) * lineHeightMM;
+                            const align = textAlign === 'center' ? 'center' : textAlign === 'right' ? 'right' : 'left';
+                            pdf.text(line, textX, textY, { align: align });
+                          });
+                        }
+                      } else {
+                        // Use normal text rendering for Mother 1 & 2 (copyable text)
+                          console.log(`📝 Using text method for ${motherName} (Mother ${motherNumber}) - child region copyable text`);
+
                           displayLines.forEach((line: string, lineIndex: number) => {
                             const textY = startY + (lineIndex + 1) * lineHeightMM;
                             const align = textAlign === 'center' ? 'center' : textAlign === 'right' ? 'right' : 'left';
@@ -8281,12 +8300,15 @@ function App() {
                     }
                     const scaledFontSize = Math.max(6, fontSizeForProcessing); // No zoom in PDF, but keep minimum
 
-                    // 🎯 FORCE CTP METHOD: Use canvas-to-image approach for ALL text (not just international)
-                    // This ensures consistent rendering between canvas and PDF for all content types
-                    const forceCanvasToImageMethod = true; // Always use CTP method
+                    // 🎯 SELECTIVE CTP METHOD: Use different rendering based on mother type
+                    // Mother 1 & 2: Use old method (text-based, copyable)
+                    // Mother 3+: Use CTP method (image-based) for composition translation content
+                    const motherName = mother.name || '';
+                    const motherNumber = parseInt(motherName.match(/Mother_(\d+)/)?.[1] || '1');
+                    const forceCanvasToImageMethod = motherNumber >= 3; // CTP method only for Mother 3+
 
                     if (forceCanvasToImageMethod) {
-                      console.log('🎯 Using CTP method for ALL text in main region (forced canvas-to-image)');
+                      console.log(`🎯 Using CTP method for ${motherName} (Mother ${motherNumber}) - main region composition translation as image`);
 
                       // Create a temporary canvas for rendering international text
                       const tempCanvas = document.createElement('canvas');
@@ -8379,7 +8401,8 @@ function App() {
                       createSelectableTextOverlay(`main-${region.id}`, textContent, regionBounds);
 
                     } else {
-                      // Use normal text rendering for Latin characters
+                      // Use normal text rendering for Mother 1 & 2 (copyable text)
+                      console.log(`📝 Using text method for ${motherName} (Mother ${motherNumber}) - main region copyable text`);
                       const wrappedResult = processChildRegionTextWrapping(
                         textContent,
                         availableWidthPx,
@@ -8415,8 +8438,13 @@ function App() {
                       });
                     }
                   } else {
-                    // 🎯 SIMPLE CTP: Just use canvas-to-image for clean text rendering
-                    console.log('🎯 Simple CTP method for main regions');
+                    // 🎯 SELECTIVE RENDERING: Use different methods based on mother type
+                    const motherName = mother.name || '';
+                    const motherNumber = parseInt(motherName.match(/Mother_(\d+)/)?.[1] || '1');
+                    const useCanvasMethod = motherNumber >= 3; // Canvas method only for Mother 3+
+
+                    if (useCanvasMethod) {
+                      console.log(`🎯 Using canvas method for ${motherName} (Mother ${motherNumber}) - main region as image`);
 
                     // Create simple canvas
                     const canvas = document.createElement('canvas');
@@ -8453,7 +8481,17 @@ function App() {
                         region.width - paddingLeft - paddingRight,
                         region.height - paddingTop - paddingBottom);
                     } else {
-                      // Simple fallback
+                      // Simple fallback for canvas method
+                      displayLines.forEach((line: string, lineIndex: number) => {
+                        const textY = startY + (lineIndex + 1) * lineHeightMM;
+                        const align = textAlign === 'center' ? 'center' : textAlign === 'right' ? 'right' : 'left';
+                        pdf.text(line, textX, textY, { align: align });
+                      });
+                    }
+                  } else {
+                    // Use normal text rendering for Mother 1 & 2 (copyable text)
+                      console.log(`📝 Using text method for ${motherName} (Mother ${motherNumber}) - main region copyable text`);
+
                       displayLines.forEach((line: string, lineIndex: number) => {
                         const textY = startY + (lineIndex + 1) * lineHeightMM;
                         const align = textAlign === 'center' ? 'center' : textAlign === 'right' ? 'right' : 'left';

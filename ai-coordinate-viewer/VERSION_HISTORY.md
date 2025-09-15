@@ -1,5 +1,29 @@
 # Care Label Layout System - Version History
 
+## Version 2.9.103 - Selective PDF Rendering Based on Mother Type
+**Release Date:** 2025-01-15
+**Commit:** TBD
+
+### 🖨️ Mother-Based PDF Rendering Strategy
+- **Selective Rendering**: Different PDF rendering methods based on mother type for optimal user experience
+- **Mother 1 & 2**: Use old method (text-based rendering) - **text is copyable** from PDF
+- **Mother 3+**: Use CTP method (Canvas-to-PDF) for composition translation content - renders as **high-quality image**
+- **Technical Implementation**:
+  - **Mother Detection**: Extracts mother number from name (e.g., "Mother_1" → 1)
+  - **Conditional Logic**: `motherNumber >= 3` determines rendering method
+  - **Text Method**: Uses jsPDF text rendering for copyable content
+  - **CTP Method**: Uses canvas-to-image conversion for pixel-perfect rendering
+- **Content Type Coverage**:
+  - **Composition Translation**: Selective CTP based on mother type
+  - **Regular Text Content**: Selective rendering based on mother type
+  - **Main Regions**: Both text and CTP methods supported
+  - **Child Regions**: Both text and CTP methods supported
+- **Benefits**:
+  - **Mother 1 & 2**: Copyable text for easy content extraction and editing
+  - **Mother 3+**: High-quality image rendering for complex composition translation content
+  - **Consistent Logic**: Same rendering strategy across main regions and child regions
+  - **Backward Compatibility**: Maintains existing functionality while adding selective behavior
+
 ## Version 2.9.102 - Improved Button Layout with 2x2 Grid Design
 **Release Date:** 2025-01-15
 **Commit:** TBD
