@@ -13421,25 +13421,11 @@ function App() {
                     v{packageJson.version} • API: {apiStatus}
                   </span>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                <div style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', width: '100%' }}>
                   <button onClick={handleZoomIn} style={buttonStyle}>+</button>
                   <button onClick={handleZoomOut} style={buttonStyle}>-</button>
                   <button onClick={handleZoomReset} style={buttonStyle}>1:1</button>
-                  <button onClick={handleFitToScreen} style={buttonStyle}>Fit</button>
-                  <button
-                    onClick={handleFitToScreen}
-                    style={{
-                      ...buttonStyle,
-                      background: '#4CAF50',
-                      color: 'white',
-                      fontSize: '10px',
-                      padding: '6px 8px',
-                      fontWeight: 'bold'
-                    }}
-                    title="Fit content to screen for optimal capture"
-                  >
-                    📐 Fit for Save
-                  </button>
+                  <button onClick={handleFitToScreen} style={buttonStyle}>FIT</button>
                 </div>
 
 

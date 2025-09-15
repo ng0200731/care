@@ -1176,85 +1176,6 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
             ))}
           </div>
 
-          {/* Text Content Section */}
-          <div style={{
-            marginTop: '16px',
-            padding: '12px',
-            border: '1px solid #ddd',
-            borderRadius: '8px',
-            backgroundColor: '#f8f9fa'
-          }}>
-            <div style={{
-              fontSize: '12px',
-              fontWeight: '600',
-              marginBottom: '12px',
-              color: '#333'
-            }}>
-              Text Content:
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 3fr', gap: '16px' }}>
-              {/* Separator Input */}
-              <div>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '4px',
-                  fontSize: '11px',
-                  fontWeight: '500'
-                }}>
-                  Separator:
-                </label>
-                <input
-                  type="text"
-                  value={config.textContent.separator}
-                  onChange={(e) => setConfig(prev => ({
-                    ...prev,
-                    textContent: {
-                      ...prev.textContent,
-                      separator: e.target.value
-                    }
-                  }))}
-                  style={{
-                    width: '100%',
-                    padding: '6px',
-                    border: '1px solid #ddd',
-                    borderRadius: '4px',
-                    fontSize: '12px'
-                  }}
-                  placeholder="e.g., ' - '"
-                />
-              </div>
-
-              {/* Generated Text Display */}
-              <div>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '4px',
-                  fontSize: '11px',
-                  fontWeight: '500'
-                }}>
-                  Text Value:
-                </label>
-                <textarea
-                  value={config.textContent.generatedText}
-                  readOnly
-                  style={{
-                    width: '100%',
-                    height: '120px',
-                    padding: '8px',
-                    border: '1px solid #ddd',
-                    borderRadius: '4px',
-                    fontSize: '11px',
-                    backgroundColor: '#f9f9f9',
-                    resize: 'vertical',
-                    fontFamily: 'monospace'
-                  }}
-                  placeholder="Generated text will appear here based on material compositions and selected languages..."
-                />
-              </div>
-            </div>
-          </div>
-
           {/* Line Break Settings Section */}
           <div style={{
             marginTop: '16px',
@@ -1375,6 +1296,87 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Text Content Section */}
+          <div style={{
+            marginTop: '16px',
+            padding: '12px',
+            border: '1px solid #ddd',
+            borderRadius: '8px',
+            backgroundColor: '#f8f9fa'
+          }}>
+            <div style={{
+              fontSize: '12px',
+              fontWeight: '600',
+              marginBottom: '12px',
+              color: '#333'
+            }}>
+              Text Content:
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 3fr', gap: '16px' }}>
+              {/* Separator Input */}
+              <div>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '4px',
+                  fontSize: '11px',
+                  fontWeight: '500'
+                }}>
+                  Separator:
+                </label>
+                <input
+                  type="text"
+                  value={config.textContent.separator}
+                  onChange={(e) => setConfig(prev => ({
+                    ...prev,
+                    textContent: {
+                      ...prev.textContent,
+                      separator: e.target.value
+                    }
+                  }))}
+                  style={{
+                    width: '100%',
+                    padding: '6px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    fontSize: '12px'
+                  }}
+                  placeholder="e.g., ' - '"
+                />
+              </div>
+
+              {/* Generated Text Display */}
+              <div>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '4px',
+                  fontSize: '11px',
+                  fontWeight: '500'
+                }}>
+                  Text Value:
+                </label>
+                <textarea
+                  value={config.textContent.generatedText}
+                  readOnly
+                  style={{
+                    width: '100%',
+                    height: '120px',
+                    padding: '8px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    fontSize: '11px',
+                    backgroundColor: '#f9f9f9',
+                    resize: 'vertical',
+                    fontFamily: 'monospace'
+                  }}
+                  placeholder="Generated text will appear here based on material compositions and selected languages..."
+                />
+              </div>
+            </div>
+          </div>
+
+
 
           {/* Preview Section */}
           <div style={{

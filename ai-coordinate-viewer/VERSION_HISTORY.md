@@ -1,5 +1,94 @@
 # Care Label Layout System - Version History
 
+## Version 2.9.119 - Evenly Distributed Zoom Controls
+**Release Date:** 2025-01-15
+**Commit:** TBD
+
+### 🎯 User Interface Enhancement
+- **Even Distribution**: 4 zoom icons now evenly distributed across available width
+- **Perfect Spacing**: Used `justify-content: 'space-between'` for optimal button spacing
+- **Full Width Usage**: Buttons now utilize the full width of the zoom control panel
+- **Professional Layout**: Clean, balanced appearance with equal spacing between buttons
+
+### 🔧 Technical Changes
+- **App.tsx**: Modified zoom controls container CSS
+  - Added `justifyContent: 'space-between'`
+  - Added `width: '100%'`
+  - Removed fixed `gap: '5px'` for dynamic spacing
+- **Button Layout**: [+] [−] [1:1] [FIT] with equal spacing
+
+### 📊 User Experience
+- **Before**: 4 buttons with fixed 5px gaps, clustered together
+- **After**: 4 buttons evenly distributed across full panel width
+- **Benefit**: More professional, balanced visual appearance
+
+---
+
+## Version 2.9.118 - Simplified Zoom Controls
+**Release Date:** 2025-01-15
+**Commit:** TBD
+
+### 🎯 User Interface Simplification
+- **Removed Redundant Button**: Eliminated "📐 Fit for Save" button from zoom controls
+- **Clean Interface**: Zoom menu now contains only essential 4 buttons: "+", "-", "1:1", "FIT"
+- **Streamlined Experience**: Reduced visual clutter in zoom control panel
+- **Consistent Functionality**: Maintained all core zoom functionality with cleaner presentation
+
+### 🔧 Technical Changes
+- **App.tsx**: Removed duplicate "📐 Fit for Save" button (lines 13429-13442)
+- **Button Layout**: Kept horizontal row layout with 4 essential zoom controls
+- **Functionality**: All zoom operations still available through the 4 main buttons
+
+### 📊 User Experience
+- **Before**: 5 buttons including redundant "📐 Fit for Save" button
+- **After**: 4 clean buttons: [+] [-] [1:1] [FIT]
+- **Benefit**: Cleaner, more focused zoom control interface
+
+---
+
+## Version 2.9.117 - Horizontal Zoom Controls Layout
+**Release Date:** 2025-01-15
+**Commit:** TBD
+
+### 🎯 User Interface Enhancement
+- **Zoom Controls Layout**: Changed zoom controls from vertical column to horizontal single line
+- **Button Layout**: Now displays 4 zoom icons in one row: "+" "-" "1:1" "FIT"
+- **Space Optimization**: More compact zoom control panel layout
+- **Visual Consistency**: Improved top-right corner zoom controls appearance
+
+### 🔧 Technical Changes
+- **App.tsx**: Modified zoom controls container from `flexDirection: 'column'` to `flexDirection: 'row'`
+- **Button Text**: Updated "Fit" button text to "FIT" for consistency
+- **Layout**: Maintained 5px gap between buttons for proper spacing
+
+### 📊 User Experience
+- **Before**: Vertical stack of 4 zoom buttons taking more vertical space
+- **After**: Horizontal row of 4 zoom buttons: [+] [-] [1:1] [FIT]
+- **Benefit**: More efficient use of screen real estate in zoom control panel
+
+---
+
+## Version 2.9.116 - Line Break Settings Reordering
+**Release Date:** 2025-01-15
+**Commit:** TBD
+
+### 🎯 User Interface Enhancement
+- **Dialog Layout**: Moved "Line Break Settings" section above "Text Content" section in composition translation dialog
+- **Improved Workflow**: Better logical flow for users configuring composition translations
+- **Section Reordering**: Line Break Settings now appears before Text Content for more intuitive setup
+
+### 🔧 Technical Changes
+- **NewCompTransDialog.tsx**: Reordered sections by moving Line Break Settings (lines 1258-1377) to appear before Text Content section (line 1179)
+- **Maintained Functionality**: All existing features and styling preserved during reordering
+- **Clean Code**: Proper indentation and structure maintained
+
+### 📊 User Experience
+- **Before**: Text Content section appeared before Line Break Settings
+- **After**: Line Break Settings section appears first, followed by Text Content
+- **Benefit**: More logical configuration flow for composition translation setup
+
+---
+
 ## Version 2.9.115 - Enhanced Material Composition UX with Inline Validation and Smart Dropdowns
 **Release Date:** 2025-01-15
 **Commit:** TBD
