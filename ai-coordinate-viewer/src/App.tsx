@@ -7745,13 +7745,75 @@ function App() {
                           });
                         }
                       } else {
-                        // Render regular text lines with EXACT positioning like web view
-                        // Web: const textY = startY + (lineIndex + 1) * lineHeight;
-                        displayLines.forEach((line: string, lineIndex: number) => {
-                          const textY = startY + (lineIndex + 1) * lineHeightMM; // EXACT web formula
-                          const align = textAlign === 'center' ? 'center' : textAlign === 'right' ? 'right' : 'left';
-                          pdf.text(line, textX, textY, { align: align });
-                        });
+                        // 🎯 FORCE CTP METHOD: Use canvas-to-image for ALL other content types too
+                        console.log('🎯 Using CTP method for ALL text content types (child regions)');
+
+                        try {
+                          // Create a temporary canvas to render text exactly like the canvas display
+                          const tempCanvas = document.createElement('canvas');
+                          const tempCtx = tempCanvas.getContext('2d');
+
+                          if (tempCtx) {
+                            // Calculate available space for text
+                            const availableWidthPx = Math.max(0, (childRegion.width - paddingLeft - paddingRight) * 3.779527559);
+                            const availableHeightPx = Math.max(0, (childRegion.height - paddingTop - paddingBottom) * 3.779527559);
+
+                            // Set canvas size to match the region exactly
+                            const dpiScale = 2; // Higher DPI for quality
+                            tempCanvas.width = availableWidthPx * dpiScale;
+                            tempCanvas.height = availableHeightPx * dpiScale;
+                            tempCtx.scale(dpiScale, dpiScale);
+
+                            // Fill with white background
+                            tempCtx.fillStyle = '#FFFFFF';
+                            tempCtx.fillRect(0, 0, availableWidthPx, availableHeightPx);
+
+                            // Set font and style to match the display
+                            const fontSizePx = fontSize * 3.779527559; // Convert mm to px
+                            tempCtx.font = `${fontSizePx}px ${fontFamily}`;
+                            tempCtx.fillStyle = '#000000';
+                            tempCtx.textAlign = textAlign === 'center' ? 'center' : textAlign === 'right' ? 'right' : 'left';
+                            tempCtx.textBaseline = 'top';
+
+                            // Render each line with exact positioning
+                            const lineHeightPx = lineHeightMM * 3.779527559; // Convert mm to px
+                            displayLines.forEach((line: string, lineIndex: number) => {
+                              const lineY = lineIndex * lineHeightPx;
+                              let lineX = 0;
+                              if (textAlign === 'center') {
+                                lineX = availableWidthPx / 2;
+                              } else if (textAlign === 'right') {
+                                lineX = availableWidthPx;
+                              }
+                              tempCtx.fillText(line, lineX, lineY);
+                            });
+
+                            // Convert to high-quality image and add to PDF
+                            const imgData = tempCanvas.toDataURL('image/png', 1.0);
+                            const imgWidthMM = childRegion.width - paddingLeft - paddingRight;
+                            const imgHeightMM = childRegion.height - paddingTop - paddingBottom;
+
+                            // Add the canvas image to PDF with precise positioning
+                            pdf.addImage(imgData, 'PNG', textX, startY, imgWidthMM, imgHeightMM, undefined, 'FAST');
+
+                            console.log('📋 CTP method applied to child region content type:', content.type);
+                          } else {
+                            // Fallback to regular text if canvas fails
+                            displayLines.forEach((line: string, lineIndex: number) => {
+                              const textY = startY + (lineIndex + 1) * lineHeightMM;
+                              const align = textAlign === 'center' ? 'center' : textAlign === 'right' ? 'right' : 'left';
+                              pdf.text(line, textX, textY, { align: align });
+                            });
+                          }
+                        } catch (error) {
+                          console.warn('CTP method failed for child region, falling back to regular text:', error);
+                          // Fallback to regular text rendering
+                          displayLines.forEach((line: string, lineIndex: number) => {
+                            const textY = startY + (lineIndex + 1) * lineHeightMM;
+                            const align = textAlign === 'center' ? 'center' : textAlign === 'right' ? 'right' : 'left';
+                            pdf.text(line, textX, textY, { align: align });
+                          });
+                        }
                       }
 
                       // Draw content padding boundaries (green dotted lines) for child regions if supporting lines are enabled
@@ -8257,13 +8319,75 @@ function App() {
                       });
                     }
                   } else {
-                    // Render regular text lines with EXACT positioning like web view
-                    // Web: const textY = startY + (lineIndex + 1) * lineHeight;
-                    displayLines.forEach((line: string, lineIndex: number) => {
-                      const textY = startY + (lineIndex + 1) * lineHeightMM; // EXACT web formula
-                      const align = textAlign === 'center' ? 'center' : textAlign === 'right' ? 'right' : 'left';
-                      pdf.text(line, textX, textY, { align: align });
-                    });
+                    // 🎯 FORCE CTP METHOD: Use canvas-to-image for ALL other content types too (main regions)
+                    console.log('🎯 Using CTP method for ALL text content types (main regions)');
+
+                    try {
+                      // Create a temporary canvas to render text exactly like the canvas display
+                      const tempCanvas = document.createElement('canvas');
+                      const tempCtx = tempCanvas.getContext('2d');
+
+                      if (tempCtx) {
+                        // Calculate available space for text
+                        const availableWidthPx = Math.max(0, (region.width - paddingLeft - paddingRight) * 3.779527559);
+                        const availableHeightPx = Math.max(0, (region.height - paddingTop - paddingBottom) * 3.779527559);
+
+                        // Set canvas size to match the region exactly
+                        const dpiScale = 2; // Higher DPI for quality
+                        tempCanvas.width = availableWidthPx * dpiScale;
+                        tempCanvas.height = availableHeightPx * dpiScale;
+                        tempCtx.scale(dpiScale, dpiScale);
+
+                        // Fill with white background
+                        tempCtx.fillStyle = '#FFFFFF';
+                        tempCtx.fillRect(0, 0, availableWidthPx, availableHeightPx);
+
+                        // Set font and style to match the display
+                        const fontSizePx = fontSize * 3.779527559; // Convert mm to px
+                        tempCtx.font = `${fontSizePx}px ${fontFamily}`;
+                        tempCtx.fillStyle = '#000000';
+                        tempCtx.textAlign = textAlign === 'center' ? 'center' : textAlign === 'right' ? 'right' : 'left';
+                        tempCtx.textBaseline = 'top';
+
+                        // Render each line with exact positioning
+                        const lineHeightPx = lineHeightMM * 3.779527559; // Convert mm to px
+                        displayLines.forEach((line: string, lineIndex: number) => {
+                          const lineY = lineIndex * lineHeightPx;
+                          let lineX = 0;
+                          if (textAlign === 'center') {
+                            lineX = availableWidthPx / 2;
+                          } else if (textAlign === 'right') {
+                            lineX = availableWidthPx;
+                          }
+                          tempCtx.fillText(line, lineX, lineY);
+                        });
+
+                        // Convert to high-quality image and add to PDF
+                        const imgData = tempCanvas.toDataURL('image/png', 1.0);
+                        const imgWidthMM = region.width - paddingLeft - paddingRight;
+                        const imgHeightMM = region.height - paddingTop - paddingBottom;
+
+                        // Add the canvas image to PDF with precise positioning
+                        pdf.addImage(imgData, 'PNG', textX, startY, imgWidthMM, imgHeightMM, undefined, 'FAST');
+
+                        console.log('📋 CTP method applied to main region content type:', content.type);
+                      } else {
+                        // Fallback to regular text if canvas fails
+                        displayLines.forEach((line: string, lineIndex: number) => {
+                          const textY = startY + (lineIndex + 1) * lineHeightMM;
+                          const align = textAlign === 'center' ? 'center' : textAlign === 'right' ? 'right' : 'left';
+                          pdf.text(line, textX, textY, { align: align });
+                        });
+                      }
+                    } catch (error) {
+                      console.warn('CTP method failed for main region, falling back to regular text:', error);
+                      // Fallback to regular text rendering
+                      displayLines.forEach((line: string, lineIndex: number) => {
+                        const textY = startY + (lineIndex + 1) * lineHeightMM;
+                        const align = textAlign === 'center' ? 'center' : textAlign === 'right' ? 'right' : 'left';
+                        pdf.text(line, textX, textY, { align: align });
+                      });
+                    }
                   }
 
                   // Draw content padding boundaries (green dotted lines) if supporting lines are enabled
