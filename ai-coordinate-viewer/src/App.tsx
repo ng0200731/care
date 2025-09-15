@@ -1503,6 +1503,48 @@ function App() {
     return precise.utilizationTarget; // Return the 95% target instead of full capacity
   };
 
+  // Add this function to create selectable text overlays for CTP workflow
+  const createSelectableTextOverlay = (regionId: string, textContent: string, regionBounds: any) => {
+    // Remove existing overlay if it exists
+    const existingOverlay = document.getElementById(`text-overlay-${regionId}`);
+    if (existingOverlay) {
+      existingOverlay.remove();
+    }
+
+    // Create overlay div for selectable text (separate from canvas rendering)
+    const overlay = document.createElement('div');
+    overlay.id = `text-overlay-${regionId}`;
+    overlay.style.position = 'absolute';
+    overlay.style.left = `${regionBounds.x}px`;
+    overlay.style.top = `${regionBounds.y}px`;
+    overlay.style.width = `${regionBounds.width}px`;
+    overlay.style.height = `${regionBounds.height}px`;
+    overlay.style.fontSize = `${regionBounds.fontSize || 12}px`;
+    overlay.style.fontFamily = regionBounds.fontFamily || 'Arial, sans-serif';
+    overlay.style.color = 'transparent'; // Invisible but selectable
+    overlay.style.userSelect = 'text';
+    overlay.style.pointerEvents = 'auto';
+    overlay.style.whiteSpace = 'pre-wrap';
+    overlay.style.overflow = 'hidden';
+    overlay.style.zIndex = '1000';
+    overlay.style.background = 'rgba(0,0,0,0.02)'; // Very subtle background for debugging
+    overlay.textContent = textContent;
+    overlay.title = 'Selectable text for copy/paste (PDF uses canvas rendering for CTP)';
+
+    // Add to main container (find the SVG container)
+    const svgContainer = document.querySelector('.svg-container') || document.querySelector('[style*="position: relative"]');
+    if (svgContainer) {
+      (svgContainer as HTMLElement).style.position = 'relative';
+      svgContainer.appendChild(overlay);
+    } else {
+      // Fallback: add to body with absolute positioning
+      document.body.appendChild(overlay);
+      overlay.style.position = 'fixed';
+    }
+
+    console.log('📋 Created selectable text overlay for region:', regionId);
+  };
+
   // PHASE 1: Enhanced text fitting with precise measurements
   const findOptimalTextFit = (
     text: string,
@@ -7546,7 +7588,7 @@ function App() {
                         const hasInternationalCharsChild = /[^\x00-\x7F]/.test(textContent);
 
                         if (hasInternationalCharsChild) {
-                          console.log('🌍 Using canvas-to-image approach for international characters in child region');
+                          console.log('🌍 Using canvas-to-image approach for international characters in child region (CTP-ready)');
 
                           // Create a temporary canvas for rendering international text
                           const tempCanvas = document.createElement('canvas');
@@ -7576,11 +7618,15 @@ function App() {
                             return;
                           }
 
-                          // Set canvas size to match the region
-                          const canvasWidth = availableWidthPx;
-                          const canvasHeight = availableHeightPx;
+                          // Set canvas size to match the region with high DPI for quality
+                          const dpiScale = 2; // Higher DPI for better quality
+                          const canvasWidth = availableWidthPx * dpiScale;
+                          const canvasHeight = availableHeightPx * dpiScale;
                           tempCanvas.width = canvasWidth;
                           tempCanvas.height = canvasHeight;
+
+                          // Scale context for high DPI
+                          tempCtx.scale(dpiScale, dpiScale);
 
                           // Set font and style to match the configuration
                           tempCtx.font = `${scaledFontSize}px ${configTypography.fontFamily}`;
@@ -7605,19 +7651,33 @@ function App() {
                             const lineY = (lineIndex + 1) * lineHeightPx;
                             let lineX = 0;
                             if (configAlignment.horizontal === 'center') {
-                              lineX = canvasWidth / 2;
+                              lineX = availableWidthPx / 2;
                             } else if (configAlignment.horizontal === 'right') {
-                              lineX = canvasWidth;
+                              lineX = availableWidthPx;
                             }
                             tempCtx.fillText(line, lineX, lineY);
                           });
 
-                          // Convert canvas to image and add to PDF
+                          // Convert canvas to high-quality image and add to PDF
                           const imgData = tempCanvas.toDataURL('image/png', 1.0);
                           const imgWidthMM = availableWidth;
                           const imgHeightMM = availableHeight;
 
+                          // Add the image to PDF (ready for CTP post-processing to outline text)
                           pdf.addImage(imgData, 'PNG', textX, textY, imgWidthMM, imgHeightMM);
+
+                          console.log('📋 Canvas-to-PDF rendering complete (ready for CTP outlining)');
+
+                          // Create selectable text overlay for webpage interaction
+                          const regionBounds = {
+                            x: textX * (96 / 25.4), // Convert mm to pixels (96 DPI)
+                            y: textY * (96 / 25.4),
+                            width: availableWidth * (96 / 25.4),
+                            height: availableHeight * (96 / 25.4),
+                            fontSize: fontSize * (96 / 25.4) / 2.83, // Convert back to screen pixels
+                            fontFamily: configTypography.fontFamily
+                          };
+                          createSelectableTextOverlay(`child-${childRegion.id}`, textContent, regionBounds);
 
                         } else {
                           // Use normal text rendering for Latin characters
@@ -8038,7 +8098,7 @@ function App() {
                     const hasInternationalCharsMain = /[^\x00-\x7F]/.test(textContent);
 
                     if (hasInternationalCharsMain) {
-                      console.log('🌍 Using canvas-to-image approach for international characters in main region');
+                      console.log('🌍 Using canvas-to-image approach for international characters in main region (CTP-ready)');
 
                       // Create a temporary canvas for rendering international text
                       const tempCanvas = document.createElement('canvas');
@@ -8068,11 +8128,15 @@ function App() {
                         return;
                       }
 
-                      // Set canvas size to match the region
-                      const canvasWidth = availableWidthPx;
-                      const canvasHeight = availableHeightPx;
+                      // Set canvas size to match the region with high DPI for quality
+                      const dpiScale = 2; // Higher DPI for better quality
+                      const canvasWidth = availableWidthPx * dpiScale;
+                      const canvasHeight = availableHeightPx * dpiScale;
                       tempCanvas.width = canvasWidth;
                       tempCanvas.height = canvasHeight;
+
+                      // Scale context for high DPI
+                      tempCtx.scale(dpiScale, dpiScale);
 
                       // Set font and style to match the configuration
                       tempCtx.font = `${scaledFontSize}px ${configTypography.fontFamily}`;
@@ -8097,19 +8161,33 @@ function App() {
                         const lineY = (lineIndex + 1) * lineHeightPx;
                         let lineX = 0;
                         if (configAlignment.horizontal === 'center') {
-                          lineX = canvasWidth / 2;
+                          lineX = availableWidthPx / 2;
                         } else if (configAlignment.horizontal === 'right') {
-                          lineX = canvasWidth;
+                          lineX = availableWidthPx;
                         }
                         tempCtx.fillText(line, lineX, lineY);
                       });
 
-                      // Convert canvas to image and add to PDF
+                      // Convert canvas to high-quality image and add to PDF
                       const imgData = tempCanvas.toDataURL('image/png', 1.0);
                       const imgWidthMM = availableWidth;
                       const imgHeightMM = availableHeight;
 
+                      // Add the image to PDF (ready for CTP post-processing to outline text)
                       pdf.addImage(imgData, 'PNG', textX, textY, imgWidthMM, imgHeightMM);
+
+                      console.log('📋 Canvas-to-PDF rendering complete (ready for CTP outlining)');
+
+                      // Create selectable text overlay for webpage interaction
+                      const regionBounds = {
+                        x: textX * (96 / 25.4), // Convert mm to pixels (96 DPI)
+                        y: textY * (96 / 25.4),
+                        width: availableWidth * (96 / 25.4),
+                        height: availableHeight * (96 / 25.4),
+                        fontSize: fontSize * (96 / 25.4) / 2.83, // Convert back to screen pixels
+                        fontFamily: configTypography.fontFamily
+                      };
+                      createSelectableTextOverlay(`main-${region.id}`, textContent, regionBounds);
 
                     } else {
                       // Use normal text rendering for Latin characters
