@@ -114,6 +114,7 @@ interface NewCompTransDialogProps {
   regionWidth: number;
   regionHeight: number;
   editingContent?: any;
+  existingCompositions?: MaterialComposition[][]; // Array of existing composition arrays from other regions
   onSave: (config: NewCompTransConfig) => void;
   onCancel: () => void;
 }
@@ -124,6 +125,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
   regionWidth,
   regionHeight,
   editingContent,
+  existingCompositions = [],
   onSave,
   onCancel
 }) => {
@@ -160,6 +162,98 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
   const [isLanguageDropdownOpen, setIsLanguageDropdownOpen] = useState(false);
 
+  // Helper function to generate a unique signature for a composition
+  const generateCompositionSignature = (compositions: MaterialComposition[]): string => {
+    // Sort compositions by material name to ensure consistent signatures
+    const sortedCompositions = [...compositions]
+      .filter(comp => comp.material && comp.percentage > 0)
+      .sort((a, b) => a.material.localeCompare(b.material));
+
+    // Create signature based on materials AND percentages for exact duplicate detection
+    return sortedCompositions
+      .map(comp => `${comp.material}:${comp.percentage}`)
+      .join('|');
+  };
+
+  // Helper function to generate material-only signature (ignoring percentages)
+  const generateMaterialOnlySignature = (compositions: MaterialComposition[]): string => {
+    // Sort materials to ensure consistent signatures, ignore percentages
+    const materials = [...compositions]
+      .filter(comp => comp.material && comp.percentage > 0)
+      .map(comp => comp.material)
+      .sort();
+
+    return materials.join('|');
+  };
+
+  // Helper function to get available materials (excluding already selected ones)
+  const getAvailableMaterials = (): string[] => {
+    const selectedMaterials = config.materialCompositions
+      .filter(comp => comp.material && comp.percentage > 0)
+      .map(comp => comp.material);
+
+    const availableMaterials = commonMaterials.filter(material =>
+      !selectedMaterials.includes(material)
+    );
+
+    console.log('🔍 Available materials:', {
+      selectedMaterials,
+      availableMaterials,
+      totalCommonMaterials: commonMaterials.length
+    });
+
+    return availableMaterials;
+  };
+
+  // Helper function to check for duplicate materials within current composition
+  const hasDuplicateMaterials = (): boolean => {
+    const materials = config.materialCompositions
+      .filter(comp => comp.material && comp.percentage > 0)
+      .map(comp => comp.material);
+
+    const uniqueMaterials = new Set(materials);
+    const hasDuplicates = materials.length !== uniqueMaterials.size;
+
+    console.log('🔍 Checking for duplicate materials within composition:', {
+      materials,
+      uniqueCount: uniqueMaterials.size,
+      totalCount: materials.length,
+      hasDuplicates
+    });
+
+    return hasDuplicates;
+  };
+
+  // Helper function to check if current composition already exists
+  const isCompositionAlreadyUsed = (): boolean => {
+    const currentMaterialSignature = generateMaterialOnlySignature(config.materialCompositions);
+    if (!currentMaterialSignature) return false; // Empty composition is not considered used
+
+    console.log('🔍 Checking composition duplicates:', {
+      currentMaterialSignature,
+      currentFullSignature: generateCompositionSignature(config.materialCompositions),
+      currentMaterials: config.materialCompositions,
+      existingCompositionsCount: existingCompositions.length,
+      existingCompositionsRaw: existingCompositions,
+      existingMaterialSignatures: existingCompositions.map(comp => generateMaterialOnlySignature(comp)),
+      existingFullSignatures: existingCompositions.map(comp => generateCompositionSignature(comp))
+    });
+
+    // Check against existing compositions from other regions - prevent same materials regardless of percentages
+    const isDuplicate = existingCompositions.some(existingComp => {
+      const existingMaterialSignature = generateMaterialOnlySignature(existingComp);
+      console.log('🔍 Comparing signatures:', {
+        current: currentMaterialSignature,
+        existing: existingMaterialSignature,
+        match: existingMaterialSignature === currentMaterialSignature
+      });
+      return existingMaterialSignature === currentMaterialSignature;
+    });
+
+    console.log('🔍 Final duplicate result:', isDuplicate);
+    return isDuplicate;
+  };
+
   // Helper functions for material composition validation
   const getTotalPercentage = () => {
     return config.materialCompositions.reduce((sum, comp) => sum + comp.percentage, 0);
@@ -172,7 +266,18 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
   const canSave = () => {
     const total = getTotalPercentage();
-    return total === 100;
+    const isValidPercentage = total === 100;
+    const hasNoDuplicateMaterials = !hasDuplicateMaterials();
+    const isNotDuplicate = !isCompositionAlreadyUsed();
+
+    console.log('🔍 canSave validation:', {
+      isValidPercentage,
+      hasNoDuplicateMaterials,
+      isNotDuplicate,
+      canSave: isValidPercentage && hasNoDuplicateMaterials && isNotDuplicate
+    });
+
+    return isValidPercentage && hasNoDuplicateMaterials && isNotDuplicate;
   };
 
   const areControlsDisabled = () => {
@@ -887,9 +992,25 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
               <div style={{
                 fontSize: '12px',
                 fontWeight: '600',
-                color: '#333'
+                color: '#333',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px'
               }}>
-                Material Composition: ({getTotalPercentage()}%)
+                <span>Material Composition: ({getTotalPercentage()}%)</span>
+                {getTotalPercentage() !== 100 && (
+                  <span style={{
+                    fontSize: '11px',
+                    color: '#dc3545',
+                    fontWeight: '500',
+                    backgroundColor: '#f8d7da',
+                    padding: '2px 6px',
+                    borderRadius: '3px',
+                    border: '1px solid #f5c6cb'
+                  }}>
+                    Total must equal 100% (currently {getTotalPercentage()}%)
+                  </span>
+                )}
               </div>
               <button
                 onClick={addMaterialComposition}
@@ -908,6 +1029,52 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
                 +
               </button>
             </div>
+
+            {/* Duplicate Materials Warning */}
+            {hasDuplicateMaterials() && (
+              <div style={{
+                padding: '8px 12px',
+                backgroundColor: '#f8d7da',
+                border: '1px solid #f5c6cb',
+                borderRadius: '4px',
+                marginBottom: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                <span style={{ fontSize: '16px' }}>🚫</span>
+                <span style={{
+                  fontSize: '12px',
+                  color: '#721c24',
+                  fontWeight: '500'
+                }}>
+                  Cannot use the same material multiple times. Please choose different materials.
+                </span>
+              </div>
+            )}
+
+            {/* Duplicate Composition Warning */}
+            {!hasDuplicateMaterials() && isCompositionAlreadyUsed() && (
+              <div style={{
+                padding: '8px 12px',
+                backgroundColor: '#fff3cd',
+                border: '1px solid #ffeaa7',
+                borderRadius: '4px',
+                marginBottom: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                <span style={{ fontSize: '16px' }}>⚠️</span>
+                <span style={{
+                  fontSize: '12px',
+                  color: '#856404',
+                  fontWeight: '500'
+                }}>
+                  These materials are already used in another region. Please choose different materials.
+                </span>
+              </div>
+            )}
 
             {/* Dynamic Material Composition Rows */}
             {config.materialCompositions.map((composition, index) => (
@@ -971,7 +1138,14 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
                     }}
                   >
                     <option value="">Select material...</option>
-                    {commonMaterials.map(material => (
+                    {/* Show current material if already selected */}
+                    {composition.material && !getAvailableMaterials().includes(composition.material) && (
+                      <option key={composition.material} value={composition.material}>
+                        {composition.material} (selected)
+                      </option>
+                    )}
+                    {/* Show available materials */}
+                    {getAvailableMaterials().map(material => (
                       <option key={material} value={material}>
                         {material}
                       </option>
@@ -1237,38 +1411,58 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         </div>
 
         {/* Action Buttons */}
-        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-          <button
-            onClick={handleCancel}
-            style={{
-              padding: '10px 20px',
-              border: '1px solid #ddd',
-              borderRadius: '4px',
-              backgroundColor: 'white',
-              color: '#666',
-              fontSize: '14px',
-              fontWeight: '500',
-              cursor: 'pointer'
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={!canSave()}
-            style={{
-              padding: '10px 20px',
-              border: 'none',
-              borderRadius: '4px',
-              backgroundColor: canSave() ? '#28a745' : '#ccc',
-              color: canSave() ? 'white' : '#666',
-              fontSize: '14px',
-              fontWeight: '500',
-              cursor: canSave() ? 'pointer' : 'not-allowed'
-            }}
-          >
-            Save
-          </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
+          {/* Save validation message */}
+          {!canSave() && (
+            <div style={{
+              fontSize: '12px',
+              color: '#dc3545',
+              fontStyle: 'italic'
+            }}>
+              {getTotalPercentage() !== 100
+                ? `Total must equal 100% (currently ${getTotalPercentage()}%)`
+                : hasDuplicateMaterials()
+                  ? 'Cannot use the same material multiple times'
+                  : isCompositionAlreadyUsed()
+                    ? 'These materials are already used in another region'
+                    : 'Cannot save'
+              }
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button
+              onClick={handleCancel}
+              style={{
+                padding: '10px 20px',
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+                backgroundColor: 'white',
+                color: '#666',
+                fontSize: '14px',
+                fontWeight: '500',
+                cursor: 'pointer'
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={!canSave()}
+              style={{
+                padding: '10px 20px',
+                border: 'none',
+                borderRadius: '4px',
+                backgroundColor: canSave() ? '#28a745' : '#ccc',
+                color: canSave() ? 'white' : '#666',
+                fontSize: '14px',
+                fontWeight: '500',
+                cursor: canSave() ? 'pointer' : 'not-allowed'
+              }}
+            >
+              Save
+            </button>
+          </div>
         </div>
     </MovableDialog>
   );

@@ -53,6 +53,7 @@ interface UniversalContentDialogProps {
   regionWidth?: number;
   regionContents?: any[];
   editingContent?: UniversalContentData | null; // Add editing content prop
+  existingCompositions?: any[]; // Array of existing composition translation contents from other regions
   // Overflow props
   isOverflowEnabled?: (contentId: string) => boolean;
   getOverflowRole?: (contentId: string) => 'initiator' | 'connector' | 'none';
@@ -77,6 +78,7 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
   regionWidth = 100,
   regionContents = [],
   editingContent = null, // Add editing content prop
+  existingCompositions = [], // Array of existing compositions
   // Overflow props
   isOverflowEnabled,
   getOverflowRole,
@@ -1210,6 +1212,19 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
               regionWidth={regionWidth}
               regionHeight={regionHeight}
               editingContent={formData}
+              existingCompositions={(() => {
+                const filtered = existingCompositions
+                  .filter(content => content.type === 'new-comp-trans' && content.newCompTransConfig?.materialCompositions)
+                  .map(content => content.newCompTransConfig.materialCompositions);
+
+                console.log('🔍 UniversalContentDialog filtering:', {
+                  totalExisting: existingCompositions.length,
+                  afterFilter: filtered.length,
+                  filtered: filtered
+                });
+
+                return filtered;
+              })()}
               onSave={(newCompTransConfig) => {
                 console.log('🧪 Composition Translation saved:', newCompTransConfig);
                 // Update formData with the new composition translation config

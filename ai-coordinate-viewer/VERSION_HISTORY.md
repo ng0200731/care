@@ -1,5 +1,117 @@
 # Care Label Layout System - Version History
 
+## Version 2.9.115 - Enhanced Material Composition UX with Inline Validation and Smart Dropdowns
+**Release Date:** 2025-01-15
+**Commit:** TBD
+
+### 🎯 User Experience Improvements
+- **Inline Percentage Validation**: Moved percentage validation message next to "Material Composition" header
+  - **Before**: Validation message only shown on save button
+  - **After**: Real-time validation badge appears next to header when total ≠ 100%
+  - **Visual**: Red badge with "Total must equal 100% (currently X%)" message
+- **Smart Material Dropdowns**: Selected materials are automatically removed from dropdown options
+  - **Before**: Could select same material multiple times from dropdown
+  - **After**: Once a material is selected, it's removed from other dropdown options
+  - **Exception**: Current selection still shows as "(selected)" for editing
+
+### 🔧 Technical Implementation
+- **Inline Validation Display**: Added flex layout to Material Composition header with conditional validation badge
+- **Available Materials Filter**: Created `getAvailableMaterials()` function to filter out selected materials
+- **Smart Dropdown Logic**: Shows current selection + available materials, excludes already selected ones
+- **Enhanced Debug Logging**: Added logging for available materials filtering
+
+### 🎨 Visual Design
+- **Validation Badge**: Small red badge with rounded corners and subtle border
+- **Dropdown Enhancement**: Shows "(selected)" suffix for current material choice
+- **Responsive Layout**: Validation message adapts to header layout without breaking design
+
+## Version 2.9.114 - Added Duplicate Material Prevention Within Same Composition
+**Release Date:** 2025-01-15
+**Commit:** TBD
+
+### 🚫 Duplicate Material Prevention Within Composition
+- **Issue**: Users could add the same material multiple times in a single composition (e.g., 50% POLYESTER + 50% POLYESTER)
+- **Solution**: Added validation to prevent duplicate materials within the same composition
+- **Implementation**:
+  - **New Function**: `hasDuplicateMaterials()` - Checks for duplicate materials within current composition
+  - **Enhanced Validation**: Updated `canSave()` to include duplicate material check
+  - **Visual Feedback**: Added red warning banner for duplicate materials with clear message
+  - **Save Button**: Disabled with specific error message when duplicate materials detected
+
+### 🎯 User Experience Improvements
+- **Clear Error Messages**: Distinct warnings for different validation issues:
+  - 🚫 Red banner: "Cannot use the same material multiple times" (duplicate materials)
+  - ⚠️ Yellow banner: "These materials are already used in another region" (cross-region duplicates)
+- **Prioritized Validation**: Shows duplicate material warning before cross-region duplicate warning
+- **Enhanced Debug Logging**: Added detailed logging for duplicate material detection
+
+### 🔧 Technical Implementation
+- **Validation Order**: Checks duplicate materials first, then cross-region duplicates
+- **Set-based Detection**: Uses JavaScript Set to efficiently detect duplicate materials
+- **Console Logging**: Added debug logs to track material validation process
+
+## Version 2.9.113 - Fixed PDF Version Display & Enhanced Material Duplicate Prevention
+**Release Date:** 2025-01-15
+**Commit:** TBD
+
+### 🔧 Bug Fixes
+- **PDF Version Display**: Fixed hardcoded version in PDF generation to use dynamic version from package.json
+  - **Issue**: PDF showed outdated version "v2.9.110" instead of current version
+  - **Solution**: Changed from hardcoded string to `v${packageJson.version}` for automatic version sync
+  - **Result**: PDF now correctly displays current version (v2.9.113)
+
+### 🚫 Enhanced Duplicate Prevention Logic
+- **Material-Based Prevention**: Changed duplicate detection from exact composition match to material-based matching
+  - **Previous Logic**: Only prevented identical compositions (same materials + same percentages)
+  - **New Logic**: Prevents any composition using the same set of materials, regardless of percentages
+  - **Example**: If one region has "70% Cotton + 30% Polyester", no other region can use Cotton+Polyester in any percentage combination
+  - **Implementation**: Added `generateMaterialOnlySignature()` function that ignores percentages
+  - **User Feedback**: Updated warning messages to clarify "These materials are already used in another region"
+
+### 🎯 Technical Improvements
+- **Dual Signature System**: Maintains both full signature (materials+percentages) and material-only signature
+- **Enhanced Debug Logging**: Shows both material-only and full signatures for better troubleshooting
+- **Clear User Messages**: Updated warning text to explain material-based prevention vs composition-based
+
+## Version 2.9.112 - Composition Translation Duplicate Prevention
+**Release Date:** 2025-01-15
+**Commit:** TBD
+
+### 🚫 Duplicate Composition Prevention
+- **Feature**: Prevent duplicate composition translations across regions
+- **User Request**: "for new ct, comp tran, for the compositoin, once chosen ,it can not be chosen again"
+- **Implementation**:
+  - **Composition Signature Generation**: Creates unique signatures based on material combinations and percentages
+  - **Duplicate Detection**: Checks existing compositions from all regions before allowing save
+  - **Visual Feedback**: Warning message and disabled save button when duplicate detected
+  - **Real-time Validation**: Updates validation as user modifies material compositions
+
+### 🔧 Technical Implementation
+- **NewCompTransDialog Updates**:
+  - Added `existingCompositions` prop to receive existing compositions from other regions
+  - Created `generateCompositionSignature()` function to create unique composition fingerprints
+  - Added `isCompositionAlreadyUsed()` validation function
+  - Updated `canSave()` to include duplicate check alongside percentage validation
+  - Added visual warning banner when duplicate composition detected
+  - Enhanced save button with detailed validation messages
+
+- **UniversalContentDialog Updates**:
+  - Added `existingCompositions` prop to interface and component
+  - Filters and maps existing composition data to pass to NewCompTransDialog
+  - Processes only composition translation content types with valid material compositions
+
+- **App.tsx Integration**:
+  - Collects all existing composition translations from all regions across all objects
+  - Excludes current region when editing (allows editing same composition)
+  - Excludes current content when editing (allows saving same content being edited)
+  - Passes filtered existing compositions to UniversalContentDialog
+
+### 🎯 User Experience Improvements
+- **Clear Validation Messages**: Shows specific reasons why save is disabled (percentage vs duplicate)
+- **Visual Warning**: Prominent warning banner when duplicate composition detected
+- **Non-blocking Interface**: Users can still modify compositions to resolve duplicates
+- **Debug Logging**: Console logs for troubleshooting composition signature generation
+
 ## Version 2.9.111 - Fixed Washing Care Symbols Font Embedding in PDF
 **Release Date:** 2025-01-15
 **Commit:** TBD
