@@ -7542,26 +7542,54 @@ function App() {
                         }
                         const scaledFontSize = Math.max(6, fontSizeForProcessing); // No zoom in PDF, but keep minimum
 
-                        // For international text, we need a more conservative approach to text wrapping
+                        // For international text, use canvas-to-image approach for perfect rendering
                         const hasInternationalCharsChild = /[^\x00-\x7F]/.test(textContent);
 
-                        let wrappedResult;
                         if (hasInternationalCharsChild) {
-                          console.log('🌍 Using conservative wrapping for international characters in child region');
-                          // Use a more conservative width calculation for international characters
-                          const conservativeWidthPx = availableWidthPx * 0.8; // Use 80% of available width
-                          wrappedResult = processChildRegionTextWrapping(
-                            textContent,
-                            conservativeWidthPx,
-                            availableHeightPx,
-                            scaledFontSize,
-                            configTypography.fontFamily,
-                            content.newCompTransConfig?.lineBreakSettings?.lineBreakSymbol || '\n',
-                            content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2
-                          );
-                        } else {
-                          // Use normal width for Latin characters
-                          wrappedResult = processChildRegionTextWrapping(
+                          console.log('🌍 Using canvas-to-image approach for international characters in child region');
+
+                          // Create a temporary canvas for rendering international text
+                          const tempCanvas = document.createElement('canvas');
+                          const tempCtx = tempCanvas.getContext('2d');
+
+                          if (!tempCtx) {
+                            console.error('Failed to get canvas context, falling back to regular text rendering');
+                            // Fallback to regular text rendering
+                            const wrappedResult = processChildRegionTextWrapping(
+                              textContent,
+                              availableWidthPx,
+                              availableHeightPx,
+                              scaledFontSize,
+                              configTypography.fontFamily,
+                              content.newCompTransConfig?.lineBreakSettings?.lineBreakSymbol || '\n',
+                              content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2
+                            );
+
+                            const lineHeightMM = fontSize * (content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2);
+                            const alignOption = configAlignment.horizontal === 'center' ? 'center' :
+                                               configAlignment.horizontal === 'right' ? 'right' : 'left';
+
+                            wrappedResult.lines.forEach((line: string, lineIndex: number) => {
+                              const lineY = textY + (lineIndex * lineHeightMM);
+                              pdf.text(line.trim(), textX, lineY, { align: alignOption });
+                            });
+                            return;
+                          }
+
+                          // Set canvas size to match the region
+                          const canvasWidth = availableWidthPx;
+                          const canvasHeight = availableHeightPx;
+                          tempCanvas.width = canvasWidth;
+                          tempCanvas.height = canvasHeight;
+
+                          // Set font and style to match the configuration
+                          tempCtx.font = `${scaledFontSize}px ${configTypography.fontFamily}`;
+                          tempCtx.fillStyle = configTypography.color || '#000000';
+                          tempCtx.textAlign = configAlignment.horizontal === 'center' ? 'center' :
+                                            configAlignment.horizontal === 'right' ? 'right' : 'left';
+
+                          // Render text with proper wrapping using the same algorithm
+                          const wrappedResult = processChildRegionTextWrapping(
                             textContent,
                             availableWidthPx,
                             availableHeightPx,
@@ -7570,31 +7598,63 @@ function App() {
                             content.newCompTransConfig?.lineBreakSettings?.lineBreakSymbol || '\n',
                             content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2
                           );
+
+                          // Render each line on the canvas
+                          const lineHeightPx = scaledFontSize * (content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2);
+                          wrappedResult.lines.forEach((line: string, lineIndex: number) => {
+                            const lineY = (lineIndex + 1) * lineHeightPx;
+                            let lineX = 0;
+                            if (configAlignment.horizontal === 'center') {
+                              lineX = canvasWidth / 2;
+                            } else if (configAlignment.horizontal === 'right') {
+                              lineX = canvasWidth;
+                            }
+                            tempCtx.fillText(line, lineX, lineY);
+                          });
+
+                          // Convert canvas to image and add to PDF
+                          const imgData = tempCanvas.toDataURL('image/png', 1.0);
+                          const imgWidthMM = availableWidth;
+                          const imgHeightMM = availableHeight;
+
+                          pdf.addImage(imgData, 'PNG', textX, textY, imgWidthMM, imgHeightMM);
+
+                        } else {
+                          // Use normal text rendering for Latin characters
+                          const wrappedResult = processChildRegionTextWrapping(
+                            textContent,
+                            availableWidthPx,
+                            availableHeightPx,
+                            scaledFontSize,
+                            configTypography.fontFamily,
+                            content.newCompTransConfig?.lineBreakSettings?.lineBreakSymbol || '\n',
+                            content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2
+                          );
+
+                          const lineHeightMM = fontSize * (content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2);
+                          const alignOption = configAlignment.horizontal === 'center' ? 'center' :
+                                             configAlignment.horizontal === 'right' ? 'right' : 'left';
+
+                          console.log('🖨️ PDF Composition Text Rendering (Child) - DETAILED DEBUG:', {
+                            originalText: textContent,
+                            availableWidthMm: availableWidth,
+                            availableHeightMm: availableHeight,
+                            availableWidthPx: availableWidthPx,
+                            availableHeightPx: availableHeightPx,
+                            fontSizeForProcessing: fontSizeForProcessing,
+                            scaledFontSize: scaledFontSize,
+                            fontSizeUnit: configTypography.fontSizeUnit,
+                            wrappedLines: wrappedResult.lines,
+                            lineCount: wrappedResult.lines.length,
+                            hasOverflow: wrappedResult.hasOverflow,
+                            padding: configPadding
+                          });
+
+                          wrappedResult.lines.forEach((line: string, lineIndex: number) => {
+                            const lineY = textY + (lineIndex * lineHeightMM);
+                            pdf.text(line.trim(), textX, lineY, { align: alignOption });
+                          });
                         }
-
-                        const lineHeightMM = fontSize * (content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2);
-                        const alignOption = configAlignment.horizontal === 'center' ? 'center' :
-                                           configAlignment.horizontal === 'right' ? 'right' : 'left';
-
-                        console.log('🖨️ PDF Composition Text Rendering (Child) - DETAILED DEBUG:', {
-                          originalText: textContent,
-                          availableWidthMm: availableWidth,
-                          availableHeightMm: availableHeight,
-                          availableWidthPx: availableWidthPx,
-                          availableHeightPx: availableHeightPx,
-                          fontSizeForProcessing: fontSizeForProcessing,
-                          scaledFontSize: scaledFontSize,
-                          fontSizeUnit: configTypography.fontSizeUnit,
-                          wrappedLines: wrappedResult.lines,
-                          lineCount: wrappedResult.lines.length,
-                          hasOverflow: wrappedResult.hasOverflow,
-                          padding: configPadding
-                        });
-
-                        wrappedResult.lines.forEach((line: string, lineIndex: number) => {
-                          const lineY = textY + (lineIndex * lineHeightMM);
-                          pdf.text(line.trim(), textX, lineY, { align: alignOption });
-                        });
                       } else {
                         // Render regular text lines with EXACT positioning like web view
                         // Web: const textY = startY + (lineIndex + 1) * lineHeight;
@@ -7974,26 +8034,54 @@ function App() {
                     }
                     const scaledFontSize = Math.max(6, fontSizeForProcessing); // No zoom in PDF, but keep minimum
 
-                    // For international text, we need a more conservative approach to text wrapping
+                    // For international text, use canvas-to-image approach for perfect rendering
                     const hasInternationalCharsMain = /[^\x00-\x7F]/.test(textContent);
 
-                    let wrappedResult;
                     if (hasInternationalCharsMain) {
-                      console.log('🌍 Using conservative wrapping for international characters in main region');
-                      // Use a more conservative width calculation for international characters
-                      const conservativeWidthPx = availableWidthPx * 0.8; // Use 80% of available width
-                      wrappedResult = processChildRegionTextWrapping(
-                        textContent,
-                        conservativeWidthPx,
-                        availableHeightPx,
-                        scaledFontSize,
-                        configTypography.fontFamily,
-                        content.newCompTransConfig?.lineBreakSettings?.lineBreakSymbol || '\n',
-                        content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2
-                      );
-                    } else {
-                      // Use normal width for Latin characters
-                      wrappedResult = processChildRegionTextWrapping(
+                      console.log('🌍 Using canvas-to-image approach for international characters in main region');
+
+                      // Create a temporary canvas for rendering international text
+                      const tempCanvas = document.createElement('canvas');
+                      const tempCtx = tempCanvas.getContext('2d');
+
+                      if (!tempCtx) {
+                        console.error('Failed to get canvas context, falling back to regular text rendering');
+                        // Fallback to regular text rendering
+                        const wrappedResult = processChildRegionTextWrapping(
+                          textContent,
+                          availableWidthPx,
+                          availableHeightPx,
+                          scaledFontSize,
+                          configTypography.fontFamily,
+                          content.newCompTransConfig?.lineBreakSettings?.lineBreakSymbol || '\n',
+                          content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2
+                        );
+
+                        const lineHeightMM = fontSize * (content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2);
+                        const alignOption = configAlignment.horizontal === 'center' ? 'center' :
+                                           configAlignment.horizontal === 'right' ? 'right' : 'left';
+
+                        wrappedResult.lines.forEach((line: string, lineIndex: number) => {
+                          const lineY = textY + (lineIndex * lineHeightMM);
+                          pdf.text(line.trim(), textX, lineY, { align: alignOption });
+                        });
+                        return;
+                      }
+
+                      // Set canvas size to match the region
+                      const canvasWidth = availableWidthPx;
+                      const canvasHeight = availableHeightPx;
+                      tempCanvas.width = canvasWidth;
+                      tempCanvas.height = canvasHeight;
+
+                      // Set font and style to match the configuration
+                      tempCtx.font = `${scaledFontSize}px ${configTypography.fontFamily}`;
+                      tempCtx.fillStyle = configTypography.color || '#000000';
+                      tempCtx.textAlign = configAlignment.horizontal === 'center' ? 'center' :
+                                        configAlignment.horizontal === 'right' ? 'right' : 'left';
+
+                      // Render text with proper wrapping using the same algorithm
+                      const wrappedResult = processChildRegionTextWrapping(
                         textContent,
                         availableWidthPx,
                         availableHeightPx,
@@ -8002,31 +8090,63 @@ function App() {
                         content.newCompTransConfig?.lineBreakSettings?.lineBreakSymbol || '\n',
                         content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2
                       );
+
+                      // Render each line on the canvas
+                      const lineHeightPx = scaledFontSize * (content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2);
+                      wrappedResult.lines.forEach((line: string, lineIndex: number) => {
+                        const lineY = (lineIndex + 1) * lineHeightPx;
+                        let lineX = 0;
+                        if (configAlignment.horizontal === 'center') {
+                          lineX = canvasWidth / 2;
+                        } else if (configAlignment.horizontal === 'right') {
+                          lineX = canvasWidth;
+                        }
+                        tempCtx.fillText(line, lineX, lineY);
+                      });
+
+                      // Convert canvas to image and add to PDF
+                      const imgData = tempCanvas.toDataURL('image/png', 1.0);
+                      const imgWidthMM = availableWidth;
+                      const imgHeightMM = availableHeight;
+
+                      pdf.addImage(imgData, 'PNG', textX, textY, imgWidthMM, imgHeightMM);
+
+                    } else {
+                      // Use normal text rendering for Latin characters
+                      const wrappedResult = processChildRegionTextWrapping(
+                        textContent,
+                        availableWidthPx,
+                        availableHeightPx,
+                        scaledFontSize,
+                        configTypography.fontFamily,
+                        content.newCompTransConfig?.lineBreakSettings?.lineBreakSymbol || '\n',
+                        content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2
+                      );
+
+                      const lineHeightMM = fontSize * (content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2);
+                      const alignOption = configAlignment.horizontal === 'center' ? 'center' :
+                                         configAlignment.horizontal === 'right' ? 'right' : 'left';
+
+                      console.log('🖨️ PDF Composition Text Rendering (Main) - DETAILED DEBUG:', {
+                        originalText: textContent,
+                        availableWidthMm: availableWidth,
+                        availableHeightMm: availableHeight,
+                        availableWidthPx: availableWidthPx,
+                        availableHeightPx: availableHeightPx,
+                        fontSizeForProcessing: fontSizeForProcessing,
+                        scaledFontSize: scaledFontSize,
+                        fontSizeUnit: configTypography.fontSizeUnit,
+                        wrappedLines: wrappedResult.lines,
+                        lineCount: wrappedResult.lines.length,
+                        hasOverflow: wrappedResult.hasOverflow,
+                        padding: configPadding
+                      });
+
+                      wrappedResult.lines.forEach((line: string, lineIndex: number) => {
+                        const lineY = textY + (lineIndex * lineHeightMM);
+                        pdf.text(line.trim(), textX, lineY, { align: alignOption });
+                      });
                     }
-
-                    const lineHeightMM = fontSize * (content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2);
-                    const alignOption = configAlignment.horizontal === 'center' ? 'center' :
-                                       configAlignment.horizontal === 'right' ? 'right' : 'left';
-
-                    console.log('🖨️ PDF Composition Text Rendering (Main) - DETAILED DEBUG:', {
-                      originalText: textContent,
-                      availableWidthMm: availableWidth,
-                      availableHeightMm: availableHeight,
-                      availableWidthPx: availableWidthPx,
-                      availableHeightPx: availableHeightPx,
-                      fontSizeForProcessing: fontSizeForProcessing,
-                      scaledFontSize: scaledFontSize,
-                      fontSizeUnit: configTypography.fontSizeUnit,
-                      wrappedLines: wrappedResult.lines,
-                      lineCount: wrappedResult.lines.length,
-                      hasOverflow: wrappedResult.hasOverflow,
-                      padding: configPadding
-                    });
-
-                    wrappedResult.lines.forEach((line: string, lineIndex: number) => {
-                      const lineY = textY + (lineIndex * lineHeightMM);
-                      pdf.text(line.trim(), textX, lineY, { align: alignOption });
-                    });
                   } else {
                     // Render regular text lines with EXACT positioning like web view
                     // Web: const textY = startY + (lineIndex + 1) * lineHeight;
