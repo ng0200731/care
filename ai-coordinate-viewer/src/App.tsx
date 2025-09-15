@@ -7603,11 +7603,12 @@ function App() {
                         }
                         const scaledFontSize = Math.max(6, fontSizeForProcessing); // No zoom in PDF, but keep minimum
 
-                        // For international text, use canvas-to-image approach for perfect rendering
-                        const hasInternationalCharsChild = /[^\x00-\x7F]/.test(textContent);
+                        // 🎯 FORCE CTP METHOD: Use canvas-to-image approach for ALL text (not just international)
+                        // This ensures consistent rendering between canvas and PDF for all content types
+                        const forceCanvasToImageMethod = true; // Always use CTP method
 
-                        if (hasInternationalCharsChild) {
-                          console.log('🌍 Using exact canvas capture for international characters in child region (CTP-ready)');
+                        if (forceCanvasToImageMethod) {
+                          console.log('🎯 Using CTP method for ALL text in child region (forced canvas-to-image)');
 
                           // SOLUTION: Capture the exact canvas region that's displayed to the user
                           // Find the actual SVG text element that's rendered on screen
@@ -8122,11 +8123,12 @@ function App() {
                     }
                     const scaledFontSize = Math.max(6, fontSizeForProcessing); // No zoom in PDF, but keep minimum
 
-                    // For international text, use canvas-to-image approach for perfect rendering
-                    const hasInternationalCharsMain = /[^\x00-\x7F]/.test(textContent);
+                    // 🎯 FORCE CTP METHOD: Use canvas-to-image approach for ALL text (not just international)
+                    // This ensures consistent rendering between canvas and PDF for all content types
+                    const forceCanvasToImageMethod = true; // Always use CTP method
 
-                    if (hasInternationalCharsMain) {
-                      console.log('🌍 Using canvas-to-image approach for international characters in main region (CTP-ready)');
+                    if (forceCanvasToImageMethod) {
+                      console.log('🎯 Using CTP method for ALL text in main region (forced canvas-to-image)');
 
                       // Create a temporary canvas for rendering international text
                       const tempCanvas = document.createElement('canvas');
