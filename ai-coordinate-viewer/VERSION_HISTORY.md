@@ -1,5 +1,22 @@
 # Care Label Layout System - Version History
 
+## Version 2.9.104 - Fixed Canvas Image Positioning for Mother 3+ CTP Method
+**Release Date:** 2025-01-15
+**Commit:** TBD
+
+### 🔧 Canvas Image Positioning Fix
+- **Issue Fixed**: Canvas images were shifted/misaligned in Mother 3+ PDF generation
+- **Root Cause**: Canvas images were being placed at text position coordinates instead of content area coordinates
+- **Solution**:
+  - **Before**: `pdf.addImage(imgData, 'PNG', textX, startY, ...)` - Used text positioning
+  - **After**: `pdf.addImage(imgData, 'PNG', contentX, contentY, ...)` - Uses content area positioning
+- **Technical Details**:
+  - **Content Area Position**: `contentX = regionX + paddingLeft`, `contentY = regionY + paddingTop`
+  - **Canvas Content**: Already contains properly aligned text within the content area
+  - **Image Placement**: Canvas image placed at top-left of content area for perfect alignment
+- **Coverage**: Fixed for both main regions and child regions
+- **Result**: Mother 3+ composition translation content now renders with perfect alignment matching Mother 1 & 2
+
 ## Version 2.9.103 - Selective PDF Rendering Based on Mother Type
 **Release Date:** 2025-01-15
 **Commit:** TBD

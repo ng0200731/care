@@ -7897,7 +7897,7 @@ function App() {
                           ctx.fillStyle = 'black';
                           ctx.textAlign = textAlign === 'center' ? 'center' : textAlign === 'right' ? 'right' : 'left';
 
-                          // Draw text lines
+                          // Draw text lines - canvas represents content area, so positioning is simpler
                           displayLines.forEach((line: string, i: number) => {
                             const y = (i + 1) * lineHeightMM * 4;
                             let x = 0;
@@ -7906,9 +7906,11 @@ function App() {
                             ctx.fillText(line, x, y);
                           });
 
-                          // Add to PDF
+                          // Add to PDF - place canvas at content area position (not text position)
                           const imgData = canvas.toDataURL('image/png');
-                          pdf.addImage(imgData, 'PNG', textX, startY,
+                          const contentX = childX + paddingLeft;
+                          const contentY = childY + paddingTop;
+                          pdf.addImage(imgData, 'PNG', contentX, contentY,
                             childRegion.width - paddingLeft - paddingRight,
                             childRegion.height - paddingTop - paddingBottom);
                         } else {
@@ -8475,9 +8477,11 @@ function App() {
                         ctx.fillText(line, x, y);
                       });
 
-                      // Add to PDF
+                      // Add to PDF - place canvas at content area position (not text position)
                       const imgData = canvas.toDataURL('image/png');
-                      pdf.addImage(imgData, 'PNG', textX, startY,
+                      const contentX = regionX + paddingLeft;
+                      const contentY = regionY + paddingTop;
+                      pdf.addImage(imgData, 'PNG', contentX, contentY,
                         region.width - paddingLeft - paddingRight,
                         region.height - paddingTop - paddingBottom);
                     } else {
