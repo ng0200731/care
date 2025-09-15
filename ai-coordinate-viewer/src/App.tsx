@@ -8862,9 +8862,11 @@ function App() {
       <div>
         <h4>📋 Objects Hierarchy:</h4>
 
-        {/* Centralized Control Buttons - Above All Mothers */}
+        {/* Centralized Control Buttons - Above All Mothers - 2x2 Grid Layout */}
         <div style={{
-          display: 'flex',
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gridTemplateRows: '1fr 1fr',
           gap: '10px',
           marginBottom: '20px',
           padding: '10px',
@@ -9019,8 +9021,7 @@ function App() {
               cursor: 'pointer',
               fontWeight: 'bold',
               transition: 'all 0.2s ease',
-              boxShadow: '0 3px 6px rgba(33, 150, 243, 0.3)',
-              marginLeft: '10px'
+              boxShadow: '0 3px 6px rgba(33, 150, 243, 0.3)'
             }}
             title="Convert current canvas view to PDF (CTP method)"
           >
