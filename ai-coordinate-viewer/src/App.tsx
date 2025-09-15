@@ -7516,6 +7516,7 @@ function App() {
 
                         // Set font and render text with proper wrapping
                         pdf.setFont('helvetica', 'normal');
+
                         let fontSize = configTypography.fontSize;
                         if (configTypography.fontSizeUnit === 'pt') {
                           fontSize = fontSize * 0.352778; // Convert pt to mm
@@ -7527,29 +7528,72 @@ function App() {
 
                         const textContent = content.newCompTransConfig?.textContent?.generatedText || 'Composition Translation';
 
-                        // Apply text wrapping using the same logic as canvas
-                        const availableWidthPx = availableWidth * 3.779527559; // Convert mm to px
-                        const availableHeightPx = availableHeight * 3.779527559;
-                        const fontSizePx = fontSize * 3.779527559; // Convert mm to px
+                        // Use EXACT same text wrapping logic as canvas rendering
+                        // Match canvas calculation: availableWidthPx = Math.max(0, regionWidthPx - paddingLeftPx - paddingRightPx)
+                        const availableWidthPx = Math.max(0, availableWidth * 3.779527559); // Convert mm to px
+                        const availableHeightPx = Math.max(0, availableHeight * 3.779527559);
 
-                        const wrappedResult = processChildRegionTextWrapping(
-                          textContent,
-                          availableWidthPx,
-                          availableHeightPx,
-                          fontSizePx,
-                          configTypography.fontFamily,
-                          content.newCompTransConfig?.lineBreakSettings?.lineBreakSymbol || '\n',
-                          content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2
-                        );
+                        // Match canvas font size calculation (no zoom factor in PDF)
+                        let fontSizeForProcessing = configTypography.fontSize;
+                        if (configTypography.fontSizeUnit === 'pt') {
+                          fontSizeForProcessing = configTypography.fontSize * 4/3; // Convert points to pixels
+                        } else if (configTypography.fontSizeUnit === 'mm') {
+                          fontSizeForProcessing = configTypography.fontSize * 3.779527559; // Convert mm to pixels
+                        }
+                        const scaledFontSize = Math.max(6, fontSizeForProcessing); // No zoom in PDF, but keep minimum
 
-                        // Render each line with proper spacing
+                        // For international text, we need a more conservative approach to text wrapping
+                        const hasInternationalCharsChild = /[^\x00-\x7F]/.test(textContent);
+
+                        let wrappedResult;
+                        if (hasInternationalCharsChild) {
+                          console.log('🌍 Using conservative wrapping for international characters in child region');
+                          // Use a more conservative width calculation for international characters
+                          const conservativeWidthPx = availableWidthPx * 0.8; // Use 80% of available width
+                          wrappedResult = processChildRegionTextWrapping(
+                            textContent,
+                            conservativeWidthPx,
+                            availableHeightPx,
+                            scaledFontSize,
+                            configTypography.fontFamily,
+                            content.newCompTransConfig?.lineBreakSettings?.lineBreakSymbol || '\n',
+                            content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2
+                          );
+                        } else {
+                          // Use normal width for Latin characters
+                          wrappedResult = processChildRegionTextWrapping(
+                            textContent,
+                            availableWidthPx,
+                            availableHeightPx,
+                            scaledFontSize,
+                            configTypography.fontFamily,
+                            content.newCompTransConfig?.lineBreakSettings?.lineBreakSymbol || '\n',
+                            content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2
+                          );
+                        }
+
                         const lineHeightMM = fontSize * (content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2);
                         const alignOption = configAlignment.horizontal === 'center' ? 'center' :
                                            configAlignment.horizontal === 'right' ? 'right' : 'left';
 
+                        console.log('🖨️ PDF Composition Text Rendering (Child) - DETAILED DEBUG:', {
+                          originalText: textContent,
+                          availableWidthMm: availableWidth,
+                          availableHeightMm: availableHeight,
+                          availableWidthPx: availableWidthPx,
+                          availableHeightPx: availableHeightPx,
+                          fontSizeForProcessing: fontSizeForProcessing,
+                          scaledFontSize: scaledFontSize,
+                          fontSizeUnit: configTypography.fontSizeUnit,
+                          wrappedLines: wrappedResult.lines,
+                          lineCount: wrappedResult.lines.length,
+                          hasOverflow: wrappedResult.hasOverflow,
+                          padding: configPadding
+                        });
+
                         wrappedResult.lines.forEach((line: string, lineIndex: number) => {
                           const lineY = textY + (lineIndex * lineHeightMM);
-                          pdf.text(line, textX, lineY, { align: alignOption });
+                          pdf.text(line.trim(), textX, lineY, { align: alignOption });
                         });
                       } else {
                         // Render regular text lines with EXACT positioning like web view
@@ -7904,6 +7948,7 @@ function App() {
 
                     // Set font and render text with proper wrapping
                     pdf.setFont('helvetica', 'normal');
+
                     let fontSize = configTypography.fontSize;
                     if (configTypography.fontSizeUnit === 'pt') {
                       fontSize = fontSize * 0.352778; // Convert pt to mm
@@ -7915,29 +7960,72 @@ function App() {
 
                     const textContent = content.newCompTransConfig?.textContent?.generatedText || 'Composition Translation';
 
-                    // Apply text wrapping using the same logic as canvas
-                    const availableWidthPx = availableWidth * 3.779527559; // Convert mm to px
-                    const availableHeightPx = availableHeight * 3.779527559;
-                    const fontSizePx = fontSize * 3.779527559; // Convert mm to px
+                    // Use EXACT same text wrapping logic as canvas rendering
+                    // Match canvas calculation: availableWidthPx = Math.max(0, regionWidthPx - paddingLeftPx - paddingRightPx)
+                    const availableWidthPx = Math.max(0, availableWidth * 3.779527559); // Convert mm to px
+                    const availableHeightPx = Math.max(0, availableHeight * 3.779527559);
 
-                    const wrappedResult = processChildRegionTextWrapping(
-                      textContent,
-                      availableWidthPx,
-                      availableHeightPx,
-                      fontSizePx,
-                      configTypography.fontFamily,
-                      content.newCompTransConfig?.lineBreakSettings?.lineBreakSymbol || '\n',
-                      content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2
-                    );
+                    // Match canvas font size calculation (no zoom factor in PDF)
+                    let fontSizeForProcessing = configTypography.fontSize;
+                    if (configTypography.fontSizeUnit === 'pt') {
+                      fontSizeForProcessing = configTypography.fontSize * 4/3; // Convert points to pixels
+                    } else if (configTypography.fontSizeUnit === 'mm') {
+                      fontSizeForProcessing = configTypography.fontSize * 3.779527559; // Convert mm to pixels
+                    }
+                    const scaledFontSize = Math.max(6, fontSizeForProcessing); // No zoom in PDF, but keep minimum
 
-                    // Render each line with proper spacing
+                    // For international text, we need a more conservative approach to text wrapping
+                    const hasInternationalCharsMain = /[^\x00-\x7F]/.test(textContent);
+
+                    let wrappedResult;
+                    if (hasInternationalCharsMain) {
+                      console.log('🌍 Using conservative wrapping for international characters in main region');
+                      // Use a more conservative width calculation for international characters
+                      const conservativeWidthPx = availableWidthPx * 0.8; // Use 80% of available width
+                      wrappedResult = processChildRegionTextWrapping(
+                        textContent,
+                        conservativeWidthPx,
+                        availableHeightPx,
+                        scaledFontSize,
+                        configTypography.fontFamily,
+                        content.newCompTransConfig?.lineBreakSettings?.lineBreakSymbol || '\n',
+                        content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2
+                      );
+                    } else {
+                      // Use normal width for Latin characters
+                      wrappedResult = processChildRegionTextWrapping(
+                        textContent,
+                        availableWidthPx,
+                        availableHeightPx,
+                        scaledFontSize,
+                        configTypography.fontFamily,
+                        content.newCompTransConfig?.lineBreakSettings?.lineBreakSymbol || '\n',
+                        content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2
+                      );
+                    }
+
                     const lineHeightMM = fontSize * (content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2);
                     const alignOption = configAlignment.horizontal === 'center' ? 'center' :
                                        configAlignment.horizontal === 'right' ? 'right' : 'left';
 
+                    console.log('🖨️ PDF Composition Text Rendering (Main) - DETAILED DEBUG:', {
+                      originalText: textContent,
+                      availableWidthMm: availableWidth,
+                      availableHeightMm: availableHeight,
+                      availableWidthPx: availableWidthPx,
+                      availableHeightPx: availableHeightPx,
+                      fontSizeForProcessing: fontSizeForProcessing,
+                      scaledFontSize: scaledFontSize,
+                      fontSizeUnit: configTypography.fontSizeUnit,
+                      wrappedLines: wrappedResult.lines,
+                      lineCount: wrappedResult.lines.length,
+                      hasOverflow: wrappedResult.hasOverflow,
+                      padding: configPadding
+                    });
+
                     wrappedResult.lines.forEach((line: string, lineIndex: number) => {
                       const lineY = textY + (lineIndex * lineHeightMM);
-                      pdf.text(line, textX, lineY, { align: alignOption });
+                      pdf.text(line.trim(), textX, lineY, { align: alignOption });
                     });
                   } else {
                     // Render regular text lines with EXACT positioning like web view

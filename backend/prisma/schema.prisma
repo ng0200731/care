@@ -101,15 +101,28 @@ model ShortForm {
   @@map("shortform")
 }
 
-// Washing Care Symbols - Composition table
+// Washing Care Symbols - Composition table with all 18 languages
 model Composition {
   id        String   @id @default(cuid())
-  material  String?  // Material name
-  percentage String? // Material percentage
-  code      String?  // Material code
-  category  String?  // Material category
-  properties String? // Material properties
-  notes     String?  // Additional notes
+  material  String?  // Material name (ELEMENT column)
+  spanish   String?  // Spanish translation
+  french    String?  // French translation
+  english   String?  // English translation
+  portuguese String? // Portuguese translation
+  dutch     String?  // Dutch translation
+  italian   String?  // Italian translation
+  greek     String?  // Greek translation
+  japanese  String?  // Japanese translation
+  german    String?  // German translation
+  danish    String?  // Danish translation
+  slovenian String?  // Slovenian translation
+  chinese   String?  // Chinese translation
+  korean    String?  // Korean translation
+  indonesian String? // Indonesian translation
+  arabic    String?  // Arabic translation
+  galician  String?  // Galician translation
+  catalan   String?  // Catalan translation
+  basque    String?  // Basque translation
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

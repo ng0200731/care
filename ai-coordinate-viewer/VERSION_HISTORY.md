@@ -1,10 +1,27 @@
 # Care Label Layout System - Version History
 
-## Version 2.1.65 - Fixed PDF Text Wrapping for Composition Translation Content
+## Version 2.9.83 - Fixed PDF Text Wrapping for Composition Translation Content (PROPER FIX)
 **Release Date:** 2025-01-14
 **Commit:** TBD
 
-### 🖨️ PDF Text Wrapping Fix
+### 🖨️ PDF Text Wrapping Fix - PROPER IMPLEMENTATION
+- **Problem Identified**: Composition translation content showed properly wrapped in canvas but appeared as single unwrapped line in PDF
+- **Root Cause**: PDF generation was using simple line splitting (`split('\n')`) instead of proper text wrapping algorithm
+- **Previous Fix Failed**: Earlier attempt used line splitting which doesn't work for continuous composition text
+- **Proper Solution Applied**: Implemented exact same `processChildRegionTextWrapping` function used by canvas rendering
+- **Technical Implementation**:
+  - **Canvas Parity**: Uses identical text wrapping algorithm as canvas (`processChildRegionTextWrapping`)
+  - **Proper Parameters**: Converts mm to px for accurate width/height calculations
+  - **Font Size Conversion**: Proper font size conversion from mm to px for text measurement
+  - **Line Break Settings**: Respects line break symbol and line spacing from configuration
+- **Coverage**: Fixed both main regions and child regions PDF generation
+- **Result**: PDF now shows properly wrapped multi-line composition translation text identical to canvas display
+
+## Version 2.1.65 - Fixed PDF Text Wrapping for Composition Translation Content (FAILED ATTEMPT)
+**Release Date:** 2025-01-14
+**Commit:** TBD
+
+### 🖨️ PDF Text Wrapping Fix (INCOMPLETE)
 - **Problem Identified**: Composition translation content showed in canvas but appeared as single unwrapped line in PDF
 - **Root Cause**: PDF generation was using simple single-line text rendering instead of advanced text wrapping
 - **Solution Applied**: Implemented same `processChildRegionTextWrapping` logic used by canvas rendering

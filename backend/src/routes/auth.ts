@@ -89,7 +89,7 @@ router.post('/register', async (req, res): Promise<any> => {
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: error.errors[0].message });
+      return res.status(400).json({ error: error.issues[0].message });
     }
     console.error('Registration error:', error);
     res.status(500).json({ error: 'Registration failed' });
@@ -129,7 +129,7 @@ router.post('/login', async (req, res): Promise<any> => {
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: error.errors[0].message });
+      return res.status(400).json({ error: error.issues[0].message });
     }
     console.error('Login error:', error);
     res.status(500).json({ error: 'Login failed' });

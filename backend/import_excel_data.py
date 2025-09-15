@@ -148,53 +148,74 @@ def import_shortform_data(conn, df):
     print(f"✅ Imported {imported_count} records into shortform table")
 
 def import_composition_data(conn, df):
-    """Import composition data into the database"""
+    """Import composition data into the database with all 18 language columns"""
     cursor = conn.cursor()
-    
+
     # Clear existing data
     cursor.execute("DELETE FROM composition")
-    
+
     # Get column names from DataFrame
     columns = df.columns.tolist()
-    print(f"📋 Composition columns: {columns}")
-    
+    print(f"📋 Composition columns ({len(columns)}): {columns}")
+
+    # Expected column mapping (based on your Excel structure)
+    # Column 0: ELEMENT (material name)
+    # Column 1: SPANISH, Column 2: FRENCH, Column 3: ENGLISH, etc.
+    expected_languages = [
+        'spanish', 'french', 'english', 'portuguese', 'dutch', 'italian',
+        'greek', 'japanese', 'german', 'danish', 'slovenian', 'chinese',
+        'korean', 'indonesian', 'arabic', 'galician', 'catalan', 'basque'
+    ]
+
     imported_count = 0
     current_time = datetime.now().isoformat()
-    
+
     for index, row in df.iterrows():
         try:
             # Generate unique ID
             record_id = generate_cuid()
-            
-            # Extract data based on available columns
+
+            # Extract material name (first column)
             material = str(row.get(columns[0], '')) if len(columns) > 0 else ''
-            percentage = str(row.get(columns[1], '')) if len(columns) > 1 else ''
-            code = str(row.get(columns[2], '')) if len(columns) > 2 else ''
-            category = str(row.get(columns[3], '')) if len(columns) > 3 else ''
-            properties = str(row.get(columns[4], '')) if len(columns) > 4 else ''
-            notes = str(row.get(columns[5], '')) if len(columns) > 5 else ''
-            
-            # Clean up NaN values
             material = material if material != 'nan' else ''
-            percentage = percentage if percentage != 'nan' else ''
-            code = code if code != 'nan' else ''
-            category = category if category != 'nan' else ''
-            properties = properties if properties != 'nan' else ''
-            notes = notes if notes != 'nan' else ''
-            
-            cursor.execute('''
-                INSERT INTO composition (id, material, percentage, code, category, properties, notes, createdAt, updatedAt)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (record_id, material, percentage, code, category, properties, notes, current_time, current_time))
-            
+
+            # Extract all language translations (columns 1-18)
+            language_values = []
+            for i, lang_column in enumerate(expected_languages):
+                col_index = i + 1  # Skip first column (material)
+                if col_index < len(columns):
+                    value = str(row.get(columns[col_index], ''))
+                    value = value if value != 'nan' else ''
+                    language_values.append(value)
+                else:
+                    language_values.append('')  # Default empty if column doesn't exist
+
+            # Build the SQL query dynamically
+            sql_columns = ['id', 'material'] + expected_languages + ['createdAt', 'updatedAt']
+            sql_placeholders = ', '.join(['?' for _ in sql_columns])
+            sql_column_names = ', '.join(sql_columns)
+
+            sql_values = [record_id, material] + language_values + [current_time, current_time]
+
+            cursor.execute(f'''
+                INSERT INTO composition ({sql_column_names})
+                VALUES ({sql_placeholders})
+            ''', sql_values)
+
             imported_count += 1
-            
+
+            # Print progress for first few records
+            if imported_count <= 3:
+                print(f"📝 Record {imported_count}: {material}")
+                for i, lang in enumerate(expected_languages[:5]):  # Show first 5 languages
+                    print(f"   {lang}: {language_values[i]}")
+
         except Exception as e:
             print(f"⚠️ Error importing composition row {index}: {e}")
             continue
-    
+
     conn.commit()
-    print(f"✅ Imported {imported_count} records into composition table")
+    print(f"✅ Imported {imported_count} records into composition table with {len(expected_languages)} languages")
 
 def main():
     """Main function to orchestrate the import process"""
