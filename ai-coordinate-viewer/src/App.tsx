@@ -11583,19 +11583,27 @@ function App() {
                           zoom
                         );
 
-                        // Process text wrapping using Canvas-First Sync logic-slice (same as new-multi-line)
-                        const regionProcessedResult = processChildRegionTextWrapping(
-                          displayText,
-                          availableWidthPx,
-                          availableHeightPx,
-                          regionScaledFontSize,
-                          content.newCompTransConfig?.typography?.fontFamily || 'Arial',
-                          content.newCompTransConfig?.lineBreakSettings?.lineBreakSymbol || '\n',
-                          content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2
-                        );
+                        // Check if text is already pre-wrapped (from duplicated mother overflow)
+                        if (content.newCompTransConfig?.isPreWrapped) {
+                          // Text is already properly wrapped, just split by newlines
+                          displayLines = displayText.split('\n');
+                          hasOverflow = false;
+                          console.log('✅ Canvas: Using pre-wrapped text (no re-wrapping):', displayLines);
+                        } else {
+                          // Process text wrapping using Canvas-First Sync logic-slice (same as new-multi-line)
+                          const regionProcessedResult = processChildRegionTextWrapping(
+                            displayText,
+                            availableWidthPx,
+                            availableHeightPx,
+                            regionScaledFontSize,
+                            content.newCompTransConfig?.typography?.fontFamily || 'Arial',
+                            content.newCompTransConfig?.lineBreakSettings?.lineBreakSymbol || '\n',
+                            content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2
+                          );
 
-                        displayLines = regionProcessedResult.lines;
-                        hasOverflow = regionProcessedResult.hasOverflow;
+                          displayLines = regionProcessedResult.lines;
+                          hasOverflow = regionProcessedResult.hasOverflow;
+                        }
 
                         // console.log('✅ Canvas: Applied Canvas-First Sync logic-slice to composition translation:', {
                         //   regionId: region.id,
@@ -13739,87 +13747,7 @@ function App() {
                 </div>
               )}
 
-              {/* Temporary Duplicate Mother_3 Button - Positioned as overlay */}
-              <button
-                onClick={() => {
-                  console.log('🚨 TEMPORARY DUPLICATE BUTTON CLICKED!');
-                  const currentData = data || webCreationData;
-                  if (!currentData) {
-                    console.error('❌ No data available');
-                    return;
-                  }
 
-                  // Find Mother_3
-                  const mother3 = currentData.objects.find(obj =>
-                    obj.name === 'Mother_3' || obj.name?.includes('Mother_3')
-                  );
-
-                  if (!mother3) {
-                    console.error('❌ Mother_3 not found');
-                    alert('Mother_3 not found!');
-                    return;
-                  }
-
-                  console.log('✅ Found Mother_3:', mother3);
-
-                  // Create a duplicate without any content
-                  const newMother = {
-                    ...mother3,
-                    id: `mother_${Date.now()}`,
-                    name: `Mother_${currentData.objects.filter(o => o.type?.includes('mother')).length + 1}`,
-                    x: mother3.x + 60, // Offset position
-                    y: mother3.y + 20,
-                    regions: (mother3 as any).regions?.map((region: any) => ({
-                      ...region,
-                      id: `region_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                      name: region.name?.replace(/Mother_\d+/, `Mother_${currentData.objects.filter(o => o.type?.includes('mother')).length + 1}`)
-                    })) || []
-                  };
-
-                  console.log('🔄 Creating new mother:', newMother);
-
-                  // Add to objects
-                  const updatedObjects = [...currentData.objects, newMother];
-
-                  if (data) {
-                    setData({ ...data, objects: updatedObjects, totalObjects: updatedObjects.length });
-                  } else if (webCreationData) {
-                    setWebCreationData({ ...webCreationData, objects: updatedObjects, totalObjects: updatedObjects.length });
-                  }
-
-                  console.log('✅ Mother duplicated successfully!');
-                  alert(`✅ Mother_3 duplicated as ${newMother.name}!`);
-                }}
-                style={{
-                  position: 'absolute',
-                  top: '20px',
-                  left: '20px',
-                  padding: '12px 18px',
-                  background: '#ff4757',
-                  color: 'white',
-                  border: '2px solid #ff3742',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  fontWeight: 'bold',
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 12px rgba(255, 71, 87, 0.4)',
-                  zIndex: 9999,
-                  transition: 'all 0.2s ease',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = '#ff3742';
-                  e.currentTarget.style.transform = 'scale(1.05)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = '#ff4757';
-                  e.currentTarget.style.transform = 'scale(1)';
-                }}
-              >
-                🔄 Duplicate Mother_3
-              </button>
 
               <svg
                 width="100%"

@@ -172,7 +172,11 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
   // Split preview dialog state
   const [showSplitPreview, setShowSplitPreview] = useState(false);
-  const [splitText, setSplitText] = useState({ originalText: '', overflowText: '' });
+  const [splitText, setSplitText] = useState({
+    originalText: '',
+    overflowText: '',
+    overflowLines: [] as string[] // Store the actual wrapped lines for proper rendering
+  });
 
   // Overflow detection state for UI feedback
   const [hasOverflow, setHasOverflow] = useState(false);
@@ -476,14 +480,16 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       return {
         hasOverflow: true,
         originalText: originalLines.join(config.lineBreakSettings.lineBreakSymbol),
-        overflowText: overflowLines.join(config.lineBreakSettings.lineBreakSymbol)
+        overflowText: overflowLines.join(config.lineBreakSettings.lineBreakSymbol),
+        overflowLines: overflowLines // Store the actual wrapped lines
       };
     }
 
     return {
       hasOverflow: false,
       originalText: text,
-      overflowText: ''
+      overflowText: '',
+      overflowLines: []
     };
   };
 
@@ -611,6 +617,13 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         generatedText
       }
     }));
+
+    // Debug: Log the current config when text is generated
+    console.log('🔍 DEBUG: Dialog config after text generation:', {
+      lineBreakSettings: config.lineBreakSettings,
+      textContent: config.textContent,
+      generatedText: generatedText
+    });
   }, [config.materialCompositions, config.selectedLanguages, config.textContent.separator]);
 
   // Check for overflow whenever content or settings change
@@ -628,7 +641,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         // Show split preview popup
         setSplitText({
           originalText: overflowResult.originalText,
-          overflowText: overflowResult.overflowText
+          overflowText: overflowResult.overflowText,
+          overflowLines: overflowResult.overflowLines || []
         });
         setShowSplitPreview(true);
         return; // Don't save yet, wait for user confirmation
@@ -647,7 +661,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
           // Show split preview popup
           setSplitText({
             originalText: overflowResult.originalText,
-            overflowText: overflowResult.overflowText
+            overflowText: overflowResult.overflowText,
+            overflowLines: overflowResult.overflowLines || []
           });
           setShowSplitPreview(true);
           return; // Don't save yet, wait for user confirmation
@@ -698,27 +713,40 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       console.log('🔍 DEBUG: Mother_3 regions structure:', (mother3 as any).regions);
 
       // Find the original comp trans content to copy its formatting settings
-      let originalCompTransConfig = null;
+      let originalCompTransConfig: any = null;
+
+      // First, try to use the current dialog's config (which represents the original mother's settings)
+      console.log('🔍 DEBUG: Current dialog config:', config);
+      console.log('🔍 DEBUG: Current dialog lineBreakSettings:', config.lineBreakSettings);
+
+      // Use the current dialog config as the "original" since it represents the Mother_3 settings
+      originalCompTransConfig = config;
+
+      // Also check Mother_3 regions for additional validation
       const mother3Regions = (mother3 as any).regions || [];
       for (const region of mother3Regions) {
         if (region.contents) {
           const compTransContent = region.contents.find((content: any) => content.type === 'new-comp-trans');
           if (compTransContent && compTransContent.newCompTransConfig) {
-            originalCompTransConfig = compTransContent.newCompTransConfig;
-            console.log('🔍 DEBUG: Found original comp trans config:', originalCompTransConfig);
+            console.log('🔍 DEBUG: Found comp trans in Mother_3 regions:', compTransContent.newCompTransConfig);
+            // Only override if we found something more specific
+            if (compTransContent.newCompTransConfig.lineBreakSettings) {
+              originalCompTransConfig = compTransContent.newCompTransConfig;
+              console.log('🔍 DEBUG: Using Mother_3 region config instead');
+            }
             break;
           }
         }
       }
 
       // Also check regionContents state for original formatting
-      if (!originalCompTransConfig && (window as any).currentRegionContents) {
+      if ((window as any).currentRegionContents) {
         const regionContentsMap = (window as any).currentRegionContents;
         for (const [regionId, contents] of regionContentsMap.entries()) {
           const compTransContent = contents.find((content: any) => content.type === 'new-comp-trans');
-          if (compTransContent && compTransContent.newCompTransConfig) {
+          if (compTransContent && compTransContent.newCompTransConfig && compTransContent.newCompTransConfig.lineBreakSettings) {
             originalCompTransConfig = compTransContent.newCompTransConfig;
-            console.log('🔍 DEBUG: Found original comp trans config from regionContents:', originalCompTransConfig);
+            console.log('🔍 DEBUG: Using regionContents config:', originalCompTransConfig);
             break;
           }
         }
@@ -767,9 +795,13 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
           console.log('🔍 DEBUG: isCompositionRegion result:', isCompositionRegion);
 
           if (isCompositionRegion && splitText?.overflowText) {
-            console.log('🔄 Populating R1 region with overflow text:', splitText.overflowText);
+            // SIMPLE SOLUTION: Just use the exact SPLIT 2 text as-is, no further rendering needed
+            const exactSplit2Text = splitText.overflowText;
+            console.log('🔄 Populating R1 region with EXACT SPLIT 2 text (1:1 copy):', exactSplit2Text);
+            console.log('🔍 DEBUG: SPLIT 2 text as JSON:', JSON.stringify(exactSplit2Text));
+            console.log('🔍 DEBUG: SPLIT 2 text contains newlines:', exactSplit2Text.includes('\n'));
+            console.log('🔍 DEBUG: SPLIT 2 text contains line break symbol:', exactSplit2Text.includes(' - '));
             console.log('🔍 DEBUG: Using original comp trans config:', originalCompTransConfig);
-            console.log('🔍 DEBUG: Original line break settings:', originalCompTransConfig?.lineBreakSettings);
 
             // Create content for the overflow text (matching expected canvas structure)
             const overflowContent = {
@@ -793,7 +825,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
                 materialCompositions: originalCompTransConfig?.materialCompositions || config.materialCompositions || [],
                 textContent: {
                   separator: originalCompTransConfig?.textContent?.separator || config.textContent?.separator || ' - ',
-                  generatedText: splitText.overflowText
+                  generatedText: exactSplit2Text
                 },
                 // CRITICAL: Use original line break settings for proper text wrapping
                 lineBreakSettings: originalCompTransConfig?.lineBreakSettings || config.lineBreakSettings || {
@@ -801,6 +833,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
                   lineSpacing: 1.2,
                   lineWidth: 100
                 },
+                // FLAG: Indicate this text is already pre-wrapped and should not be re-wrapped
+                isPreWrapped: true,
                 overflowOption: 'keep-flowing'
               },
               layout: {
