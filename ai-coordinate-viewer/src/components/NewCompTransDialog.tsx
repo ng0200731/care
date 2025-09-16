@@ -702,7 +702,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
       // Calculate position following "add master layout" pattern
       // Standard layout positioning: mothers are typically spaced with consistent gaps
-      const standardHorizontalGap = 40; // Standard 40.0mm gap between mothers (same as add master layout)
+      const standardHorizontalGap = 20; // Standard 20mm gap between mothers (same as add master layout)
       const standardVerticalOffset = 0; // Keep same Y level (same as add master layout)
 
       const newMother = {
