@@ -699,12 +699,18 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
       // Create a duplicate with overflow text populated in the composition region
       const newMotherNumber = currentData.objects.filter((o: any) => o.type?.includes('mother')).length + 1;
+
+      // Calculate position following "add master layout" pattern
+      // Standard layout positioning: mothers are typically spaced with consistent gaps
+      const standardHorizontalGap = 40; // Standard 40.0mm gap between mothers (same as add master layout)
+      const standardVerticalOffset = 0; // Keep same Y level (same as add master layout)
+
       const newMother = {
         ...mother3,
         id: `mother_${Date.now()}`,
         name: `Mother_${newMotherNumber}`,
-        x: mother3.x + 60, // Offset position
-        y: mother3.y + 20,
+        x: mother3.x + mother3.width + standardHorizontalGap, // Position after Mother_3 with standard gap
+        y: mother3.y + standardVerticalOffset, // Same Y level as Mother_3
         regions: (mother3 as any).regions?.map((region: any) => {
           console.log('🔍 DEBUG: Processing region:', region.name, 'Type:', typeof region.name);
 
