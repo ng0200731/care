@@ -446,6 +446,44 @@ function App() {
     return null;
   });
 
+  // Set up window context for Mother_3 duplication access
+  useEffect(() => {
+    const currentData = data || webCreationData;
+    if (currentData) {
+      // Make current data available to dialogs
+      (window as any).currentAppData = currentData;
+
+      // Make update function available to dialogs
+      (window as any).updateAppData = (newData: AIData) => {
+        if (data) {
+          setData(newData);
+        } else if (webCreationData) {
+          setWebCreationData(newData);
+        }
+      };
+
+      // Make regionContents update function available to dialogs
+      (window as any).updateRegionContents = (regionId: string, contents: any[]) => {
+        console.log('🔄 DEBUG: updateRegionContents called:', { regionId, contents });
+        setRegionContents(prevContents => {
+          const newContents = new Map(prevContents);
+          newContents.set(regionId, contents);
+          console.log('✅ DEBUG: regionContents updated for region:', regionId);
+          return newContents;
+        });
+      };
+
+      console.log('🌐 Window context updated for Mother_3 duplication access');
+    }
+
+    // Cleanup on unmount
+    return () => {
+      delete (window as any).currentAppData;
+      delete (window as any).updateAppData;
+      delete (window as any).updateRegionContents;
+    };
+  }, [data, webCreationData]);
+
 
 
   // Saving state
@@ -11381,7 +11419,7 @@ function App() {
                         // console.log('🧺 new-washing-care-symbol displayText:', displayText, 'content:', content);
                       } else if (content.type === 'new-comp-trans' && content.newCompTransConfig?.textContent?.generatedText) {
                         displayText = content.newCompTransConfig.textContent.generatedText;
-                        // console.log('🌐 new-comp-trans displayText:', displayText, 'content:', content);
+                        console.log('🌐 CANVAS RENDERING new-comp-trans displayText:', displayText, 'regionId:', content.regionId, 'contentId:', content.id);
                       } else if (content.type === 'pure-english-paragraph' && content.content?.text) {
                         displayText = content.content.text;
                       } else if (content.type === 'translation-paragraph') {
@@ -12297,7 +12335,7 @@ function App() {
                               // console.log('🧺 child new-washing-care-symbol displayText:', displayText, 'content:', content);
                             } else if (content.type === 'new-comp-trans' && content.newCompTransConfig?.textContent?.generatedText) {
                               displayText = content.newCompTransConfig.textContent.generatedText;
-                              // console.log('🌐 child new-comp-trans displayText:', displayText, 'content:', content);
+                              console.log('🌐 CHILD CANVAS RENDERING new-comp-trans displayText:', displayText, 'regionId:', content.regionId, 'contentId:', content.id);
                             } else if (content.type === 'pure-english-paragraph' && content.content?.text) {
                               displayText = content.content.text;
                             } else if (content.type === 'translation-paragraph') {
@@ -13697,7 +13735,87 @@ function App() {
                 </div>
               )}
 
+              {/* Temporary Duplicate Mother_3 Button - Positioned as overlay */}
+              <button
+                onClick={() => {
+                  console.log('🚨 TEMPORARY DUPLICATE BUTTON CLICKED!');
+                  const currentData = data || webCreationData;
+                  if (!currentData) {
+                    console.error('❌ No data available');
+                    return;
+                  }
 
+                  // Find Mother_3
+                  const mother3 = currentData.objects.find(obj =>
+                    obj.name === 'Mother_3' || obj.name?.includes('Mother_3')
+                  );
+
+                  if (!mother3) {
+                    console.error('❌ Mother_3 not found');
+                    alert('Mother_3 not found!');
+                    return;
+                  }
+
+                  console.log('✅ Found Mother_3:', mother3);
+
+                  // Create a duplicate without any content
+                  const newMother = {
+                    ...mother3,
+                    id: `mother_${Date.now()}`,
+                    name: `Mother_${currentData.objects.filter(o => o.type?.includes('mother')).length + 1}`,
+                    x: mother3.x + 60, // Offset position
+                    y: mother3.y + 20,
+                    regions: (mother3 as any).regions?.map((region: any) => ({
+                      ...region,
+                      id: `region_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                      name: region.name?.replace(/Mother_\d+/, `Mother_${currentData.objects.filter(o => o.type?.includes('mother')).length + 1}`)
+                    })) || []
+                  };
+
+                  console.log('🔄 Creating new mother:', newMother);
+
+                  // Add to objects
+                  const updatedObjects = [...currentData.objects, newMother];
+
+                  if (data) {
+                    setData({ ...data, objects: updatedObjects, totalObjects: updatedObjects.length });
+                  } else if (webCreationData) {
+                    setWebCreationData({ ...webCreationData, objects: updatedObjects, totalObjects: updatedObjects.length });
+                  }
+
+                  console.log('✅ Mother duplicated successfully!');
+                  alert(`✅ Mother_3 duplicated as ${newMother.name}!`);
+                }}
+                style={{
+                  position: 'absolute',
+                  top: '20px',
+                  left: '20px',
+                  padding: '12px 18px',
+                  background: '#ff4757',
+                  color: 'white',
+                  border: '2px solid #ff3742',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(255, 71, 87, 0.4)',
+                  zIndex: 9999,
+                  transition: 'all 0.2s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#ff3742';
+                  e.currentTarget.style.transform = 'scale(1.05)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = '#ff4757';
+                  e.currentTarget.style.transform = 'scale(1)';
+                }}
+              >
+                🔄 Duplicate Mother_3
+              </button>
 
               <svg
                 width="100%"
@@ -13736,7 +13854,6 @@ function App() {
                 {(data || webCreationData)?.objects.map((obj, index) => renderObject(obj, index))}
 
                 {/* Removed connection lines - now using overlay numbers inside regions */}
-
 
               </svg>
             </div>

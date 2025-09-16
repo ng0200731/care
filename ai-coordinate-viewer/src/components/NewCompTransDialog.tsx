@@ -666,35 +666,174 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
   // Handle split preview dialog confirmation
   const handleSplitConfirm = () => {
     console.log('🚨 BUTTON CLICKED: handleSplitConfirm called!');
-    console.log('🔄 Split confirmed - creating new mother with overflow text');
-    console.log('🔍 Debug info:', {
-      onCreateNewMother: !!onCreateNewMother,
-      onCreateNewMotherType: typeof onCreateNewMother,
-      splitText: !!splitText,
-      splitTextContent: splitText
-    });
+    console.log('🔄 Split confirmed - duplicating Mother_3 for overflow text');
+    console.log('🔍 DEBUG: splitText state:', splitText);
+    console.log('🔍 DEBUG: splitText.overflowText:', splitText?.overflowText);
 
     setShowSplitPreview(false);
 
-    // First trigger mother duplication with overflow text
-    if (onCreateNewMother && splitText) {
-      console.log('📋 Calling onCreateNewMother with:', {
-        originalText: splitText.originalText,
-        overflowText: splitText.overflowText
-      });
-      try {
-        onCreateNewMother(splitText.originalText, splitText.overflowText);
-        console.log('✅ onCreateNewMother called successfully');
-      } catch (error) {
-        console.error('❌ Error calling onCreateNewMother:', error);
+    // Use Mother_3 duplication logic directly
+    try {
+      // Get current data from window context (similar to temporary button logic)
+      const currentData = (window as any).currentAppData;
+
+      if (!currentData) {
+        console.error('❌ No app data available for Mother_3 duplication');
+        alert('❌ Cannot access app data for duplication');
+        return;
       }
-    } else {
-      console.error('❌ Cannot create new mother:', {
-        hasCallback: !!onCreateNewMother,
-        callbackType: typeof onCreateNewMother,
-        hasSplitText: !!splitText,
-        splitTextDetails: splitText
-      });
+
+      // Find Mother_3
+      const mother3 = currentData.objects.find((obj: any) =>
+        obj.name === 'Mother_3' || obj.name?.includes('Mother_3')
+      );
+
+      if (!mother3) {
+        console.error('❌ Mother_3 not found for duplication');
+        alert('❌ Mother_3 not found!');
+        return;
+      }
+
+      console.log('✅ Found Mother_3 for duplication:', mother3);
+      console.log('🔍 DEBUG: Mother_3 regions structure:', (mother3 as any).regions);
+
+      // Create a duplicate with overflow text populated in the composition region
+      const newMotherNumber = currentData.objects.filter((o: any) => o.type?.includes('mother')).length + 1;
+      const newMother = {
+        ...mother3,
+        id: `mother_${Date.now()}`,
+        name: `Mother_${newMotherNumber}`,
+        x: mother3.x + 60, // Offset position
+        y: mother3.y + 20,
+        regions: (mother3 as any).regions?.map((region: any) => {
+          console.log('🔍 DEBUG: Processing region:', region.name, 'Type:', typeof region.name);
+
+          const newRegion = {
+            ...region,
+            id: `region_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            name: region.name?.replace(/Mother_\d+/, `Mother_${newMotherNumber}`)
+          };
+
+          console.log('🔍 DEBUG: Checking region for R1:', {
+            regionName: region.name,
+            includesR1: region.name?.includes('R1'),
+            hasSplitText: !!splitText,
+            hasOverflowText: !!splitText?.overflowText,
+            overflowText: splitText?.overflowText
+          });
+
+          // If this is the composition region (check multiple patterns), populate it with overflow text
+          // Since Mother_3 typically has only one region (the composition region), we'll populate the first/main region
+          const isCompositionRegion = region.name?.includes('R1') ||
+                                    region.name?.includes('region_1') ||
+                                    region.name?.toLowerCase().includes('composition') ||
+                                    region.name?.toLowerCase().includes('unnamed') || // Handle "Unnamed Region"
+                                    (region.name?.includes('Mother_3') && region.name?.includes('_0')) || // First region pattern
+                                    true; // For Mother_3, assume any region can be the composition region
+
+          console.log('🔍 DEBUG: isCompositionRegion result:', isCompositionRegion);
+
+          if (isCompositionRegion && splitText?.overflowText) {
+            console.log('🔄 Populating R1 region with overflow text:', splitText.overflowText);
+
+            // Create content for the overflow text (matching expected canvas structure)
+            const overflowContent = {
+              id: `content_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              type: 'new-comp-trans',
+              regionId: newRegion.id,
+              // Canvas expects newCompTransConfig structure
+              newCompTransConfig: {
+                padding: config.padding || { top: 2, right: 2, bottom: 2, left: 2 },
+                typography: {
+                  fontFamily: config.typography?.fontFamily || 'Arial',
+                  fontSize: config.typography?.fontSize || 8,
+                  fontSizeUnit: config.typography?.fontSizeUnit || 'px'
+                },
+                alignment: {
+                  horizontal: config.alignment?.horizontal || 'center',
+                  vertical: config.alignment?.vertical || 'center'
+                },
+                selectedLanguages: config.selectedLanguages || [],
+                materialCompositions: config.materialCompositions || [],
+                textContent: {
+                  separator: config.textContent?.separator || ' - ',
+                  generatedText: splitText.overflowText
+                },
+                lineBreakSettings: config.lineBreakSettings || {
+                  lineBreakSymbol: ' - ',
+                  lineSpacing: 1.2,
+                  lineWidth: 100
+                },
+                overflowOption: 'keep-flowing'
+              },
+              layout: {
+                x: 0,
+                y: 0,
+                width: region.width || 100,
+                height: region.height || 50,
+                padding: {
+                  top: 2,
+                  right: 2,
+                  bottom: 2,
+                  left: 2
+                }
+              }
+            };
+
+            // Add the content to the region
+            newRegion.contents = [overflowContent];
+            console.log('✅ Added overflow content to new R1 region:', overflowContent);
+            console.log('✅ New region with content:', newRegion);
+            console.log('🔍 DEBUG: Content structure check:', {
+              hasNewCompTransConfig: !!overflowContent.newCompTransConfig,
+              hasTextContent: !!overflowContent.newCompTransConfig?.textContent,
+              hasGeneratedText: !!overflowContent.newCompTransConfig?.textContent?.generatedText,
+              generatedText: overflowContent.newCompTransConfig?.textContent?.generatedText
+            });
+          } else {
+            console.log('❌ Skipping region - not R1 or no overflow text');
+          }
+
+          return newRegion;
+        }) || []
+      };
+
+      console.log('🔄 Creating new mother via duplication:', newMother);
+
+      // Add to objects
+      const updatedObjects = [...currentData.objects, newMother];
+
+      // Update the app data (trigger re-render)
+      if ((window as any).updateAppData) {
+        const newData = {
+          ...currentData,
+          objects: updatedObjects,
+          totalObjects: updatedObjects.length
+        };
+        console.log('🔄 DEBUG: Updating app data with new mother:', newData);
+        console.log('🔍 DEBUG: New mother regions in final data:', newMother.regions);
+        (window as any).updateAppData(newData);
+      }
+
+      // CRITICAL: Also update the regionContents state for canvas rendering
+      if ((window as any).updateRegionContents && newMother.regions) {
+        newMother.regions.forEach((region: any) => {
+          if (region.contents && region.contents.length > 0) {
+            console.log('🔄 DEBUG: Adding region contents to regionContents state:', {
+              regionId: region.id,
+              contents: region.contents
+            });
+            (window as any).updateRegionContents(region.id, region.contents);
+          }
+        });
+      }
+
+      console.log('✅ Mother_3 duplicated successfully via split confirm!');
+      alert(`✅ Mother_3 duplicated as ${newMother.name} for overflow text!`);
+
+    } catch (error) {
+      console.error('❌ Error during Mother_3 duplication:', error);
+      alert('❌ Error duplicating Mother_3. Please try again.');
     }
 
     // Then save the current config with original text (truncated to fit current region)
