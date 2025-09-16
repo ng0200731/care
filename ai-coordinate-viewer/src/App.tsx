@@ -191,9 +191,9 @@ function App() {
         // Check if the entire line fits within HARD BOUNDARIES
         const lineWidth = estimateTextWidth(trimmedLine);
 
-        // User-controlled safety buffer (default 1.5mm, user can adjust 1-2mm)
-        // This buffer is WITHIN the available space, not added to text width
-        const userSafetyBuffer = 1.5; // TODO: Make this user-configurable in popup
+        // 🎯 OPTIMAL SPACE UTILIZATION: Reduced safety buffer for better line utilization
+        // Smaller buffer = more text per line = fewer single-word lines
+        const userSafetyBuffer = 0.5; // Reduced from 1.5mm to 0.5mm for optimal utilization
         const effectiveAvailableWidth = Math.max(0, availableWidthMm - userSafetyBuffer);
 
         // Check for wide characters and warn user
@@ -203,7 +203,7 @@ function App() {
           // console.warn(`⚠️ Wide characters detected: ${wideCharCount} characters (${trimmedLine.match(wideCharacters)?.join(', ')}) in "${trimmedLine.substring(0, 30)}..."`);
         }
 
-        // console.log(`🎯 Boundary check: "${trimmedLine.substring(0, 30)}..." | Text: ${lineWidth.toFixed(2)}mm | Available: ${effectiveAvailableWidth.toFixed(2)}mm | Buffer: ${userSafetyBuffer}mm | ${lineWidth <= effectiveAvailableWidth ? '✅ FITS' : '❌ EXCEEDS'}`);
+        console.log(`🎯 BOUNDARY CHECK: "${trimmedLine.substring(0, 40)}..." | Text: ${lineWidth.toFixed(2)}mm | Available: ${effectiveAvailableWidth.toFixed(2)}mm | Buffer: ${userSafetyBuffer}mm | ${lineWidth <= effectiveAvailableWidth ? '✅ FITS' : '❌ EXCEEDS BOUNDARY'}`);
 
         if (lineWidth <= effectiveAvailableWidth) {
           // Line fits within boundaries - SAFE to use
@@ -211,7 +211,7 @@ function App() {
           return;
         }
 
-        // Line exceeds boundaries - MUST break to respect hard limits
+        // 🎯 SMART WORD WRAPPING: Avoid single-word lines with look-ahead logic
         const words = trimmedLine.split(' ');
         let currentLine = '';
 
@@ -221,26 +221,58 @@ function App() {
           const testWidth = estimateTextWidth(testLine);
 
           if (testWidth <= effectiveAvailableWidth) {
-            // Word fits within boundaries
+            // Word fits - add it to current line
             currentLine = testLine;
           } else {
-            // Word would exceed boundaries - MUST break line
+            // Word doesn't fit - check if we can avoid single-word line
             if (currentLine) {
-              // Push current line and start new line with the word that didn't fit
+              // Look ahead: if this would create a single-word line, try to rebalance
+              const isLastWord = i === words.length - 1;
+              const nextWord = !isLastWord ? words[i + 1] : null;
+
+              if (!isLastWord && nextWord) {
+                // Check if next word would also be alone on its line
+                const nextWordWidth = estimateTextWidth(nextWord);
+                const currentLineWords = currentLine.split(' ');
+
+                // If current line has multiple words and next word would be alone,
+                // try moving last word from current line to next line with the word that doesn't fit
+                if (currentLineWords.length > 1 && nextWordWidth < effectiveAvailableWidth) {
+                  const lastWordInCurrentLine = currentLineWords[currentLineWords.length - 1];
+                  const shortenedCurrentLine = currentLineWords.slice(0, -1).join(' ');
+                  const newNextLine = `${lastWordInCurrentLine} ${word}`;
+                  const newNextLineWidth = estimateTextWidth(newNextLine);
+
+                  // If the rebalanced next line fits, use this approach
+                  if (newNextLineWidth <= effectiveAvailableWidth) {
+                    wrappedLines.push(shortenedCurrentLine);
+                    const shortenedWidth = estimateTextWidth(shortenedCurrentLine);
+                    console.log(`📄 REBALANCED LINE: "${shortenedCurrentLine}" | ${shortenedWidth.toFixed(2)}mm/${effectiveAvailableWidth.toFixed(2)}mm (${((shortenedWidth/effectiveAvailableWidth)*100).toFixed(1)}% usage)`);
+                    currentLine = newNextLine;
+                    continue; // Skip to next word since we handled current word
+                  }
+                }
+              }
+
+              // Standard approach: finalize current line and start new line
               wrappedLines.push(currentLine);
-              // console.log(`✅ Line within boundaries: "${currentLine}" | Width: ${estimateTextWidth(currentLine).toFixed(2)}mm`);
+              const currentWidth = estimateTextWidth(currentLine);
+              console.log(`📄 STANDARD LINE: "${currentLine.substring(0, 40)}..." | ${currentWidth.toFixed(2)}mm/${effectiveAvailableWidth.toFixed(2)}mm (${((currentWidth/effectiveAvailableWidth)*100).toFixed(1)}% usage)`);
               currentLine = word;
             } else {
-              // Single word exceeds boundaries - CRITICAL ERROR
-              console.error(`🚨 BOUNDARY VIOLATION: Single word "${word}" exceeds available width: ${testWidth.toFixed(2)}mm > ${effectiveAvailableWidth.toFixed(2)}mm`);
-              console.error(`🚨 USER MUST: 1) Increase buffer space, 2) Use smaller font, or 3) Shorten text`);
-              wrappedLines.push(word); // Push anyway but flag as violation
+              // Single word too long - force it
+              wrappedLines.push(word);
+              console.warn(`⚠️ FORCED WORD: "${word}" exceeds boundary (${testWidth.toFixed(2)}mm > ${effectiveAvailableWidth.toFixed(2)}mm)`);
+              currentLine = '';
             }
           }
         }
 
+        // Add final line if exists
         if (currentLine) {
           wrappedLines.push(currentLine);
+          const finalWidth = estimateTextWidth(currentLine);
+          console.log(`📄 FINAL LINE: "${currentLine.substring(0, 40)}..." | ${finalWidth.toFixed(2)}mm/${effectiveAvailableWidth.toFixed(2)}mm (${((finalWidth/effectiveAvailableWidth)*100).toFixed(1)}% usage)`);
         }
       });
 
@@ -11648,6 +11680,17 @@ function App() {
 
                           const baseAvailableWidthPx = Math.max(0, baseRegionWidthPx - basePaddingLeftPx - basePaddingRightPx);
                           const baseAvailableHeightPx = Math.max(0, baseRegionHeightPx - basePaddingTopPx - basePaddingBottomPx);
+
+                          console.log('🔍 PADDING BOUNDARY CHECK:', {
+                            regionWidthPx: baseRegionWidthPx.toFixed(2),
+                            paddingLeftPx: basePaddingLeftPx.toFixed(2),
+                            paddingRightPx: basePaddingRightPx.toFixed(2),
+                            availableWidthPx: baseAvailableWidthPx.toFixed(2),
+                            availableWidthMm: (baseAvailableWidthPx / 3.779527559).toFixed(2),
+                            paddingLeftMm: padding.left.toFixed(2),
+                            paddingRightMm: padding.right.toFixed(2),
+                            regionWidthMm: region.width.toFixed(2)
+                          });
 
                           const regionProcessedResult = processChildRegionTextWrapping(
                             displayText,
