@@ -63,6 +63,7 @@ interface UniversalContentDialogProps {
   masterPropertiesVersion?: number; // Add version number to trigger updates
   onSave: (data: UniversalContentData) => void;
   onCancel: () => void;
+  onCreateNewMother?: (originalText: string, overflowText: string) => void; // New callback for mother creation
 }
 
 const fontFamilies = [
@@ -87,7 +88,8 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
   onRecalculateOverflow,
   masterPropertiesVersion,
   onSave,
-  onCancel
+  onCancel,
+  onCreateNewMother
 }) => {
   // Dragging state
   const [isDragging, setIsDragging] = useState(false);
@@ -632,8 +634,8 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
       return;
     }
 
-    // Handle overflow for text-based content types (line-text, paragraphs)
-    const textContentTypes = ['line-text', 'pure-english-paragraph', 'translation-paragraph'];
+    // Handle overflow for text-based content types (line-text, paragraphs, new-comp-trans)
+    const textContentTypes = ['line-text', 'pure-english-paragraph', 'translation-paragraph', 'new-comp-trans'];
     if (textContentTypes.includes(contentType.id) && onOverflowToggle) {
       if (editingContent) {
         // For editing content, apply overflow state immediately
@@ -1247,6 +1249,7 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
                 handleSave();
               }}
               onCancel={onCancel}
+              onCreateNewMother={onCreateNewMother}
             />
           )}
 

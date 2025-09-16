@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import MovableDialog from './MovableDialog';
+import TextSplitPreviewDialog from './dialogs/TextSplitPreviewDialog';
 
 // Available languages from composition table (18 languages) - Database codes
 const availableLanguages = [
@@ -118,6 +119,7 @@ interface NewCompTransDialogProps {
   existingCompositions?: MaterialComposition[][]; // Array of existing composition arrays from other regions
   onSave: (config: NewCompTransConfig) => void;
   onCancel: () => void;
+  onCreateNewMother?: (originalText: string, overflowText: string) => void; // New callback for mother creation
 }
 
 const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
@@ -128,7 +130,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
   editingContent,
   existingCompositions = [],
   onSave,
-  onCancel
+  onCancel,
+  onCreateNewMother
 }) => {
   const [config, setConfig] = useState<NewCompTransConfig>({
     padding: {
@@ -166,6 +169,13 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
   // Overflow handling state
   const [overflowOption, setOverflowOption] = useState<'keep-flowing' | 'truncate' | 'shrink'>('truncate');
+
+  // Split preview dialog state
+  const [showSplitPreview, setShowSplitPreview] = useState(false);
+  const [splitText, setSplitText] = useState({ originalText: '', overflowText: '' });
+
+  // Overflow detection state for UI feedback
+  const [hasOverflow, setHasOverflow] = useState(false);
 
   // Helper function to generate a unique signature for a composition
   const generateCompositionSignature = (compositions: MaterialComposition[]): string => {
@@ -373,6 +383,110 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     return wrappedLines.join(config.lineBreakSettings?.lineBreakSymbol || '\n');
   };
 
+  // Canvas-based overflow detection and text splitting (similar to NewMultiLineDialog)
+  const detectOverflowAndSplit = () => {
+    const text = generateTextContent();
+    if (!text || !regionWidth || !regionHeight) return { hasOverflow: false, originalText: text, overflowText: '' };
+
+    // Calculate available space in pixels
+    const regionWidthPx = regionWidth * 3.779527559; // Convert mm to px (96 DPI)
+    const regionHeightPx = regionHeight * 3.779527559;
+    const paddingLeftPx = config.padding.left * 3.779527559;
+    const paddingRightPx = config.padding.right * 3.779527559;
+    const paddingTopPx = config.padding.top * 3.779527559;
+    const paddingBottomPx = config.padding.bottom * 3.779527559;
+
+    const availableWidthPx = Math.max(0, regionWidthPx - paddingLeftPx - paddingRightPx);
+    const availableHeightPx = Math.max(0, regionHeightPx - paddingTopPx - paddingBottomPx);
+
+    // Convert font size to pixels
+    let fontSizePx = config.typography.fontSize;
+    if (config.typography.fontSizeUnit === 'mm') {
+      fontSizePx = config.typography.fontSize * 3.779527559;
+    } else if (config.typography.fontSizeUnit === 'pt') {
+      fontSizePx = (config.typography.fontSize * 4/3);
+    }
+
+    // Text width estimation using canvas measurement
+    const estimateTextWidth = (text: string): number => {
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      if (!context) return text.length * 2; // Fallback
+
+      context.font = `${fontSizePx}px ${config.typography.fontFamily}`;
+      const textWidthPx = context.measureText(text).width;
+      return textWidthPx / 3.779527559; // Convert to mm
+    };
+
+    const availableWidthMm = availableWidthPx / 3.779527559;
+    const fontSizeMm = fontSizePx / 3.779527559;
+
+    // Word wrapping logic
+    const wrapTextToLines = (text: string): string[] => {
+      const manualLines = text.split(config.lineBreakSettings.lineBreakSymbol);
+      const wrappedLines: string[] = [];
+
+      manualLines.forEach(line => {
+        const trimmedLine = line.trim();
+        if (!trimmedLine) {
+          wrappedLines.push(''); // Preserve empty lines
+          return;
+        }
+
+        const words = trimmedLine.split(' ');
+        let currentLine = '';
+
+        words.forEach((word, index) => {
+          const testLine = currentLine ? `${currentLine} ${word}` : word;
+          const testWidth = estimateTextWidth(testLine);
+
+          if (testWidth <= availableWidthMm) {
+            currentLine = testLine;
+          } else {
+            if (currentLine) {
+              wrappedLines.push(currentLine);
+              currentLine = word;
+            } else {
+              wrappedLines.push(word);
+            }
+          }
+        });
+
+        if (currentLine) {
+          wrappedLines.push(currentLine);
+        }
+      });
+
+      return wrappedLines;
+    };
+
+    const lines = wrapTextToLines(text);
+
+    // Check for height overflow
+    const lineHeightMm = fontSizeMm * config.lineBreakSettings.lineSpacing;
+    const totalTextHeightMm = lines.length * lineHeightMm;
+    const availableHeightMm = availableHeightPx / 3.779527559;
+    const hasOverflow = totalTextHeightMm > availableHeightMm;
+
+    if (hasOverflow) {
+      const maxVisibleLines = Math.floor(availableHeightMm / lineHeightMm);
+      const originalLines = lines.slice(0, maxVisibleLines);
+      const overflowLines = lines.slice(maxVisibleLines);
+
+      return {
+        hasOverflow: true,
+        originalText: originalLines.join(config.lineBreakSettings.lineBreakSymbol),
+        overflowText: overflowLines.join(config.lineBreakSettings.lineBreakSymbol)
+      };
+    }
+
+    return {
+      hasOverflow: false,
+      originalText: text,
+      overflowText: ''
+    };
+  };
+
   // Add new material composition row
   const addMaterialComposition = () => {
     if (canAddMore()) {
@@ -470,6 +584,12 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       const initialConfig = getInitialConfig();
       setConfig(initialConfig);
       setOverflowOption(initialConfig.overflowOption);
+
+      // Debug: Check if callback is available
+      console.log('🔍 NewCompTransDialog opened with callback:', {
+        hasOnCreateNewMother: !!onCreateNewMother,
+        callbackType: typeof onCreateNewMother
+      });
     }
   }, [isOpen, editingContent]);
 
@@ -493,12 +613,104 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     }));
   }, [config.materialCompositions, config.selectedLanguages, config.textContent.separator]);
 
+  // Check for overflow whenever content or settings change
+  useEffect(() => {
+    const overflowResult = detectOverflowAndSplit();
+    setHasOverflow(overflowResult.hasOverflow);
+  }, [config, regionWidth, regionHeight]);
+
   const handleSave = () => {
+    // Always check for overflow to provide user feedback
+    const overflowResult = detectOverflowAndSplit();
+
+    if (overflowResult.hasOverflow) {
+      if (overflowOption === 'keep-flowing') {
+        // Show split preview popup
+        setSplitText({
+          originalText: overflowResult.originalText,
+          overflowText: overflowResult.overflowText
+        });
+        setShowSplitPreview(true);
+        return; // Don't save yet, wait for user confirmation
+      } else {
+        // Text overflows but user hasn't selected "Keep Flowing"
+        // Show a warning and suggest the Keep Flowing option
+        const shouldUseKeepFlowing = window.confirm(
+          `⚠️ TEXT OVERFLOW DETECTED!\n\n` +
+          `Your text is too long for the current region and will be ${overflowOption === 'truncate' ? 'cut off' : 'shrunk'}.\n\n` +
+          `Would you like to use "Keep Flowing" instead to split the text across multiple regions?\n\n` +
+          `Click OK to switch to "Keep Flowing" and see the split preview, or Cancel to continue with ${overflowOption}.`
+        );
+
+        if (shouldUseKeepFlowing) {
+          setOverflowOption('keep-flowing');
+          // Show split preview popup
+          setSplitText({
+            originalText: overflowResult.originalText,
+            overflowText: overflowResult.overflowText
+          });
+          setShowSplitPreview(true);
+          return; // Don't save yet, wait for user confirmation
+        }
+      }
+    }
+
+    // No overflow or user chose to proceed with current option
     onSave(config);
   };
 
   const handleCancel = () => {
     onCancel();
+  };
+
+  // Handle split preview dialog confirmation
+  const handleSplitConfirm = () => {
+    console.log('🚨 BUTTON CLICKED: handleSplitConfirm called!');
+    console.log('🔄 Split confirmed - creating new mother with overflow text');
+    console.log('🔍 Debug info:', {
+      onCreateNewMother: !!onCreateNewMother,
+      onCreateNewMotherType: typeof onCreateNewMother,
+      splitText: !!splitText,
+      splitTextContent: splitText
+    });
+
+    setShowSplitPreview(false);
+
+    // First trigger mother duplication with overflow text
+    if (onCreateNewMother && splitText) {
+      console.log('📋 Calling onCreateNewMother with:', {
+        originalText: splitText.originalText,
+        overflowText: splitText.overflowText
+      });
+      try {
+        onCreateNewMother(splitText.originalText, splitText.overflowText);
+        console.log('✅ onCreateNewMother called successfully');
+      } catch (error) {
+        console.error('❌ Error calling onCreateNewMother:', error);
+      }
+    } else {
+      console.error('❌ Cannot create new mother:', {
+        hasCallback: !!onCreateNewMother,
+        callbackType: typeof onCreateNewMother,
+        hasSplitText: !!splitText,
+        splitTextDetails: splitText
+      });
+    }
+
+    // Then save the current config with original text (truncated to fit current region)
+    const configWithOriginalText: NewCompTransConfig = {
+      ...config,
+      overflowOption: 'keep-flowing' // Ensure it's set to keep-flowing
+    };
+
+    // Save the current region with original text
+    onSave(configWithOriginalText);
+  };
+
+  // Handle split preview dialog cancellation
+  const handleSplitCancel = () => {
+    setShowSplitPreview(false);
+    // Don't save, user cancelled the split
   };
 
   const handleLanguageToggle = (languageCode: string) => {
@@ -528,6 +740,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
   };
 
   return (
+    <>
     <MovableDialog
       isOpen={isOpen}
       title="Composition Translation Settings"
@@ -1431,17 +1644,21 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
             <div style={{
               marginTop: '12px',
               padding: '8px',
-              backgroundColor: '#f8f9fa',
+              backgroundColor: hasOverflow ? '#fff3cd' : '#f8f9fa',
               borderRadius: '4px',
-              border: '1px solid #e9ecef'
+              border: hasOverflow ? '2px solid #ffc107' : '1px solid #e9ecef'
             }}>
               <div style={{
                 fontSize: '12px',
                 fontWeight: '600',
                 marginBottom: '8px',
-                color: '#333'
+                color: hasOverflow ? '#856404' : '#333',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
               }}>
-                Overflow:
+                {hasOverflow && <span>⚠️</span>}
+                Overflow: {hasOverflow ? 'TEXT TOO LONG - Choose handling method' : 'No overflow detected'}
               </div>
 
               <div style={{
@@ -1457,13 +1674,14 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
                   cursor: 'pointer',
                   padding: '6px 10px',
                   border: '2px solid',
-                  borderColor: overflowOption === 'keep-flowing' ? '#007bff' : '#ddd',
+                  borderColor: overflowOption === 'keep-flowing' ? '#007bff' : (hasOverflow ? '#28a745' : '#ddd'),
                   borderRadius: '4px',
-                  backgroundColor: overflowOption === 'keep-flowing' ? '#e3f2fd' : 'white',
+                  backgroundColor: overflowOption === 'keep-flowing' ? '#e3f2fd' : (hasOverflow ? '#d4edda' : 'white'),
                   fontSize: '11px',
-                  fontWeight: '500',
+                  fontWeight: hasOverflow ? '600' : '500',
                   minWidth: '90px',
-                  justifyContent: 'center'
+                  justifyContent: 'center',
+                  position: 'relative'
                 }}>
                   <input
                     type="radio"
@@ -1473,7 +1691,26 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
                     onChange={(e) => setOverflowOption(e.target.value as any)}
                     style={{ margin: 0, marginRight: '4px' }}
                   />
-                  Keep Flowing
+                  🌊 Keep Flowing
+                  {hasOverflow && overflowOption !== 'keep-flowing' && (
+                    <span style={{
+                      position: 'absolute',
+                      top: '-8px',
+                      right: '-8px',
+                      backgroundColor: '#28a745',
+                      color: 'white',
+                      borderRadius: '50%',
+                      width: '16px',
+                      height: '16px',
+                      fontSize: '10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 'bold'
+                    }}>
+                      !
+                    </span>
+                  )}
                 </label>
 
                 {/* Truncate */}
@@ -1500,7 +1737,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
                     onChange={(e) => setOverflowOption(e.target.value as any)}
                     style={{ margin: 0, marginRight: '4px' }}
                   />
-                  Truncate
+                  ✂️ Truncate
                 </label>
 
                 {/* Shrink */}
@@ -1527,7 +1764,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
                     onChange={(e) => setOverflowOption(e.target.value as any)}
                     style={{ margin: 0, marginRight: '4px' }}
                   />
-                  Shrink
+                  🔍 Shrink
                 </label>
               </div>
             </div>
@@ -1589,6 +1826,16 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
           </div>
         </div>
     </MovableDialog>
+
+    {/* Split Preview Dialog */}
+    <TextSplitPreviewDialog
+      isOpen={showSplitPreview}
+      originalText={splitText.originalText}
+      overflowText={splitText.overflowText}
+      onConfirm={handleSplitConfirm}
+      onCancel={handleSplitCancel}
+    />
+  </>
   );
 };
 

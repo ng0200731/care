@@ -151,7 +151,7 @@ function App() {
       // NO reduction - we want the real width to ensure no boundary crossing
       const actualWidth = textWidthMm + wideCharacterBuffer;
 
-      console.log(`📐 Text measurement: "${text.substring(0, 20)}..." | Canvas: ${textWidthMm.toFixed(2)}mm | Wide chars: ${wideCharCount} | Final: ${actualWidth.toFixed(2)}mm`);
+      // console.log(`📐 Text measurement: "${text.substring(0, 20)}..." | Canvas: ${textWidthMm.toFixed(2)}mm | Wide chars: ${wideCharCount} | Final: ${actualWidth.toFixed(2)}mm`);
 
       return actualWidth;
     };
@@ -188,10 +188,10 @@ function App() {
         const wideCharacters = /[AVMW]/g;
         const wideCharCount = (trimmedLine.match(wideCharacters) || []).length;
         if (wideCharCount > 0) {
-          console.warn(`⚠️ Wide characters detected: ${wideCharCount} characters (${trimmedLine.match(wideCharacters)?.join(', ')}) in "${trimmedLine.substring(0, 30)}..."`);
+          // console.warn(`⚠️ Wide characters detected: ${wideCharCount} characters (${trimmedLine.match(wideCharacters)?.join(', ')}) in "${trimmedLine.substring(0, 30)}..."`);
         }
 
-        console.log(`🎯 Boundary check: "${trimmedLine.substring(0, 30)}..." | Text: ${lineWidth.toFixed(2)}mm | Available: ${effectiveAvailableWidth.toFixed(2)}mm | Buffer: ${userSafetyBuffer}mm | ${lineWidth <= effectiveAvailableWidth ? '✅ FITS' : '❌ EXCEEDS'}`);
+        // console.log(`🎯 Boundary check: "${trimmedLine.substring(0, 30)}..." | Text: ${lineWidth.toFixed(2)}mm | Available: ${effectiveAvailableWidth.toFixed(2)}mm | Buffer: ${userSafetyBuffer}mm | ${lineWidth <= effectiveAvailableWidth ? '✅ FITS' : '❌ EXCEEDS'}`);
 
         if (lineWidth <= effectiveAvailableWidth) {
           // Line fits within boundaries - SAFE to use
@@ -216,7 +216,7 @@ function App() {
             if (currentLine) {
               // Push current line and start new line with the word that didn't fit
               wrappedLines.push(currentLine);
-              console.log(`✅ Line within boundaries: "${currentLine}" | Width: ${estimateTextWidth(currentLine).toFixed(2)}mm`);
+              // console.log(`✅ Line within boundaries: "${currentLine}" | Width: ${estimateTextWidth(currentLine).toFixed(2)}mm`);
               currentLine = word;
             } else {
               // Single word exceeds boundaries - CRITICAL ERROR
@@ -248,18 +248,18 @@ function App() {
     // Trim lines if overflow
     const finalLines = hasOverflow ? wrappedLines.slice(0, maxLines) : wrappedLines;
 
-    console.log('🎯 Child region text wrapping:', {
-      availableWidthMm: availableWidthMm.toFixed(2),
-      availableHeightPx: availableHeightPx.toFixed(2),
-      safeAvailableHeight: safeAvailableHeight.toFixed(2),
-      fontSizePx,
-      lineHeight,
-      textBaselineOffset: textBaselineOffset.toFixed(2),
-      maxLines,
-      totalLines: wrappedLines.length,
-      finalLines: finalLines.length,
-      hasOverflow
-    });
+    // console.log('🎯 Child region text wrapping:', {
+    //   availableWidthMm: availableWidthMm.toFixed(2),
+    //   availableHeightPx: availableHeightPx.toFixed(2),
+    //   safeAvailableHeight: safeAvailableHeight.toFixed(2),
+    //   fontSizePx,
+    //   lineHeight,
+    //   textBaselineOffset: textBaselineOffset.toFixed(2),
+    //   maxLines,
+    //   totalLines: wrappedLines.length,
+    //   finalLines: finalLines.length,
+    //   hasOverflow
+    // });
 
     return { lines: finalLines, hasOverflow };
   };
@@ -553,7 +553,7 @@ function App() {
   // Font loading and embedding utility for Wash Care Symbols M54
   const embedWashCareFont = async (pdf: any): Promise<boolean> => {
     try {
-      console.log('🔄 Loading Wash Care Symbols M54 font...');
+      // console.log('🔄 Loading Wash Care Symbols M54 font...');
 
       // Fetch the font file from public directory
       const fontResponse = await fetch('/fonts/Wash_Care_Symbols_M54.ttf');
@@ -573,7 +573,7 @@ function App() {
       }
       const fontBase64 = btoa(binaryString);
 
-      console.log('✅ Font file loaded, size:', fontBytes.length, 'bytes');
+      // console.log('✅ Font file loaded, size:', fontBytes.length, 'bytes');
 
       // Add font to PDF virtual file system
       pdf.addFileToVFS('WashCareSymbolsM54.ttf', fontBase64);
@@ -584,7 +584,7 @@ function App() {
       // Also register with shorter alias for compatibility
       pdf.addFont('WashCareSymbolsM54.ttf', 'WashCareSymbolsM54', 'normal');
 
-      console.log('✅ Wash Care Symbols M54 font embedded successfully in PDF');
+      // console.log('✅ Wash Care Symbols M54 font embedded successfully in PDF');
       return true;
     } catch (error) {
       console.error('❌ Font embedding failed:', error);
@@ -1351,7 +1351,7 @@ function App() {
     // Step 2: Apply zoom consistently (same for ALL regions)
     const scaledFontSize = Math.max(6, fontSizeInPixels * zoom);
 
-    console.log(`🎯 Consistent font scaling: ${fontSize}${fontSizeUnit} → ${fontSizeInPixels}px → ${scaledFontSize}px (zoom: ${zoom})`);
+    // console.log(`🎯 Consistent font scaling: ${fontSize}${fontSizeUnit} → ${fontSizeInPixels}px → ${scaledFontSize}px (zoom: ${zoom})`);
 
     return scaledFontSize;
   };
@@ -1830,7 +1830,7 @@ function App() {
     // If this content is not in the chain, ignore
     if (!chain.includes(contentId)) return;
 
-    console.log(`🔄 FONT SIZE REDISTRIBUTION WITH TEXT: Starting for ${contentType} (triggered by ${contentId}, initiator: ${masterContentId})`);
+    // console.log(`🔄 FONT SIZE REDISTRIBUTION WITH TEXT: Starting for ${contentType} (triggered by ${contentId}, initiator: ${masterContentId})`);
 
     // Use the provided text directly instead of reading from state
     const originalText = newText || '';
@@ -2013,7 +2013,7 @@ function App() {
     // If this content is not in the chain, ignore
     if (!chain.includes(contentId)) return;
 
-    console.log(`🔄 FONT SIZE REDISTRIBUTION: Starting for ${contentType} (triggered by ${contentId}, initiator: ${masterContentId})`);
+    // console.log(`🔄 FONT SIZE REDISTRIBUTION: Starting for ${contentType} (triggered by ${contentId}, initiator: ${masterContentId})`);
 
     // STEP 1: Get original text from Position #1 only (the initiator)
     const masterRegionEntry = Array.from(regionContents.entries()).find(([regionId, contents]) =>
@@ -2170,7 +2170,7 @@ function App() {
 
       console.log(`📊 PRECISE CAPACITY DEBUG: Position ${position}:`);
       console.log(`   - Region: ${targetRegion.width}×${targetRegion.height}mm`);
-      console.log(`   - Font: ${fontSize}px ${fontFamily}`);
+      // console.log(`   - Font: ${fontSize}px ${fontFamily}`);
       console.log(`   - Lines: ${preciseCapacity.maxLines}, Chars/line: ${preciseCapacity.avgCharsPerLine}`);
       console.log(`   - Total capacity: ${preciseCapacity.totalCapacity}, Target: ${capacity}`);
       console.log(`   - Current text: ${currentText.length} chars`);
@@ -4428,7 +4428,7 @@ function App() {
           // Try to embed Wash Care Symbols M54 font
           const fontEmbedded = await embedWashCareFont(pdf);
           if (fontEmbedded) {
-            console.log('✅ Font embedded successfully for canvas PDF');
+            // console.log('✅ Font embedded successfully for canvas PDF');
           }
 
           // Add the canvas image to PDF (full page)
@@ -6361,6 +6361,129 @@ function App() {
     setUniversalDialog({ isOpen: false, regionId: '', contentType: null, editingContent: null });
   };
 
+  // Function to handle mother duplication when text overflow occurs
+  const handleCreateNewMotherForOverflow = (originalText: string, overflowText: string) => {
+    console.log('🔄 Creating new mother for overflow text:', { originalText, overflowText });
+    console.log('🔍 Universal dialog state:', universalDialog);
+
+    const currentData = data || webCreationData;
+    if (!currentData) {
+      console.error('❌ No current data available for mother duplication');
+      return;
+    }
+
+    console.log('📊 Current data objects:', currentData.objects.length);
+
+    // Find the current region to determine which mother to duplicate
+    let currentMother: AIObject | null = null;
+    let currentRegion: any = null;
+
+    for (const obj of currentData.objects) {
+      if (obj.type?.includes('mother')) {
+        const regions = (obj as any).regions || [];
+        console.log(`🔍 Checking mother ${obj.name} with ${regions.length} regions`);
+        const region = regions.find((r: any) => r.id === universalDialog.regionId);
+        if (region) {
+          currentMother = obj;
+          currentRegion = region;
+          console.log('✅ Found matching region:', region.id);
+          break;
+        }
+      }
+    }
+
+    if (!currentMother) {
+      console.error('❌ Could not find mother object for current region:', universalDialog.regionId);
+      return;
+    }
+
+    console.log('📋 Found mother to duplicate:', currentMother.name);
+    console.log('📍 Current region:', currentRegion.name);
+
+    // Use the existing duplicateMother function to create the new mother
+    console.log('🚀 Calling duplicateMother...');
+    duplicateMother(currentMother);
+
+    // After duplication, we need to set up the overflow text in the new mother
+    // The duplicateMother function will create a new mother, so we need to find it and add the overflow content
+    setTimeout(() => {
+      const updatedData = data || webCreationData;
+      if (!updatedData) return;
+
+      // Find the newly created mother (should be the last one)
+      const motherObjects = updatedData.objects.filter(obj => obj.type?.includes('mother'));
+      const newMother = motherObjects[motherObjects.length - 1];
+
+      if (newMother && newMother.name !== currentMother!.name) {
+        console.log('📝 Setting up overflow content in new mother:', newMother.name);
+
+        // Find the corresponding region in the new mother (same position as original)
+        const newMotherRegions = (newMother as any).regions || [];
+        const correspondingRegion = newMotherRegions.find((r: any) =>
+          r.name === currentRegion.name || r.x === currentRegion.x && r.y === currentRegion.y
+        );
+
+        if (correspondingRegion) {
+          console.log('📍 Found corresponding region in new mother:', correspondingRegion.name);
+
+          // Create content data for the overflow text
+          const overflowContentData = {
+            id: `overflow_${Date.now()}`,
+            type: 'new-comp-trans',
+            regionId: correspondingRegion.id,
+            layout: {
+              occupyLeftoverSpace: true,
+              fullWidth: true,
+              fullHeight: true,
+              width: { value: 100, unit: '%' as const },
+              height: { value: 100, unit: '%' as const },
+              horizontalAlign: 'left' as const,
+              verticalAlign: 'top' as const,
+              padding: { top: 0, right: 0, bottom: 0, left: 0 }
+            },
+            typography: {
+              fontFamily: 'Arial',
+              fontSize: 12,
+              fontColor: '#000000'
+            },
+            content: {
+              text: overflowText,
+              materialCompositions: [], // Empty - this will be blank content as requested
+              selectedLanguages: [],
+              lineBreakSettings: {
+                lineBreakSymbol: '\n',
+                lineSpacing: 1.2,
+                lineWidth: 100
+              }
+            },
+            newCompTransConfig: {
+              materialCompositions: [], // Blank content
+              selectedLanguages: [],
+              textContent: {
+                generatedText: overflowText
+              },
+              lineBreakSettings: {
+                lineBreakSymbol: '\n',
+                lineSpacing: 1.2,
+                lineWidth: 100
+              },
+              overflowOption: 'truncate'
+            }
+          };
+
+          // Add the overflow content to the region
+          const updatedContents = new Map(regionContents);
+          updatedContents.set(correspondingRegion.id, [overflowContentData]);
+          setRegionContents(updatedContents);
+
+          console.log('✅ Overflow content added to new mother region');
+          setNotification(`✅ New mother created with overflow text: ${newMother.name}`);
+          setTimeout(() => setNotification(null), 3000);
+        }
+      }
+    }, 100); // Small delay to ensure state updates are complete
+  };
+
   // Function to duplicate a mother object - using the same approach as createMotherObject
   const duplicateMother = (originalMother: AIObject) => {
     console.log('🔄 DUPLICATE BUTTON CLICKED!');
@@ -7049,9 +7172,9 @@ function App() {
       // Try to embed Wash Care Symbols M54 font for washing care symbols
       const fontEmbedded = await embedWashCareFont(pdf);
       if (fontEmbedded) {
-        console.log('✅ Font embedded successfully for PDF generation');
+        // console.log('✅ Font embedded successfully for PDF generation');
       } else {
-        console.log('⚠️ Font embedding failed, will use canvas rendering and fallback shapes');
+        // console.log('⚠️ Font embedding failed, will use canvas rendering and fallback shapes');
       }
 
       // Add title and paper size info
@@ -7596,12 +7719,12 @@ function App() {
                             pdf.setTextColor(0, 0, 0);
                             pdf.text(symbol, symbolX, symbolY, { align: 'center', baseline: 'middle' });
                             fontUsed = true;
-                            console.log(`✅ Used embedded font for symbol: ${symbol}`);
+                            // console.log(`✅ Used embedded font for symbol: ${symbol}`);
                             // Reset font back to Arial/Helvetica for subsequent text rendering
                             pdf.setFont('helvetica', 'normal');
                           } catch (error) {
                             // Font not available, try canvas rendering
-                            console.log(`⚠️ Font not available for symbol: ${symbol}, error:`, error);
+                            // console.log(`⚠️ Font not available for symbol: ${symbol}, error:`, error);
                             fontUsed = false;
                           }
 
@@ -7618,7 +7741,7 @@ function App() {
                                 // Add the canvas-rendered symbol as image
                                 pdf.addImage(canvasImage, 'PNG', imageX, imageY, imageSize, imageSize);
                                 canvasUsed = true;
-                                console.log('✅ Used canvas rendering for child symbol:', symbol);
+                                // console.log('✅ Used canvas rendering for child symbol:', symbol);
                               } catch (error) {
                                 console.error('❌ Canvas image failed for child:', error);
                                 canvasUsed = false;
@@ -7808,7 +7931,7 @@ function App() {
                                 const contentStartY = regionY + childRegion.y + configPadding.top;
                                 pdf.addImage(imgData, 'PNG', contentStartX, contentStartY, imgWidthMM, imgHeightMM, undefined, 'FAST');
 
-                                console.log('📋 Exact canvas-to-PDF rendering complete (pixel-perfect match)');
+                                // console.log('📋 Exact canvas-to-PDF rendering complete (pixel-perfect match)');
 
                                 // Create selectable text overlay for webpage interaction
                                 const regionBounds = {
@@ -7864,20 +7987,20 @@ function App() {
                           const alignOption = configAlignment.horizontal === 'center' ? 'center' :
                                              configAlignment.horizontal === 'right' ? 'right' : 'left';
 
-                          console.log('🖨️ PDF Composition Text Rendering (Child) - DETAILED DEBUG:', {
-                            originalText: textContent,
-                            availableWidthMm: availableWidth,
-                            availableHeightMm: availableHeight,
-                            availableWidthPx: availableWidthPx,
-                            availableHeightPx: availableHeightPx,
-                            fontSizeForProcessing: fontSizeForProcessing,
-                            scaledFontSize: scaledFontSize,
-                            fontSizeUnit: configTypography.fontSizeUnit,
-                            wrappedLines: wrappedResult.lines,
-                            lineCount: wrappedResult.lines.length,
-                            hasOverflow: wrappedResult.hasOverflow,
-                            padding: configPadding
-                          });
+                          // console.log('🖨️ PDF Composition Text Rendering (Child) - DETAILED DEBUG:', {
+                          //   originalText: textContent,
+                          //   availableWidthMm: availableWidth,
+                          //   availableHeightMm: availableHeight,
+                          //   availableWidthPx: availableWidthPx,
+                          //   availableHeightPx: availableHeightPx,
+                          //   fontSizeForProcessing: fontSizeForProcessing,
+                          //   scaledFontSize: scaledFontSize,
+                          //   fontSizeUnit: configTypography.fontSizeUnit,
+                          //   wrappedLines: wrappedResult.lines,
+                          //   lineCount: wrappedResult.lines.length,
+                          //   hasOverflow: wrappedResult.hasOverflow,
+                          //   padding: configPadding
+                          // });
 
                           wrappedResult.lines.forEach((line: string, lineIndex: number) => {
                             const lineY = textY + (lineIndex * lineHeightMM);
@@ -8183,12 +8306,12 @@ function App() {
                         pdf.setTextColor(0, 0, 0);
                         pdf.text(symbol, symbolX, symbolY, { align: 'center', baseline: 'middle' });
                         fontUsed = true;
-                        console.log(`✅ Used embedded font for symbol: ${symbol}`);
+                        // console.log(`✅ Used embedded font for symbol: ${symbol}`);
                         // Reset font back to Arial/Helvetica for subsequent text rendering
                         pdf.setFont('helvetica', 'normal');
                       } catch (error) {
                         // Font not available, try canvas rendering
-                        console.log(`⚠️ Font not available for symbol: ${symbol}, error:`, error);
+                        // console.log(`⚠️ Font not available for symbol: ${symbol}, error:`, error);
                         fontUsed = false;
                       }
 
@@ -8205,7 +8328,7 @@ function App() {
                             // Add the canvas-rendered symbol as image
                             pdf.addImage(canvasImage, 'PNG', imageX, imageY, imageSize, imageSize);
                             canvasUsed = true;
-                            console.log('✅ Used canvas rendering for symbol:', symbol);
+                            // console.log('✅ Used canvas rendering for symbol:', symbol);
                           } catch (error) {
                             console.error('❌ Canvas image failed:', error);
                             canvasUsed = false;
@@ -8413,7 +8536,7 @@ function App() {
                       const contentStartY = regionY + configPadding.top;
                       pdf.addImage(imgData, 'PNG', contentStartX, contentStartY, imgWidthMM, imgHeightMM, undefined, 'FAST');
 
-                      console.log('📋 Exact canvas-to-PDF rendering complete (pixel-perfect match)');
+                      // console.log('📋 Exact canvas-to-PDF rendering complete (pixel-perfect match)');
 
                       // Create selectable text overlay for webpage interaction
                       const regionBounds = {
@@ -8443,20 +8566,20 @@ function App() {
                       const alignOption = configAlignment.horizontal === 'center' ? 'center' :
                                          configAlignment.horizontal === 'right' ? 'right' : 'left';
 
-                      console.log('🖨️ PDF Composition Text Rendering (Main) - DETAILED DEBUG:', {
-                        originalText: textContent,
-                        availableWidthMm: availableWidth,
-                        availableHeightMm: availableHeight,
-                        availableWidthPx: availableWidthPx,
-                        availableHeightPx: availableHeightPx,
-                        fontSizeForProcessing: fontSizeForProcessing,
-                        scaledFontSize: scaledFontSize,
-                        fontSizeUnit: configTypography.fontSizeUnit,
-                        wrappedLines: wrappedResult.lines,
-                        lineCount: wrappedResult.lines.length,
-                        hasOverflow: wrappedResult.hasOverflow,
-                        padding: configPadding
-                      });
+                      // console.log('🖨️ PDF Composition Text Rendering (Main) - DETAILED DEBUG:', {
+                      //   originalText: textContent,
+                      //   availableWidthMm: availableWidth,
+                      //   availableHeightMm: availableHeight,
+                      //   availableWidthPx: availableWidthPx,
+                      //   availableHeightPx: availableHeightPx,
+                      //   fontSizeForProcessing: fontSizeForProcessing,
+                      //   scaledFontSize: scaledFontSize,
+                      //   fontSizeUnit: configTypography.fontSizeUnit,
+                      //   wrappedLines: wrappedResult.lines,
+                      //   lineCount: wrappedResult.lines.length,
+                      //   hasOverflow: wrappedResult.hasOverflow,
+                      //   padding: configPadding
+                      // });
 
                       wrappedResult.lines.forEach((line: string, lineIndex: number) => {
                         const lineY = textY + (lineIndex * lineHeightMM);
@@ -10886,12 +11009,12 @@ function App() {
                     return contents.map((content, contentIndex) => {
                     // DEBUG: Log rendering for region #2
                     if (region.id.includes('_0_master_2')) {
-                      console.log(`🎨 RENDERING content for ${region.id}:`, {
-                        content: content.content.text,
-                        lines: (content.content.text || '').split('\n').length,
-                        fontSize: content.typography?.fontSize,
-                        color: content.typography?.fontColor,
-                      });
+                      // console.log(`🎨 RENDERING content for ${region.id}:`, {
+                      //   content: content.content.text,
+                      //   lines: (content.content.text || '').split('\n').length,
+                      //   fontSize: content.typography?.fontSize,
+                      //   color: content.typography?.fontColor,
+                      // });
                     }
 
                       // Calculate content dimensions - CONSTRAINED TO REGION BOUNDARIES
@@ -11255,10 +11378,10 @@ function App() {
                         displayText = content.content.text;
                       } else if (content.type === 'new-washing-care-symbol' && content.content?.text) {
                         displayText = content.content.text;
-                        console.log('🧺 new-washing-care-symbol displayText:', displayText, 'content:', content);
+                        // console.log('🧺 new-washing-care-symbol displayText:', displayText, 'content:', content);
                       } else if (content.type === 'new-comp-trans' && content.newCompTransConfig?.textContent?.generatedText) {
                         displayText = content.newCompTransConfig.textContent.generatedText;
-                        console.log('🌐 new-comp-trans displayText:', displayText, 'content:', content);
+                        // console.log('🌐 new-comp-trans displayText:', displayText, 'content:', content);
                       } else if (content.type === 'pure-english-paragraph' && content.content?.text) {
                         displayText = content.content.text;
                       } else if (content.type === 'translation-paragraph') {
@@ -11322,7 +11445,7 @@ function App() {
                         padding = config.padding;
 
                         // Skip old word wrapping - new-multi-line uses processed lines from preview
-                        console.log('🎨 new-multi-line skipping old word wrapping, will use processed lines from preview');
+                        // console.log('🎨 new-multi-line skipping old word wrapping, will use processed lines from preview');
                       } else if (content.type === 'new-washing-care-symbol' && content.newWashingCareSymbolConfig) {
                         const config = content.newWashingCareSymbolConfig;
                         fontSize = config.typography.fontSize;
@@ -11332,7 +11455,7 @@ function App() {
                         verticalAlign = config.alignment.vertical;
                         padding = config.padding;
 
-                        console.log('🧺 new-washing-care-symbol using configuration:', config);
+                        // console.log('🧺 new-washing-care-symbol using configuration:', config);
                       } else if (content.type === 'new-comp-trans' && content.newCompTransConfig) {
                         const config = content.newCompTransConfig;
                         if (config && config.typography && config.alignment && config.padding) {
@@ -11343,7 +11466,7 @@ function App() {
                           verticalAlign = config.alignment.vertical;
                           padding = config.padding;
 
-                          console.log('🌐 new-comp-trans using configuration:', config);
+                          // console.log('🌐 new-comp-trans using configuration:', config);
                         }
                       }
 
@@ -11357,7 +11480,7 @@ function App() {
                         } else if (config.typography.fontSizeUnit === 'mm') {
                           fontSizeForProcessing = fontSize * 3.779527559; // Convert mm to pixels
                         }
-                        console.log('🎨 Font size conversion:', fontSize, config.typography.fontSizeUnit, '→', fontSizeForProcessing, 'px');
+                        // console.log('🎨 Font size conversion:', fontSize, config.typography.fontSizeUnit, '→', fontSizeForProcessing, 'px');
                       }
                       
                       // 🎯 ACCURATE TRUNCATION: Based on visual test results
@@ -11432,19 +11555,19 @@ function App() {
                         displayLines = regionProcessedResult.lines;
                         hasOverflow = regionProcessedResult.hasOverflow;
 
-                        console.log('✅ Canvas: Applied Canvas-First Sync logic-slice to composition translation:', {
-                          regionId: region.id,
-                          availableWidth: availableWidthPx,
-                          availableHeight: availableHeightPx,
-                          fontSize: regionScaledFontSize,
-                          lines: displayLines.length,
-                          hasOverflow
-                        });
+                        // console.log('✅ Canvas: Applied Canvas-First Sync logic-slice to composition translation:', {
+                        //   regionId: region.id,
+                        //   availableWidth: availableWidthPx,
+                        //   availableHeight: availableHeightPx,
+                        //   fontSize: regionScaledFontSize,
+                        //   lines: displayLines.length,
+                        //   hasOverflow
+                        // });
 
                         optimalFit = { overflow: hasOverflow ? 'height-truncated' : '' };
                       } else if (content.type === 'new-multi-line') {
                         // Apply Canvas-First Sync logic-slice to regions
-                        console.log('🎯 Canvas: Applying Canvas-First Sync logic-slice to region');
+                        // console.log('🎯 Canvas: Applying Canvas-First Sync logic-slice to region');
 
                         // Calculate available space for text in region (EXACT COPY from slice logic)
                         const regionWidthPx = region.width * scale;
@@ -11478,14 +11601,14 @@ function App() {
                         displayLines = regionProcessedResult.lines;
                         hasOverflow = regionProcessedResult.hasOverflow;
 
-                        console.log('✅ Canvas: Applied Canvas-First Sync logic-slice to region:', {
-                          regionId: region.id,
-                          availableWidth: availableWidthPx,
-                          availableHeight: availableHeightPx,
-                          fontSize: regionScaledFontSize,
-                          lines: displayLines.length,
-                          hasOverflow
-                        });
+                        // console.log('✅ Canvas: Applied Canvas-First Sync logic-slice to region:', {
+                        //   regionId: region.id,
+                        //   availableWidth: availableWidthPx,
+                        //   availableHeight: availableHeightPx,
+                        //   fontSize: regionScaledFontSize,
+                        //   lines: displayLines.length,
+                        //   hasOverflow
+                        // });
 
                         optimalFit = { overflow: hasOverflow ? 'height-truncated' : '' };
                       } else {
@@ -11594,7 +11717,7 @@ function App() {
                         textX = baseX + (region.x * scale) + regionWidthPx - paddingRightPx - safetyMarginPx;
                       }
 
-                      console.log(`🎯 Text positioning: Anchor=${textAnchor}, X=${textX.toFixed(1)}px, SafetyMargin=${safetyMarginPx.toFixed(1)}px`);
+                      // console.log(`🎯 Text positioning: Anchor=${textAnchor}, X=${textX.toFixed(1)}px, SafetyMargin=${safetyMarginPx.toFixed(1)}px`);
 
                       // Calculate vertical starting position based on vertical alignment
                       let startY = baseY + (region.y * scale) + paddingTopPx;
@@ -12151,11 +12274,11 @@ function App() {
                           const sliceContents = regionContents.get(childRegion.id) || [];
                           if (sliceContents.length === 0) return null;
 
-                          console.log('🎨 CHILD REGION RENDERING:', {
-                            childRegionId: childRegion.id,
-                            contentCount: sliceContents.length,
-                            contentTypes: sliceContents.map(c => c.type)
-                          });
+                          // console.log('🎨 CHILD REGION RENDERING:', {
+                          //   childRegionId: childRegion.id,
+                          //   contentCount: sliceContents.length,
+                          //   contentTypes: sliceContents.map(c => c.type)
+                          // });
 
                           return sliceContents.map((content: any, contentIndex: number) => {
                             let displayText = '';
@@ -12165,16 +12288,16 @@ function App() {
                               displayText = content.content.text;
                             } else if (content.type === 'new-line-text' && content.content?.text) {
                               displayText = content.content.text;
-                              console.log('🎨 child new-line-text displayText:', displayText, 'content:', content);
+                              // console.log('🎨 child new-line-text displayText:', displayText, 'content:', content);
                             } else if (content.type === 'new-multi-line' && content.content?.text) {
                               displayText = content.content.text;
-                              console.log('🎨 child new-multi-line displayText:', displayText, 'content:', content);
+                              // console.log('🎨 child new-multi-line displayText:', displayText, 'content:', content);
                             } else if (content.type === 'new-washing-care-symbol' && content.content?.text) {
                               displayText = content.content.text;
-                              console.log('🧺 child new-washing-care-symbol displayText:', displayText, 'content:', content);
+                              // console.log('🧺 child new-washing-care-symbol displayText:', displayText, 'content:', content);
                             } else if (content.type === 'new-comp-trans' && content.newCompTransConfig?.textContent?.generatedText) {
                               displayText = content.newCompTransConfig.textContent.generatedText;
-                              console.log('🌐 child new-comp-trans displayText:', displayText, 'content:', content);
+                              // console.log('🌐 child new-comp-trans displayText:', displayText, 'content:', content);
                             } else if (content.type === 'pure-english-paragraph' && content.content?.text) {
                               displayText = content.content.text;
                             } else if (content.type === 'translation-paragraph') {
@@ -12225,7 +12348,7 @@ function App() {
                               textAlign = config.alignment.horizontal;
                               verticalAlign = config.alignment.vertical;
                               padding = config.padding;
-                              console.log('🎨 child new-line-text using advanced text fitting for:', displayText);
+                              // console.log('🎨 child new-line-text using advanced text fitting for:', displayText);
                             } else if (content.type === 'new-multi-line' && content.newMultiLineConfig) {
                               const config = content.newMultiLineConfig;
                               fontSize = config.typography.fontSize;
@@ -12234,7 +12357,7 @@ function App() {
                               textAlign = config.alignment.horizontal;
                               verticalAlign = config.alignment.vertical;
                               padding = config.padding;
-                              console.log('🎨 child new-multi-line using processed lines from preview');
+                              // console.log('🎨 child new-multi-line using processed lines from preview');
                             } else if (content.type === 'new-washing-care-symbol' && content.newWashingCareSymbolConfig) {
                               const config = content.newWashingCareSymbolConfig;
                               fontSize = config.typography.fontSize;
@@ -12243,7 +12366,7 @@ function App() {
                               textAlign = config.alignment.horizontal;
                               verticalAlign = config.alignment.vertical;
                               padding = config.padding;
-                              console.log('🧺 child new-washing-care-symbol using configuration:', config);
+                              // console.log('🧺 child new-washing-care-symbol using configuration:', config);
                             } else if (content.type === 'new-comp-trans' && content.newCompTransConfig) {
                               const config = content.newCompTransConfig;
                               if (config && config.typography && config.alignment && config.padding) {
@@ -12253,7 +12376,7 @@ function App() {
                                 textAlign = config.alignment.horizontal;
                                 verticalAlign = config.alignment.vertical;
                                 padding = config.padding;
-                                console.log('🌐 child new-comp-trans using configuration:', config);
+                                // console.log('🌐 child new-comp-trans using configuration:', config);
                               }
                             }
 
@@ -12272,13 +12395,13 @@ function App() {
 
                             if (content.type === 'new-line-text') {
                               // For new-line-text: Use advanced text fitting (same as main regions)
-                              console.log('🎨 child new-line-text using advanced text fitting for:', displayText);
+                              // console.log('🎨 child new-line-text using advanced text fitting for:', displayText);
                               displayLines = [displayText];
                               hasOverflow = false;
                               optimalFit = { overflow: '' };
                             } else if (content.type === 'new-multi-line') {
                               // For multi-line content: Calculate text wrapping for actual child region dimensions
-                              console.log('🎯 Child Canvas: Calculating text wrapping for child region dimensions');
+                              // console.log('🎯 Child Canvas: Calculating text wrapping for child region dimensions');
 
                               // Calculate available space for text in child region
                               const childRegionWidthPx = childRegion.width * scale;
@@ -12316,16 +12439,16 @@ function App() {
                               displayLines = childProcessedResult.lines;
                               hasOverflow = childProcessedResult.hasOverflow;
 
-                              console.log('✅ Child Canvas: Calculated wrapping for child region:', {
-                                availableWidth: childAvailableWidthPx,
-                                availableHeight: childAvailableHeightPx,
-                                fontSize: childScaledFontSize,
-                                lines: displayLines.length,
-                                hasOverflow
-                              });
+                              // console.log('✅ Child Canvas: Calculated wrapping for child region:', {
+                              //   availableWidth: childAvailableWidthPx,
+                              //   availableHeight: childAvailableHeightPx,
+                              //   fontSize: childScaledFontSize,
+                              //   lines: displayLines.length,
+                              //   hasOverflow
+                              // });
                             } else if (content.type === 'new-comp-trans') {
                               // Apply Canvas-First Sync logic-slice to composition translation in child regions (same as new-multi-line)
-                              console.log('🧪 Child Canvas: Applying Canvas-First Sync logic-slice to composition translation');
+                              // console.log('🧪 Child Canvas: Applying Canvas-First Sync logic-slice to composition translation');
 
                               // Calculate available space for text in child region (EXACT COPY from new-multi-line logic)
                               const childRegionWidthPx = childRegion.width * scale;
@@ -12359,13 +12482,13 @@ function App() {
                               displayLines = childProcessedResult.lines;
                               hasOverflow = childProcessedResult.hasOverflow;
 
-                              console.log('✅ Child Canvas: Applied Canvas-First Sync logic-slice to composition translation:', {
-                                availableWidth: childAvailableWidthPx,
-                                availableHeight: childAvailableHeightPx,
-                                fontSize: childScaledFontSize,
-                                lines: displayLines.length,
-                                hasOverflow
-                              });
+                              // console.log('✅ Child Canvas: Applied Canvas-First Sync logic-slice to composition translation:', {
+                              //   availableWidth: childAvailableWidthPx,
+                              //   availableHeight: childAvailableHeightPx,
+                              //   fontSize: childScaledFontSize,
+                              //   lines: displayLines.length,
+                              //   hasOverflow
+                              // });
                             } else {
                               // For other content types: Use simple processing
                               displayLines = [displayText];
@@ -12730,7 +12853,7 @@ function App() {
 
               if (!objectSewingPosition) return null;
 
-              console.log('🧵 Rendering sewing lines for position:', objectSewingPosition);
+              // console.log('🧵 Rendering sewing lines for position:', objectSewingPosition);
 
               // Always show sewing lines based on object's sewing position
               // No filtering needed - each object shows its own sewing type
@@ -15839,6 +15962,7 @@ function App() {
             masterPropertiesVersion={masterPropertiesVersion}
             onSave={handleUniversalContentSave}
             onCancel={handleUniversalContentCancel}
+            onCreateNewMother={handleCreateNewMotherForOverflow}
           />
         );
       })()}
