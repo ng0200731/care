@@ -11521,7 +11521,7 @@ function App() {
                         optimalFit = { overflow: '' };
                       } else if (content.type === 'new-comp-trans') {
                         // Apply Canvas-First Sync logic-slice to composition translation (same as new-multi-line)
-                        console.log('🧪 Canvas: Applying Canvas-First Sync logic-slice to composition translation');
+                        // console.log('🧪 Canvas: Applying Canvas-First Sync logic-slice to composition translation');
 
                         // Calculate available space for text in region (EXACT COPY from new-multi-line logic)
                         const regionWidthPx = region.width * scale;
