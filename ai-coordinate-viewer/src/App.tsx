@@ -122,18 +122,30 @@ function App() {
     lineBreakSymbol: string,
     lineSpacing: number
   ): { lines: string[]; hasOverflow: boolean } => {
-    // Convert pixels to mm for text measurement (96 DPI: 1mm = 3.779527559px)
-    const availableWidthMm = availableWidthPx / 3.779527559;
-    const fontSizeMm = fontSizePx / 3.779527559;
+    // Get device pixel ratio for zoom-independent measurement
+    const dpr = window.devicePixelRatio || 1;
 
-    // Accurate text width estimation with special character detection
+    // Convert pixels to logical pixels (zoom-independent)
+    const logicalAvailableWidthPx = availableWidthPx / dpr;
+    const logicalFontSizePx = fontSizePx / dpr;
+
+    // Convert to mm for consistent measurement (96 DPI: 1mm = 3.779527559px)
+    const availableWidthMm = logicalAvailableWidthPx / 3.779527559;
+    const fontSizeMm = logicalFontSizePx / 3.779527559;
+
+    // DPR-aware text width estimation for zoom-independent measurement
     const estimateTextWidth = (text: string): number => {
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
       if (!context) return text.length * 2; // Fallback
 
-      // Set exact font properties to match SVG rendering
-      context.font = `${fontSizePx}px ${fontFamily}`;
+      // Scale canvas for high-DPI and zoom consistency
+      canvas.width = 1000 * dpr;
+      canvas.height = 100 * dpr;
+      context.scale(dpr, dpr);
+
+      // Set font properties using logical font size (zoom-independent)
+      context.font = `${logicalFontSizePx}px ${fontFamily}`;
       context.textAlign = 'start'; // Match SVG textAnchor="start"
       context.textBaseline = 'alphabetic'; // Match SVG dominantBaseline="alphabetic"
 
@@ -237,16 +249,26 @@ function App() {
 
     const wrappedLines = wrapTextToLines(text);
 
-    // Check for overflow based on available height (with conservative calculation)
-    const lineHeight = fontSizePx * lineSpacing;
+    // Check for overflow based on available height using logical pixels (zoom-independent)
+    const logicalAvailableHeightPx = availableHeightPx / dpr;
+    const lineHeight = logicalFontSizePx * lineSpacing;
     // Account for baseline offset and add safety margin for text positioning
-    const textBaselineOffset = fontSizePx * 0.8; // Account for text baseline positioning
-    const safeAvailableHeight = availableHeightPx - textBaselineOffset;
+    const textBaselineOffset = logicalFontSizePx * 0.8; // Account for text baseline positioning
+    const safeAvailableHeight = logicalAvailableHeightPx - textBaselineOffset;
     const maxLines = Math.floor(safeAvailableHeight / lineHeight);
     const hasOverflow = wrappedLines.length > maxLines;
 
-    // Trim lines if overflow
-    const finalLines = hasOverflow ? wrappedLines.slice(0, maxLines) : wrappedLines;
+    // CRITICAL FIX: NEVER truncate lines - preserve all text content
+    // Lines may reflow but should NEVER disappear
+    const finalLines = wrappedLines; // Always return ALL lines, never truncate
+
+    console.log('🚨 CRITICAL: Line preservation check:', {
+      totalWrappedLines: wrappedLines.length,
+      maxLinesCalculated: maxLines,
+      wouldTruncate: hasOverflow,
+      finalLinesReturned: finalLines.length,
+      preservedAllLines: finalLines.length === wrappedLines.length
+    });
 
     // console.log('🎯 Child region text wrapping:', {
     //   availableWidthMm: availableWidthMm.toFixed(2),
@@ -6509,7 +6531,8 @@ function App() {
                 lineSpacing: 1.2,
                 lineWidth: 100
               },
-              overflowOption: 'truncate'
+              overflowOption: 'truncate',
+              isPreWrapped: true // Flag to indicate text is already properly wrapped
             }
           };
 
@@ -11583,19 +11606,54 @@ function App() {
                           zoom
                         );
 
-                        // Check if text is already pre-wrapped (from duplicated mother overflow)
-                        if (content.newCompTransConfig?.isPreWrapped) {
-                          // Text is already properly wrapped, just split by newlines
-                          displayLines = displayText.split('\n');
-                          hasOverflow = false;
-                          console.log('✅ Canvas: Using pre-wrapped text (no re-wrapping):', displayLines);
+                        // 🎯 ZOOM-CONSISTENT LAYOUT: Use stored layout or calculate once at base zoom
+                        const baseZoom = 1.0; // Reference zoom level for consistent calculations
+                        const layoutKey = `layout_${content.id}_${region.id}`;
+
+                        // Check if we have stored layout for this content
+                        if (content.newCompTransConfig?.storedLayout) {
+                          // Use stored layout - scale it but don't recalculate line breaks
+                          displayLines = content.newCompTransConfig.storedLayout.lines;
+                          hasOverflow = content.newCompTransConfig.storedLayout.hasOverflow;
+
+                          console.log('✅ Canvas: Using stored layout (zoom-consistent):', {
+                            storedLines: displayLines.length,
+                            currentZoom: zoom,
+                            baseZoom: baseZoom,
+                            layoutPreserved: true
+                          });
                         } else {
-                          // Process text wrapping using Canvas-First Sync logic-slice (same as new-multi-line)
+                          // Calculate layout ONCE at base zoom level for consistency
+                          console.log('🔄 Canvas: Calculating base layout (one-time calculation):', {
+                            contentId: content.id,
+                            regionId: region.id,
+                            baseZoom: baseZoom
+                          });
+
+                          // Use base zoom for consistent calculation
+                          const baseRegionScaledFontSize = calculateConsistentFontSize(
+                            content.newCompTransConfig?.typography?.fontSize || 12,
+                            content.newCompTransConfig?.typography?.fontSizeUnit || 'px',
+                            baseZoom
+                          );
+
+                          // Calculate available space at base zoom
+                          const baseScale = baseZoom * 3.78;
+                          const baseRegionWidthPx = region.width * baseScale;
+                          const baseRegionHeightPx = region.height * baseScale;
+                          const basePaddingLeftPx = padding.left * baseScale;
+                          const basePaddingRightPx = padding.right * baseScale;
+                          const basePaddingTopPx = padding.top * baseScale;
+                          const basePaddingBottomPx = padding.bottom * baseScale;
+
+                          const baseAvailableWidthPx = Math.max(0, baseRegionWidthPx - basePaddingLeftPx - basePaddingRightPx);
+                          const baseAvailableHeightPx = Math.max(0, baseRegionHeightPx - basePaddingTopPx - basePaddingBottomPx);
+
                           const regionProcessedResult = processChildRegionTextWrapping(
                             displayText,
-                            availableWidthPx,
-                            availableHeightPx,
-                            regionScaledFontSize,
+                            baseAvailableWidthPx,
+                            baseAvailableHeightPx,
+                            baseRegionScaledFontSize,
                             content.newCompTransConfig?.typography?.fontFamily || 'Arial',
                             content.newCompTransConfig?.lineBreakSettings?.lineBreakSymbol || '\n',
                             content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2
@@ -11603,6 +11661,22 @@ function App() {
 
                           displayLines = regionProcessedResult.lines;
                           hasOverflow = regionProcessedResult.hasOverflow;
+
+                          // Store the layout for future use (zoom-independent)
+                          if (content.newCompTransConfig) {
+                            content.newCompTransConfig.storedLayout = {
+                              lines: displayLines,
+                              hasOverflow: hasOverflow,
+                              baseZoom: baseZoom,
+                              calculatedAt: Date.now()
+                            };
+                          }
+
+                          console.log('💾 Canvas: Stored base layout for future use:', {
+                            lines: displayLines.length,
+                            hasOverflow: hasOverflow,
+                            baseZoom: baseZoom
+                          });
                         }
 
                         // console.log('✅ Canvas: Applied Canvas-First Sync logic-slice to composition translation:', {

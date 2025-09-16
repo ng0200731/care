@@ -376,10 +376,13 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     return wrappedLines.join(config.lineBreakSettings?.lineBreakSymbol || '\n');
   };
 
-  // Canvas-based overflow detection and text splitting (similar to NewMultiLineDialog)
+  // Canvas-based overflow detection and text splitting (DPR-aware for zoom consistency)
   const detectOverflowAndSplit = () => {
     const text = generateTextContent();
     if (!text || !regionWidth || !regionHeight) return { hasOverflow: false, originalText: text, overflowText: '' };
+
+    // Get device pixel ratio for zoom-independent measurement
+    const dpr = window.devicePixelRatio || 1;
 
     // Calculate available space in pixels
     const regionWidthPx = regionWidth * 3.779527559; // Convert mm to px (96 DPI)
@@ -392,27 +395,37 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     const availableWidthPx = Math.max(0, regionWidthPx - paddingLeftPx - paddingRightPx);
     const availableHeightPx = Math.max(0, regionHeightPx - paddingTopPx - paddingBottomPx);
 
-    // Convert font size to pixels
-    let fontSizePx = config.typography.fontSize;
-    if (config.typography.fontSizeUnit === 'mm') {
-      fontSizePx = config.typography.fontSize * 3.779527559;
-    } else if (config.typography.fontSizeUnit === 'pt') {
-      fontSizePx = (config.typography.fontSize * 4/3);
-    }
+    // Convert to logical pixels for zoom-independent calculation
+    const logicalAvailableWidthPx = availableWidthPx / dpr;
+    const logicalAvailableHeightPx = availableHeightPx / dpr;
 
-    // Text width estimation using canvas measurement
+    // Convert font size to logical pixels
+    let logicalFontSizePx = config.typography.fontSize;
+    if (config.typography.fontSizeUnit === 'mm') {
+      logicalFontSizePx = config.typography.fontSize * 3.779527559;
+    } else if (config.typography.fontSizeUnit === 'pt') {
+      logicalFontSizePx = (config.typography.fontSize * 4/3);
+    }
+    logicalFontSizePx = logicalFontSizePx / dpr; // Convert to logical pixels
+
+    // DPR-aware text width estimation for zoom-independent measurement
     const estimateTextWidth = (text: string): number => {
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
       if (!context) return text.length * 2; // Fallback
 
-      context.font = `${fontSizePx}px ${config.typography.fontFamily}`;
+      // Scale canvas for high-DPI and zoom consistency
+      canvas.width = 1000 * dpr;
+      canvas.height = 100 * dpr;
+      context.scale(dpr, dpr);
+
+      context.font = `${logicalFontSizePx}px ${config.typography.fontFamily}`;
       const textWidthPx = context.measureText(text).width;
       return textWidthPx / 3.779527559; // Convert to mm
     };
 
-    const availableWidthMm = availableWidthPx / 3.779527559;
-    const fontSizeMm = fontSizePx / 3.779527559;
+    const availableWidthMm = logicalAvailableWidthPx / 3.779527559;
+    const fontSizeMm = logicalFontSizePx / 3.779527559;
 
     // Word wrapping logic
     const wrapTextToLines = (text: string): string[] => {
@@ -455,10 +468,10 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
     const lines = wrapTextToLines(text);
 
-    // Check for height overflow
+    // Check for height overflow using logical pixels (zoom-independent)
     const lineHeightMm = fontSizeMm * config.lineBreakSettings.lineSpacing;
     const totalTextHeightMm = lines.length * lineHeightMm;
-    const availableHeightMm = availableHeightPx / 3.779527559;
+    const availableHeightMm = logicalAvailableHeightPx / 3.779527559;
     const hasOverflow = totalTextHeightMm > availableHeightMm;
 
     if (hasOverflow) {
@@ -626,7 +639,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     textToProcess: string,
     originalMotherConfig: any,
     sourceMotherName: string = 'Mother_3',
-    recursionDepth: number = 0
+    recursionDepth: number = 0,
+    preWrappedLines: string[] = []
   ): Promise<void> => {
     console.log(`🔄 Starting automatic overflow splitting (depth: ${recursionDepth})`);
     console.log(`📝 Text to process: "${textToProcess.substring(0, 50)}..."`);
@@ -739,12 +753,21 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
               },
               lineBreakSettings: originalMotherConfig.lineBreakSettings,
               isPreWrapped: true, // Mark as pre-wrapped to prevent re-wrapping
+              preWrappedLines: preWrappedLines, // Store the actual wrapped lines
               overflowOption: 'truncate'
             }
           };
 
           newRegion.contents = [overflowContent];
           console.log(`✅ Added overflow content to region: ${newRegion.id}`);
+
+          // Update the regionContents state in App.tsx
+          if ((window as any).updateRegionContents) {
+            (window as any).updateRegionContents(newRegion.id, [overflowContent]);
+            console.log(`✅ Updated regionContents state for region: ${newRegion.id}`);
+          } else {
+            console.warn('⚠️ updateRegionContents function not available');
+          }
         }
 
         return newRegion;
@@ -790,7 +813,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         newMotherOverflowResult.overflowText,
         originalMotherConfig,
         `Mother_${newMotherNumber}`,
-        recursionDepth + 1
+        recursionDepth + 1,
+        newMotherOverflowResult.overflowLines
       );
     }
   };
@@ -800,11 +824,14 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     mother: any,
     textContent: string,
     originalConfig: any
-  ): Promise<{ hasOverflow: boolean; originalText: string; overflowText: string }> => {
-    // Use the same overflow detection logic as the main function
+  ): Promise<{ hasOverflow: boolean; originalText: string; overflowText: string; overflowLines: string[] }> => {
+    // Use the same DPR-aware overflow detection logic as the main function
     if (!regionWidth || !regionHeight) {
-      return { hasOverflow: false, originalText: textContent, overflowText: '' };
+      return { hasOverflow: false, originalText: textContent, overflowText: '', overflowLines: [] };
     }
+
+    // Get device pixel ratio for zoom-independent measurement
+    const dpr = window.devicePixelRatio || 1;
 
     // Calculate available space in pixels
     const regionWidthPx = regionWidth * 3.779527559;
@@ -817,27 +844,37 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     const availableWidthPx = Math.max(0, regionWidthPx - paddingLeftPx - paddingRightPx);
     const availableHeightPx = Math.max(0, regionHeightPx - paddingTopPx - paddingBottomPx);
 
-    // Convert font size to pixels
-    let fontSizePx = originalConfig.typography.fontSize;
-    if (originalConfig.typography.fontSizeUnit === 'mm') {
-      fontSizePx = originalConfig.typography.fontSize * 3.779527559;
-    } else if (originalConfig.typography.fontSizeUnit === 'pt') {
-      fontSizePx = (originalConfig.typography.fontSize * 4/3);
-    }
+    // Convert to logical pixels for zoom-independent calculation
+    const logicalAvailableWidthPx = availableWidthPx / dpr;
+    const logicalAvailableHeightPx = availableHeightPx / dpr;
 
-    // Text width estimation using canvas measurement
+    // Convert font size to logical pixels
+    let logicalFontSizePx = originalConfig.typography.fontSize;
+    if (originalConfig.typography.fontSizeUnit === 'mm') {
+      logicalFontSizePx = originalConfig.typography.fontSize * 3.779527559;
+    } else if (originalConfig.typography.fontSizeUnit === 'pt') {
+      logicalFontSizePx = (originalConfig.typography.fontSize * 4/3);
+    }
+    logicalFontSizePx = logicalFontSizePx / dpr; // Convert to logical pixels
+
+    // DPR-aware text width estimation for zoom-independent measurement
     const estimateTextWidth = (text: string): number => {
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
       if (!context) return text.length * 2;
 
-      context.font = `${fontSizePx}px ${originalConfig.typography.fontFamily}`;
+      // Scale canvas for high-DPI and zoom consistency
+      canvas.width = 1000 * dpr;
+      canvas.height = 100 * dpr;
+      context.scale(dpr, dpr);
+
+      context.font = `${logicalFontSizePx}px ${originalConfig.typography.fontFamily}`;
       const textWidthPx = context.measureText(text).width;
       return textWidthPx / 3.779527559;
     };
 
-    const availableWidthMm = availableWidthPx / 3.779527559;
-    const fontSizeMm = fontSizePx / 3.779527559;
+    const availableWidthMm = logicalAvailableWidthPx / 3.779527559;
+    const fontSizeMm = logicalFontSizePx / 3.779527559;
 
     // Word wrapping logic
     const wrapTextToLines = (text: string): string[] => {
@@ -887,10 +924,10 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
     const lines = wrapTextToLines(textContent);
 
-    // Check for height overflow
+    // Check for height overflow using logical pixels (zoom-independent)
     const lineHeightMm = fontSizeMm * originalConfig.lineBreakSettings.lineSpacing;
     const totalTextHeightMm = lines.length * lineHeightMm;
-    const availableHeightMm = availableHeightPx / 3.779527559;
+    const availableHeightMm = logicalAvailableHeightPx / 3.779527559;
     const hasOverflow = totalTextHeightMm > availableHeightMm;
 
     if (hasOverflow) {
@@ -901,14 +938,16 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       return {
         hasOverflow: true,
         originalText: originalLines.join(originalConfig.lineBreakSettings.lineBreakSymbol),
-        overflowText: overflowLines.join(originalConfig.lineBreakSettings.lineBreakSymbol)
+        overflowText: overflowLines.join(originalConfig.lineBreakSettings.lineBreakSymbol),
+        overflowLines: overflowLines
       };
     }
 
     return {
       hasOverflow: false,
       originalText: textContent,
-      overflowText: ''
+      overflowText: '',
+      overflowLines: []
     };
   };
 
@@ -960,12 +999,13 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
           }
         });
 
-        // Start recursive overflow handling with the overflow text
+        // Start recursive overflow handling with the overflow text and pre-wrapped lines
         await handleAutomaticOverflowSplitting(
           overflowResult.overflowText,
           config, // Pass the original config to preserve all settings
           'Mother_3', // Source mother name
-          0 // Initial recursion depth
+          0, // Initial recursion depth
+          overflowResult.overflowLines // Pass the pre-wrapped lines
         );
 
         console.log('✅ Automatic recursive overflow handling completed');
@@ -997,7 +1037,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
             overflowResult.overflowText,
             config,
             'Mother_3',
-            0
+            0,
+            overflowResult.overflowLines
           );
 
           console.log('✅ Automatic recursive overflow handling completed');
