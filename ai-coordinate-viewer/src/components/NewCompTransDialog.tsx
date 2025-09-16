@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import MovableDialog from './MovableDialog';
-import TextSplitPreviewDialog from './dialogs/TextSplitPreviewDialog';
 
 // Available languages from composition table (18 languages) - Database codes
 const availableLanguages = [
@@ -165,18 +164,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     overflowOption: 'truncate'
   });
 
-  const [isLanguageDropdownOpen, setIsLanguageDropdownOpen] = useState(false);
-
   // Overflow handling state
   const [overflowOption, setOverflowOption] = useState<'keep-flowing' | 'truncate' | 'shrink'>('truncate');
-
-  // Split preview dialog state
-  const [showSplitPreview, setShowSplitPreview] = useState(false);
-  const [splitText, setSplitText] = useState({
-    originalText: '',
-    overflowText: '',
-    overflowLines: [] as string[] // Store the actual wrapped lines for proper rendering
-  });
 
   // Overflow detection state for UI feedback
   const [hasOverflow, setHasOverflow] = useState(false);
@@ -632,40 +621,387 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     setHasOverflow(overflowResult.hasOverflow);
   }, [config, regionWidth, regionHeight]);
 
-  const handleSave = () => {
+  // Automatic recursive overflow handling function
+  const handleAutomaticOverflowSplitting = async (
+    textToProcess: string,
+    originalMotherConfig: any,
+    sourceMotherName: string = 'Mother_3',
+    recursionDepth: number = 0
+  ): Promise<void> => {
+    console.log(`🔄 Starting automatic overflow splitting (depth: ${recursionDepth})`);
+    console.log(`📝 Text to process: "${textToProcess.substring(0, 50)}..."`);
+
+    // Prevent infinite recursion
+    if (recursionDepth > 10) {
+      console.error('❌ Maximum recursion depth reached, stopping overflow splitting');
+      return;
+    }
+
+    // Get current app data
+    const currentData = (window as any).currentAppData;
+    if (!currentData) {
+      console.error('❌ No app data available for overflow splitting');
+      return;
+    }
+
+    // Find the source mother to duplicate
+    const sourceMother = currentData.objects.find((obj: any) =>
+      obj.name === sourceMotherName || obj.name?.includes(sourceMotherName)
+    );
+
+    if (!sourceMother) {
+      console.error(`❌ Source mother ${sourceMotherName} not found`);
+      return;
+    }
+
+    // Calculate next mother number
+    const motherNumbers = currentData.objects
+      .filter((obj: any) => obj.name?.includes('Mother_'))
+      .map((obj: any) => {
+        const match = obj.name.match(/Mother_(\d+)/);
+        return match ? parseInt(match[1]) : 0;
+      });
+    const newMotherNumber = Math.max(...motherNumbers, 0) + 1;
+
+    // Calculate position for new mother (20mm gap standard)
+    let maxRightX = 0;
+    currentData.objects.forEach((obj: any) => {
+      if (obj.name?.includes('Mother_')) {
+        const rightEdge = obj.x + obj.width;
+        if (rightEdge > maxRightX) {
+          maxRightX = rightEdge;
+        }
+      }
+    });
+
+    // Create new mother with inherited properties from ORIGINAL mother config
+    const newMother = {
+      ...sourceMother,
+      name: `Mother_${newMotherNumber}`,
+      type: 'mother',
+      typename: 'mother',
+      x: sourceMother.x + sourceMother.width + 20, // 20mm standard gap
+      y: sourceMother.y, // Same Y level
+      width: sourceMother.width,
+      height: sourceMother.height,
+      // Copy all the additional properties from original mother
+      margins: (sourceMother as any).margins,
+      sewingPosition: (sourceMother as any).sewingPosition,
+      sewingOffset: (sourceMother as any).sewingOffset,
+      midFoldLine: (sourceMother as any).midFoldLine,
+      regions: (sourceMother as any).regions?.map((region: any) => {
+        const newRegion = {
+          ...region,
+          id: `${region.id}_copy_${newMotherNumber}`, // Use same pattern as duplicateMother
+          name: region.name?.replace(/Mother_\d+/, `Mother_${newMotherNumber}`)
+        };
+
+        // Check if this is the composition region
+        const isCompositionRegion = region.name?.includes('R1') ||
+                                  region.name?.includes('region_1') ||
+                                  region.name?.toLowerCase().includes('composition') ||
+                                  region.name?.toLowerCase().includes('unnamed') ||
+                                  true; // Assume any region can be composition region
+
+        if (isCompositionRegion) {
+          // Create content with text to process and ORIGINAL mother config
+          const overflowContent = {
+            id: `content_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+            type: 'new-comp-trans',
+            regionId: newRegion.id,
+            layout: {
+              occupyLeftoverSpace: true,
+              fullWidth: true,
+              fullHeight: true,
+              width: { value: 100, unit: '%' as const },
+              height: { value: 100, unit: '%' as const },
+              horizontalAlign: originalMotherConfig.alignment?.horizontal || 'center',
+              verticalAlign: originalMotherConfig.alignment?.vertical || 'center',
+              x: 0,
+              y: 0,
+              padding: {
+                top: originalMotherConfig.padding?.top || 2,
+                right: originalMotherConfig.padding?.right || 2,
+                bottom: originalMotherConfig.padding?.bottom || 2,
+                left: originalMotherConfig.padding?.left || 2
+              }
+            },
+            newCompTransConfig: {
+              // Inherit ALL properties from ORIGINAL mother config (not immediate parent)
+              alignment: originalMotherConfig.alignment,
+              padding: originalMotherConfig.padding,
+              typography: originalMotherConfig.typography,
+              selectedLanguages: originalMotherConfig.selectedLanguages,
+              materialCompositions: originalMotherConfig.materialCompositions,
+              textContent: {
+                separator: originalMotherConfig.textContent?.separator || ' - ',
+                generatedText: textToProcess
+              },
+              lineBreakSettings: originalMotherConfig.lineBreakSettings,
+              isPreWrapped: true, // Mark as pre-wrapped to prevent re-wrapping
+              overflowOption: 'truncate'
+            }
+          };
+
+          newRegion.contents = [overflowContent];
+          console.log(`✅ Added overflow content to region: ${newRegion.id}`);
+        }
+
+        return newRegion;
+      }) || []
+    };
+
+    // Add new mother to objects
+    const updatedObjects = [...currentData.objects, newMother];
+
+    // Update app data
+    if ((window as any).updateAppData) {
+      const newData = {
+        ...currentData,
+        objects: updatedObjects,
+        totalObjects: updatedObjects.length
+      };
+      (window as any).updateAppData(newData);
+    }
+
+    // Update region contents for canvas rendering
+    if ((window as any).updateRegionContents && newMother.regions) {
+      newMother.regions.forEach((region: any) => {
+        if (region.contents && region.contents.length > 0) {
+          (window as any).updateRegionContents(region.id, region.contents);
+        }
+      });
+    }
+
+    console.log(`✅ Created Mother_${newMotherNumber} with overflow text (depth: ${recursionDepth})`);
+
+    // Check if the newly created mother also has overflow
+    // We need to simulate the overflow detection for the new mother
+    const newMotherOverflowResult = await checkMotherForOverflow(newMother, textToProcess, originalMotherConfig);
+
+    if (newMotherOverflowResult.hasOverflow) {
+      console.log(`⚠️ New Mother_${newMotherNumber} also has overflow, continuing recursion...`);
+
+      // Update the current mother to keep only the fitted text
+      await updateMotherWithFittedText(newMother, newMotherOverflowResult.originalText, originalMotherConfig);
+
+      // Recursively handle the overflow text
+      await handleAutomaticOverflowSplitting(
+        newMotherOverflowResult.overflowText,
+        originalMotherConfig,
+        `Mother_${newMotherNumber}`,
+        recursionDepth + 1
+      );
+    }
+  };
+
+  // Helper function to check if a mother has overflow
+  const checkMotherForOverflow = async (
+    mother: any,
+    textContent: string,
+    originalConfig: any
+  ): Promise<{ hasOverflow: boolean; originalText: string; overflowText: string }> => {
+    // Use the same overflow detection logic as the main function
+    if (!regionWidth || !regionHeight) {
+      return { hasOverflow: false, originalText: textContent, overflowText: '' };
+    }
+
+    // Calculate available space in pixels
+    const regionWidthPx = regionWidth * 3.779527559;
+    const regionHeightPx = regionHeight * 3.779527559;
+    const paddingLeftPx = originalConfig.padding.left * 3.779527559;
+    const paddingRightPx = originalConfig.padding.right * 3.779527559;
+    const paddingTopPx = originalConfig.padding.top * 3.779527559;
+    const paddingBottomPx = originalConfig.padding.bottom * 3.779527559;
+
+    const availableWidthPx = Math.max(0, regionWidthPx - paddingLeftPx - paddingRightPx);
+    const availableHeightPx = Math.max(0, regionHeightPx - paddingTopPx - paddingBottomPx);
+
+    // Convert font size to pixels
+    let fontSizePx = originalConfig.typography.fontSize;
+    if (originalConfig.typography.fontSizeUnit === 'mm') {
+      fontSizePx = originalConfig.typography.fontSize * 3.779527559;
+    } else if (originalConfig.typography.fontSizeUnit === 'pt') {
+      fontSizePx = (originalConfig.typography.fontSize * 4/3);
+    }
+
+    // Text width estimation using canvas measurement
+    const estimateTextWidth = (text: string): number => {
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      if (!context) return text.length * 2;
+
+      context.font = `${fontSizePx}px ${originalConfig.typography.fontFamily}`;
+      const textWidthPx = context.measureText(text).width;
+      return textWidthPx / 3.779527559;
+    };
+
+    const availableWidthMm = availableWidthPx / 3.779527559;
+    const fontSizeMm = fontSizePx / 3.779527559;
+
+    // Word wrapping logic
+    const wrapTextToLines = (text: string): string[] => {
+      const manualLines = text.split(originalConfig.lineBreakSettings.lineBreakSymbol);
+      const wrappedLines: string[] = [];
+
+      manualLines.forEach(line => {
+        const trimmedLine = line.trim();
+        if (!trimmedLine) {
+          wrappedLines.push('');
+          return;
+        }
+
+        const lineWidth = estimateTextWidth(trimmedLine);
+        if (lineWidth <= availableWidthMm) {
+          wrappedLines.push(trimmedLine);
+          return;
+        }
+
+        // Line exceeds boundaries - break to respect limits
+        const words = trimmedLine.split(' ');
+        let currentLine = '';
+
+        words.forEach((word) => {
+          const testLine = currentLine ? `${currentLine} ${word}` : word;
+          const testWidth = estimateTextWidth(testLine);
+
+          if (testWidth <= availableWidthMm) {
+            currentLine = testLine;
+          } else {
+            if (currentLine) {
+              wrappedLines.push(currentLine);
+              currentLine = word;
+            } else {
+              wrappedLines.push(word);
+            }
+          }
+        });
+
+        if (currentLine) {
+          wrappedLines.push(currentLine);
+        }
+      });
+
+      return wrappedLines;
+    };
+
+    const lines = wrapTextToLines(textContent);
+
+    // Check for height overflow
+    const lineHeightMm = fontSizeMm * originalConfig.lineBreakSettings.lineSpacing;
+    const totalTextHeightMm = lines.length * lineHeightMm;
+    const availableHeightMm = availableHeightPx / 3.779527559;
+    const hasOverflow = totalTextHeightMm > availableHeightMm;
+
+    if (hasOverflow) {
+      const maxVisibleLines = Math.floor(availableHeightMm / lineHeightMm);
+      const originalLines = lines.slice(0, maxVisibleLines);
+      const overflowLines = lines.slice(maxVisibleLines);
+
+      return {
+        hasOverflow: true,
+        originalText: originalLines.join(originalConfig.lineBreakSettings.lineBreakSymbol),
+        overflowText: overflowLines.join(originalConfig.lineBreakSettings.lineBreakSymbol)
+      };
+    }
+
+    return {
+      hasOverflow: false,
+      originalText: textContent,
+      overflowText: ''
+    };
+  };
+
+  // Helper function to update a mother with fitted text
+  const updateMotherWithFittedText = async (
+    mother: any,
+    fittedText: string,
+    originalConfig: any
+  ): Promise<void> => {
+    // Update the mother's region content with fitted text
+    if (mother.regions && mother.regions.length > 0) {
+      mother.regions.forEach((region: any) => {
+        if (region.contents && region.contents.length > 0) {
+          region.contents.forEach((content: any) => {
+            if (content.type === 'new-comp-trans' && content.newCompTransConfig) {
+              content.newCompTransConfig.textContent.generatedText = fittedText;
+              console.log(`✅ Updated ${mother.name} with fitted text: "${fittedText.substring(0, 50)}..."`);
+            }
+          });
+        }
+      });
+
+      // Update region contents for canvas rendering
+      if ((window as any).updateRegionContents) {
+        mother.regions.forEach((region: any) => {
+          if (region.contents && region.contents.length > 0) {
+            (window as any).updateRegionContents(region.id, region.contents);
+          }
+        });
+      }
+    }
+  };
+
+  const handleSave = async () => {
     // Always check for overflow to provide user feedback
     const overflowResult = detectOverflowAndSplit();
 
     if (overflowResult.hasOverflow) {
       if (overflowOption === 'keep-flowing') {
-        // Show split preview popup
-        setSplitText({
-          originalText: overflowResult.originalText,
-          overflowText: overflowResult.overflowText,
-          overflowLines: overflowResult.overflowLines || []
+        // Automatically handle overflow with recursive splitting - no popup needed
+        console.log('🔄 Starting automatic recursive overflow handling...');
+
+        // Save the original text to the current region first
+        onSave({
+          ...config,
+          textContent: {
+            ...config.textContent,
+            generatedText: overflowResult.originalText
+          }
         });
-        setShowSplitPreview(true);
-        return; // Don't save yet, wait for user confirmation
+
+        // Start recursive overflow handling with the overflow text
+        await handleAutomaticOverflowSplitting(
+          overflowResult.overflowText,
+          config, // Pass the original config to preserve all settings
+          'Mother_3', // Source mother name
+          0 // Initial recursion depth
+        );
+
+        console.log('✅ Automatic recursive overflow handling completed');
+        return;
       } else {
         // Text overflows but user hasn't selected "Keep Flowing"
         // Show a warning and suggest the Keep Flowing option
         const shouldUseKeepFlowing = window.confirm(
           `⚠️ TEXT OVERFLOW DETECTED!\n\n` +
           `Your text is too long for the current region and will be ${overflowOption === 'truncate' ? 'cut off' : 'shrunk'}.\n\n` +
-          `Would you like to use "Keep Flowing" instead to split the text across multiple regions?\n\n` +
-          `Click OK to switch to "Keep Flowing" and see the split preview, or Cancel to continue with ${overflowOption}.`
+          `Would you like to use "Keep Flowing" instead to automatically split the text across multiple regions?\n\n` +
+          `Click OK to automatically create new mothers, or Cancel to continue with ${overflowOption}.`
         );
 
         if (shouldUseKeepFlowing) {
           setOverflowOption('keep-flowing');
-          // Show split preview popup
-          setSplitText({
-            originalText: overflowResult.originalText,
-            overflowText: overflowResult.overflowText,
-            overflowLines: overflowResult.overflowLines || []
+
+          // Save the original text to the current region first
+          onSave({
+            ...config,
+            textContent: {
+              ...config.textContent,
+              generatedText: overflowResult.originalText
+            }
           });
-          setShowSplitPreview(true);
-          return; // Don't save yet, wait for user confirmation
+
+          // Start automatic recursive overflow handling
+          await handleAutomaticOverflowSplitting(
+            overflowResult.overflowText,
+            config,
+            'Mother_3',
+            0
+          );
+
+          console.log('✅ Automatic recursive overflow handling completed');
+          return;
         }
       }
     }
@@ -678,250 +1014,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     onCancel();
   };
 
-  // Handle split preview dialog confirmation
-  const handleSplitConfirm = () => {
-    console.log('🚨 BUTTON CLICKED: handleSplitConfirm called!');
-    console.log('🔄 Split confirmed - duplicating Mother_3 for overflow text');
-    console.log('🔍 DEBUG: splitText state:', splitText);
-    console.log('🔍 DEBUG: splitText.overflowText:', splitText?.overflowText);
-
-    setShowSplitPreview(false);
-
-    // Use Mother_3 duplication logic directly
-    try {
-      // Get current data from window context (similar to temporary button logic)
-      const currentData = (window as any).currentAppData;
-
-      if (!currentData) {
-        console.error('❌ No app data available for Mother_3 duplication');
-        alert('❌ Cannot access app data for duplication');
-        return;
-      }
-
-      // Find Mother_3
-      const mother3 = currentData.objects.find((obj: any) =>
-        obj.name === 'Mother_3' || obj.name?.includes('Mother_3')
-      );
-
-      if (!mother3) {
-        console.error('❌ Mother_3 not found for duplication');
-        alert('❌ Mother_3 not found!');
-        return;
-      }
-
-      console.log('✅ Found Mother_3 for duplication:', mother3);
-      console.log('🔍 DEBUG: Mother_3 regions structure:', (mother3 as any).regions);
-
-      // Find the original comp trans content to copy its formatting settings
-      let originalCompTransConfig: any = null;
-
-      // First, try to use the current dialog's config (which represents the original mother's settings)
-      console.log('🔍 DEBUG: Current dialog config:', config);
-      console.log('🔍 DEBUG: Current dialog lineBreakSettings:', config.lineBreakSettings);
-
-      // Use the current dialog config as the "original" since it represents the Mother_3 settings
-      originalCompTransConfig = config;
-
-      // Also check Mother_3 regions for additional validation
-      const mother3Regions = (mother3 as any).regions || [];
-      for (const region of mother3Regions) {
-        if (region.contents) {
-          const compTransContent = region.contents.find((content: any) => content.type === 'new-comp-trans');
-          if (compTransContent && compTransContent.newCompTransConfig) {
-            console.log('🔍 DEBUG: Found comp trans in Mother_3 regions:', compTransContent.newCompTransConfig);
-            // Only override if we found something more specific
-            if (compTransContent.newCompTransConfig.lineBreakSettings) {
-              originalCompTransConfig = compTransContent.newCompTransConfig;
-              console.log('🔍 DEBUG: Using Mother_3 region config instead');
-            }
-            break;
-          }
-        }
-      }
-
-      // Also check regionContents state for original formatting
-      if ((window as any).currentRegionContents) {
-        const regionContentsMap = (window as any).currentRegionContents;
-        for (const [regionId, contents] of regionContentsMap.entries()) {
-          const compTransContent = contents.find((content: any) => content.type === 'new-comp-trans');
-          if (compTransContent && compTransContent.newCompTransConfig && compTransContent.newCompTransConfig.lineBreakSettings) {
-            originalCompTransConfig = compTransContent.newCompTransConfig;
-            console.log('🔍 DEBUG: Using regionContents config:', originalCompTransConfig);
-            break;
-          }
-        }
-      }
-
-      // Create a duplicate with overflow text populated in the composition region
-      const newMotherNumber = currentData.objects.filter((o: any) => o.type?.includes('mother')).length + 1;
-
-      // Calculate position following "add master layout" pattern
-      // Standard layout positioning: mothers are typically spaced with consistent gaps
-      const standardHorizontalGap = 20; // Standard 20mm gap between mothers (same as add master layout)
-      const standardVerticalOffset = 0; // Keep same Y level (same as add master layout)
-
-      const newMother = {
-        ...mother3,
-        id: `mother_${Date.now()}`,
-        name: `Mother_${newMotherNumber}`,
-        x: mother3.x + mother3.width + standardHorizontalGap, // Position after Mother_3 with standard gap
-        y: mother3.y + standardVerticalOffset, // Same Y level as Mother_3
-        regions: (mother3 as any).regions?.map((region: any) => {
-          console.log('🔍 DEBUG: Processing region:', region.name, 'Type:', typeof region.name);
-
-          const newRegion = {
-            ...region,
-            id: `region_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            name: region.name?.replace(/Mother_\d+/, `Mother_${newMotherNumber}`)
-          };
-
-          console.log('🔍 DEBUG: Checking region for R1:', {
-            regionName: region.name,
-            includesR1: region.name?.includes('R1'),
-            hasSplitText: !!splitText,
-            hasOverflowText: !!splitText?.overflowText,
-            overflowText: splitText?.overflowText
-          });
-
-          // If this is the composition region (check multiple patterns), populate it with overflow text
-          // Since Mother_3 typically has only one region (the composition region), we'll populate the first/main region
-          const isCompositionRegion = region.name?.includes('R1') ||
-                                    region.name?.includes('region_1') ||
-                                    region.name?.toLowerCase().includes('composition') ||
-                                    region.name?.toLowerCase().includes('unnamed') || // Handle "Unnamed Region"
-                                    (region.name?.includes('Mother_3') && region.name?.includes('_0')) || // First region pattern
-                                    true; // For Mother_3, assume any region can be the composition region
-
-          console.log('🔍 DEBUG: isCompositionRegion result:', isCompositionRegion);
-
-          if (isCompositionRegion && splitText?.overflowText) {
-            // SIMPLE SOLUTION: Just use the exact SPLIT 2 text as-is, no further rendering needed
-            const exactSplit2Text = splitText.overflowText;
-            console.log('🔄 Populating R1 region with EXACT SPLIT 2 text (1:1 copy):', exactSplit2Text);
-            console.log('🔍 DEBUG: SPLIT 2 text as JSON:', JSON.stringify(exactSplit2Text));
-            console.log('🔍 DEBUG: SPLIT 2 text contains newlines:', exactSplit2Text.includes('\n'));
-            console.log('🔍 DEBUG: SPLIT 2 text contains line break symbol:', exactSplit2Text.includes(' - '));
-            console.log('🔍 DEBUG: Using original comp trans config:', originalCompTransConfig);
-
-            // Create content for the overflow text (matching expected canvas structure)
-            const overflowContent = {
-              id: `content_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-              type: 'new-comp-trans',
-              regionId: newRegion.id,
-              // Canvas expects newCompTransConfig structure
-              newCompTransConfig: {
-                // Use original comp trans settings if available, otherwise use current config
-                padding: originalCompTransConfig?.padding || config.padding || { top: 2, right: 2, bottom: 2, left: 2 },
-                typography: originalCompTransConfig?.typography || {
-                  fontFamily: config.typography?.fontFamily || 'Arial',
-                  fontSize: config.typography?.fontSize || 8,
-                  fontSizeUnit: config.typography?.fontSizeUnit || 'px'
-                },
-                alignment: originalCompTransConfig?.alignment || {
-                  horizontal: config.alignment?.horizontal || 'center',
-                  vertical: config.alignment?.vertical || 'center'
-                },
-                selectedLanguages: originalCompTransConfig?.selectedLanguages || config.selectedLanguages || [],
-                materialCompositions: originalCompTransConfig?.materialCompositions || config.materialCompositions || [],
-                textContent: {
-                  separator: originalCompTransConfig?.textContent?.separator || config.textContent?.separator || ' - ',
-                  generatedText: exactSplit2Text
-                },
-                // CRITICAL: Use original line break settings for proper text wrapping
-                lineBreakSettings: originalCompTransConfig?.lineBreakSettings || config.lineBreakSettings || {
-                  lineBreakSymbol: ' - ',
-                  lineSpacing: 1.2,
-                  lineWidth: 100
-                },
-                // FLAG: Indicate this text is already pre-wrapped and should not be re-wrapped
-                isPreWrapped: true,
-                overflowOption: 'keep-flowing'
-              },
-              layout: {
-                x: 0,
-                y: 0,
-                width: region.width || 100,
-                height: region.height || 50,
-                padding: {
-                  top: 2,
-                  right: 2,
-                  bottom: 2,
-                  left: 2
-                }
-              }
-            };
-
-            // Add the content to the region
-            newRegion.contents = [overflowContent];
-            console.log('✅ Added overflow content to new R1 region:', overflowContent);
-            console.log('✅ New region with content:', newRegion);
-            console.log('🔍 DEBUG: Content structure check:', {
-              hasNewCompTransConfig: !!overflowContent.newCompTransConfig,
-              hasTextContent: !!overflowContent.newCompTransConfig?.textContent,
-              hasGeneratedText: !!overflowContent.newCompTransConfig?.textContent?.generatedText,
-              generatedText: overflowContent.newCompTransConfig?.textContent?.generatedText
-            });
-          } else {
-            console.log('❌ Skipping region - not R1 or no overflow text');
-          }
-
-          return newRegion;
-        }) || []
-      };
-
-      console.log('🔄 Creating new mother via duplication:', newMother);
-
-      // Add to objects
-      const updatedObjects = [...currentData.objects, newMother];
-
-      // Update the app data (trigger re-render)
-      if ((window as any).updateAppData) {
-        const newData = {
-          ...currentData,
-          objects: updatedObjects,
-          totalObjects: updatedObjects.length
-        };
-        console.log('🔄 DEBUG: Updating app data with new mother:', newData);
-        console.log('🔍 DEBUG: New mother regions in final data:', newMother.regions);
-        (window as any).updateAppData(newData);
-      }
-
-      // CRITICAL: Also update the regionContents state for canvas rendering
-      if ((window as any).updateRegionContents && newMother.regions) {
-        newMother.regions.forEach((region: any) => {
-          if (region.contents && region.contents.length > 0) {
-            console.log('🔄 DEBUG: Adding region contents to regionContents state:', {
-              regionId: region.id,
-              contents: region.contents
-            });
-            (window as any).updateRegionContents(region.id, region.contents);
-          }
-        });
-      }
-
-      console.log('✅ Mother_3 duplicated successfully via split confirm!');
-      alert(`✅ Mother_3 duplicated as ${newMother.name} for overflow text!`);
-
-    } catch (error) {
-      console.error('❌ Error during Mother_3 duplication:', error);
-      alert('❌ Error duplicating Mother_3. Please try again.');
-    }
-
-    // Then save the current config with original text (truncated to fit current region)
-    const configWithOriginalText: NewCompTransConfig = {
-      ...config,
-      overflowOption: 'keep-flowing' // Ensure it's set to keep-flowing
-    };
-
-    // Save the current region with original text
-    onSave(configWithOriginalText);
-  };
-
-  // Handle split preview dialog cancellation
-  const handleSplitCancel = () => {
-    setShowSplitPreview(false);
-    // Don't save, user cancelled the split
-  };
+  // Legacy functions removed - now using automatic overflow handling
 
   const handleLanguageToggle = (languageCode: string) => {
     setConfig(prev => {
@@ -2036,15 +2129,6 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
           </div>
         </div>
     </MovableDialog>
-
-    {/* Split Preview Dialog */}
-    <TextSplitPreviewDialog
-      isOpen={showSplitPreview}
-      originalText={splitText.originalText}
-      overflowText={splitText.overflowText}
-      onConfirm={handleSplitConfirm}
-      onCancel={handleSplitCancel}
-    />
   </>
   );
 };
