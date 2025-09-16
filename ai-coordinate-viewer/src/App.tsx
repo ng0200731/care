@@ -473,6 +473,9 @@ function App() {
         });
       };
 
+      // Make current regionContents available to dialogs for reading original settings
+      (window as any).currentRegionContents = regionContents;
+
       console.log('🌐 Window context updated for Mother_3 duplication access');
     }
 
@@ -481,6 +484,7 @@ function App() {
       delete (window as any).currentAppData;
       delete (window as any).updateAppData;
       delete (window as any).updateRegionContents;
+      delete (window as any).currentRegionContents;
     };
   }, [data, webCreationData]);
 

@@ -697,6 +697,33 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       console.log('✅ Found Mother_3 for duplication:', mother3);
       console.log('🔍 DEBUG: Mother_3 regions structure:', (mother3 as any).regions);
 
+      // Find the original comp trans content to copy its formatting settings
+      let originalCompTransConfig = null;
+      const mother3Regions = (mother3 as any).regions || [];
+      for (const region of mother3Regions) {
+        if (region.contents) {
+          const compTransContent = region.contents.find((content: any) => content.type === 'new-comp-trans');
+          if (compTransContent && compTransContent.newCompTransConfig) {
+            originalCompTransConfig = compTransContent.newCompTransConfig;
+            console.log('🔍 DEBUG: Found original comp trans config:', originalCompTransConfig);
+            break;
+          }
+        }
+      }
+
+      // Also check regionContents state for original formatting
+      if (!originalCompTransConfig && (window as any).currentRegionContents) {
+        const regionContentsMap = (window as any).currentRegionContents;
+        for (const [regionId, contents] of regionContentsMap.entries()) {
+          const compTransContent = contents.find((content: any) => content.type === 'new-comp-trans');
+          if (compTransContent && compTransContent.newCompTransConfig) {
+            originalCompTransConfig = compTransContent.newCompTransConfig;
+            console.log('🔍 DEBUG: Found original comp trans config from regionContents:', originalCompTransConfig);
+            break;
+          }
+        }
+      }
+
       // Create a duplicate with overflow text populated in the composition region
       const newMotherNumber = currentData.objects.filter((o: any) => o.type?.includes('mother')).length + 1;
 
@@ -741,6 +768,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
           if (isCompositionRegion && splitText?.overflowText) {
             console.log('🔄 Populating R1 region with overflow text:', splitText.overflowText);
+            console.log('🔍 DEBUG: Using original comp trans config:', originalCompTransConfig);
+            console.log('🔍 DEBUG: Original line break settings:', originalCompTransConfig?.lineBreakSettings);
 
             // Create content for the overflow text (matching expected canvas structure)
             const overflowContent = {
@@ -749,23 +778,25 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
               regionId: newRegion.id,
               // Canvas expects newCompTransConfig structure
               newCompTransConfig: {
-                padding: config.padding || { top: 2, right: 2, bottom: 2, left: 2 },
-                typography: {
+                // Use original comp trans settings if available, otherwise use current config
+                padding: originalCompTransConfig?.padding || config.padding || { top: 2, right: 2, bottom: 2, left: 2 },
+                typography: originalCompTransConfig?.typography || {
                   fontFamily: config.typography?.fontFamily || 'Arial',
                   fontSize: config.typography?.fontSize || 8,
                   fontSizeUnit: config.typography?.fontSizeUnit || 'px'
                 },
-                alignment: {
+                alignment: originalCompTransConfig?.alignment || {
                   horizontal: config.alignment?.horizontal || 'center',
                   vertical: config.alignment?.vertical || 'center'
                 },
-                selectedLanguages: config.selectedLanguages || [],
-                materialCompositions: config.materialCompositions || [],
+                selectedLanguages: originalCompTransConfig?.selectedLanguages || config.selectedLanguages || [],
+                materialCompositions: originalCompTransConfig?.materialCompositions || config.materialCompositions || [],
                 textContent: {
-                  separator: config.textContent?.separator || ' - ',
+                  separator: originalCompTransConfig?.textContent?.separator || config.textContent?.separator || ' - ',
                   generatedText: splitText.overflowText
                 },
-                lineBreakSettings: config.lineBreakSettings || {
+                // CRITICAL: Use original line break settings for proper text wrapping
+                lineBreakSettings: originalCompTransConfig?.lineBreakSettings || config.lineBreakSettings || {
                   lineBreakSymbol: ' - ',
                   lineSpacing: 1.2,
                   lineWidth: 100
