@@ -754,6 +754,10 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       y: newY, // Same Y level
       width: sourceMother.width,
       height: sourceMother.height,
+      // 🔗 PARENT-CHILD RELATIONSHIP: Establish relationship tracking
+      parentMotherId: sourceMotherName, // Track which mother this child belongs to
+      isOverflowChild: true, // Mark as overflow-generated child mother
+      childMotherIds: [], // Initialize empty array for potential grandchildren
       // Copy all the additional properties from original mother
       margins: (sourceMother as any).margins,
       sewingPosition: (sourceMother as any).sewingPosition,
@@ -820,6 +824,19 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         return newRegion;
       }) || []
     };
+
+    // 🔗 UPDATE PARENT: Add this child to the parent's child list
+    const parentMother = currentData.objects.find((obj: any) => obj.name === sourceMotherName);
+    if (parentMother) {
+      // Initialize childMotherIds array if it doesn't exist
+      if (!(parentMother as any).childMotherIds) {
+        (parentMother as any).childMotherIds = [];
+      }
+      // Add the new child mother to the parent's list
+      (parentMother as any).childMotherIds.push(`Mother_${newMotherNumber}`);
+      console.log(`🔗 Updated parent ${sourceMotherName} to track child Mother_${newMotherNumber}`);
+      console.log(`👨‍👩‍👧‍👦 Parent ${sourceMotherName} now has children:`, (parentMother as any).childMotherIds);
+    }
 
     // Add new mother to objects
     const updatedObjects = [...currentData.objects, newMother];

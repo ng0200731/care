@@ -51,6 +51,10 @@ interface AIObject {
   y: number;
   width: number;
   height: number;
+  // Parent-Child Mother Relationship Properties
+  parentMotherId?: string;  // For child mothers: ID of the original parent mother
+  childMotherIds?: string[]; // For parent mothers: Array of child mother IDs
+  isOverflowChild?: boolean; // Flag to identify overflow-generated child mothers
 }
 
 interface SonMetadata {
