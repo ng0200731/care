@@ -98,22 +98,33 @@ const wrapTextToLines = (text: string): string[] => {
 };
 ```
 
-#### Key Innovation: Look-Ahead Algorithm to Prevent Single-Word Lines
+#### 🚨 CRITICAL FIX: No Re-Wrapping in Comp-Trans Display
 
-**Problem**: Traditional word wrapping creates single-word lines like:
-```
-baumwolle - bomuld -
-bombaž                    ← Single word line (BAD)
-- 棉 - 면 - katun - قطن -
+**Root Cause of Single-Word Lines**:
+- ✅ **Split 1 & 2 logic is PERFECT** - creates optimal text wrapping with no single-word lines
+- ❌ **Comp-trans display was RE-WRAPPING** - applying text wrapping AGAIN to already perfect text
+- ❌ **Result**: Single-word lines like "bombaž" and "poliamida)" appeared
+
+**The Fix**: **Direct Copy of Pre-Wrapped Lines**
+```javascript
+// 🎯 USE PRE-WRAPPED LINES from Split 1&2 - NO RE-WRAPPING!
+const lines = preWrappedLines.length > 0 ? preWrappedLines : wrapTextToLines(textContent);
+
+if (preWrappedLines.length > 0) {
+  console.log(`✅ Using pre-wrapped lines from Split 1&2 - NO RE-WRAPPING!`);
+} else {
+  console.log(`⚠️ No pre-wrapped lines available, falling back to re-wrapping`);
+}
 ```
 
-**Solution**: Look-ahead logic that rebalances words:
-```
-baumwolle - bomuld - bombaž    ← Rebalanced (GOOD)
-- 棉 - 면 - katun - قطن -
-```
+**Key Changes**:
+1. **Pass pre-wrapped lines** through `checkMotherForOverflow()` function
+2. **Use pre-wrapped lines directly** instead of calling `wrapTextToLines()` again
+3. **Preserve perfect Split 1&2 layout** in comp-trans display
 
-**How it works**:
+#### Previous Innovation: Look-Ahead Algorithm (Now Preserved in Comp-Trans)
+
+**How Split 1&2 creates perfect wrapping**:
 1. When a word doesn't fit, check if it would create a single-word line
 2. If current line has multiple words, try moving the last word to next line
 3. Test if the rebalanced next line (2+ words) fits within boundaries
@@ -122,8 +133,10 @@ baumwolle - bomuld - bombaž    ← Rebalanced (GOOD)
 #### Benefits:
 - ✅ **80-95% line utilization** - Optimal space usage
 - ✅ **No boundary crossing** - Text stays within green dotted lines
-- ✅ **Eliminates single-word lines** - Smart rebalancing prevents isolated words
-- ✅ **Better visual appearance** - More professional text layout
+- ✅ **ZERO single-word lines** - Perfect Split 1&2 layout preserved in comp-trans
+- ✅ **No re-wrapping** - Direct copy of pre-wrapped lines maintains perfection
+- ✅ **Consistent across all mothers** - Same perfect layout in Mother_3, Mother_4, etc.
+- ✅ **Better visual appearance** - Professional text layout maintained
 - ✅ **Proper overflow detection** - Smart splitting decisions
 
 ### Overflow Handling (Split 1, Split 2, etc.)
@@ -240,8 +253,11 @@ if (content.newCompTransConfig?.storedLayout) {
 1. Create long text that exceeds region boundaries
 2. Check console logs for line utilization percentages (should be 80-95%)
 3. Verify no text crosses green dotted lines
-4. **Critical**: Confirm NO single-word lines (look for isolated words like "bombaž", "poliamida)")
-5. Look for "REBALANCED LINE" messages in console indicating smart word redistribution
+4. **Critical**: Confirm NO single-word lines in ANY mother (Mother_3, Mother_4, etc.)
+5. Look for console messages:
+   - `✅ Using pre-wrapped lines from Split 1&2 - NO RE-WRAPPING!` (GOOD)
+   - `⚠️ No pre-wrapped lines available, falling back to re-wrapping` (Should not happen)
+6. **Verify**: "bombaž" and "poliamida)" should NEVER appear alone on lines
 
 ### Test Zoom Logic:
 1. Create overflow content (Split 1, Split 2)

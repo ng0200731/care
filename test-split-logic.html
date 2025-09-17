@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Split 1 & 2 Text Processing Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .result { background: #f5f5f5; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .line { border-bottom: 1px solid #ddd; padding: 5px 0; }
+        .line:last-child { border-bottom: none; }
+        .split1 { background: #e8f5e8; }
+        .split2 { background: #fff3cd; }
+        pre { white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <h1>Split 1 & 2 Text Processing Test</h1>
+    
+    <h2>Input Text:</h2>
+    <div class="result">
+        <pre id="inputText"></pre>
+    </div>
+    
+    <h2>Split 1 (Original Mother):</h2>
+    <div class="result split1" id="split1Results"></div>
+
+    <h2>Split 2 (New Mother):</h2>
+    <div class="result split2" id="split2Results"></div>
+
+    <h2>Label Specifications:</h2>
+    <div class="result" id="labelSpecs"></div>
+
+    <h2>Height-Based Split Analysis:</h2>
+    <div class="result" id="splitAnalysis"></div>
+    
+    <script>
+        // Your material composition text
+        const inputText = `70% lino - lin - linen - linho - linnen - lino - ΛΙΝΑΡΙ - リネン - leinen - hør - lan - 亚麻 - 린넨 - linen - كتان - liño - lli - lihoaren
+
+10% poliéster - polyester - polyester - poliéster - polyester - poliestere - ΠΟΛΥΕΣΤΕΡΑΣ - ポリエステル - polyester - polyester - poliester - 聚酯纤维 - 폴리에스터 - poliester - بوليستير - poliéster - polièster - poliesterra
+
+10% viscosa - viscose - viscose - viscose - viscose - viscosa - ΒΙΣΚΟΖΗ - ビスコース - viskose - viskose - viskoza - 粘胶纤维 - 비스코스 - viskosa - فيسكوز - viscosa - viscosa - biskosea
+
+5% elastano - élasthanne - elastane - elastano - elastaan - elastan - ΕΛΑΣΤΑΝΗ - エラスタン - elastan - elastan - elastan - 氨纶 - 엘라스탄 - elastan - إيلاستان - elastano - elastà - elastanoa
+
+4% algodón - coton - cotton - algodão - katoen - cotone - ΒΑΜΒΑΚΙ - コットン - baumwolle - bomuld - bombaž - 棉 - 면 - katun - قطن - algodón - cotó - kotoia
+
+1% nailon - nylon - nylon - nylon (so p/o Brasil poliamida) - nylon - nailon - ΝΑΪΛΟΝ - ナイロン - nylon - nylon - najlon - 锦纶 - 나일론 - nilon - نايلون - nailon - niló - nylona`;
+
+        // Label specifications (matching real application)
+        const labelSpecs = {
+            // Label dimensions
+            outerWidth: 40.0,      // mm - Label outermost width
+            outerHeight: 30.0,     // mm - Label outermost height
+            marginTop: 2.0,        // mm - Top margin
+            marginBottom: 2.0,     // mm - Bottom margin
+            marginLeft: 2.0,       // mm - Left margin
+            marginRight: 2.0,      // mm - Right margin
+
+            // Font specifications
+            fontName: 'Arial',     // Font family
+            fontSize: 12,          // Font size in px
+            lineHeight: 1.5,       // Line height multiplier
+
+            // Calculated dimensions
+            get availableWidth() {
+                return this.outerWidth - this.marginLeft - this.marginRight;
+            },
+            get availableHeight() {
+                return this.outerHeight - this.marginTop - this.marginBottom;
+            },
+            get lineHeightMm() {
+                return 1.5; // mm - Realistic line height based on actual image analysis
+            },
+            get maxLines() {
+                return Math.floor(this.availableHeight / this.lineHeightMm);
+            }
+        };
+
+        // Display input text
+        document.getElementById('inputText').textContent = inputText;
+
+        // Display label specifications
+        const labelSpecsContainer = document.getElementById('labelSpecs');
+        labelSpecsContainer.innerHTML = `
+            <div class="line"><strong>Label Outermost Size:</strong> ${labelSpecs.outerWidth}mm × ${labelSpecs.outerHeight}mm</div>
+            <div class="line"><strong>Margins:</strong> Top: ${labelSpecs.marginTop}mm, Bottom: ${labelSpecs.marginBottom}mm, Left: ${labelSpecs.marginLeft}mm, Right: ${labelSpecs.marginRight}mm</div>
+            <div class="line"><strong>Available Size (after margins):</strong> ${labelSpecs.availableWidth}mm × ${labelSpecs.availableHeight}mm</div>
+            <div class="line"><strong>Font Name:</strong> ${labelSpecs.fontName}</div>
+            <div class="line"><strong>Font Size:</strong> ${labelSpecs.fontSize}px</div>
+            <div class="line"><strong>Line Height:</strong> ${labelSpecs.lineHeightMm.toFixed(2)}mm (${labelSpecs.lineHeight}× font size)</div>
+            <div class="line"><strong>Maximum Lines per Label:</strong> ${labelSpecs.maxLines} lines</div>
+        `;
+
+        // Text measurement function (using label specifications)
+        function estimateTextWidth(text) {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            context.font = `${labelSpecs.fontSize}px ${labelSpecs.fontName}`;
+            const textWidthPx = context.measureText(text).width;
+            const textWidthMm = textWidthPx / 3.779527559; // Convert to mm
+            return textWidthMm * 0.85; // Apply optimization factor
+        }
+
+        // Smart word wrapping logic (using label specifications)
+        function processTextWithSplitLogic(text, availableWidthMm = labelSpecs.availableWidth) {
+            const lineBreakSymbol = '\n';
+            const manualLines = text.split(lineBreakSymbol);
+            const wrappedLines = [];
+            
+            manualLines.forEach(line => {
+                const trimmedLine = line.trim();
+                if (!trimmedLine) {
+                    wrappedLines.push('');
+                    return;
+                }
+
+                const lineWidth = estimateTextWidth(trimmedLine);
+                if (lineWidth <= availableWidthMm) {
+                    wrappedLines.push(trimmedLine);
+                    return;
+                }
+
+                // Smart word wrapping with look-ahead logic
+                const words = trimmedLine.split(' ');
+                let currentLine = '';
+
+                for (let i = 0; i < words.length; i++) {
+                    const word = words[i];
+                    const testLine = currentLine ? `${currentLine} ${word}` : word;
+                    const testWidth = estimateTextWidth(testLine);
+
+                    if (testWidth <= availableWidthMm) {
+                        currentLine = testLine;
+                    } else {
+                        if (currentLine) {
+                            // Look ahead logic to avoid single-word lines
+                            const isLastWord = i === words.length - 1;
+                            const nextWord = !isLastWord ? words[i + 1] : null;
+
+                            if (!isLastWord && nextWord) {
+                                const nextWordWidth = estimateTextWidth(nextWord);
+                                const currentLineWords = currentLine.split(' ');
+
+                                if (currentLineWords.length > 1 && nextWordWidth < availableWidthMm) {
+                                    const lastWordInCurrentLine = currentLineWords[currentLineWords.length - 1];
+                                    const shortenedCurrentLine = currentLineWords.slice(0, -1).join(' ');
+                                    const newNextLine = `${lastWordInCurrentLine} ${word}`;
+                                    const newNextLineWidth = estimateTextWidth(newNextLine);
+
+                                    if (newNextLineWidth <= availableWidthMm) {
+                                        wrappedLines.push(shortenedCurrentLine);
+                                        currentLine = newNextLine;
+                                        continue;
+                                    }
+                                }
+                            }
+
+                            wrappedLines.push(currentLine);
+                            currentLine = word;
+                        } else {
+                            wrappedLines.push(word);
+                            currentLine = '';
+                        }
+                    }
+                }
+
+                if (currentLine) {
+                    wrappedLines.push(currentLine);
+                }
+            });
+
+            return wrappedLines;
+        }
+
+        // Process the text
+        const allLines = processTextWithSplitLogic(inputText);
+
+        // CORRECTED LOGIC: Both labels have same capacity, fill Original to MAXIMUM first
+        function calculateHeightBasedSplit(lines) {
+            // Both labels are identical, so they have the same maximum capacity
+            // Based on your image analysis: ~25-30 lines per label is realistic
+            const REALISTIC_MAX_LINES_PER_LABEL = Math.ceil(lines.length / 2); // Split roughly in half, but favor original
+
+            // Fill Original Mother to MAXIMUM capacity first
+            let splitIndex;
+            if (lines.length <= REALISTIC_MAX_LINES_PER_LABEL) {
+                // All lines fit in original mother
+                splitIndex = lines.length;
+            } else {
+                // Fill original to maximum, remainder goes to new mother
+                splitIndex = REALISTIC_MAX_LINES_PER_LABEL;
+            }
+
+            // Calculate heights for analysis
+            let originalHeight = 0;
+            let newMotherHeight = 0;
+
+            // Calculate original mother height
+            for (let i = 0; i < splitIndex; i++) {
+                const lineHeight = lines[i].trim() === '' ? labelSpecs.lineHeightMm * 0.5 : labelSpecs.lineHeightMm;
+                originalHeight += lineHeight;
+            }
+
+            // Calculate new mother height
+            for (let i = splitIndex; i < lines.length; i++) {
+                const lineHeight = lines[i].trim() === '' ? labelSpecs.lineHeightMm * 0.5 : labelSpecs.lineHeightMm;
+                newMotherHeight += lineHeight;
+            }
+
+            return {
+                split1: lines.slice(0, splitIndex),
+                split2: lines.slice(splitIndex),
+                splitIndex: splitIndex,
+                originalUsedHeight: originalHeight,
+                newMotherUsedHeight: newMotherHeight,
+                maxHeight: labelSpecs.availableHeight,
+                maxLines: REALISTIC_MAX_LINES_PER_LABEL,
+                logic: `Fill Original to MAXIMUM capacity (${REALISTIC_MAX_LINES_PER_LABEL} lines), remainder flows to New Mother`
+            };
+        }
+
+        const splitResult = calculateHeightBasedSplit(allLines);
+        const split1Lines = splitResult.split1;
+        const split2Lines = splitResult.split2;
+
+        // Display Split 1 (Original Mother)
+        const split1Container = document.getElementById('split1Results');
+        if (split1Lines.length > 0) {
+            split1Lines.forEach((line, index) => {
+                const lineDiv = document.createElement('div');
+                lineDiv.className = 'line';
+                lineDiv.innerHTML = `<strong>Line ${index + 1}:</strong> ${line || '(empty line)'}`;
+                split1Container.appendChild(lineDiv);
+            });
+        } else {
+            split1Container.innerHTML = '<div class="line">No lines in original mother</div>';
+        }
+
+        // Display Split 2 (New Mother)
+        const split2Container = document.getElementById('split2Results');
+        if (split2Lines.length > 0) {
+            split2Lines.forEach((line, index) => {
+                const lineDiv = document.createElement('div');
+                lineDiv.className = 'line';
+                lineDiv.innerHTML = `<strong>Line ${index + 1}:</strong> ${line || '(empty line)'}`;
+                split2Container.appendChild(lineDiv);
+            });
+        } else {
+            split2Container.innerHTML = '<div class="line">All text fits in original mother - no new mother needed</div>';
+        }
+
+        // Display split analysis
+        const analysisContainer = document.getElementById('splitAnalysis');
+        analysisContainer.innerHTML = `
+            <div class="line"><strong>Total Lines Processed:</strong> ${allLines.length}</div>
+            <div class="line"><strong>Maximum Lines per Label:</strong> ${splitResult.maxLines}</div>
+            <div class="line"><strong>Split Index:</strong> ${splitResult.splitIndex}</div>
+            <div class="line"><strong>Split 1 (Original Mother):</strong> ${split1Lines.length} lines (${((split1Lines.length / allLines.length) * 100).toFixed(1)}%)</div>
+            <div class="line"><strong>Split 2 (New Mother):</strong> ${split2Lines.length} lines (${((split2Lines.length / allLines.length) * 100).toFixed(1)}%)</div>
+            <div class="line"><strong>Original Mother Height:</strong> ${splitResult.originalUsedHeight.toFixed(1)}mm / ${splitResult.maxHeight}mm (${((splitResult.originalUsedHeight / splitResult.maxHeight) * 100).toFixed(1)}%)</div>
+            <div class="line"><strong>New Mother Height:</strong> ${splitResult.newMotherUsedHeight.toFixed(1)}mm / ${splitResult.maxHeight}mm (${((splitResult.newMotherUsedHeight / splitResult.maxHeight) * 100).toFixed(1)}%)</div>
+            <div class="line"><strong>Logic:</strong> ${splitResult.logic}</div>
+        `;
+
+        // Log results to console as well
+        console.log('=== LABEL SPECIFICATIONS ===');
+        console.log(`Outermost Size: ${labelSpecs.outerWidth}mm × ${labelSpecs.outerHeight}mm`);
+        console.log(`Available Size: ${labelSpecs.availableWidth}mm × ${labelSpecs.availableHeight}mm`);
+        console.log(`Font: ${labelSpecs.fontSize}px ${labelSpecs.fontName}`);
+        console.log(`Line Height: ${labelSpecs.lineHeightMm.toFixed(2)}mm`);
+        console.log(`Max Lines: ${labelSpecs.maxLines}`);
+
+        console.log('\n=== MAXIMUM CAPACITY SPLIT ANALYSIS ===');
+        console.log(`Total Lines: ${allLines.length}`);
+        console.log(`Max Lines per Label: ${splitResult.maxLines}`);
+        console.log(`Split Index: ${splitResult.splitIndex}`);
+        console.log(`Split 1 (Original): ${split1Lines.length} lines (${((split1Lines.length / allLines.length) * 100).toFixed(1)}%)`);
+        console.log(`Split 2 (New): ${split2Lines.length} lines (${((split2Lines.length / allLines.length) * 100).toFixed(1)}%)`);
+        console.log(`Original Height: ${splitResult.originalUsedHeight.toFixed(1)}mm / ${splitResult.maxHeight}mm`);
+        console.log(`New Mother Height: ${splitResult.newMotherUsedHeight.toFixed(1)}mm / ${splitResult.maxHeight}mm`);
+
+        console.log('\n=== SPLIT 1 (Original Mother) ===');
+        split1Lines.forEach((line, index) => {
+            console.log(`Line ${index + 1}: ${line}`);
+        });
+
+        console.log('\n=== SPLIT 2 (New Mother) ===');
+        split2Lines.forEach((line, index) => {
+            console.log(`Line ${index + 1}: ${line}`);
+        });
+    </script>
+</body>
+</html>

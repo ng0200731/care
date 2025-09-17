@@ -800,7 +800,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
     // Check if the newly created mother also has overflow
     // We need to simulate the overflow detection for the new mother
-    const newMotherOverflowResult = await checkMotherForOverflow(newMother, textToProcess, originalMotherConfig);
+    const newMotherOverflowResult = await checkMotherForOverflow(newMother, textToProcess, originalMotherConfig, preWrappedLines);
 
     if (newMotherOverflowResult.hasOverflow) {
       console.log(`⚠️ New Mother_${newMotherNumber} also has overflow, continuing recursion...`);
@@ -823,7 +823,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
   const checkMotherForOverflow = async (
     mother: any,
     textContent: string,
-    originalConfig: any
+    originalConfig: any,
+    preWrappedLines: string[] = []
   ): Promise<{ hasOverflow: boolean; originalText: string; overflowText: string; overflowLines: string[] }> => {
     // Use the same DPR-aware overflow detection logic as the main function
     if (!regionWidth || !regionHeight) {
@@ -922,7 +923,14 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       return wrappedLines;
     };
 
-    const lines = wrapTextToLines(textContent);
+    // 🎯 USE PRE-WRAPPED LINES if available (from Split 1&2 perfect logic), otherwise wrap
+    const lines = preWrappedLines.length > 0 ? preWrappedLines : wrapTextToLines(textContent);
+
+    if (preWrappedLines.length > 0) {
+      console.log(`✅ Using pre-wrapped lines from Split 1&2 (${preWrappedLines.length} lines) - NO RE-WRAPPING!`);
+    } else {
+      console.log(`⚠️ No pre-wrapped lines available, falling back to re-wrapping`);
+    }
 
     // Check for height overflow using logical pixels (zoom-independent)
     const lineHeightMm = fontSizeMm * originalConfig.lineBreakSettings.lineSpacing;
