@@ -106,7 +106,7 @@ export interface NewCompTransConfig {
     lineSpacing: number;
     lineWidth: number;
   };
-  overflowOption: 'keep-flowing' | 'truncate' | 'shrink';
+  // overflowOption removed - now handled automatically
 }
 
 interface NewCompTransDialogProps {
@@ -160,12 +160,11 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       lineBreakSymbol: '\n',
       lineSpacing: 1.2,
       lineWidth: 100
-    },
-    overflowOption: 'truncate'
+    }
+    // overflowOption removed - automatic handling enabled
   });
 
-  // Overflow handling state
-  const [overflowOption, setOverflowOption] = useState<'keep-flowing' | 'truncate' | 'shrink'>('truncate');
+  // Overflow handling is now automatic - no user selection needed
 
   // Overflow detection state for UI feedback
   const [hasOverflow, setHasOverflow] = useState(false);
@@ -376,6 +375,72 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     return wrappedLines.join(config.lineBreakSettings?.lineBreakSymbol || '\n');
   };
 
+  // Extract mother name from regionId (e.g., "Mother_3_Region_1" -> "Mother_3")
+  const extractMotherNameFromRegionId = (regionId: string): string => {
+    const match = regionId.match(/^(Mother_\d+)/);
+    return match ? match[1] : 'Mother_3'; // Default fallback
+  };
+
+  // Clean up child mothers recursively
+  const cleanupChildMothers = (parentMotherName: string) => {
+    console.log(`🧹 Cleaning up child mothers for parent: ${parentMotherName}`);
+
+    const currentData = (window as any).currentAppData;
+    if (!currentData || !currentData.objects) {
+      console.log('❌ No app data available for cleanup');
+      return;
+    }
+
+    // Find parent mother
+    const parentMother = currentData.objects.find((obj: any) => obj.name === parentMotherName);
+    if (!parentMother) {
+      console.log(`❌ Parent mother ${parentMotherName} not found`);
+      return;
+    }
+
+    // Recursive function to remove child mothers and their descendants
+    const removeChildMothersRecursively = (motherIds: string[]) => {
+      motherIds.forEach(childId => {
+        const childMother = currentData.objects.find((obj: any) => obj.name === childId);
+        if (childMother) {
+          console.log(`🗑️ Removing child mother: ${childId}`);
+
+          // First, recursively remove any grandchildren
+          const grandchildIds = (childMother as any).childMotherIds || [];
+          if (grandchildIds.length > 0) {
+            console.log(`🔄 Recursively removing grandchildren of ${childId}:`, grandchildIds);
+            removeChildMothersRecursively(grandchildIds);
+          }
+        }
+      });
+
+      // Remove all the child mothers from the objects array
+      currentData.objects = currentData.objects.filter((obj: any) =>
+        !motherIds.includes(obj.name)
+      );
+    };
+
+    // Get child mother IDs and clean them up
+    const childMotherIds = (parentMother as any).childMotherIds || [];
+    if (childMotherIds.length > 0) {
+      console.log(`🧹 Found ${childMotherIds.length} child mothers to clean up:`, childMotherIds);
+      removeChildMothersRecursively(childMotherIds);
+
+      // Clear the parent's child mother list
+      (parentMother as any).childMotherIds = [];
+
+      // Update the app data
+      const updateAppData = (window as any).updateAppData;
+      if (updateAppData) {
+        updateAppData(currentData);
+      }
+
+      console.log(`✅ Cleanup completed for parent: ${parentMotherName}`);
+    } else {
+      console.log(`ℹ️ No child mothers found for parent: ${parentMotherName}`);
+    }
+  };
+
   // Canvas-based overflow detection and text splitting (similar to NewMultiLineDialog)
   const detectOverflowAndSplit = () => {
     const text = generateTextContent();
@@ -536,8 +601,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
           lineBreakSymbol: '\n',
           lineSpacing: 1.2,
           lineWidth: 100
-        },
-        overflowOption: editingContent.newCompTransConfig.overflowOption || 'truncate'
+        }
+        // overflowOption removed - automatic handling
       };
     }
 
@@ -569,8 +634,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         lineBreakSymbol: '\n',
         lineSpacing: 1.2,
         lineWidth: 100
-      },
-      overflowOption: 'truncate'
+      }
+      // overflowOption removed - automatic handling
     };
   };
 
@@ -578,7 +643,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     if (isOpen) {
       const initialConfig = getInitialConfig();
       setConfig(initialConfig);
-      setOverflowOption(initialConfig.overflowOption);
+      // overflowOption removed - automatic handling enabled
 
       // Debug: Check if callback is available
       console.log('🔍 NewCompTransDialog opened with callback:', {
@@ -588,13 +653,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     }
   }, [isOpen, editingContent]);
 
-  // Sync overflow option with config
-  useEffect(() => {
-    setConfig(prev => ({
-      ...prev,
-      overflowOption: overflowOption
-    }));
-  }, [overflowOption]);
+  // Overflow option sync removed - automatic handling enabled
 
   // Auto-generate text content when compositions or languages change
   useEffect(() => {
@@ -663,16 +722,27 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       });
     const newMotherNumber = Math.max(...motherNumbers, 0) + 1;
 
-    // Calculate position for new mother (20mm gap standard)
+    // Calculate position for new mother using EXACT same logic as "Add Master Layout" button
+    const spacing = 20; // Consistent spacing between mothers (same as duplicateMother function)
+    let newX = sourceMother.x;
+    let newY = sourceMother.y;
+
+    // Find the rightmost position of ALL existing mothers (same as duplicateMother function)
     let maxRightX = 0;
-    currentData.objects.forEach((obj: any) => {
-      if (obj.name?.includes('Mother_')) {
-        const rightEdge = obj.x + obj.width;
-        if (rightEdge > maxRightX) {
-          maxRightX = rightEdge;
-        }
+    const motherObjects = currentData.objects.filter((obj: any) => obj.type?.includes('mother'));
+    motherObjects.forEach((mother: any) => {
+      const rightEdge = mother.x + mother.width;
+      if (rightEdge > maxRightX) {
+        maxRightX = rightEdge;
       }
     });
+
+    // Position new mother to the right of all existing mothers (same as duplicateMother function)
+    newX = maxRightX + spacing;
+    newY = sourceMother.y; // Same Y level as original mother
+
+    console.log(`📍 Positioning Mother_${newMotherNumber} at (${newX}, ${newY}) using Add Master Layout logic`);
+    console.log(`📏 Spacing from rightmost mother: ${spacing}mm`);
 
     // Create new mother with inherited properties from ORIGINAL mother config
     const newMother = {
@@ -680,8 +750,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       name: `Mother_${newMotherNumber}`,
       type: 'mother',
       typename: 'mother',
-      x: sourceMother.x + sourceMother.width + 20, // 20mm standard gap
-      y: sourceMother.y, // Same Y level
+      x: newX, // Use calculated position to avoid overlaps
+      y: newY, // Same Y level
       width: sourceMother.width,
       height: sourceMother.height,
       // Copy all the additional properties from original mother
@@ -738,8 +808,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
                 generatedText: textToProcess
               },
               lineBreakSettings: originalMotherConfig.lineBreakSettings,
-              isPreWrapped: true, // Mark as pre-wrapped to prevent re-wrapping
-              overflowOption: 'truncate'
+              isPreWrapped: true // Mark as pre-wrapped to prevent re-wrapping
+              // overflowOption removed - automatic handling
             }
           };
 
@@ -947,66 +1017,47 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     const overflowResult = detectOverflowAndSplit();
 
     if (overflowResult.hasOverflow) {
-      if (overflowOption === 'keep-flowing') {
-        // Automatically handle overflow with recursive splitting - no popup needed
-        console.log('🔄 Starting automatic recursive overflow handling...');
+      // 🌊 AUTOMATIC OVERFLOW HANDLING - No popup dialogs needed
+      // Automatically use "Keep Flowing" behavior when overflow is detected
+      console.log('🔄 Automatic overflow detected - starting seamless mother creation...');
+      console.log('📊 Overflow details:', {
+        originalTextLength: overflowResult.originalText.length,
+        overflowTextLength: overflowResult.overflowText.length,
+        hasOverflowLines: overflowResult.overflowLines?.length || 0
+      });
 
-        // Save the original text to the current region first
-        onSave({
-          ...config,
-          textContent: {
-            ...config.textContent,
-            generatedText: overflowResult.originalText
-          }
-        });
+      // 🧹 CLEANUP: Remove existing child mothers before creating new ones
+      const motherName = extractMotherNameFromRegionId(regionId);
+      cleanupChildMothers(motherName); // Clean up children of the source mother
 
-        // Start recursive overflow handling with the overflow text
-        await handleAutomaticOverflowSplitting(
-          overflowResult.overflowText,
-          config, // Pass the original config to preserve all settings
-          'Mother_3', // Source mother name
-          0 // Initial recursion depth
-        );
-
-        console.log('✅ Automatic recursive overflow handling completed');
-        return;
-      } else {
-        // Text overflows but user hasn't selected "Keep Flowing"
-        // Show a warning and suggest the Keep Flowing option
-        const shouldUseKeepFlowing = window.confirm(
-          `⚠️ TEXT OVERFLOW DETECTED!\n\n` +
-          `Your text is too long for the current region and will be ${overflowOption === 'truncate' ? 'cut off' : 'shrunk'}.\n\n` +
-          `Would you like to use "Keep Flowing" instead to automatically split the text across multiple regions?\n\n` +
-          `Click OK to automatically create new mothers, or Cancel to continue with ${overflowOption}.`
-        );
-
-        if (shouldUseKeepFlowing) {
-          setOverflowOption('keep-flowing');
-
-          // Save the original text to the current region first
-          onSave({
-            ...config,
-            textContent: {
-              ...config.textContent,
-              generatedText: overflowResult.originalText
-            }
-          });
-
-          // Start automatic recursive overflow handling
-          await handleAutomaticOverflowSplitting(
-            overflowResult.overflowText,
-            config,
-            'Mother_3',
-            0
-          );
-
-          console.log('✅ Automatic recursive overflow handling completed');
-          return;
+      // Save the original text to the current region first
+      onSave({
+        ...config,
+        textContent: {
+          ...config.textContent,
+          generatedText: overflowResult.originalText
         }
-      }
+      });
+
+      // Automatically start recursive overflow handling with the overflow text
+      await handleAutomaticOverflowSplitting(
+        overflowResult.overflowText,
+        config, // Pass the original config to preserve all settings
+        motherName, // Source mother name extracted from regionId
+        0 // Initial recursion depth
+      );
+
+      console.log('✅ Automatic seamless overflow handling completed - new mothers created');
+      return;
     }
 
-    // No overflow or user chose to proceed with current option
+    // No overflow detected - clean up any existing child mothers and proceed with normal save
+    console.log('✅ No overflow detected - cleaning up child mothers and saving content normally');
+
+    // Clean up any existing child mothers since there's no overflow anymore
+    const motherName = extractMotherNameFromRegionId(regionId);
+    cleanupChildMothers(motherName);
+
     onSave(config);
   };
 
@@ -1955,120 +2006,49 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
                 fontSize: '12px',
                 fontWeight: '600',
                 marginBottom: '8px',
-                color: hasOverflow ? '#856404' : '#333',
+                color: hasOverflow ? '#28a745' : '#333',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '4px'
               }}>
-                {hasOverflow && <span>⚠️</span>}
-                Overflow: {hasOverflow ? 'TEXT TOO LONG - Choose handling method' : 'No overflow detected'}
+                {hasOverflow ? <span>🌊</span> : <span>✅</span>}
+                Overflow: {hasOverflow ? 'TEXT TOO LONG - Will automatically create new mother' : 'No overflow detected'}
               </div>
 
               <div style={{
-                display: 'flex',
-                gap: '8px',
-                flexWrap: 'wrap'
+                padding: '12px',
+                backgroundColor: hasOverflow ? '#e8f5e8' : '#f8f9fa',
+                borderRadius: '6px',
+                border: hasOverflow ? '2px solid #28a745' : '1px solid #e9ecef'
               }}>
-                {/* Keep Flowing */}
-                <label style={{
+                <div style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '4px',
-                  cursor: 'pointer',
-                  padding: '6px 10px',
-                  border: '2px solid',
-                  borderColor: overflowOption === 'keep-flowing' ? '#007bff' : (hasOverflow ? '#28a745' : '#ddd'),
-                  borderRadius: '4px',
-                  backgroundColor: overflowOption === 'keep-flowing' ? '#e3f2fd' : (hasOverflow ? '#d4edda' : 'white'),
-                  fontSize: '11px',
-                  fontWeight: hasOverflow ? '600' : '500',
-                  minWidth: '90px',
-                  justifyContent: 'center',
-                  position: 'relative'
+                  gap: '8px',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  color: hasOverflow ? '#155724' : '#6c757d'
                 }}>
-                  <input
-                    type="radio"
-                    name="overflowOption"
-                    value="keep-flowing"
-                    checked={overflowOption === 'keep-flowing'}
-                    onChange={(e) => setOverflowOption(e.target.value as any)}
-                    style={{ margin: 0, marginRight: '4px' }}
-                  />
-                  🌊 Keep Flowing
-                  {hasOverflow && overflowOption !== 'keep-flowing' && (
-                    <span style={{
-                      position: 'absolute',
-                      top: '-8px',
-                      right: '-8px',
-                      backgroundColor: '#28a745',
-                      color: 'white',
-                      borderRadius: '50%',
-                      width: '16px',
-                      height: '16px',
-                      fontSize: '10px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontWeight: 'bold'
-                    }}>
-                      !
-                    </span>
-                  )}
-                </label>
-
-                {/* Truncate */}
-                <label style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  cursor: 'pointer',
-                  padding: '6px 10px',
-                  border: '2px solid',
-                  borderColor: overflowOption === 'truncate' ? '#007bff' : '#ddd',
-                  borderRadius: '4px',
-                  backgroundColor: overflowOption === 'truncate' ? '#e3f2fd' : 'white',
-                  fontSize: '11px',
-                  fontWeight: '500',
-                  minWidth: '90px',
-                  justifyContent: 'center'
-                }}>
-                  <input
-                    type="radio"
-                    name="overflowOption"
-                    value="truncate"
-                    checked={overflowOption === 'truncate'}
-                    onChange={(e) => setOverflowOption(e.target.value as any)}
-                    style={{ margin: 0, marginRight: '4px' }}
-                  />
-                  ✂️ Truncate
-                </label>
-
-                {/* Shrink */}
-                <label style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  cursor: 'pointer',
-                  padding: '6px 10px',
-                  border: '2px solid',
-                  borderColor: overflowOption === 'shrink' ? '#007bff' : '#ddd',
-                  borderRadius: '4px',
-                  backgroundColor: overflowOption === 'shrink' ? '#e3f2fd' : 'white',
-                  fontSize: '11px',
-                  fontWeight: '500',
-                  minWidth: '90px',
-                  justifyContent: 'center'
-                }}>
-                  <input
-                    type="radio"
-                    name="overflowOption"
-                    value="shrink"
-                    checked={overflowOption === 'shrink'}
-                    onChange={(e) => setOverflowOption(e.target.value as any)}
-                    style={{ margin: 0, marginRight: '4px' }}
-                  />
-                  🔍 Shrink
-                </label>
+                  <span style={{ fontSize: '16px' }}>
+                    {hasOverflow ? '🌊' : '✅'}
+                  </span>
+                  <span>
+                    {hasOverflow
+                      ? 'Automatic Overflow Handling Enabled - New mothers will be created seamlessly'
+                      : 'Automatic Overflow Protection Active - Ready to create new mothers if needed'
+                    }
+                  </span>
+                </div>
+                {hasOverflow && (
+                  <div style={{
+                    marginTop: '8px',
+                    fontSize: '11px',
+                    color: '#6c757d',
+                    fontStyle: 'italic'
+                  }}>
+                    💡 When you save, overflow text will automatically flow to a new duplicated mother with identical properties
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -2123,8 +2103,9 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
                 fontWeight: '500',
                 cursor: canSave() ? 'pointer' : 'not-allowed'
               }}
+              title={hasOverflow ? 'Save and automatically create new mothers for overflow text' : 'Save composition translation'}
             >
-              Save
+              {hasOverflow ? '🌊 Save & Auto-Flow' : 'Save'}
             </button>
           </div>
         </div>
