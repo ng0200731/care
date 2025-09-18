@@ -646,7 +646,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       // overflowOption removed - automatic handling enabled
 
       // Debug: Check if callback is available
-      console.log('🔍 NewCompTransDialog opened with callback:', {
+      console.log('🔍 [v2.9.128] NewCompTransDialog opened with callback:', {
         hasOnCreateNewMother: !!onCreateNewMother,
         callbackType: typeof onCreateNewMother
       });
@@ -1017,18 +1017,13 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     const overflowResult = detectOverflowAndSplit();
 
     if (overflowResult.hasOverflow) {
-      // 🌊 AUTOMATIC OVERFLOW HANDLING - No popup dialogs needed
-      // Automatically use "Keep Flowing" behavior when overflow is detected
-      console.log('🔄 Automatic overflow detected - starting seamless mother creation...');
+      // 🌊 AUTOMATIC OVERFLOW HANDLING - Use the proper callback
+      console.log('🔄 Automatic overflow detected - creating new mother...');
       console.log('📊 Overflow details:', {
         originalTextLength: overflowResult.originalText.length,
         overflowTextLength: overflowResult.overflowText.length,
         hasOverflowLines: overflowResult.overflowLines?.length || 0
       });
-
-      // 🧹 CLEANUP: Remove existing child mothers before creating new ones
-      const motherName = extractMotherNameFromRegionId(regionId);
-      cleanupChildMothers(motherName); // Clean up children of the source mother
 
       // Save the original text to the current region first
       onSave({
@@ -1039,25 +1034,31 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         }
       });
 
-      // Automatically start recursive overflow handling with the overflow text
-      await handleAutomaticOverflowSplitting(
-        overflowResult.overflowText,
-        config, // Pass the original config to preserve all settings
-        motherName, // Source mother name extracted from regionId
-        0 // Initial recursion depth
-      );
+      // Use the proper callback to create new mother for overflow
+      console.log('🔍 [v2.9.128] Debug onCreateNewMother before call:', {
+        hasCallback: !!onCreateNewMother,
+        callbackType: typeof onCreateNewMother,
+        callback: onCreateNewMother
+      });
+      
+      if (onCreateNewMother) {
+        console.log('📞 Calling onCreateNewMother callback with overflow text');
+        console.log('📊 Calling with params:', {
+          originalLength: overflowResult.originalText.length,
+          overflowLength: overflowResult.overflowText.length
+        });
+        onCreateNewMother(overflowResult.originalText, overflowResult.overflowText);
+      } else {
+        console.warn('⚠️ onCreateNewMother callback not available - cannot create new mother');
+        console.warn('🔍 Available props at error:', Object.keys({ isOpen, regionId, regionWidth, regionHeight, editingContent, existingCompositions, onSave, onCancel, onCreateNewMother }));
+      }
 
-      console.log('✅ Automatic seamless overflow handling completed - new mothers created');
+      console.log('✅ Overflow handling completed');
       return;
     }
 
-    // No overflow detected - clean up any existing child mothers and proceed with normal save
-    console.log('✅ No overflow detected - cleaning up child mothers and saving content normally');
-
-    // Clean up any existing child mothers since there's no overflow anymore
-    const motherName = extractMotherNameFromRegionId(regionId);
-    cleanupChildMothers(motherName);
-
+    // No overflow detected - proceed with normal save
+    console.log('✅ No overflow detected - saving content normally');
     onSave(config);
   };
 

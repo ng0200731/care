@@ -6407,6 +6407,7 @@ function App() {
   const handleCreateNewMotherForOverflow = (originalText: string, overflowText: string) => {
     console.log('🔄 Creating new mother for overflow text:', { originalText, overflowText });
     console.log('🔍 Universal dialog state:', universalDialog);
+    console.log('🔍 New comp trans dialog state:', newCompTransDialog);
 
     const currentData = data || webCreationData;
     if (!currentData) {
@@ -6416,6 +6417,15 @@ function App() {
 
     console.log('📊 Current data objects:', currentData.objects.length);
 
+    // Determine which dialog is open and get the region ID
+    const activeRegionId = universalDialog.isOpen ? universalDialog.regionId : newCompTransDialog?.regionId || '';
+    console.log('🔍 Active region ID:', activeRegionId);
+
+    if (!activeRegionId) {
+      console.error('❌ No active region ID available from either dialog');
+      return;
+    }
+
     // Find the current region to determine which mother to duplicate
     let currentMother: AIObject | null = null;
     let currentRegion: any = null;
@@ -6424,7 +6434,7 @@ function App() {
       if (obj.type?.includes('mother')) {
         const regions = (obj as any).regions || [];
         console.log(`🔍 Checking mother ${obj.name} with ${regions.length} regions`);
-        const region = regions.find((r: any) => r.id === universalDialog.regionId);
+        const region = regions.find((r: any) => r.id === activeRegionId);
         if (region) {
           currentMother = obj;
           currentRegion = region;
@@ -6435,7 +6445,7 @@ function App() {
     }
 
     if (!currentMother) {
-      console.error('❌ Could not find mother object for current region:', universalDialog.regionId);
+      console.error('❌ Could not find mother object for current region:', activeRegionId);
       return;
     }
 
@@ -6489,7 +6499,7 @@ function App() {
               fontColor: '#000000'
             },
             content: {
-              text: overflowText,
+              text: overflowText, // Only the overflow text
               materialCompositions: [], // Empty - this will be blank content as requested
               selectedLanguages: [],
               lineBreakSettings: {
@@ -6499,17 +6509,20 @@ function App() {
               }
             },
             newCompTransConfig: {
-              materialCompositions: [], // Blank content
-              selectedLanguages: [],
+              materialCompositions: [], // Blank content - no material composition UI
+              selectedLanguages: [], // Blank - no language selection UI
               textContent: {
-                generatedText: overflowText
+                separator: ' - ',
+                generatedText: overflowText // Only the overflow text, not the full text
               },
+              padding: { top: 0, right: 0, bottom: 0, left: 0 },
+              alignment: { horizontal: 'left', vertical: 'top' },
+              typography: { fontFamily: 'Arial', fontSize: 12, fontSizeUnit: 'pt', fontColor: '#000000' },
               lineBreakSettings: {
                 lineBreakSymbol: '\n',
                 lineSpacing: 1.2,
                 lineWidth: 100
-              },
-              overflowOption: 'truncate'
+              }
             }
           };
 
@@ -15992,6 +16005,12 @@ function App() {
 
         console.log('🔍 Total existing compositions found:', existingCompositions.length);
 
+        console.log('🔍 [v2.9.128] App.tsx rendering UniversalContentDialog with onCreateNewMother:', {
+          hasCallback: !!handleCreateNewMotherForOverflow,
+          callbackType: typeof handleCreateNewMotherForOverflow,
+          contentType: universalDialog.contentType?.id
+        });
+        
         return (
           <UniversalContentDialog
             isOpen={universalDialog.isOpen}
@@ -16772,6 +16791,7 @@ function App() {
           editingContent={newCompTransDialog.editingContent}
           onSave={handleNewCompTransSave}
           onCancel={handleNewCompTransCancel}
+          onCreateNewMother={handleCreateNewMotherForOverflow}
         />
       )}
 

@@ -1208,7 +1208,16 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
 
           {/* Composition Translation Content */}
           {contentType.id === 'new-comp-trans' && (
-            <NewCompTransDialog
+            <div style={{ display: 'none' }}>
+              {(() => {
+                console.log('🔍 [v2.9.128] UniversalContentDialog passing onCreateNewMother:', {
+                  hasCallback: !!onCreateNewMother,
+                  callbackType: typeof onCreateNewMother,
+                  callback: onCreateNewMother
+                });
+                return null;
+              })()}
+              <NewCompTransDialog
               isOpen={true}
               regionId={regionId}
               regionWidth={regionWidth}
@@ -1251,6 +1260,7 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
               onCancel={onCancel}
               onCreateNewMother={onCreateNewMother}
             />
+            </div>
           )}
 
           {/* Placeholder for unknown content types */}
