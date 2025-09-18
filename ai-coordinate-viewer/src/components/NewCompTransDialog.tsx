@@ -461,13 +461,18 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     const availableWidthPx = Math.max(0, regionWidthPx - paddingLeftPx - paddingRightPx);
     const availableHeightPx = Math.max(0, regionHeightPx - paddingTopPx - paddingBottomPx);
 
-    // Convert font size to pixels
+    // Convert font size to pixels (CONSISTENT with canvas rendering)
     let fontSizePx = config.typography.fontSize;
     if (config.typography.fontSizeUnit === 'mm') {
       fontSizePx = config.typography.fontSize * 3.779527559;
     } else if (config.typography.fontSizeUnit === 'pt') {
       fontSizePx = (config.typography.fontSize * 4/3);
     }
+    
+    // Apply zoom scaling for consistency with canvas rendering
+    // Note: zoom = 1.0 for standard view, this ensures math consistency
+    const zoom = 1.0; // Use standard zoom for consistent mathematical calculations
+    const scaledFontSize = Math.max(6, fontSizePx * zoom);
 
     // Text width estimation using canvas measurement
     const estimateTextWidth = (text: string): number => {
@@ -475,7 +480,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       const context = canvas.getContext('2d');
       if (!context) return text.length * 2; // Fallback
 
-      context.font = `${fontSizePx}px ${config.typography.fontFamily}`;
+      context.font = `${scaledFontSize}px ${config.typography.fontFamily}`;
       const textWidthPx = context.measureText(text).width;
       return textWidthPx / 3.779527559; // Convert to mm
     };
@@ -524,8 +529,9 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
     const lines = wrapTextToLines(text);
 
-    // Check for height overflow
-    const lineHeightMm = fontSizeMm * config.lineBreakSettings.lineSpacing;
+    // Check for height overflow (using scaled font size for consistency)
+    const scaledFontSizeMm = scaledFontSize / 3.779527559;
+    const lineHeightMm = scaledFontSizeMm * config.lineBreakSettings.lineSpacing;
     const totalTextHeightMm = lines.length * lineHeightMm;
     const availableHeightMm = availableHeightPx / 3.779527559;
     const hasOverflow = totalTextHeightMm > availableHeightMm;

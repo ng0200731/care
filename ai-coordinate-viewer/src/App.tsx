@@ -11594,10 +11594,18 @@ function App() {
                         const availableHeightPx = Math.max(0, regionHeightPx - paddingTopPx - paddingBottomPx);
 
                         // Calculate font size for region using consistent scaling
-                        const regionScaledFontSize = calculateConsistentFontSize(
+                        // Use zoom-independent font scaling for text wrapping calculations
+                        const regionWrappingFontSize = calculateConsistentFontSize(
                           content.newCompTransConfig?.typography?.fontSize || 12,
                           content.newCompTransConfig?.typography?.fontSizeUnit || 'px',
-                          zoom
+                          1.0  // Fixed zoom for mathematical consistency
+                        );
+                        
+                        // Use zoom-dependent font scaling for visual rendering
+                        const regionDisplayFontSize = calculateConsistentFontSize(
+                          content.newCompTransConfig?.typography?.fontSize || 12,
+                          content.newCompTransConfig?.typography?.fontSizeUnit || 'px',
+                          zoom  // Current zoom for visual scaling
                         );
 
                         // Check if text is already pre-wrapped (from duplicated mother overflow)
@@ -11612,7 +11620,7 @@ function App() {
                             displayText,
                             availableWidthPx,
                             availableHeightPx,
-                            regionScaledFontSize,
+                            regionWrappingFontSize,  // Use zoom-independent font for wrapping
                             content.newCompTransConfig?.typography?.fontFamily || 'Arial',
                             content.newCompTransConfig?.lineBreakSettings?.lineBreakSymbol || '\n',
                             content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2
@@ -11713,6 +11721,14 @@ function App() {
                       const paddingLeftPx = padding.left * scale;
                       const scaledFontSize = calculateConsistentFontSize(fontSize, fontSizeUnit, zoom);
                       const lineHeight = scaledFontSize * 1.2;
+                      
+                      // Calculate composition translation specific font sizes if applicable
+                      const isCompTrans = content.type === 'new-comp-trans';
+                      const compTransDisplayFontSize = isCompTrans ? calculateConsistentFontSize(
+                        content.newCompTransConfig?.typography?.fontSize || fontSize,
+                        content.newCompTransConfig?.typography?.fontSizeUnit || fontSizeUnit,
+                        zoom
+                      ) : undefined;
 
                       // Handle overflow using Phase 1 results
                       if (isOverflowEnabled(content.id) && hasOverflow) {
@@ -11870,7 +11886,11 @@ function App() {
                             ) : (
                               // Render regular text lines
                               displayLines.map((line, lineIndex) => {
-                                const textY = startY + (lineIndex + 1) * lineHeight;
+                                // Use display font size for line height if this is composition translation
+                                const effectiveLineHeight = isCompTrans && compTransDisplayFontSize 
+                                  ? compTransDisplayFontSize * (content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2)
+                                  : lineHeight;
+                                const textY = startY + (lineIndex + 1) * effectiveLineHeight;
 
                                 return (
                                   <text
@@ -11878,7 +11898,7 @@ function App() {
                                     x={textX}
                                     y={textY}
                                     fill={fontColor}
-                                    fontSize={scaledFontSize}
+                                    fontSize={compTransDisplayFontSize || scaledFontSize}
                                     fontFamily={fontFamily}
                                     textAnchor={textAnchor}
                                     dominantBaseline="alphabetic"
