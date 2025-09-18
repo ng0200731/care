@@ -168,6 +168,9 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
   // Overflow detection state for UI feedback
   const [hasOverflow, setHasOverflow] = useState(false);
+  
+  // Track whether user has manually edited the text
+  const [isTextManuallyEdited, setIsTextManuallyEdited] = useState(false);
 
   // Helper function to generate a unique signature for a composition
   const generateCompositionSignature = (compositions: MaterialComposition[]): string => {
@@ -443,7 +446,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
   // Canvas-based overflow detection and text splitting (similar to NewMultiLineDialog)
   const detectOverflowAndSplit = () => {
-    const text = generateTextContent();
+    // Use manually entered text if available, otherwise fall back to generated text
+    const text = config.textContent.generatedText || generateTextContent();
     if (!text || !regionWidth || !regionHeight) return { hasOverflow: false, originalText: text, overflowText: '' };
 
     // Calculate available space in pixels
@@ -655,24 +659,29 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
   // Overflow option sync removed - automatic handling enabled
 
-  // Auto-generate text content when compositions or languages change
+  // Auto-generate text content when compositions or languages change (only if not manually edited)
   useEffect(() => {
-    const generatedText = generateTextContent();
-    setConfig(prev => ({
-      ...prev,
-      textContent: {
-        ...prev.textContent,
-        generatedText
-      }
-    }));
+    // Only auto-generate if the user hasn't manually edited the text
+    if (!isTextManuallyEdited) {
+      const generatedText = generateTextContent();
+      setConfig(prev => ({
+        ...prev,
+        textContent: {
+          ...prev.textContent,
+          generatedText
+        }
+      }));
 
-    // Debug: Log the current config when text is generated
-    console.log('🔍 DEBUG: Dialog config after text generation:', {
-      lineBreakSettings: config.lineBreakSettings,
-      textContent: config.textContent,
-      generatedText: generatedText
-    });
-  }, [config.materialCompositions, config.selectedLanguages, config.textContent.separator]);
+      // Debug: Log the current config when text is generated
+      console.log('🔍 DEBUG: Auto-generated text (not manually edited):', {
+        lineBreakSettings: config.lineBreakSettings,
+        textContent: config.textContent,
+        generatedText: generatedText
+      });
+    } else {
+      console.log('🔍 DEBUG: Skipping auto-generation - text was manually edited');
+    }
+  }, [config.materialCompositions, config.selectedLanguages, config.textContent.separator, isTextManuallyEdited]);
 
   // Check for overflow whenever content or settings change
   useEffect(() => {
@@ -754,6 +763,10 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       y: newY, // Same Y level
       width: sourceMother.width,
       height: sourceMother.height,
+      // 🔗 PARENT-CHILD RELATIONSHIP: Establish relationship tracking
+      parentMotherId: sourceMotherName, // Track which mother this child belongs to
+      isOverflowChild: true, // Mark as overflow-generated child mother
+      childMotherIds: [], // Initialize empty array for potential grandchildren
       // Copy all the additional properties from original mother
       margins: (sourceMother as any).margins,
       sewingPosition: (sourceMother as any).sewingPosition,
@@ -820,6 +833,19 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         return newRegion;
       }) || []
     };
+
+    // 🔗 UPDATE PARENT: Add this child to the parent's child list
+    const parentMother = currentData.objects.find((obj: any) => obj.name === sourceMotherName);
+    if (parentMother) {
+      // Initialize childMotherIds array if it doesn't exist
+      if (!(parentMother as any).childMotherIds) {
+        (parentMother as any).childMotherIds = [];
+      }
+      // Add the new child mother to the parent's list
+      (parentMother as any).childMotherIds.push(`Mother_${newMotherNumber}`);
+      console.log(`🔗 Updated parent ${sourceMotherName} to track child Mother_${newMotherNumber}`);
+      console.log(`👨‍👩‍👧‍👦 Parent ${sourceMotherName} now has children:`, (parentMother as any).childMotherIds);
+    }
 
     // Add new mother to objects
     const updatedObjects = [...currentData.objects, newMother];
@@ -1933,17 +1959,51 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
               {/* Generated Text Display */}
               <div>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '4px',
-                  fontSize: '11px',
-                  fontWeight: '500'
-                }}>
-                  Text Value:
-                </label>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <label style={{
+                    fontSize: '11px',
+                    fontWeight: '500'
+                  }}>
+                    Text Value:
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const generatedText = generateTextContent();
+                      setConfig(prev => ({
+                        ...prev,
+                        textContent: {
+                          ...prev.textContent,
+                          generatedText
+                        }
+                      }));
+                      setIsTextManuallyEdited(false);
+                    }}
+                    style={{
+                      padding: '4px 8px',
+                      fontSize: '10px',
+                      backgroundColor: '#007bff',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '3px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    📝 Generate from Materials
+                  </button>
+                </div>
                 <textarea
                   value={config.textContent.generatedText}
-                  readOnly
+                  onChange={(e) => {
+                    setIsTextManuallyEdited(true);
+                    setConfig(prev => ({
+                      ...prev,
+                      textContent: {
+                        ...prev.textContent,
+                        generatedText: e.target.value
+                      }
+                    }));
+                  }}
                   style={{
                     width: '100%',
                     height: '120px',
@@ -1951,11 +2011,11 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
                     border: '1px solid #ddd',
                     borderRadius: '4px',
                     fontSize: '11px',
-                    backgroundColor: '#f9f9f9',
+                    backgroundColor: '#ffffff',
                     resize: 'vertical',
                     fontFamily: 'monospace'
                   }}
-                  placeholder="Generated text will appear here based on material compositions and selected languages..."
+                  placeholder="Enter your custom text here, or use material compositions to auto-generate..."
                 />
               </div>
             </div>
