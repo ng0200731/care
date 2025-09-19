@@ -1078,34 +1078,54 @@ function App() {
     if (editingContent) {
       // Update existing content with configuration
       console.log('🔄 Updating existing comp trans content:', editingContent.id, 'with config:', config);
+      console.log('📝 [v2.9.180] SPLIT 1 text being saved:', config.textContent.generatedText?.substring(0, 100) + '...');
       setRegionContents(prevContents => {
-        const newContents = new Map(prevContents);
-        const existingContents = newContents.get(regionId) || [];
-        const updatedContents = existingContents.map(content =>
-          content.id === editingContent.id
-            ? {
-                ...content,
-                type: 'new-comp-trans' as const,
-                content: {
-                  ...content.content,
-                  text: content.content?.text || 'Composition Translation',
-                  padding: config.padding,
-                  alignment: config.alignment
-                },
-                typography: config.typography,
-                layout: {
-                  ...content.layout,
-                  padding: config.padding,
-                  horizontalAlign: config.alignment.horizontal,
-                  verticalAlign: config.alignment.vertical
-                },
-                newCompTransConfig: config // Store complete configuration
-              }
-            : content
-        );
-        newContents.set(regionId, updatedContents);
+        const newContents = new Map(); // Create completely new Map to force re-render
+        
+        // Copy all existing contents
+        Array.from(prevContents.entries()).forEach(([key, value]) => {
+          if (key === regionId) {
+            // Update the specific region with new content
+            const existingContents = value || [];
+            const updatedContents = existingContents.map((content: any) =>
+              content.id === editingContent.id
+                ? {
+                    ...content,
+                    type: 'new-comp-trans' as const,
+                    content: {
+                      ...content.content,
+                      text: config.textContent.generatedText || 'Composition Translation',
+                      padding: config.padding,
+                      alignment: config.alignment
+                    },
+                    typography: config.typography,
+                    layout: {
+                      ...content.layout,
+                      padding: config.padding,
+                      horizontalAlign: config.alignment.horizontal,
+                      verticalAlign: config.alignment.vertical
+                    },
+                    newCompTransConfig: config // Store complete configuration with SPLIT 1 text
+                  }
+                : content
+            );
+            newContents.set(key, updatedContents);
+            console.log(`🔄 [v2.9.180] Force updating region ${regionId} with new content:`, updatedContents[0]?.newCompTransConfig?.textContent?.generatedText?.substring(0, 50) + '...');
+          } else {
+            newContents.set(key, value);
+          }
+        });
+        
         return newContents;
       });
+
+      // Force immediate canvas re-render by updating a render trigger
+      setTimeout(() => {
+        setRegionContents(prevContents => new Map(prevContents));
+        // Force canvas redraw by incrementing a counter
+        setNotification('🎨 Refreshing canvas...');
+        setTimeout(() => setNotification(null), 100);
+      }, 0);
 
       setNotification(`✅ Updated composition translation`);
       setTimeout(() => setNotification(null), 3000);
@@ -1159,8 +1179,13 @@ function App() {
       setTimeout(() => setNotification(null), 3000);
     }
 
-    // Close dialog
-    setNewCompTransDialog(null);
+    // Close dialog (unless in debug mode)
+    if (!(window as any).debugModeActive) {
+      setNewCompTransDialog(null);
+    } else {
+      console.log('🔧 [DEBUG] Keeping dialog open for debug mode');
+      (window as any).debugModeActive = false; // Reset flag
+    }
   };
 
   // Handle New Comp Trans Dialog Cancel
@@ -6459,7 +6484,7 @@ function App() {
   };
 
   // Function to duplicate a mother object - using the same approach as createMotherObject
-  const duplicateMother = (originalMother: AIObject) => {
+  const duplicateMother = (originalMother: AIObject, overflowData?: { split2Text: string, sourceRegionId: string }) => {
     console.log('🔄 DUPLICATE BUTTON CLICKED!');
     console.log('📊 Original mother to duplicate:', originalMother);
 
@@ -6561,159 +6586,88 @@ function App() {
     setTimeout(() => setNotification(null), 3000);
 
     console.log('✅ Duplication completed!');
+
+    // If overflow data provided, add SPLIT 2 text to child mother immediately
+    if (overflowData) {
+      console.log(`[v${packageJson.version}] 🔄 Adding SPLIT 2 text to child mother...`);
+      
+      const firstRegion = (newMother as any).regions?.[0];
+      if (firstRegion) {
+        // Get original content to copy (everything except text)
+        const originalContents = regionContents.get(overflowData.sourceRegionId) || [];
+        const originalContent = originalContents.find((c: any) => c.type === 'new-comp-trans');
+        
+        if (originalContent) {
+          console.log(`[v${packageJson.version}] 🧬 Creating child content with SPLIT 2 text...`);
+          
+          // Create new content with same composition but SPLIT 2 text
+          const childContent = {
+            ...originalContent, // Copy everything (materials, languages, typography, etc.)
+            id: `child_${Date.now()}`, // New ID
+            regionId: firstRegion.id, // New region ID
+            content: { 
+              ...originalContent.content, 
+              text: overflowData.split2Text // Only SPLIT 2 text
+            },
+            newCompTransConfig: {
+              ...originalContent.newCompTransConfig,
+              textContent: { 
+                ...originalContent.newCompTransConfig?.textContent, 
+                generatedText: overflowData.split2Text // Only SPLIT 2 text
+              }
+            }
+          };
+          
+          // Add to child region immediately - no setTimeout needed
+          const updatedContents = new Map(regionContents);
+          updatedContents.set(firstRegion.id, [childContent]);
+          setRegionContents(updatedContents);
+          
+          console.log(`[v${packageJson.version}] ✅ Child mother content added with SPLIT 2 text!`);
+        }
+      }
+    }
+
   };
 
   // Function to handle mother duplication when text overflow occurs
   const handleCreateNewMotherForOverflow = (originalText: string, overflowText: string) => {
-    console.log(`[v${packageJson.version}] 🔄 Creating new mother for overflow text:`, { originalText: originalText.length, overflowText: overflowText.length });
+    console.log(`[v${packageJson.version}] 🚀 Creating child mother with SPLIT 1 and SPLIT 2...`);
 
-    // Get fresh state data each time - avoid stale closure values
-    const getCurrentData = () => data || webCreationData;
-    const currentData = getCurrentData();
+    // Find current mother and region
+    const currentData = data || webCreationData;
+    if (!currentData) return;
     
-    if (!currentData) {
-      console.error(`[v${packageJson.version}] ❌ No current data available for mother duplication`);
-      return;
-    }
-
-    // Determine which dialog is open and get the region ID
     const activeRegionId = universalDialog.isOpen ? universalDialog.regionId : newCompTransDialog?.regionId || '';
-    console.log(`[v${packageJson.version}] 🔍 Active region ID:`, activeRegionId);
-
-    if (!activeRegionId) {
-      console.error(`[v${packageJson.version}] ❌ No active region ID available from either dialog`);
-      return;
-    }
-
-    // Find the current region to determine which mother to duplicate
     let currentMother: AIObject | null = null;
-    let currentRegion: any = null;
-
+    
     for (const obj of currentData.objects) {
       if (obj.type?.includes('mother')) {
         const regions = (obj as any).regions || [];
-        const region = regions.find((r: any) => r.id === activeRegionId);
-        if (region) {
+        if (regions.find((r: any) => r.id === activeRegionId)) {
           currentMother = obj;
-          currentRegion = region;
-          console.log(`[v${packageJson.version}] ✅ Found matching region:`, region.id);
           break;
         }
       }
     }
 
-    if (!currentMother || !currentRegion) {
-      console.error(`[v${packageJson.version}] ❌ Could not find mother object for current region:`, activeRegionId);
-      return;
-    }
+    if (!currentMother) return;
 
-    console.log(`[v${packageJson.version}] 📋 Found mother to duplicate:`, currentMother.name);
+    // originalText parameter already IS SPLIT 1 text from NewCompTransDialog
+    const split1Text = originalText; 
+    console.log(`[v${packageJson.version}] 📝 SPLIT 1 (${split1Text.length} chars) stays in Mother_1: "${split1Text.substring(0, 50)}..."`);
+    console.log(`[v${packageJson.version}] 📝 SPLIT 2 (${overflowText.length} chars) goes to Mother_2: "${overflowText.substring(0, 50)}..."`);
+    console.log(`[v${packageJson.version}] ℹ️ Parent content already saved with SPLIT 1 by dialog`);
 
-    // Store references for relationship establishment
-    const masterMotherName = currentMother.name;
-    const masterRegionId = activeRegionId;
-    
-    // Store the original mother count to detect when new mother is created
-    const originalMotherCount = currentData.objects.filter(obj => obj.type?.includes('mother')).length;
-    console.log(`[v${packageJson.version}] 📊 Original mother count:`, originalMotherCount);
+    // Duplicate with SPLIT 2 text - all happens synchronously
+    duplicateMother(currentMother, { 
+      split2Text: overflowText, 
+      sourceRegionId: activeRegionId 
+    });
 
-    // Call duplicateMother function and establish relationship immediately
-    const newMotherName = `Mother_${originalMotherCount + 1}`;
-    console.log(`[v${packageJson.version}] 🔗 Will establish relationship: ${masterMotherName} -> ${newMotherName}`);
-    
-    duplicateMother(currentMother);
-
-    // Establish relationship immediately since duplicateMother is synchronous
-    setTimeout(() => {
-      console.log(`[v${packageJson.version}] 🔗 Establishing master-child relationship...`);
-      try {
-        motherRelationshipManager.establishRelationship(
-          masterMotherName, // Master mother ID
-          [newMotherName], // Child mother IDs (array)
-          'new-comp-trans', // Content type
-          originalText, // Original text that caused overflow
-          [originalText.substring(0, originalText.length - overflowText.length), overflowText] // Text distribution
-        );
-        console.log(`[v${packageJson.version}] ✅ Relationship established: ${masterMotherName} -> ${newMotherName}`);
-        
-        // Add overflow content to the new mother's corresponding region
-        const currentData = data || webCreationData;
-        if (currentData) {
-          const newMother = currentData.objects.find(obj => obj.name === newMotherName);
-          if (newMother) {
-            const newMotherRegions = (newMother as any).regions || [];
-            const correspondingRegion = newMotherRegions.find((r: any) =>
-              r.name === currentRegion.name || (r.x === currentRegion.x && r.y === currentRegion.y)
-            );
-            
-            if (correspondingRegion) {
-              console.log(`[v${packageJson.version}] 📝 Adding overflow content to new mother region:`, correspondingRegion.id);
-              
-              // Create content data for the overflow text
-              const overflowContentData = {
-                id: `overflow_${Date.now()}`,
-                type: 'new-comp-trans',
-                regionId: correspondingRegion.id,
-                layout: {
-                  occupyLeftoverSpace: true,
-                  fullWidth: true,
-                  fullHeight: true,
-                  width: { value: 100, unit: '%' as const },
-                  height: { value: 100, unit: '%' as const },
-                  horizontalAlign: 'left' as const,
-                  verticalAlign: 'top' as const,
-                  padding: { top: 0, right: 0, bottom: 0, left: 0 }
-                },
-                typography: {
-                  fontFamily: 'Arial',
-                  fontSize: 12,
-                  fontColor: '#000000'
-                },
-                content: {
-                  text: overflowText, // Only the overflow text
-                  materialCompositions: [], // Empty
-                  selectedLanguages: [],
-                  lineBreakSettings: {
-                    lineBreakSymbol: '\n',
-                    lineSpacing: 1.2,
-                    lineWidth: 100
-                  }
-                },
-                newCompTransConfig: {
-                  materialCompositions: [], // Blank content
-                  selectedLanguages: [], // Blank
-                  textContent: {
-                    separator: ' - ',
-                    generatedText: overflowText // Only the overflow text
-                  },
-                  padding: { top: 0, right: 0, bottom: 0, left: 0 },
-                  alignment: { horizontal: 'left', vertical: 'top' },
-                  typography: { fontFamily: 'Arial', fontSize: 12, fontSizeUnit: 'pt', fontColor: '#000000' },
-                  lineBreakSettings: {
-                    lineBreakSymbol: '\n',
-                    lineSpacing: 1.2,
-                    lineWidth: 100
-                  }
-                }
-              };
-
-              // Add the overflow content to the region
-              const updatedContents = new Map(regionContents);
-              updatedContents.set(correspondingRegion.id, [overflowContentData]);
-              setRegionContents(updatedContents);
-
-              console.log(`[v${packageJson.version}] ✅ Overflow content added to new mother region`);
-            }
-          }
-        }
-        
-        setNotification(`✅ New mother created with overflow text: ${newMotherName} (linked to ${masterMotherName})`);
-        setTimeout(() => setNotification(null), 3000);
-        
-      } catch (error) {
-        console.error(`[v${packageJson.version}] ❌ Error establishing relationship:`, error);
-      }
-    }, 100); // Short delay to ensure state updates
+    console.log(`[v${packageJson.version}] ✅ Both mothers updated - Parent: SPLIT 1, Child: SPLIT 2`);
+    setNotification('✅ Text split between parent and child mothers');
+    setTimeout(() => setNotification(null), 2000);
   };
 
   // Function to trash/delete a mother (except Mother_1) with cascading child deletion
@@ -11576,6 +11530,7 @@ function App() {
                         // console.log('🧺 new-washing-care-symbol displayText:', displayText, 'content:', content);
                       } else if (content.type === 'new-comp-trans' && content.newCompTransConfig?.textContent?.generatedText) {
                         displayText = content.newCompTransConfig.textContent.generatedText;
+                        console.log('🎨 [v2.9.180] Canvas rendering new-comp-trans:', displayText.substring(0, 50) + '...');
                       } else if (content.type === 'pure-english-paragraph' && content.content?.text) {
                         displayText = content.content.text;
                       } else if (content.type === 'translation-paragraph') {
@@ -12519,6 +12474,7 @@ function App() {
                               // console.log('🧺 child new-washing-care-symbol displayText:', displayText, 'content:', content);
                             } else if (content.type === 'new-comp-trans' && content.newCompTransConfig?.textContent?.generatedText) {
                               displayText = content.newCompTransConfig.textContent.generatedText;
+                              console.log('🎨 [v2.9.180] Child canvas rendering new-comp-trans:', displayText.substring(0, 50) + '...');
                             } else if (content.type === 'pure-english-paragraph' && content.content?.text) {
                               displayText = content.content.text;
                             } else if (content.type === 'translation-paragraph') {

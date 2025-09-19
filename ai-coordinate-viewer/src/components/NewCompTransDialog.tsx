@@ -171,6 +171,11 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
   
   // Track whether user has manually edited the text
   const [isTextManuallyEdited, setIsTextManuallyEdited] = useState(false);
+  
+  // Step-by-step debugging state
+  const [debugStep, setDebugStep] = useState(0);
+  const [split1Text, setSplit1Text] = useState('');
+  const [split2Text, setSplit2Text] = useState('');
 
   // Helper function to generate a unique signature for a composition
   const generateCompositionSignature = (compositions: MaterialComposition[]): string => {
@@ -206,11 +211,6 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       !selectedMaterials.includes(material)
     );
 
-    console.log('🔍 Available materials:', {
-      selectedMaterials,
-      availableMaterials,
-      totalCommonMaterials: commonMaterials.length
-    });
 
     return availableMaterials;
   };
@@ -224,12 +224,6 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     const uniqueMaterials = new Set(materials);
     const hasDuplicates = materials.length !== uniqueMaterials.size;
 
-    console.log('🔍 Checking for duplicate materials within composition:', {
-      materials,
-      uniqueCount: uniqueMaterials.size,
-      totalCount: materials.length,
-      hasDuplicates
-    });
 
     return hasDuplicates;
   };
@@ -239,28 +233,13 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     const currentMaterialSignature = generateMaterialOnlySignature(config.materialCompositions);
     if (!currentMaterialSignature) return false; // Empty composition is not considered used
 
-    console.log('🔍 Checking composition duplicates:', {
-      currentMaterialSignature,
-      currentFullSignature: generateCompositionSignature(config.materialCompositions),
-      currentMaterials: config.materialCompositions,
-      existingCompositionsCount: existingCompositions.length,
-      existingCompositionsRaw: existingCompositions,
-      existingMaterialSignatures: existingCompositions.map(comp => generateMaterialOnlySignature(comp)),
-      existingFullSignatures: existingCompositions.map(comp => generateCompositionSignature(comp))
-    });
 
     // Check against existing compositions from other regions - prevent same materials regardless of percentages
     const isDuplicate = existingCompositions.some(existingComp => {
       const existingMaterialSignature = generateMaterialOnlySignature(existingComp);
-      console.log('🔍 Comparing signatures:', {
-        current: currentMaterialSignature,
-        existing: existingMaterialSignature,
-        match: existingMaterialSignature === currentMaterialSignature
-      });
       return existingMaterialSignature === currentMaterialSignature;
     });
 
-    console.log('🔍 Final duplicate result:', isDuplicate);
     return isDuplicate;
   };
 
@@ -280,12 +259,6 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     const hasNoDuplicateMaterials = !hasDuplicateMaterials();
     const isNotDuplicate = !isCompositionAlreadyUsed();
 
-    console.log('🔍 canSave validation:', {
-      isValidPercentage,
-      hasNoDuplicateMaterials,
-      isNotDuplicate,
-      canSave: isValidPercentage && hasNoDuplicateMaterials && isNotDuplicate
-    });
 
     return isValidPercentage && hasNoDuplicateMaterials && isNotDuplicate;
   };
@@ -1044,6 +1017,60 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     }
   };
 
+  const handleStepDebug = async () => {
+    console.log(`🔧 [DEBUG] Step ${debugStep + 1} starting...`);
+    
+    if (debugStep === 0) {
+      // Step 0: Calculate SPLIT 1 and SPLIT 2 (no visual change)
+      const overflowResult = detectOverflowAndSplit();
+      setSplit1Text(overflowResult.originalText);
+      setSplit2Text(overflowResult.overflowText);
+      console.log(`🔧 [DEBUG] Step 1 - Calculated splits:`);
+      console.log(`📝 SPLIT 1 (${overflowResult.originalText.length} chars):`, overflowResult.originalText.substring(0, 50) + '...');
+      console.log(`📝 SPLIT 2 (${overflowResult.overflowText.length} chars):`, overflowResult.overflowText.substring(0, 50) + '...');
+      setDebugStep(1);
+      
+    } else if (debugStep === 1) {
+      // Step 1: Fill SPLIT 1 in original (parent) mother
+      console.log(`🔧 [DEBUG] Step 2 - Filling SPLIT 1 in parent mother:`, split1Text.substring(0, 50) + '...');
+      
+      // Update local config to show SPLIT 1 text
+      const debugConfig = {
+        ...config,
+        textContent: {
+          ...config.textContent,
+          generatedText: split1Text
+        }
+      };
+      
+      setConfig(debugConfig);
+      
+      // Set debug mode flag and save (parent should handle keeping dialog open)
+      (window as any).debugModeActive = true;
+      onSave(debugConfig);
+      
+      // Dialog might close - if so, user needs to reopen and continue
+      console.log('🔧 [DEBUG] Step 2 completed - Check if Mother_1 shows SPLIT 1 text');
+      console.log('🔧 [DEBUG] If dialog closed, double-click Mother_1 again to continue with Step 3');
+      
+      setDebugStep(2);
+      
+    } else if (debugStep === 2) {
+      // Step 2: Duplicate parent mother (including split text on it)
+      console.log(`🔧 [DEBUG] Step 3 - Duplicating parent mother with current text`);
+      if (onCreateNewMother) {
+        onCreateNewMother(split1Text, split2Text);
+      }
+      setDebugStep(3);
+      
+    } else if (debugStep === 3) {
+      // Step 3: Replace child mother text with SPLIT 2
+      console.log(`🔧 [DEBUG] Step 4 - Child mother should now have SPLIT 2:`, split2Text.substring(0, 50) + '...');
+      console.log(`🔧 [DEBUG] All steps completed!`);
+      setDebugStep(4); // Mark as completed, don't reset yet
+    }
+  };
+
   const handleSave = async () => {
     // Always check for overflow to provide user feedback
     const overflowResult = detectOverflowAndSplit();
@@ -1057,12 +1084,15 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         hasOverflowLines: overflowResult.overflowLines?.length || 0
       });
 
-      // Save the original text to the current region first
+      // Save SPLIT 1 text to the current region (overflowResult.originalText already contains the correct SPLIT 1)
+      const split1Text = overflowResult.originalText; // This already contains SPLIT 1 from detectOverflowAndSplit()
+      console.log('📝 Saving SPLIT 1 text to parent region:', { split1Length: split1Text.length, overflowLength: overflowResult.overflowText.length });
+      
       onSave({
         ...config,
         textContent: {
           ...config.textContent,
-          generatedText: overflowResult.originalText
+          generatedText: split1Text // Save SPLIT 1 text only
         }
       });
 
@@ -2061,6 +2091,59 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
               {generateWrappedPreview() || 'Preview will appear here based on your material compositions and settings...'}
             </div>
 
+            {/* Debug Info Row */}
+            {debugStep > 0 && (split1Text || split2Text) && (
+              <div style={{
+                marginTop: '12px',
+                padding: '8px',
+                backgroundColor: '#e8f4f8',
+                borderRadius: '4px',
+                border: '2px solid #0066cc'
+              }}>
+                <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '6px', color: '#0066cc' }}>
+                  🔧 DEBUG: Calculated Splits
+                </div>
+                {split1Text && (
+                  <div style={{ fontSize: '11px', marginBottom: '4px' }}>
+                    <strong>SPLIT 1 ({split1Text.length} chars):</strong> {split1Text.substring(0, 80)}...
+                  </div>
+                )}
+                {split2Text && (
+                  <div style={{ fontSize: '11px' }}>
+                    <strong>SPLIT 2 ({split2Text.length} chars):</strong> {split2Text.substring(0, 80)}...
+                  </div>
+                )}
+                <div style={{ marginTop: '6px', fontSize: '10px', color: '#666', marginBottom: '4px' }}>
+                  {debugStep === 1 && '⚠️ Step 2 will close dialog. Reopen to continue.'}
+                  {debugStep === 2 && '✅ Dialog stayed open! Continue with Step 3.'}
+                  {debugStep === 3 && '✅ Final step - check results on canvas.'}
+                  {debugStep === 4 && '🎉 All steps completed! Check both mothers on canvas.'}
+                </div>
+                <div>
+                  <button
+                    onClick={() => {
+                      setDebugStep(0);
+                      setSplit1Text('');
+                      setSplit2Text('');
+                      (window as any).debugModeActive = false;
+                      console.log('🔧 [DEBUG] Reset debug state');
+                    }}
+                    style={{
+                      padding: '4px 8px',
+                      border: '1px solid #0066cc',
+                      borderRadius: '3px',
+                      backgroundColor: 'white',
+                      color: '#0066cc',
+                      fontSize: '10px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Reset Debug
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Overflow Handling Row */}
             <div style={{
               marginTop: '12px',
@@ -2157,6 +2240,32 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
             >
               Cancel
             </button>
+            
+            {/* DEBUG: Step-by-step button */}
+            {(hasOverflow || debugStep > 0) && debugStep < 4 && (
+              <button
+                onClick={handleStepDebug}
+                style={{
+                  padding: '10px 20px',
+                  border: '2px solid #ff6b35',
+                  borderRadius: '4px',
+                  backgroundColor: '#ff6b35',
+                  color: 'white',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer'
+                }}
+              >
+                🔧 Step {debugStep + 1}/4: {
+                  debugStep === 0 ? 'Calculate Splits' :
+                  debugStep === 1 ? 'Fill Parent (SPLIT 1)' :
+                  debugStep === 2 ? 'Duplicate Mother' :
+                  debugStep === 3 ? 'Replace Child (SPLIT 2)' :
+                  'Debug Complete'
+                }
+              </button>
+            )}
+            
             <button
               onClick={handleSave}
               disabled={!canSave()}
