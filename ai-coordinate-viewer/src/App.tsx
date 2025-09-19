@@ -13787,18 +13787,6 @@ function App() {
                     📏 Dimensions
                   </button>
 
-                  <button
-                    onClick={() => setShowOverflowNumbers(!showOverflowNumbers)}
-                    style={{
-                      ...buttonStyle,
-                      background: showOverflowNumbers ? '#e3f2fd' : 'white',
-                      color: showOverflowNumbers ? '#1976d2' : '#666',
-                      fontSize: '10px',
-                      padding: '4px 6px'
-                    }}
-                  >
-                    🔢 Overflow #
-                  </button>
 
                   <button
                     onClick={() => setShowPreview(!showPreview)}
