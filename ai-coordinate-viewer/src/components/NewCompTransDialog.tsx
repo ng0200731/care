@@ -1071,10 +1071,10 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     }
   };
 
-  // NEW: 4 to 1 - Execute all 4 manual steps in one click (EXACT COPY)
-  const handle4To1 = async () => {
+  // NEW: Create - Execute all 4 manual steps + Save in one click
+  const handleCreate = async () => {
     try {
-      console.log('🚀 4 to 1: Starting all 4 manual steps...');
+      console.log('🚀 CREATE: Starting all 4 manual steps + Save...');
 
       // STEP 1: Calculate SPLIT 1 and SPLIT 2 (EXACT COPY from debugStep === 0)
       console.log(`🔧 [DEBUG] Step 1 starting...`);
@@ -1085,9 +1085,6 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       console.log(`📝 SPLIT 1 (${overflowResult.originalText.length} chars):`, overflowResult.originalText.substring(0, 50) + '...');
       console.log(`📝 SPLIT 2 (${overflowResult.overflowText.length} chars):`, overflowResult.overflowText.substring(0, 50) + '...');
       setDebugStep(1);
-
-      // Small delay
-      await new Promise(resolve => setTimeout(resolve, 300));
 
       // STEP 2: Fill SPLIT 1 in original (parent) mother (EXACT COPY from debugStep === 1)
       console.log(`🔧 [DEBUG] Step 2 starting...`);
@@ -1104,19 +1101,6 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
       setConfig(debugConfig);
 
-      // Set debug mode flag and save (parent should handle keeping dialog open)
-      (window as any).debugModeActive = true;
-      onSave(debugConfig);
-
-      // Dialog might close - if so, user needs to reopen and continue
-      console.log('🔧 [DEBUG] Step 2 completed - Check if Mother_1 shows SPLIT 1 text');
-      console.log('🔧 [DEBUG] If dialog closed, double-click Mother_1 again to continue with Step 3');
-
-      setDebugStep(2);
-
-      // Small delay
-      await new Promise(resolve => setTimeout(resolve, 300));
-
       // STEP 3: Duplicate parent mother (EXACT COPY from debugStep === 2)
       console.log(`🔧 [DEBUG] Step 3 starting...`);
       console.log(`🔧 [DEBUG] Step 3 - Duplicating parent mother with current text`);
@@ -1125,21 +1109,39 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       }
       setDebugStep(3);
 
-      // Small delay
-      await new Promise(resolve => setTimeout(resolve, 300));
-
       // STEP 4: Replace child mother text with SPLIT 2 (EXACT COPY from debugStep === 3)
       console.log(`🔧 [DEBUG] Step 4 starting...`);
       console.log(`🔧 [DEBUG] Step 4 - Child mother should now have SPLIT 2:`, overflowResult.overflowText.substring(0, 50) + '...');
       console.log(`🔧 [DEBUG] All steps completed!`);
       setDebugStep(4); // Mark as completed, don't reset yet
 
-      (window as any).debugModeActive = false;
-      console.log('🎉 4 to 1: All 4 steps completed successfully!');
+      // FINAL STEP: Execute Save functionality (EXACT COPY from handleSave)
+      console.log('🚀 CREATE: Now executing Save functionality...');
+
+      if (overflowResult.hasOverflow) {
+        // 🌊 AUTOMATIC OVERFLOW HANDLING - Use the proper callback
+        console.log('🔄 Automatic overflow detected - creating new mother...');
+        console.log('📊 Overflow details:', {
+          originalTextLength: overflowResult.originalText.length,
+          overflowTextLength: overflowResult.overflowText.length,
+          hasOverflowLines: overflowResult.overflowLines?.length || 0
+        });
+
+        // Save SPLIT 1 text to the current region (overflowResult.originalText already contains the correct SPLIT 1)
+        const split1Text = overflowResult.originalText; // This already contains SPLIT 1 from detectOverflowAndSplit()
+        console.log('📝 Saving SPLIT 1 text to parent region:', { split1Length: split1Text.length, overflowLength: overflowResult.overflowText.length });
+
+        // Save the current config with SPLIT 1 text
+        onSave(debugConfig);
+      } else {
+        // No overflow - just save normally
+        onSave(debugConfig);
+      }
+
+      console.log('🎉 CREATE: All steps + Save completed successfully!');
 
     } catch (error) {
-      console.error('❌ 4 to 1: Error during execution:', error);
-      (window as any).debugModeActive = false;
+      console.error('❌ CREATE: Error during execution:', error);
     }
   };
 
@@ -2383,44 +2385,24 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
               </button>
             )}
 
-            {/* NEW: 4 to 1 button - Execute all 4 manual steps in one click */}
-            {hasOverflow && (
-              <button
-                onClick={handle4To1}
-                style={{
-                  padding: '10px 20px',
-                  border: '2px solid #28a745',
-                  borderRadius: '4px',
-                  backgroundColor: '#28a745',
-                  color: 'white',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  cursor: 'pointer'
-                }}
-                title="Execute all 4 manual steps in one click"
-              >
-                4 to 1
-              </button>
-            )}
-
-
-            
+            {/* NEW: Create button - Execute all 4 manual steps + Save in one click */}
             <button
-              onClick={handleSave}
+              onClick={handleCreate}
               disabled={!canSave()}
               style={{
-                padding: '10px 20px',
+                padding: '12px 24px',
                 border: 'none',
-                borderRadius: '4px',
+                borderRadius: '6px',
                 backgroundColor: canSave() ? '#28a745' : '#ccc',
                 color: canSave() ? 'white' : '#666',
-                fontSize: '14px',
-                fontWeight: '500',
-                cursor: canSave() ? 'pointer' : 'not-allowed'
+                fontSize: '16px',
+                fontWeight: '600',
+                cursor: canSave() ? 'pointer' : 'not-allowed',
+                boxShadow: canSave() ? '0 2px 4px rgba(40, 167, 69, 0.3)' : 'none'
               }}
-              title={hasOverflow ? 'Save and automatically create new mothers for overflow text' : 'Save composition translation'}
+              title={hasOverflow ? 'Create composition translation with automatic overflow handling' : 'Create composition translation'}
             >
-              {hasOverflow ? '🌊 Save & Auto-Flow' : 'Save'}
+              {hasOverflow ? '🚀 Create' : 'Create'}
             </button>
           </div>
         </div>
