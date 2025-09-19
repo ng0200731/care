@@ -1101,19 +1101,25 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
       setConfig(debugConfig);
 
-      // STEP 3: Duplicate parent mother (EXACT COPY from debugStep === 2)
-      console.log(`🔧 [DEBUG] Step 3 starting...`);
-      console.log(`🔧 [DEBUG] Step 3 - Duplicating parent mother with current text`);
-      if (onCreateNewMother) {
-        onCreateNewMother(overflowResult.originalText, overflowResult.overflowText);
-      }
-      setDebugStep(3);
+      // STEP 3: Duplicate parent mother ONLY if there's overflow
+      if (overflowResult.hasOverflow) {
+        console.log(`🔧 [DEBUG] Step 3 starting - Has overflow, creating child mother...`);
+        console.log(`🔧 [DEBUG] Step 3 - Duplicating parent mother with current text`);
+        if (onCreateNewMother) {
+          onCreateNewMother(overflowResult.originalText, overflowResult.overflowText);
+        }
+        setDebugStep(3);
 
-      // STEP 4: Replace child mother text with SPLIT 2 (EXACT COPY from debugStep === 3)
-      console.log(`🔧 [DEBUG] Step 4 starting...`);
-      console.log(`🔧 [DEBUG] Step 4 - Child mother should now have SPLIT 2:`, overflowResult.overflowText.substring(0, 50) + '...');
-      console.log(`🔧 [DEBUG] All steps completed!`);
-      setDebugStep(4); // Mark as completed, don't reset yet
+        // STEP 4: Replace child mother text with SPLIT 2 (EXACT COPY from debugStep === 3)
+        console.log(`🔧 [DEBUG] Step 4 starting...`);
+        console.log(`🔧 [DEBUG] Step 4 - Child mother should now have SPLIT 2:`, overflowResult.overflowText.substring(0, 50) + '...');
+        console.log(`🔧 [DEBUG] All steps completed!`);
+        setDebugStep(4); // Mark as completed, don't reset yet
+      } else {
+        console.log(`🔧 [DEBUG] Step 3 skipped - No overflow detected, only parent mother needed`);
+        console.log(`🔧 [DEBUG] All steps completed - Single mother solution!`);
+        setDebugStep(4); // Mark as completed
+      }
 
       // FINAL STEP: Execute Save functionality (EXACT COPY from handleSave)
       console.log('🚀 CREATE: Now executing Save functionality...');

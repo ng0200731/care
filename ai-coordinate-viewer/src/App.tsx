@@ -2520,13 +2520,14 @@ function App() {
       return;
     }
 
-    // Handle new-comp-trans content type - open blank dialog
+    // Handle new-comp-trans content type - check parent-child relationship
     if (content.type === 'new-comp-trans') {
-      console.log('🌐 NEW CT Comp Trans double-clicked - Opening blank dialog');
+      console.log('🌐 NEW CT Comp Trans double-clicked - Checking parent-child relationship');
 
-      // Find the region from current data (check both main regions and child regions/slices)
+      // Find the region and mother from current data
       const currentData = data || webCreationData;
       let region: any = null;
+      let motherObject: any = null;
 
       if (currentData) {
         for (const obj of currentData.objects) {
@@ -2535,7 +2536,10 @@ function App() {
 
             // First check main regions
             region = regions.find((r: any) => r.id === regionId);
-            if (region) break;
+            if (region) {
+              motherObject = obj;
+              break;
+            }
 
             // If not found in main regions, check child regions (slices)
             for (const parentRegion of regions) {
@@ -2543,6 +2547,7 @@ function App() {
                 const childRegion = parentRegion.children.find((child: any) => child.id === regionId);
                 if (childRegion) {
                   region = childRegion;
+                  motherObject = obj;
                   break;
                 }
               }
@@ -2552,13 +2557,63 @@ function App() {
         }
       }
 
-      if (!region) {
+      if (!region || !motherObject) {
         setNotification(`❌ Region ${regionId} not found`);
         setTimeout(() => setNotification(null), 3000);
         return;
       }
 
-      // Open blank dialog for editing existing content
+      // 🔗 CHECK PARENT-CHILD RELATIONSHIP
+      if (motherObject.isOverflowChild && motherObject.parentMotherId) {
+        // This is a CHILD MOTHER - show popup instead of dialog
+        console.log('🚫 Child mother double-clicked - Showing redirect popup');
+        alert(`To edit this content, please go back to the parent mother: ${motherObject.parentMotherId}`);
+        return;
+      }
+
+      // This is a PARENT MOTHER - check for existing children and handle accordingly
+      console.log('👑 Parent mother double-clicked - Checking for children');
+
+      if (currentData && currentData.objects) {
+        // Find all child mothers that belong to this parent
+        const childMothers = currentData.objects.filter((obj: any) =>
+          obj.isOverflowChild && obj.parentMotherId === motherObject.name
+        );
+
+        if (childMothers.length > 0) {
+          console.log(`🗑️ Found ${childMothers.length} child mothers - Will remove them first`);
+
+          // Remove all child mothers
+          const updatedObjects = currentData.objects.filter((obj: any) =>
+            !(obj.isOverflowChild && obj.parentMotherId === motherObject.name)
+          );
+
+          // Update app data without children
+          const newData = {
+            ...currentData,
+            objects: updatedObjects,
+            totalObjects: updatedObjects.length,
+            document: currentData.document || '', // Ensure document is always a string
+            layoutName: currentData.layoutName || '' // Ensure layoutName is always a string
+          };
+
+          // Update the data state
+          if (data) {
+            setData(newData);
+          } else {
+            setWebCreationData(newData);
+          }
+
+          // Update global app data
+          if ((window as any).updateAppData) {
+            (window as any).updateAppData(newData);
+          }
+
+          console.log('✅ Child mothers removed - Now opening dialog for re-rendering');
+        }
+      }
+
+      // Open dialog for editing (will re-render children if needed)
       setNewCompTransDialog({
         isOpen: true,
         regionId: regionId,
