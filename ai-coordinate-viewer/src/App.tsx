@@ -6624,6 +6624,34 @@ function App() {
           setRegionContents(updatedContents);
           
           console.log(`[v${packageJson.version}] ✅ Child mother content added with SPLIT 2 text!`);
+          
+          // 🔗 ESTABLISH PARENT-CHILD RELATIONSHIP for overflow
+          console.log(`[v${packageJson.version}] 🔗 Establishing parent-child relationship...`);
+          
+          try {
+            // Set parent-child properties on mother objects
+            (originalMother as any).childMotherIds = (originalMother as any).childMotherIds || [];
+            (originalMother as any).childMotherIds.push(newMother.name);
+            (newMother as any).parentMotherId = originalMother.name;
+            (newMother as any).isOverflowChild = true;
+
+            // Establish relationship in manager
+            const parentText = originalContent?.content?.text || '';
+            motherRelationshipManager.establishRelationship(
+              originalMother.name, // masterId (parent)
+              [newMother.name], // childIds
+              'new-comp-trans', // contentType
+              parentText, // originalText (from parent)
+              [parentText, overflowData.split2Text] // textDistribution [SPLIT 1, SPLIT 2]
+            );
+
+            console.log(`[v${packageJson.version}] ✅ Parent-child relationship established:`);
+            console.log(`[v${packageJson.version}] 👨 Parent: ${originalMother.name} -> Child: ${newMother.name}`);
+            console.log(`[v${packageJson.version}] 🏷️ Child marked as overflow child: ${(newMother as any).isOverflowChild}`);
+            
+          } catch (error) {
+            console.error(`[v${packageJson.version}] ❌ Failed to establish relationship:`, error);
+          }
         }
       }
     }
@@ -12996,7 +13024,69 @@ function App() {
 
             {/* Chain connections moved to SVG level - see after all objects rendered */}
 
-
+            {/* OVERFLOW ARROWS - Parent to Child Mother Connections */}
+            {(() => {
+              if (!data && !webCreationData) return null;
+              
+              const currentData = data || webCreationData;
+              if (!currentData) return null;
+              
+              const motherObjects = currentData.objects.filter(obj => obj.type?.includes('mother'));
+              const mmToPx = 3.78;
+              const scale = zoom * mmToPx;
+              
+              return motherObjects
+                .filter(mother => (mother as any).childMotherIds && (mother as any).childMotherIds.length > 0)
+                .map(parentMother => {
+                  const childIds = (parentMother as any).childMotherIds || [];
+                  
+                  return childIds.map((childId: string, index: number) => {
+                    const childMother = motherObjects.find(m => m.name === childId);
+                    if (!childMother) return null;
+                    
+                    // Calculate arrow position from parent to child
+                    const parentX = (parentMother.x + parentMother.width / 2) * scale + panX;
+                    const parentY = (parentMother.y + parentMother.height / 2) * scale + panY;
+                    const childX = (childMother.x + childMother.width / 2) * scale + panX;
+                    const childY = (childMother.y + childMother.height / 2) * scale + panY;
+                    
+                    // Adjust line endpoints to mother edges instead of centers
+                    const parentRightX = (parentMother.x + parentMother.width) * scale + panX;
+                    const childLeftX = childMother.x * scale + panX;
+                    
+                    const arrowKey = `overflow-arrow-${parentMother.name}-${childId}`;
+                    
+                    return (
+                      <g key={arrowKey}>
+                        {/* Overflow connection line */}
+                        <line
+                          x1={parentRightX}
+                          y1={parentY}
+                          x2={childLeftX}
+                          y2={childY}
+                          stroke="#ff6b35"
+                          strokeWidth={2 / zoom}
+                          markerEnd="url(#overflowArrow)"
+                          opacity="0.8"
+                        />
+                        {/* Connection label */}
+                        <text
+                          x={(parentRightX + childLeftX) / 2}
+                          y={(parentY + childY) / 2 - 10 / zoom}
+                          fill="#ff6b35"
+                          fontSize={10 / zoom}
+                          fontWeight="bold"
+                          textAnchor="middle"
+                          opacity="0.7"
+                        >
+                          OVERFLOW
+                        </text>
+                      </g>
+                    );
+                  }).filter(Boolean);
+                })
+                .flat();
+            })()}
 
             {/* ZOOM-INDEPENDENT arrow marker for overflow connections */}
             <defs>
