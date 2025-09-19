@@ -1019,7 +1019,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
   const handleStepDebug = async () => {
     console.log(`🔧 [DEBUG] Step ${debugStep + 1} starting...`);
-    
+
     if (debugStep === 0) {
       // Step 0: Calculate SPLIT 1 and SPLIT 2 (no visual change)
       const overflowResult = detectOverflowAndSplit();
@@ -1029,11 +1029,11 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       console.log(`📝 SPLIT 1 (${overflowResult.originalText.length} chars):`, overflowResult.originalText.substring(0, 50) + '...');
       console.log(`📝 SPLIT 2 (${overflowResult.overflowText.length} chars):`, overflowResult.overflowText.substring(0, 50) + '...');
       setDebugStep(1);
-      
+
     } else if (debugStep === 1) {
       // Step 1: Fill SPLIT 1 in original (parent) mother
       console.log(`🔧 [DEBUG] Step 2 - Filling SPLIT 1 in parent mother:`, split1Text.substring(0, 50) + '...');
-      
+
       // Update local config to show SPLIT 1 text
       const debugConfig = {
         ...config,
@@ -1042,19 +1042,19 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
           generatedText: split1Text
         }
       };
-      
+
       setConfig(debugConfig);
-      
+
       // Set debug mode flag and save (parent should handle keeping dialog open)
       (window as any).debugModeActive = true;
       onSave(debugConfig);
-      
+
       // Dialog might close - if so, user needs to reopen and continue
       console.log('🔧 [DEBUG] Step 2 completed - Check if Mother_1 shows SPLIT 1 text');
       console.log('🔧 [DEBUG] If dialog closed, double-click Mother_1 again to continue with Step 3');
-      
+
       setDebugStep(2);
-      
+
     } else if (debugStep === 2) {
       // Step 2: Duplicate parent mother (including split text on it)
       console.log(`🔧 [DEBUG] Step 3 - Duplicating parent mother with current text`);
@@ -1062,12 +1062,84 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         onCreateNewMother(split1Text, split2Text);
       }
       setDebugStep(3);
-      
+
     } else if (debugStep === 3) {
       // Step 3: Replace child mother text with SPLIT 2
       console.log(`🔧 [DEBUG] Step 4 - Child mother should now have SPLIT 2:`, split2Text.substring(0, 50) + '...');
       console.log(`🔧 [DEBUG] All steps completed!`);
       setDebugStep(4); // Mark as completed, don't reset yet
+    }
+  };
+
+  // NEW: 4 to 1 - Execute all 4 manual steps in one click (EXACT COPY)
+  const handle4To1 = async () => {
+    try {
+      console.log('🚀 4 to 1: Starting all 4 manual steps...');
+
+      // STEP 1: Calculate SPLIT 1 and SPLIT 2 (EXACT COPY from debugStep === 0)
+      console.log(`🔧 [DEBUG] Step 1 starting...`);
+      const overflowResult = detectOverflowAndSplit();
+      setSplit1Text(overflowResult.originalText);
+      setSplit2Text(overflowResult.overflowText);
+      console.log(`🔧 [DEBUG] Step 1 - Calculated splits:`);
+      console.log(`📝 SPLIT 1 (${overflowResult.originalText.length} chars):`, overflowResult.originalText.substring(0, 50) + '...');
+      console.log(`📝 SPLIT 2 (${overflowResult.overflowText.length} chars):`, overflowResult.overflowText.substring(0, 50) + '...');
+      setDebugStep(1);
+
+      // Small delay
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // STEP 2: Fill SPLIT 1 in original (parent) mother (EXACT COPY from debugStep === 1)
+      console.log(`🔧 [DEBUG] Step 2 starting...`);
+      console.log(`🔧 [DEBUG] Step 2 - Filling SPLIT 1 in parent mother:`, overflowResult.originalText.substring(0, 50) + '...');
+
+      // Update local config to show SPLIT 1 text
+      const debugConfig = {
+        ...config,
+        textContent: {
+          ...config.textContent,
+          generatedText: overflowResult.originalText
+        }
+      };
+
+      setConfig(debugConfig);
+
+      // Set debug mode flag and save (parent should handle keeping dialog open)
+      (window as any).debugModeActive = true;
+      onSave(debugConfig);
+
+      // Dialog might close - if so, user needs to reopen and continue
+      console.log('🔧 [DEBUG] Step 2 completed - Check if Mother_1 shows SPLIT 1 text');
+      console.log('🔧 [DEBUG] If dialog closed, double-click Mother_1 again to continue with Step 3');
+
+      setDebugStep(2);
+
+      // Small delay
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // STEP 3: Duplicate parent mother (EXACT COPY from debugStep === 2)
+      console.log(`🔧 [DEBUG] Step 3 starting...`);
+      console.log(`🔧 [DEBUG] Step 3 - Duplicating parent mother with current text`);
+      if (onCreateNewMother) {
+        onCreateNewMother(overflowResult.originalText, overflowResult.overflowText);
+      }
+      setDebugStep(3);
+
+      // Small delay
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // STEP 4: Replace child mother text with SPLIT 2 (EXACT COPY from debugStep === 3)
+      console.log(`🔧 [DEBUG] Step 4 starting...`);
+      console.log(`🔧 [DEBUG] Step 4 - Child mother should now have SPLIT 2:`, overflowResult.overflowText.substring(0, 50) + '...');
+      console.log(`🔧 [DEBUG] All steps completed!`);
+      setDebugStep(4); // Mark as completed, don't reset yet
+
+      (window as any).debugModeActive = false;
+      console.log('🎉 4 to 1: All 4 steps completed successfully!');
+
+    } catch (error) {
+      console.error('❌ 4 to 1: Error during execution:', error);
+      (window as any).debugModeActive = false;
     }
   };
 
@@ -1122,6 +1194,51 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     // No overflow detected - proceed with normal save
     console.log('✅ No overflow detected - saving content normally');
     onSave(config);
+  };
+
+  // One-click runner: executes the same 4 manual debug steps sequentially without extra clicks
+  const handleRunFourSteps = async () => {
+    try {
+      console.log('🔗 One-Click 4-Step: Start');
+      // Step 1: Calculate splits
+      const overflowResult = detectOverflowAndSplit();
+      const stepSplit1 = overflowResult.originalText || '';
+      const stepSplit2 = overflowResult.overflowText || '';
+      setSplit1Text(stepSplit1);
+      setSplit2Text(stepSplit2);
+      setDebugStep(1);
+
+      // Step 2: Fill SPLIT 1 in parent and save without closing the dialog
+      const parentConfig = {
+        ...config,
+        textContent: { ...config.textContent, generatedText: stepSplit1 }
+      };
+      (window as any).debugModeActive = true;
+      onSave(parentConfig);
+      console.log('🔗 One-Click 4-Step: Saved SPLIT 1 to parent');
+      setDebugStep(2);
+
+      // Small delay to allow parent render/state to settle
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Step 3: Duplicate mother using provided callback with both splits
+      if (onCreateNewMother) {
+        onCreateNewMother(stepSplit1, stepSplit2);
+        console.log('🔗 One-Click 4-Step: Requested child creation with SPLIT 2');
+      } else {
+        console.warn('⚠️ One-Click 4-Step: onCreateNewMother unavailable');
+      }
+      setDebugStep(3);
+
+      // Step 4: Finalize - child replace happens in parent flow
+      await new Promise(resolve => setTimeout(resolve, 300));
+      setDebugStep(4);
+      (window as any).debugModeActive = false;
+      console.log('✅ One-Click 4-Step: Completed');
+    } catch (err) {
+      console.error('❌ One-Click 4-Step failed:', err);
+      (window as any).debugModeActive = false;
+    }
   };
 
   const handleCancel = () => {
@@ -2265,6 +2382,28 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
                 }
               </button>
             )}
+
+            {/* NEW: 4 to 1 button - Execute all 4 manual steps in one click */}
+            {hasOverflow && (
+              <button
+                onClick={handle4To1}
+                style={{
+                  padding: '10px 20px',
+                  border: '2px solid #28a745',
+                  borderRadius: '4px',
+                  backgroundColor: '#28a745',
+                  color: 'white',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer'
+                }}
+                title="Execute all 4 manual steps in one click"
+              >
+                4 to 1
+              </button>
+            )}
+
+
             
             <button
               onClick={handleSave}

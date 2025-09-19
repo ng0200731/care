@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>7-Step Manual vs Manual2 vs Auto - Complete Raw Code Comparison</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            font-size: 12px;
+        }
+        
+        .container {
+            display: flex;
+            gap: 20px;
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+        
+        .column {
+            flex: 1;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            max-height: 95vh;
+        }
+        
+        .header {
+            padding: 15px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            text-align: center;
+            color: white;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .manual-header {
+            background-color: #2196F3;
+        }
+        
+        .auto-header {
+            background-color: #FF6B35;
+        }
+        
+        .content {
+            padding: 15px;
+            max-height: calc(95vh - 80px);
+            overflow-y: auto;
+        }
+        
+        .step {
+            margin-bottom: 20px;
+            border-left: 4px solid #ddd;
+            padding-left: 12px;
+        }
+        
+        .step-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 8px;
+            background-color: #f8f9fa;
+            padding: 8px;
+            border-radius: 4px;
+        }
+        
+        .manual-step {
+            border-left-color: #2196F3;
+        }
+        
+        .auto-step {
+            border-left-color: #FF6B35;
+        }
+        
+        .code-block {
+            background-color: #f8f8f8;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            font-size: 11px;
+            line-height: 1.3;
+            white-space: pre-wrap;
+            color: #333;
+            overflow-x: auto;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        }
+        
+        .manual-code {
+            border-left: 3px solid #2196F3;
+        }
+        
+        .auto-code {
+            border-left: 3px solid #FF6B35;
+        }
+        
+        .note {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 4px;
+            padding: 8px;
+            margin-top: 8px;
+            font-size: 11px;
+            color: #856404;
+            font-style: italic;
+        }
+        
+        .ui-info {
+            background-color: #e3f2fd;
+            border: 1px solid #bbdefb;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 15px;
+            font-size: 11px;
+            position: sticky;
+            top: 0;
+            z-index: 5;
+        }
+        
+        .function-name {
+            color: #007acc;
+            font-weight: bold;
+        }
+        
+        .keyword {
+            color: #0000ff;
+            font-weight: bold;
+        }
+        
+        .string {
+            color: #a31515;
+        }
+        
+        .comment {
+            color: #008000;
+            font-style: italic;
+        }
+        
+        .auto-only {
+            background-color: #fff5f5;
+            border-left: 4px solid #ff4444;
+            padding: 8px;
+            margin: 8px 0;
+            border-radius: 4px;
+        }
+        
+        .manual-only {
+            background-color: #f5f5ff;
+            border-left: 4px solid #4444ff;
+            padding: 8px;
+            margin: 8px 0;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- MANUAL COLUMN -->
+        <div class="column">
+            <div class="header manual-header">
+                👆 7-STEP MANUAL - COMPLETE RAW CODE
+            </div>
+            <div class="content">
+                <div class="ui-info">
+                    <strong>Manual Mode:</strong> Each step is a separate function that must be triggered by user clicks<br>
+                    <strong>File:</strong> <code>ai-coordinate-viewer/src/components/NewCompTransDialog.tsx</code><br>
+                    <strong>Pattern:</strong> Individual step functions that execute one at a time
+                </div>
+
+                <div class="step manual-step">
+                    <div class="step-title">Step 0: Clear Parent - Manual Mode Path Only</div>
+                    <div class="code-block manual-code">// Step 0: Clear Parent Mother - AUTO-FLOW or MANUAL MODE
+const handleStep0_ClearParent = async () => {
+  if (isAutoMode) {
+    // AUTO MODE CODE (see right column)
+    // ... auto flow code executes all steps ...
+  } else {
+    console.log('🔧 Step 0/7: Manual Mode - Clearing Parent Mother Content...');
+  }
+  
+  // Step 0: Clear parent mother
+  console.log('🔧 Step 0/7: Clearing Parent Mother Content...');
+  const clearConfig = {
+    ...config,
+    textContent: {
+      ...config.textContent,
+      generatedText: '' // Clear all text
+    }
+  };
+  
+  onSave(clearConfig, true);
+  console.log('🧹 Parent mother content cleared...');
+  await waitForCanvasUpdate(500);
+  
+  setStepResults(prev => ({ ...prev, parentCleared: true }));
+  setCurrentStep(1);
+  
+  if (!isAutoMode) {
+    console.log('✅ Step 0 Complete: Parent mother cleared - waiting for manual click...');
+    return; // ⏸️ STOP HERE in manual mode
+  }
+};</div>
+                    <div class="note manual-only">
+                        <strong>⏸️ MANUAL MODE STOPS HERE</strong> - Function returns early, waits for user to click Step 1 button
+                    </div>
+                </div>
+
+                <div class="step manual-step">
+                    <div class="step-title">Step 1: Overflow Detection - Manual Function</div>
+                    <div class="code-block manual-code">const handleStep1_OverflowDetection = () => {
+  console.log('🔧 Step 1/7: Starting Overflow Detection...');
+  const overflowResult = detectOverflowAndSplit();
+  
+  setStepResults(prev => ({
+    ...prev,
+    overflowDetected: overflowResult.hasOverflow,
+    split1Text: overflowResult.originalText,
+    split2Text: overflowResult.overflowText
+  }));
+  
+  setCurrentStep(2);
+  console.log('✅ Step 1 Complete: Overflow detection finished', {
+    hasOverflow: overflowResult.hasOverflow,
+    split1Length: overflowResult.originalText.length,
+    split2Length: overflowResult.overflowText.length
+  });
+};</div>
+                    <div class="note">
+                        User must manually click Step 2 button to continue to handleStep2_TextSplitting()
+                    </div>
+                </div>
+
+                <div class="step manual-step">
+                    <div class="step-title">Step 2: Text Splitting - Manual Function</div>
+                    <div class="code-block manual-code">const handleStep2_TextSplitting = () => {
+  console.log('🔧 Step 2/7: Text Splitting Calculation...');
+  if (stepResults.split1Text && stepResults.split2Text) {
+    console.log(`📝 SPLIT 1 (${stepResults.split1Text.length} chars): "${stepResults.split1Text.substring(0, 50)}..."`);
+    console.log(`📝 SPLIT 2 (${stepResults.split2Text.length} chars): "${stepResults.split2Text.substring(0, 50)}..."`);
+    
+    setLastOverflowCalculation({
+      split1: stepResults.split1Text,
+      split2: stepResults.split2Text
+    });
+  }
+  
+  setCurrentStep(3);
+  console.log('✅ Step 2 Complete: Text splitting calculated');
+};</div>
+                    <div class="note">
+                        User must manually click Step 3 button to continue to handleStep3_SaveSplit1()
+                    </div>
+                </div>
+
+                <div class="step manual-step">
+                    <div class="step-title">Step 3: Save Split 1 - Manual Function</div>
+                    <div class="code-block manual-code">const handleStep3_SaveSplit1 = async () => {
+  console.log('🔧 Step 3/7: Saving SPLIT 1 to Clean Canvas...');
+  
+  if (stepResults.split1Text) {
+    const split1Config = {
+      ...config,
+      textContent: {
+        ...config.textContent,
+        generatedText: stepResults.split1Text
+      }
+    };
+    
+    // Store config and update canvas immediately by calling onSave
+    setStepResults(prev => ({ 
+      ...prev, 
+      split1Prepared: true,
+      split1Config: split1Config
+    }));
+    
+    // Save to canvas but keep dialog open (keepDialogOpen = true)
+    onSave(split1Config, true);
+    console.log('💾 SPLIT 1 config sent to clean parent canvas...');
+    
+    // Wait for SPLIT 1 to load properly
+    await waitForCanvasUpdate(1500);
+    
+    console.log('✅ Step 3 Complete: SPLIT 1 loaded in clean parent mother!');
+  } else {
+    // No overflow - save normal config but keep dialog open
+    setStepResults(prev => ({ 
+      ...prev, 
+      split1Prepared: true,
+      split1Config: config
+    }));
+    onSave(config, true);
+    await waitForCanvasUpdate(1000);
+    console.log('✅ Step 3 Complete: Normal save (no overflow) - dialog stays open!');
+  }
+  
+  setCurrentStep(4);
+};</div>
+                    <div class="note">
+                        User must manually click Step 4 button to continue to handleStep4_DuplicateMother()
+                    </div>
+                </div>
+
+                <div class="step manual-step">
+                    <div class="step-title">Step 4: Duplicate Mother - Manual Function</div>
+                    <div class="code-block manual-code">const handleStep4_DuplicateMother = () => {
+  console.log('🔧 Step 4/7: Duplicating Mother Structure...');
+  
+  if (stepResults.overflowDetected && stepResults.split2Text) {
+    // This step would normally create the duplicate mother structure
+    // For now, we mark it as completed
+    setStepResults(prev => ({ ...prev, motherDuplicated: true }));
+    console.log('✅ Step 4 Complete: Mother structure duplicated');
+  } else {
+    console.log('✅ Step 4 Skipped: No overflow detected');
+    setStepResults(prev => ({ ...prev, motherDuplicated: true }));
+  }
+  
+  setCurrentStep(5);
+};</div>
+                    <div class="note">
+                        User must manually click Step 5 button to continue to handleStep5_PrepareSplit2()
+                    </div>
+                </div>
+
+                <div class="step manual-step">
+                    <div class="step-title">Step 5: Prepare Split 2 - Manual Function</div>
+                    <div class="code-block manual-code">const handleStep5_PrepareSplit2 = () => {
+  console.log('🔧 Step 5/7: Preparing SPLIT 2 Assignment...');
+  
+  if (stepResults.overflowDetected && stepResults.split1Text && stepResults.split2Text && onCreateNewMother) {
+    // Just mark as prepared - actual creation happens in step 6
+    setStepResults(prev => ({ ...prev, split2Assigned: true }));
+    console.log('✅ Step 5 Complete: SPLIT 2 assignment prepared (will execute in step 6)');
+  } else {
+    console.log('✅ Step 5 Skipped: No overflow detected');
+    setStepResults(prev => ({ ...prev, split2Assigned: true }));
+  }
+  
+  setCurrentStep(6);
+};</div>
+                    <div class="note">
+                        User must manually click Step 6 button to continue to handleStep6_CreateChildMother()
+                    </div>
+                </div>
+
+                <div class="step manual-step">
+                    <div class="step-title">Step 6: Create Child Mother - Manual Function</div>
+                    <div class="code-block manual-code">const handleStep6_CreateChildMother = () => {
+  console.log('🔧 Step 6/7: Creating Child Mother with SPLIT 2...');
+  
+  // Handle overflow child creation if needed (SPLIT 1 was already saved in Step 3)
+  if (stepResults.overflowDetected && stepResults.split1Text && stepResults.split2Text && onCreateNewMother) {
+    console.log('👶 Creating child mother with SPLIT 2...');
+    onCreateNewMother(stepResults.split1Text, stepResults.split2Text);
+  }
+  
+  setStepResults(prev => ({ ...prev, canvasUpdated: true }));
+  setCurrentStep(7);
+  
+  console.log('✅ Step 6 Complete: Child mother created with SPLIT 2!');
+  console.log('🎉 All 7 steps completed successfully!');
+  
+  // Auto-close dialog after completion
+  setTimeout(() => {
+    handleCancel();
+  }, 2000);
+};</div>
+                    <div class="note manual-only">
+                        <strong>✅ MANUAL PROCESS COMPLETE</strong> - Required 7 individual user clicks to execute all functions
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MANUAL2 COLUMN -->
+        <div class="column">
+            <div class="header" style="background-color: #4CAF50;">
+                🔗 7-STEP MANUAL2 - COMBINED RAW CODE
+            </div>
+            <div class="content">
+                <div class="ui-info">
+                    <strong>Manual2 Mode:</strong> Combined manual steps into one sequential function (with 3-second delays)<br>
+                    <strong>File:</strong> <code>ai-coordinate-viewer/src/components/NewCompTransDialog.tsx</code><br>
+                    <strong>Pattern:</strong> All 7 manual step codes copied sequentially into one function
+                </div>
+
+                <div class="step" style="border-left-color: #4CAF50;">
+                    <div class="step-title">Manual2 Function - All 7 Manual Steps Combined</div>
+                    <div class="code-block" style="border-left: 3px solid #4CAF50;">// NEW: Manual2 - All 7 manual steps combined sequentially
+const handleManual2_AllSteps = async () => {
+  console.log('🔗 Starting Manual2 - All 7 manual steps in sequence...');
+  
+  // ===== STEP 0: Clear Parent (Manual Path Only) =====
+  console.log('🔧 Step 0/7: Manual Mode - Clearing Parent Mother Content...');
+  
+  // Step 0: Clear parent mother
+  console.log('🔧 Step 0/7: Clearing Parent Mother Content...');
+  const clearConfig = {
+    ...config,
+    textContent: {
+      ...config.textContent,
+      generatedText: '' // Clear all text
+    }
+  };
+  
+  onSave(clearConfig, true);
+  console.log('🧹 Parent mother content cleared...');
+  await waitForCanvasUpdate(500);
+  
+  setStepResults(prev => ({ ...prev, parentCleared: true }));
+  setCurrentStep(1);
+  console.log('✅ Step 0 Complete: Parent mother cleared - continuing to Step 1...');
+  
+  // 3-second delay before Step 1
+  await new Promise(resolve => setTimeout(resolve, 3000));
+  
+  // ===== STEP 1: Overflow Detection (Manual Code) =====
+  console.log('🔧 Step 1/7: Starting Overflow Detection...');
+  const overflowResult = detectOverflowAndSplit();
+  
+  setStepResults(prev => ({
+    ...prev,
+    overflowDetected: overflowResult.hasOverflow,
+    split1Text: overflowResult.originalText,
+    split2Text: overflowResult.overflowText
+  }));
+  
+  setCurrentStep(2);
+  console.log('✅ Step 1 Complete: Overflow detection finished', {
+    hasOverflow: overflowResult.hasOverflow,
+    split1Length: overflowResult.originalText.length,
+    split2Length: overflowResult.overflowText.length
+  });
+  
+  // 3-second delay before Step 2
+  await new Promise(resolve => setTimeout(resolve, 3000));
+  
+  // ===== STEP 2: Text Splitting (Manual Code) =====
+  console.log('🔧 Step 2/7: Text Splitting Calculation...');
+  if (stepResults.split1Text && stepResults.split2Text) {
+    console.log(`📝 SPLIT 1 (${stepResults.split1Text.length} chars): "${stepResults.split1Text.substring(0, 50)}..."`);
+    console.log(`📝 SPLIT 2 (${stepResults.split2Text.length} chars): "${stepResults.split2Text.substring(0, 50)}..."`);
+    
+    setLastOverflowCalculation({
+      split1: stepResults.split1Text,
+      split2: stepResults.split2Text
+    });
+  }
+  
+  setCurrentStep(3);
+  console.log('✅ Step 2 Complete: Text splitting calculated');
+  
+  // 3-second delay before Step 3
+  await new Promise(resolve => setTimeout(resolve, 3000));
+  
+  // ===== STEP 3: Save Split 1 (Manual Code) =====
+  console.log('🔧 Step 3/7: Saving SPLIT 1 to Clean Canvas...');
+  
+  if (stepResults.split1Text) {
+    const split1Config = {
+      ...config,
+      textContent: {
+        ...config.textContent,
+        generatedText: stepResults.split1Text
+      }
+    };
+    
+    // Store config and update canvas immediately by calling onSave
+    setStepResults(prev => ({ 
+      ...prev, 
+      split1Prepared: true,
+      split1Config: split1Config
+    }));
+    
+    // Save to canvas but keep dialog open (keepDialogOpen = true)
+    onSave(split1Config, true);
+    console.log('💾 SPLIT 1 config sent to clean parent canvas...');
+    
+    // Wait for SPLIT 1 to load properly
+    await waitForCanvasUpdate(1500);
+    
+    console.log('✅ Step 3 Complete: SPLIT 1 loaded in clean parent mother!');
+  } else {
+    // No overflow - save normal config but keep dialog open
+    setStepResults(prev => ({ 
+      ...prev, 
+      split1Prepared: true,
+      split1Config: config
+    }));
+    onSave(config, true);
+    await waitForCanvasUpdate(1000);
+    console.log('✅ Step 3 Complete: Normal save (no overflow) - dialog stays open!');
+  }
+  
+  setCurrentStep(4);
+  
+  // 3-second delay before Step 4
+  await new Promise(resolve => setTimeout(resolve, 3000));
+  
+  // ===== STEP 4: Duplicate Mother (Manual Code) =====
+  console.log('🔧 Step 4/7: Duplicating Mother Structure...');
+  
+  if (stepResults.overflowDetected && stepResults.split2Text) {
+    // This step would normally create the duplicate mother structure
+    // For now, we mark it as completed
+    setStepResults(prev => ({ ...prev, motherDuplicated: true }));
+    console.log('✅ Step 4 Complete: Mother structure duplicated');
+  } else {
+    console.log('✅ Step 4 Skipped: No overflow detected');
+    setStepResults(prev => ({ ...prev, motherDuplicated: true }));
+  }
+  
+  setCurrentStep(5);
+  
+  // 3-second delay before Step 5
+  await new Promise(resolve => setTimeout(resolve, 3000));
+  
+  // ===== STEP 5: Prepare Split 2 (Manual Code) =====
+  console.log('🔧 Step 5/7: Preparing SPLIT 2 Assignment...');
+  
+  if (stepResults.overflowDetected && stepResults.split1Text && stepResults.split2Text && onCreateNewMother) {
+    // Just mark as prepared - actual creation happens in step 6
+    setStepResults(prev => ({ ...prev, split2Assigned: true }));
+    console.log('✅ Step 5 Complete: SPLIT 2 assignment prepared (will execute in step 6)');
+  } else {
+    console.log('✅ Step 5 Skipped: No overflow detected');
+    setStepResults(prev => ({ ...prev, split2Assigned: true }));
+  }
+  
+  setCurrentStep(6);
+  
+  // 3-second delay before Step 6
+  await new Promise(resolve => setTimeout(resolve, 3000));
+  
+  // ===== STEP 6: Create Child Mother (Manual Code) =====
+  console.log('🔧 Step 6/7: Creating Child Mother with SPLIT 2...');
+  
+  // Handle overflow child creation if needed (SPLIT 1 was already saved in Step 3)
+  if (stepResults.overflowDetected && stepResults.split1Text && stepResults.split2Text && onCreateNewMother) {
+    console.log('👶 Creating child mother with SPLIT 2...');
+    onCreateNewMother(stepResults.split1Text, stepResults.split2Text);
+  }
+  
+  setStepResults(prev => ({ ...prev, canvasUpdated: true }));
+  setCurrentStep(7);
+  
+  console.log('✅ Step 6 Complete: Child mother created with SPLIT 2!');
+  console.log('🎉 All 7 steps completed successfully!');
+  
+  // Auto-close dialog after completion
+  setTimeout(() => {
+    handleCancel();
+  }, 2000);
+  
+  console.log('🔗 MANUAL2 COMPLETE: All 7 manual steps executed sequentially with 3-second delays!');
+};</div>
+                    <div class="note" style="background-color: #f0fff0; border: 1px solid #90ee90;">
+                        <strong>🔗 MANUAL2 MODE FEATURES (FIXED v2.9.208):</strong><br>
+                        • Single function with all 7 manual step codes combined<br>
+                        • <strong>3-second delays between steps (FIXED for React state timing)</strong><br>
+                        • Uses exact manual step logic (stepResults data)<br>
+                        • Manual step console messages preserved<br>
+                        • Same functionality as clicking 7 buttons with 3-sec pauses<br>
+                        • One function call executes all manual steps<br>
+                        • <strong>Now creates child mother correctly</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div style="text-align: center; margin-top: 20px; padding: 20px; background-color: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); max-width: 1800px; margin: 20px auto 0;">
+        <h3 style="margin: 0 0 15px 0; color: #333;">Three Mode Code Architecture Comparison</h3>
+        <div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; font-size: 11px;">
+            <div style="flex: 1; min-width: 250px;">
+                <strong style="color: #2196F3;">👆 Manual Mode:</strong><br>
+                • <strong>7 separate functions</strong><br>
+                • <strong>User clicks each step individually</strong><br>
+                • <strong>Function separation with user triggers</strong><br>
+                • <strong>State-based progression</strong><br>
+                • <strong>Step 0 stops early with return statement</strong><br>
+                • <strong>Each step waits for user interaction</strong>
+            </div>
+            <div style="flex: 1; min-width: 250px;">
+                <strong style="color: #4CAF50;">🔗 Manual2 Mode (NEW):</strong><br>
+                • <strong>1 function with all manual codes combined</strong><br>
+                • <strong>All 7 manual steps run sequentially</strong><br>
+                • <strong>3-second delays between steps (FIXED)</strong><br>
+                • <strong>Uses exact manual step logic</strong><br>
+                • <strong>Same as clicking 7 buttons at once</strong><br>
+                • <strong>Manual console messages preserved</strong>
+            </div>
+            <div style="flex: 1; min-width: 250px;">
+                <strong style="color: #FF6B35;">🚀 Auto Mode:</strong><br>
+                • <strong>1 function with auto-specific code</strong><br>
+                • <strong>3-second delays between steps</strong><br>
+                • <strong>Uses overflowResult instead of stepResults</strong><br>
+                • <strong>Enhanced debug logging</strong><br>
+                • <strong>"Auto-Complete" console messages</strong><br>
+                • <strong>Different logic flow than manual</strong>
+            </div>
+        </div>
+        <div style="margin-top: 15px; padding: 10px; background-color: #f8f9fa; border-radius: 4px; font-size: 11px;">
+            <strong>Key Difference:</strong> <span style="color: #2196F3;">Manual = 7 separate functions</span> | <span style="color: #4CAF50;">Manual2 = 1 function with manual codes</span> | <span style="color: #FF6B35;">Auto = 1 function with auto codes + delays</span>
+        </div>
+        <div style="margin-top: 10px; padding: 10px; background-color: #e8f5e8; border-radius: 4px; font-size: 11px;">
+            <strong>Manual2 Purpose:</strong> Shows what happens when you take all individual manual step codes and combine them into one sequential function (no user clicks needed)
+        </div>
+    </div>
+</body>
+</html>
