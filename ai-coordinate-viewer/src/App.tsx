@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { DynamicMotherRelationshipManager } from './services/DynamicMotherRelationshipManager';
 import SonDetailsPanel from './SonDetailsPanel';
 import NavigationButtons from './components/NavigationButtons';
 import SonObjectManager, { SonObject } from './components/content-editors/SonObjectManager';
@@ -449,6 +450,50 @@ function App() {
     }
     return null;
   });
+
+  // Initialize the mother relationship manager for overflow handling
+  const motherRelationshipManager = useMemo(() => {
+    const onMotherCreated = async (motherId: string, config: any) => {
+      console.log(`🔗 Callback: Mother created for relationship system: ${motherId}`);
+      // The duplicateMother function already handles creation, so this is just for logging
+    };
+
+    const onMotherDeleted = async (motherId: string) => {
+      console.log(`🔗 Callback: Deleting mother from relationship system: ${motherId}`);
+      const currentData = data || webCreationData;
+      if (!currentData) return;
+
+      // Remove the mother from objects array
+      const updatedObjects = currentData.objects.filter(obj => obj.name !== motherId);
+      const updatedData = {
+        ...currentData,
+        objects: updatedObjects,
+        totalObjects: updatedObjects.length
+      };
+
+      // Update state
+      setData(updatedData);
+      if (webCreationData) {
+        setWebCreationData(updatedData);
+      }
+
+      // Clear selection if the deleted mother was selected
+      if (selectedObject?.name === motherId) {
+        setSelectedObject(null);
+      }
+    };
+
+    const onContentUpdated = async (motherId: string, content: string) => {
+      console.log(`🔗 Callback: Updating content for mother: ${motherId}`);
+      // Content updates are handled by the existing content management system
+    };
+
+    return new DynamicMotherRelationshipManager(
+      onMotherCreated,
+      onMotherDeleted,
+      onContentUpdated
+    );
+  }, [data, webCreationData, selectedObject]);
 
   // Set up window context for Mother_3 duplication access
   useEffect(() => {
@@ -6536,7 +6581,19 @@ function App() {
           setRegionContents(updatedContents);
 
           console.log('✅ Overflow content added to new mother region');
-          setNotification(`✅ New mother created with overflow text: ${newMother.name}`);
+          
+          // 🔗 ESTABLISH MOTHER-CHILD RELATIONSHIP
+          console.log('🔗 Establishing master-child relationship...');
+          motherRelationshipManager.establishRelationship(
+            currentMother!.name, // Master mother ID
+            [newMother.name], // Child mother IDs (array)
+            'new-comp-trans', // Content type
+            originalText, // Original text that caused overflow
+            [originalText.substring(0, originalText.length - overflowText.length), overflowText] // Text distribution
+          );
+          
+          console.log(`✅ Relationship established: ${currentMother!.name} -> ${newMother.name}`);
+          setNotification(`✅ New mother created with overflow text: ${newMother.name} (linked to ${currentMother!.name})`);
           setTimeout(() => setNotification(null), 3000);
         }
       }
@@ -6648,15 +6705,24 @@ function App() {
     console.log('✅ Duplication completed!');
   };
 
-  // Function to trash/delete a mother (except Mother_1)
-  const trashMother = (motherToDelete: AIObject) => {
+  // Function to trash/delete a mother (except Mother_1) with cascading child deletion
+  const trashMother = async (motherToDelete: AIObject) => {
     if (motherToDelete.name === 'Mother_1') {
       alert('❌ Cannot delete Mother_1 - it is protected');
       return;
     }
 
     const regionCount = (motherToDelete as any).regions?.length || 0;
-    const confirmMessage = `🗑️ Delete ${motherToDelete.name} and all its ${regionCount} regions?\n\nThis action cannot be undone.`;
+    
+    // Check if this mother has child mothers
+    const relationship = motherRelationshipManager.getRelationship(motherToDelete.name);
+    const hasChildren = relationship && relationship.childIds.length > 0;
+    
+    let confirmMessage = `🗑️ Delete ${motherToDelete.name} and all its ${regionCount} regions?`;
+    if (hasChildren) {
+      confirmMessage += `\n\n⚠️ This will also delete ${relationship.childIds.length} linked child mother(s): ${relationship.childIds.join(', ')}`;
+    }
+    confirmMessage += `\n\nThis action cannot be undone.`;
 
     if (!window.confirm(confirmMessage)) {
       return;
@@ -6665,9 +6731,16 @@ function App() {
     const currentData = data || webCreationData;
     if (!currentData) return;
 
-    console.log('🗑️ Deleting mother:', motherToDelete.name);
+    console.log('🗑️ Deleting mother with cascade:', motherToDelete.name);
 
-    // Remove the mother from objects array
+    // 🔗 CASCADE DELETE CHILD MOTHERS FIRST
+    if (hasChildren) {
+      console.log(`🔗 Cascading deletion to ${relationship.childIds.length} child mothers...`);
+      await motherRelationshipManager.cascadeDeleteChildren(motherToDelete.name);
+      console.log('✅ Child mothers cascade deletion completed');
+    }
+
+    // Remove the master mother from objects array
     const updatedObjects = currentData.objects.filter(obj => obj.name !== motherToDelete.name);
     const updatedData = {
       ...currentData,
@@ -6686,9 +6759,12 @@ function App() {
       setSelectedObject(null);
     }
 
-    console.log(`✅ Deleted ${motherToDelete.name} and ${regionCount} regions`);
-    setNotification(`✅ Deleted ${motherToDelete.name} and ${regionCount} regions`);
-    setTimeout(() => setNotification(null), 3000);
+    const deletedCount = hasChildren ? 1 + relationship.childIds.length : 1;
+    const deletedNames = hasChildren ? [motherToDelete.name, ...relationship.childIds] : [motherToDelete.name];
+    
+    console.log(`✅ Deleted ${deletedCount} mother(s): ${deletedNames.join(', ')}`);
+    setNotification(`✅ Deleted ${deletedCount} mother(s) and ${regionCount} regions: ${deletedNames.join(', ')}`);
+    setTimeout(() => setNotification(null), 5000); // Longer display for cascade info
   };
 
   // Function to save project with overwrite logic
