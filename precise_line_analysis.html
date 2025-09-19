@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Complete Text Overflow Analysis - All 12 Factors</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; font-size: 12px; line-height: 1.4; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .section { margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .factors { background: #e3f2fd; }
+        .equations { background: #f3e5f5; }
+        .results { background: #e8f5e8; }
+        .overflow { background: #fff3e0; }
+        .line { margin: 2px 0; font-family: monospace; font-size: 11px; }
+        .line-number { color: #666; margin-right: 10px; font-weight: bold; }
+        .split-marker { color: red; font-weight: bold; margin: 15px 0; border: 2px solid red; padding: 10px; text-align: center; background: #ffe6e6; }
+        .equation { background: #f8f8f8; padding: 8px; margin: 5px 0; border-left: 4px solid #2196F3; font-family: monospace; }
+        .step { margin: 10px 0; padding: 10px; background: rgba(255,255,255,0.7); border-radius: 4px; }
+        h2 { color: #333; border-bottom: 2px solid #ddd; padding-bottom: 5px; margin-top: 25px; }
+        h3 { color: #555; margin-top: 20px; }
+        .metric { display: inline-block; margin: 5px 15px 5px 0; padding: 5px 10px; background: rgba(255,255,255,0.8); border-radius: 4px; border: 1px solid #ddd; }
+        .warning { background: #ffebee; border: 1px solid #f44336; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .success { background: #e8f5e8; border: 1px solid #4caf50; padding: 10px; border-radius: 4px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Complete Text Overflow Analysis - All 12 Factors</h1>
+        <p><strong>Comprehensive step-by-step analysis with detailed equations</strong></p>
+        
+        <div class="section factors">
+            <h2>📋 All 12 Factors Affecting Text Overflow</h2>
+            <div id="all-factors"></div>
+            
+            <h3>💡 What These System Factors Really Mean:</h3>
+            <div class="step">
+                <p><strong>🔤 Line Break Symbol ("\n"):</strong> This tells the computer "start a new line here" - just like when you press Enter while typing.</p>
+                
+                <p><strong>🔍 Zoom Factor (1.0):</strong> This means we're looking at normal size (100%). If it was 2.0, everything would be twice as big. We use 1.0 for accurate calculations.</p>
+                
+                <p><strong>📺 Screen Resolution (3.78 pixels/mm):</strong> Your computer screen has tiny dots called pixels. This number tells us how many dots fit in 1mm. It's like knowing how many LEGO blocks fit in an inch.</p>
+                
+                <p><strong>📏 Text Position (0.8 × font size):</strong> When you type, letters don't float in space - they sit on an invisible line. This factor makes sure we measure from the right spot so text doesn't get cut off.</p>
+                
+                <p><strong>🛡️ Safety Margin (1.5mm):</strong> Like leaving space around the edges of a picture frame. We keep text 1.5mm away from the edges so it looks nice and doesn't get too close to the border.</p>
+                
+                <p><strong>✂️ Keep Words Whole (Yes):</strong> The computer will NEVER break a word in the middle. If "computer" doesn't fit on a line, the whole word moves to the next line. No "compu-ter" splits!</p>
+            </div>
+        </div>
+
+        <div class="section equations">
+            <h2>🧮 Step-by-Step Calculation Equations</h2>
+            <div id="calculations"></div>
+        </div>
+
+        <div class="section results">
+            <h2>📊 Analysis Results & Measurements</h2>
+            <div id="analysis-results"></div>
+        </div>
+
+        <div class="section results" id="line-analysis">
+            <h2>📝 Complete Line-by-Line Breakdown (All ~40 Lines)</h2>
+            <div id="all-lines"></div>
+        </div>
+
+        <div class="section results" id="original-section">
+            <h2>📄 SPLIT 1 - Original Mother (Keeps Text)</h2>
+            <div id="original-text"></div>
+        </div>
+
+        <div class="section overflow" id="overflow-section">
+            <h2>👶 SPLIT 2 - New Child Mother (Gets Overflow)</h2>
+            <div id="overflow-text"></div>
+        </div>
+
+        <canvas id="measureCanvas" style="display: none;"></canvas>
+    </div>
+
+    <script>
+        // Complete parameters - all 12 factors
+        const params = {
+            // Original 6 factors (user specified)
+            regionWidth: 40,         // mm - Factor 1: Label width
+            regionHeight: 90,        // mm - Factor 2: Label height  
+            paddingTop: 4,           // mm - Factor 3: Padding top
+            paddingRight: 4,         // mm - Factor 4: Padding right
+            paddingBottom: 4,        // mm - Factor 5: Padding bottom
+            paddingLeft: 4,          // mm - Factor 6: Padding left
+            fontFamily: 'Arial',     // string - Factor 7: Font name
+            fontSize: 10,            // px - Factor 8: Font size
+            fontSizeUnit: 'px',      // string - Font size unit
+            lineSpacing: 1.2,        // number - Factor 9: Line spacing
+            // Factor 10: Text value (defined below)
+            
+            // Additional 6 factors (system factors)
+            lineBreakSymbol: '\n',   // Factor 11: Line break symbol
+            zoom: 1.0,               // Factor 12: Zoom factor
+            mmToPx: 3.779527559,     // Factor 13: DPI conversion (96 DPI)
+            textBaselineOffset: 0.8, // Factor 14: Baseline offset multiplier
+            userSafetyBuffer: 1.5,   // Factor 15: Safety buffer (mm)
+            preserveWords: true      // Factor 16: Word preservation
+        };
+
+        // Factor 10: Text content
+        const textContent = `60% algodón - coton - cotton - algodão - katoen - cotone - ΒΑΜΒΑΚΙ - コットン - baumwolle - bomuld - bombaž - 棉 - 면 - katun - قطن - algodón - cotó - kotoia
+
+10% poliéster - polyester - polyester - poliéster - polyester - poliestere - ΠΟΛΥΕΣΤΕΡΑΣ - ポリエステル - polyester - polyester - poliester - 聚酯纤维 - 폴리에스터 - poliester - بوليستير - poliéster - polièster - poliesterra
+
+10% elastano - élasthanne - elastane - elastano - elastaan - elastan - ΕΛΑΣΤΑΝΗ - エラスタン - elastan - elastan - elastan - 氨纶 - 엘라스탄 - elastan - إيلاستان - elastano - elastà - elastanoa
+
+10% nailon - nylon - nylon - nylon (so p/o Brasil poliamida) - nylon - nailon - ΝΑΪΛΟΝ - ナイロン - nylon - nylon - najlon - 锦纶 - 나일론 - nilon - نايلون - nailon - niló - nylona
+
+10% lana - laine - wool - lã - wol - lana - ΜΑΛΛΙ - ウール - wolle - uld - volna - 羊毛 - 울 - wol - صوف - la - llana - artilea`;
+
+        function analyzeComplete() {
+            // Display all factors
+            let factorsHtml = `
+                <h3>👤 User-Defined Factors (1-6) - Canvas Dependent:</h3>
+                <div class="metric"><strong>1. Region Width:</strong> ${params.regionWidth}mm</div>
+                <div class="metric"><strong>2. Region Height:</strong> ${params.regionHeight}mm</div>
+                <div class="metric"><strong>3. Padding Top:</strong> ${params.paddingTop}mm</div>
+                <div class="metric"><strong>4. Padding Right:</strong> ${params.paddingRight}mm</div>
+                <div class="metric"><strong>5. Padding Bottom:</strong> ${params.paddingBottom}mm</div>
+                <div class="metric"><strong>6. Padding Left:</strong> ${params.paddingLeft}mm</div>
+                
+                <h3>🔧 System Factors (7-12) - Locked Values:</h3>
+                <div class="metric" style="opacity: 0.7; background: #f0f0f0;"><strong>7. Font Family:</strong> ${params.fontFamily} <em>🔒 (System locked)</em></div>
+                <div class="metric" style="opacity: 0.7; background: #f0f0f0;"><strong>8. Font Size:</strong> ${params.fontSize}${params.fontSizeUnit} <em>🔒 (System locked)</em></div>
+                <div class="metric" style="opacity: 0.7; background: #f0f0f0;"><strong>9. Line Spacing:</strong> ${params.lineSpacing} <em>🔒 (System locked)</em></div>
+                <div class="metric" style="opacity: 0.7; background: #f0f0f0;"><strong>10. Text Length:</strong> ${textContent.length} characters <em>🔒 (Dynamic based on content)</em></div>
+                <div class="metric" style="opacity: 0.7; background: #f0f0f0;"><strong>11. Line Break Symbol:</strong> "${params.lineBreakSymbol}" <em>🔒 (What starts a new line - like pressing Enter)</em></div>
+                <div class="metric" style="opacity: 0.7; background: #f0f0f0;"><strong>12. Zoom Factor:</strong> ${params.zoom} <em>🔒 (Normal view - not zoomed in/out)</em></div>
+            `;
+            document.getElementById('all-factors').innerHTML = factorsHtml;
+
+            // Step-by-step calculations with detailed equations
+            let calculationsHtml = `
+                <h3>🔢 Step 1: Region Space Calculations</h3>
+                <div class="step">
+                    <div class="equation">regionWidthPx = regionWidth × mmToPx</div>
+                    <div class="equation">regionWidthPx = ${params.regionWidth} × ${params.mmToPx} = ${(params.regionWidth * params.mmToPx).toFixed(2)}px</div>
+                    
+                    <div class="equation">regionHeightPx = regionHeight × mmToPx</div>
+                    <div class="equation">regionHeightPx = ${params.regionHeight} × ${params.mmToPx} = ${(params.regionHeight * params.mmToPx).toFixed(2)}px</div>
+                </div>
+
+                <h3>🔢 Step 2: Available Space After Padding</h3>
+                <div class="step">
+                    <div class="equation">paddingLeftPx = paddingLeft × mmToPx = ${params.paddingLeft} × ${params.mmToPx} = ${(params.paddingLeft * params.mmToPx).toFixed(2)}px</div>
+                    <div class="equation">paddingRightPx = paddingRight × mmToPx = ${params.paddingRight} × ${params.mmToPx} = ${(params.paddingRight * params.mmToPx).toFixed(2)}px</div>
+                    <div class="equation">paddingTopPx = paddingTop × mmToPx = ${params.paddingTop} × ${params.mmToPx} = ${(params.paddingTop * params.mmToPx).toFixed(2)}px</div>
+                    <div class="equation">paddingBottomPx = paddingBottom × mmToPx = ${params.paddingBottom} × ${params.mmToPx} = ${(params.paddingBottom * params.mmToPx).toFixed(2)}px</div>
+                    
+                    <div class="equation">availableWidthPx = regionWidthPx - paddingLeftPx - paddingRightPx</div>
+                    <div class="equation">availableWidthPx = ${(params.regionWidth * params.mmToPx).toFixed(2)} - ${(params.paddingLeft * params.mmToPx).toFixed(2)} - ${(params.paddingRight * params.mmToPx).toFixed(2)} = ${((params.regionWidth - params.paddingLeft - params.paddingRight) * params.mmToPx).toFixed(2)}px</div>
+                    
+                    <div class="equation">availableHeightPx = regionHeightPx - paddingTopPx - paddingBottomPx</div>
+                    <div class="equation">availableHeightPx = ${(params.regionHeight * params.mmToPx).toFixed(2)} - ${(params.paddingTop * params.mmToPx).toFixed(2)} - ${(params.paddingBottom * params.mmToPx).toFixed(2)} = ${((params.regionHeight - params.paddingTop - params.paddingBottom) * params.mmToPx).toFixed(2)}px</div>
+                </div>
+
+                <h3>🔢 Step 3: Font Size and Zoom Scaling</h3>
+                <div class="step">
+                    <div class="equation">fontSizePx = ${params.fontSize} (already in pixels)</div>
+                    <div class="equation">scaledFontSize = Math.max(6, fontSizePx × zoom)</div>
+                    <div class="equation">scaledFontSize = Math.max(6, ${params.fontSize} × ${params.zoom}) = ${Math.max(6, params.fontSize * params.zoom)}px</div>
+                    
+                    <div class="equation">scaledFontSizeMm = scaledFontSize ÷ mmToPx</div>
+                    <div class="equation">scaledFontSizeMm = ${Math.max(6, params.fontSize * params.zoom)} ÷ ${params.mmToPx} = ${(Math.max(6, params.fontSize * params.zoom) / params.mmToPx).toFixed(3)}mm</div>
+                </div>
+
+                <h3>🔢 Step 4: Line Height Calculation</h3>
+                <div class="step">
+                    <div class="equation">lineHeightMm = scaledFontSizeMm × lineSpacing</div>
+                    <div class="equation">lineHeightMm = ${(Math.max(6, params.fontSize * params.zoom) / params.mmToPx).toFixed(3)} × ${params.lineSpacing} = ${((Math.max(6, params.fontSize * params.zoom) / params.mmToPx) * params.lineSpacing).toFixed(3)}mm</div>
+                    
+                    <div class="equation">availableHeightMm = availableHeightPx ÷ mmToPx</div>
+                    <div class="equation">availableHeightMm = ${((params.regionHeight - params.paddingTop - params.paddingBottom) * params.mmToPx).toFixed(2)} ÷ ${params.mmToPx} = ${(params.regionHeight - params.paddingTop - params.paddingBottom).toFixed(1)}mm</div>
+                </div>
+
+                <h3>🔢 Step 5: Safety Buffer Application</h3>
+                <div class="step">
+                    <div class="equation">availableWidthMm = availableWidthPx ÷ mmToPx</div>
+                    <div class="equation">availableWidthMm = ${((params.regionWidth - params.paddingLeft - params.paddingRight) * params.mmToPx).toFixed(2)} ÷ ${params.mmToPx} = ${(params.regionWidth - params.paddingLeft - params.paddingRight).toFixed(1)}mm</div>
+                    
+                    <div class="equation">effectiveAvailableWidth = availableWidthMm - userSafetyBuffer</div>
+                    <div class="equation">effectiveAvailableWidth = ${(params.regionWidth - params.paddingLeft - params.paddingRight).toFixed(1)} - ${params.userSafetyBuffer} = ${(params.regionWidth - params.paddingLeft - params.paddingRight - params.userSafetyBuffer).toFixed(1)}mm</div>
+                </div>
+
+                <h3>🔢 Step 6: Maximum Lines Calculation</h3>
+                <div class="step">
+                    <div class="equation">maxVisibleLines = Math.floor(availableHeightMm ÷ lineHeightMm)</div>
+                    <div class="equation">maxVisibleLines = Math.floor(${(params.regionHeight - params.paddingTop - params.paddingBottom).toFixed(1)} ÷ ${((Math.max(6, params.fontSize * params.zoom) / params.mmToPx) * params.lineSpacing).toFixed(3)}) = ${Math.floor((params.regionHeight - params.paddingTop - params.paddingBottom) / ((Math.max(6, params.fontSize * params.zoom) / params.mmToPx) * params.lineSpacing))}</div>
+                </div>
+            `;
+            document.getElementById('calculations').innerHTML = calculationsHtml;
+
+            // Perform actual text analysis
+            const regionWidthPx = params.regionWidth * params.mmToPx;
+            const regionHeightPx = params.regionHeight * params.mmToPx;
+            const availableWidthPx = (params.regionWidth - params.paddingLeft - params.paddingRight) * params.mmToPx;
+            const availableHeightPx = (params.regionHeight - params.paddingTop - params.paddingBottom) * params.mmToPx;
+            const availableWidthMm = availableWidthPx / params.mmToPx;
+            const availableHeightMm = availableHeightPx / params.mmToPx;
+            const effectiveAvailableWidth = availableWidthMm - params.userSafetyBuffer;
+            
+            const fontSizePx = params.fontSize;
+            const scaledFontSize = Math.max(6, fontSizePx * params.zoom);
+            const scaledFontSizeMm = scaledFontSize / params.mmToPx;
+            const lineHeightMm = scaledFontSizeMm * params.lineSpacing;
+            const maxVisibleLines = Math.floor(availableHeightMm / lineHeightMm);
+
+            // Canvas measurement setup
+            const canvas = document.getElementById('measureCanvas');
+            const context = canvas.getContext('2d');
+            context.font = `${scaledFontSize}px ${params.fontFamily}`;
+
+            const estimateTextWidth = (text) => {
+                return context.measureText(text).width / params.mmToPx;
+            };
+
+            // Text wrapping with all factors
+            const wrapTextToLines = (text) => {
+                const manualLines = text.split(params.lineBreakSymbol);
+                const wrappedLines = [];
+
+                manualLines.forEach(line => {
+                    const trimmedLine = line.trim();
+                    if (!trimmedLine) {
+                        wrappedLines.push('');
+                        return;
+                    }
+
+                    const lineWidth = estimateTextWidth(trimmedLine);
+                    if (lineWidth <= effectiveAvailableWidth) {
+                        wrappedLines.push(trimmedLine);
+                        return;
+                    }
+
+                    // Word wrapping with preservation
+                    const words = trimmedLine.split(' ');
+                    let currentLine = '';
+
+                    words.forEach((word) => {
+                        const testLine = currentLine ? `${currentLine} ${word}` : word;
+                        const testWidth = estimateTextWidth(testLine);
+
+                        if (testWidth <= effectiveAvailableWidth) {
+                            currentLine = testLine;
+                        } else {
+                            if (currentLine) {
+                                wrappedLines.push(currentLine);
+                                currentLine = word;
+                            } else {
+                                wrappedLines.push(word);
+                            }
+                        }
+                    });
+
+                    if (currentLine) {
+                        wrappedLines.push(currentLine);
+                    }
+                });
+
+                return wrappedLines;
+            };
+
+            const lines = wrapTextToLines(textContent);
+            const totalTextHeightMm = lines.length * lineHeightMm;
+            const hasOverflow = totalTextHeightMm > availableHeightMm;
+
+            // Display analysis results
+            let resultsHtml = `
+                <div class="metric"><strong>Effective Width:</strong> ${effectiveAvailableWidth.toFixed(1)}mm</div>
+                <div class="metric"><strong>Available Height:</strong> ${availableHeightMm.toFixed(1)}mm</div>
+                <div class="metric"><strong>Line Height:</strong> ${lineHeightMm.toFixed(3)}mm</div>
+                <div class="metric"><strong>Max Lines:</strong> ${maxVisibleLines}</div>
+                <div class="metric"><strong>Total Lines Generated:</strong> ${lines.length}</div>
+                <div class="metric"><strong>Text Height Needed:</strong> ${totalTextHeightMm.toFixed(2)}mm</div>
+                <div class="metric"><strong>Has Overflow:</strong> ${hasOverflow ? '🌊 YES' : '✅ NO'}</div>
+                
+                ${hasOverflow ? 
+                    `<div class="warning"><strong>⚠️ OVERFLOW DETECTED:</strong> Text needs ${lines.length} lines but only ${maxVisibleLines} fit. Overflow: ${lines.length - maxVisibleLines} lines.</div>` :
+                    `<div class="success"><strong>✅ NO OVERFLOW:</strong> All ${lines.length} lines fit within available space.</div>`
+                }
+            `;
+            document.getElementById('analysis-results').innerHTML = resultsHtml;
+
+            // Display all lines
+            let allLinesHtml = `<p><strong>Complete text wrapped into ${lines.length} lines:</strong></p>`;
+            lines.forEach((line, index) => {
+                const lineWidth = estimateTextWidth(line);
+                if (line === '') {
+                    allLinesHtml += `<div class="line"><span class="line-number">Line ${index + 1}:</span>(breakline)</div>`;
+                } else {
+                    allLinesHtml += `<div class="line"><span class="line-number">Line ${index + 1}:</span>"${line}" <em>(${lineWidth.toFixed(1)}mm width)</em></div>`;
+                }
+            });
+            document.getElementById('all-lines').innerHTML = allLinesHtml;
+
+            // Split analysis
+            if (hasOverflow) {
+                const originalLines = lines.slice(0, maxVisibleLines);
+                const overflowLines = lines.slice(maxVisibleLines);
+
+                let originalHtml = `<p><strong>Lines 1-${maxVisibleLines} (${originalLines.length} lines total)</strong></p>`;
+                originalLines.forEach((line, index) => {
+                    if (line === '') {
+                        originalHtml += `<div class="line"><span class="line-number">Line ${index + 1}:</span>(breakline)</div>`;
+                    } else {
+                        originalHtml += `<div class="line"><span class="line-number">Line ${index + 1}:</span>"${line}"</div>`;
+                    }
+                });
+                originalHtml += `<div class="split-marker">----- SPLIT HERE (${originalLines.length} lines in original mother) -----</div>`;
+                document.getElementById('original-text').innerHTML = originalHtml;
+
+                let overflowHtml = `<p><strong>Lines ${maxVisibleLines + 1}-${lines.length} (${overflowLines.length} lines total)</strong></p>`;
+                overflowLines.forEach((line, index) => {
+                    if (line === '') {
+                        overflowHtml += `<div class="line"><span class="line-number">Line ${maxVisibleLines + index + 1}:</span>(breakline)</div>`;
+                    } else {
+                        overflowHtml += `<div class="line"><span class="line-number">Line ${maxVisibleLines + index + 1}:</span>"${line}"</div>`;
+                    }
+                });
+                document.getElementById('overflow-text').innerHTML = overflowHtml;
+
+            } else {
+                document.getElementById('original-section').querySelector('h2').textContent = '✅ ALL TEXT FITS - No Split Needed';
+                document.getElementById('original-section').className = 'section results';
+                
+                let allLinesHtml = `<p><strong>All ${lines.length} lines fit in original mother</strong></p>`;
+                lines.forEach((line, index) => {
+                    if (line === '') {
+                        allLinesHtml += `<div class="line"><span class="line-number">Line ${index + 1}:</span>(breakline)</div>`;
+                    } else {
+                        allLinesHtml += `<div class="line"><span class="line-number">Line ${index + 1}:</span>"${line}"</div>`;
+                    }
+                });
+                document.getElementById('original-text').innerHTML = allLinesHtml;
+                document.getElementById('overflow-section').style.display = 'none';
+            }
+        }
+
+        // Run analysis when page loads
+        window.onload = analyzeComplete;
+    </script>
+</body>
+</html>

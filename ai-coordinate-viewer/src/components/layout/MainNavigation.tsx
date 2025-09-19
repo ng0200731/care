@@ -34,6 +34,12 @@ const MainNavigation: React.FC = () => {
       label: 'Orders',
       icon: '📦',
       description: 'Track and manage orders'
+    },
+    {
+      path: '/settings',
+      label: 'Settings',
+      icon: '⚙️',
+      description: 'Text overflow analysis settings'
     }
   ];
 
@@ -96,11 +102,13 @@ const MainNavigation: React.FC = () => {
 
       {/* Navigation Items */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        {navItems.map((item) => (
-          <Link
-            key={item.path}
-            to={item.path}
-            style={{
+        {navItems.map((item) => {
+          // Regular navigation items
+          return (
+            <Link
+              key={item.path}
+              to={item.path}
+              style={{
               display: 'block',
               padding: '12px 15px', // Reduced padding for narrower menu
               borderRadius: '0px',
@@ -150,7 +158,8 @@ const MainNavigation: React.FC = () => {
               </div>
             </div>
           </Link>
-        ))}
+          );
+        })}
       </div>
 
       {/* User Icon */}

@@ -18,6 +18,7 @@ import Customers from './pages/Customers';
 import SelectCustomer from './pages/SelectCustomer';
 import CreateMethod from './pages/CreateMethod';
 import MasterFilesManagement from './pages/MasterFilesManagement';
+import Settings from './pages/Settings';
 
 import reportWebVitals from './reportWebVitals';
 
@@ -89,6 +90,11 @@ root.render(
         <Route path="/orders" element={
           <Layout>
             <Orders />
+          </Layout>
+        } />
+        <Route path="/settings" element={
+          <Layout>
+            <Settings />
           </Layout>
         } />
 
