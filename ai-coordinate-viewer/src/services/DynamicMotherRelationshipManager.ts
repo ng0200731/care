@@ -69,6 +69,8 @@ export class DynamicMotherRelationshipManager {
     this.chainMetadata.set(masterId, metadata);
 
     console.log(`✅ Relationship established for ${contentType} content`);
+    console.log(`📊 Total relationships now: ${this.relationships.size}`);
+    console.log(`📋 All relationships:`, Array.from(this.relationships.entries()));
   }
 
   /**

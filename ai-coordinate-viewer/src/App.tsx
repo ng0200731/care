@@ -104,6 +104,9 @@ interface HierarchyNode {
   object: AIObject;
   children: AIObject[];
   isExpanded: boolean;
+  relationship?: any; // Master relationship data if this is a master mother
+  isChildMother?: boolean; // Whether this is a child mother
+  masterName?: string; // Name of master mother if this is a child
 }
 
 interface AIData {
@@ -460,27 +463,8 @@ function App() {
 
     const onMotherDeleted = async (motherId: string) => {
       console.log(`🔗 Callback: Deleting mother from relationship system: ${motherId}`);
-      const currentData = data || webCreationData;
-      if (!currentData) return;
-
-      // Remove the mother from objects array
-      const updatedObjects = currentData.objects.filter(obj => obj.name !== motherId);
-      const updatedData = {
-        ...currentData,
-        objects: updatedObjects,
-        totalObjects: updatedObjects.length
-      };
-
-      // Update state
-      setData(updatedData);
-      if (webCreationData) {
-        setWebCreationData(updatedData);
-      }
-
-      // Clear selection if the deleted mother was selected
-      if (selectedObject?.name === motherId) {
-        setSelectedObject(null);
-      }
+      // Note: This callback is now part of a persistent manager, so we don't directly manipulate state here
+      // The actual deletion is handled by the trashMother function which calls cascadeDeleteChildren
     };
 
     const onContentUpdated = async (motherId: string, content: string) => {
@@ -493,7 +477,7 @@ function App() {
       onMotherDeleted,
       onContentUpdated
     );
-  }, [data, webCreationData, selectedObject]);
+  }, []); // Empty dependency array - manager should persist across re-renders
 
   // Set up window context for Mother_3 duplication access
   useEffect(() => {
@@ -525,7 +509,6 @@ function App() {
       // Make current regionContents available to dialogs for reading original settings
       (window as any).currentRegionContents = regionContents;
 
-      console.log('🌐 Window context updated for Mother_3 duplication access');
     }
 
     // Cleanup on unmount
@@ -3901,7 +3884,6 @@ function App() {
 
     // Enable web creation mode if coming from projects or if explicitly forced
     if (forceWebMode === 'true' || context === 'projects') {
-      console.log('🎨 Canvas mode detected - enabling web creation mode');
       setIsWebCreationMode(true);
 
       // Check if there's a master file ID to load for editing
@@ -3984,8 +3966,6 @@ function App() {
     console.log('🎯 Fit to Screen:');
     console.log('  Content bounds:', bounds);
     console.log('  Content size:', contentWidth.toFixed(1), 'x', contentHeight.toFixed(1), 'mm');
-    console.log('  Viewport size:', viewportWidth.toFixed(0), 'x', viewportHeight.toFixed(0), 'px');
-    console.log('  Calculated zoom:', finalZoom.toFixed(2));
 
     setZoom(finalZoom);
 
@@ -4046,8 +4026,6 @@ function App() {
   };
 
   const panToObject = (obj: AIObject) => {
-    console.log('🎯 === SIMPLE PAN TO OBJECT (v6.0 - BASIC) ===');
-    console.log('📊 Object to pan to:', obj.name, `at (${obj.x}, ${obj.y}) size ${obj.width}x${obj.height}mm`);
 
     // Get SVG element and its dimensions
     const svgElement = document.querySelector('svg');
@@ -4065,37 +4043,27 @@ function App() {
     // Calculate object center in mm
     const objCenterX = obj.x + (obj.width / 2);
     const objCenterY = obj.y + (obj.height / 2);
-    console.log('🎯 Object center:', `(${objCenterX.toFixed(1)}, ${objCenterY.toFixed(1)}) mm`);
 
     // Calculate screen center (with some margin from edges)
     const screenCenterX = svgRect.width / 2;
     const screenCenterY = svgRect.height / 2;
-    console.log('📺 Screen center:', `(${screenCenterX.toFixed(1)}, ${screenCenterY.toFixed(1)}) px`);
 
     // Current scale factor
     const scale = zoom * mmToPx;
-    console.log('⚖️ Current scale:', scale.toFixed(3), `(zoom: ${(zoom * 100).toFixed(0)}%)`);
-
     // Calculate where object currently appears on screen
     const currentScreenX = (objCenterX * scale) + panX;
     const currentScreenY = (objCenterY * scale) + panY;
-    console.log('📍 Object current screen pos:', `(${currentScreenX.toFixed(1)}, ${currentScreenY.toFixed(1)}) px`);
 
     // Calculate how much to adjust pan to center the object
     const panAdjustX = screenCenterX - currentScreenX;
     const panAdjustY = screenCenterY - currentScreenY;
-    console.log('🔧 Pan adjustment needed:', `(${panAdjustX.toFixed(1)}, ${panAdjustY.toFixed(1)}) px`);
 
     // Apply the pan adjustment
     const newPanX = panX + panAdjustX;
     const newPanY = panY + panAdjustY;
-    console.log('🎯 Setting new pan:', `(${newPanX.toFixed(1)}, ${newPanY.toFixed(1)}) px`);
 
     setPanX(newPanX);
     setPanY(newPanY);
-
-    console.log('✅ Basic pan applied - object should now be centered!');
-    console.log('🎯 === END SIMPLE PAN v6.0 ===');
   };
 
   // Space allocation dialog functions
@@ -5462,7 +5430,6 @@ function App() {
       // Restore expanded mothers state
       if (projectState.expandedMothers && Array.isArray(projectState.expandedMothers)) {
         setExpandedMothers(new Set(projectState.expandedMothers));
-        console.log('✅ Expanded mothers restored:', projectState.expandedMothers);
       } else {
         setExpandedMothers(new Set());
       }
@@ -5896,7 +5863,6 @@ function App() {
     const scaleY = (viewportHeight - padding * 2) / (obj.height * mmToPx);
     const fitZoom = Math.min(scaleX, scaleY, 1); // Don't zoom in more than 100%
 
-    console.log('Fitting object to view:', obj.name, 'zoom:', fitZoom);
 
     // Calculate pan values to center the object at the new zoom
     const newPanX = viewportWidth / 2 - (objCenterX * fitZoom * mmToPx);
@@ -5908,13 +5874,22 @@ function App() {
     setPanY(newPanY);
   };
 
-  // Build hierarchy from objects
+  // Build hierarchy from objects with relationship awareness
   const buildHierarchy = (objects: AIObject[]) => {
     const mothers: HierarchyNode[] = [];
     const orphans: AIObject[] = [];
 
     // Find all mothers
     const motherObjects = objects.filter(obj => obj.type?.includes('mother'));
+
+    // Get all relationships to organize mothers by master-child structure
+    const allRelationships = motherRelationshipManager.getAllRelationships();
+    const childMotherIds = new Set<string>();
+    
+    // Collect all child mother IDs
+    allRelationships.forEach(relationship => {
+      relationship.childIds.forEach(childId => childMotherIds.add(childId));
+    });
 
     motherObjects.forEach(mother => {
       // Extract mother number from name (e.g., "Mother_1" -> "1")
@@ -5932,15 +5907,46 @@ function App() {
         return a.x - b.x; // Same row: left to right
       });
 
+      // Check if this mother is part of a relationship
+      const relationship = motherRelationshipManager.getRelationship(mother.name);
+      const isChildMother = childMotherIds.has(mother.name);
+
       mothers.push({
         object: mother,
         children: sons,
-        isExpanded: false // Will be set correctly in render
+        isExpanded: false, // Will be set correctly in render
+        relationship: relationship, // Master relationship data
+        isChildMother: isChildMother, // Whether this is a child mother
+        masterName: isChildMother ? 
+          Array.from(allRelationships.entries()).find(([masterId, rel]) => 
+            rel.childIds.includes(mother.name)
+          )?.[0] : undefined
       });
     });
 
-    // Sort mothers by position: left to right
-    mothers.sort((a, b) => a.object.x - b.object.x);
+    // Sort mothers by relationship hierarchy first, then by position
+    mothers.sort((a, b) => {
+      // If one is master and other is child of that master, put master first
+      if (a.relationship && a.relationship.childIds.includes(b.object.name)) {
+        return -1; // a (master) comes before b (child)
+      }
+      if (b.relationship && b.relationship.childIds.includes(a.object.name)) {
+        return 1; // b (master) comes before a (child)
+      }
+      
+      // If both are children of same master, sort by creation order
+      if (a.isChildMother && b.isChildMother && a.masterName === b.masterName) {
+        const masterRel = motherRelationshipManager.getRelationship(a.masterName!);
+        if (masterRel) {
+          const aIndex = masterRel.childIds.indexOf(a.object.name);
+          const bIndex = masterRel.childIds.indexOf(b.object.name);
+          return aIndex - bIndex;
+        }
+      }
+      
+      // Default: sort by position left to right
+      return a.object.x - b.object.x;
+    });
 
     // Find orphan objects (not mothers or sons)
     objects.forEach(obj => {
@@ -6452,154 +6458,6 @@ function App() {
     setUniversalDialog({ isOpen: false, regionId: '', contentType: null, editingContent: null });
   };
 
-  // Function to handle mother duplication when text overflow occurs
-  const handleCreateNewMotherForOverflow = (originalText: string, overflowText: string) => {
-    console.log('🔄 Creating new mother for overflow text:', { originalText, overflowText });
-    console.log('🔍 Universal dialog state:', universalDialog);
-    console.log('🔍 New comp trans dialog state:', newCompTransDialog);
-
-    const currentData = data || webCreationData;
-    if (!currentData) {
-      console.error('❌ No current data available for mother duplication');
-      return;
-    }
-
-    console.log('📊 Current data objects:', currentData.objects.length);
-
-    // Determine which dialog is open and get the region ID
-    const activeRegionId = universalDialog.isOpen ? universalDialog.regionId : newCompTransDialog?.regionId || '';
-    console.log('🔍 Active region ID:', activeRegionId);
-
-    if (!activeRegionId) {
-      console.error('❌ No active region ID available from either dialog');
-      return;
-    }
-
-    // Find the current region to determine which mother to duplicate
-    let currentMother: AIObject | null = null;
-    let currentRegion: any = null;
-
-    for (const obj of currentData.objects) {
-      if (obj.type?.includes('mother')) {
-        const regions = (obj as any).regions || [];
-        console.log(`🔍 Checking mother ${obj.name} with ${regions.length} regions`);
-        const region = regions.find((r: any) => r.id === activeRegionId);
-        if (region) {
-          currentMother = obj;
-          currentRegion = region;
-          console.log('✅ Found matching region:', region.id);
-          break;
-        }
-      }
-    }
-
-    if (!currentMother) {
-      console.error('❌ Could not find mother object for current region:', activeRegionId);
-      return;
-    }
-
-    console.log('📋 Found mother to duplicate:', currentMother.name);
-    console.log('📍 Current region:', currentRegion.name);
-
-    // Use the existing duplicateMother function to create the new mother
-    console.log('🚀 Calling duplicateMother...');
-    duplicateMother(currentMother);
-
-    // After duplication, we need to set up the overflow text in the new mother
-    // The duplicateMother function will create a new mother, so we need to find it and add the overflow content
-    setTimeout(() => {
-      const updatedData = data || webCreationData;
-      if (!updatedData) return;
-
-      // Find the newly created mother (should be the last one)
-      const motherObjects = updatedData.objects.filter(obj => obj.type?.includes('mother'));
-      const newMother = motherObjects[motherObjects.length - 1];
-
-      if (newMother && newMother.name !== currentMother!.name) {
-        console.log('📝 Setting up overflow content in new mother:', newMother.name);
-
-        // Find the corresponding region in the new mother (same position as original)
-        const newMotherRegions = (newMother as any).regions || [];
-        const correspondingRegion = newMotherRegions.find((r: any) =>
-          r.name === currentRegion.name || r.x === currentRegion.x && r.y === currentRegion.y
-        );
-
-        if (correspondingRegion) {
-          console.log('📍 Found corresponding region in new mother:', correspondingRegion.name);
-
-          // Create content data for the overflow text
-          const overflowContentData = {
-            id: `overflow_${Date.now()}`,
-            type: 'new-comp-trans',
-            regionId: correspondingRegion.id,
-            layout: {
-              occupyLeftoverSpace: true,
-              fullWidth: true,
-              fullHeight: true,
-              width: { value: 100, unit: '%' as const },
-              height: { value: 100, unit: '%' as const },
-              horizontalAlign: 'left' as const,
-              verticalAlign: 'top' as const,
-              padding: { top: 0, right: 0, bottom: 0, left: 0 }
-            },
-            typography: {
-              fontFamily: 'Arial',
-              fontSize: 12,
-              fontColor: '#000000'
-            },
-            content: {
-              text: overflowText, // Only the overflow text
-              materialCompositions: [], // Empty - this will be blank content as requested
-              selectedLanguages: [],
-              lineBreakSettings: {
-                lineBreakSymbol: '\n',
-                lineSpacing: 1.2,
-                lineWidth: 100
-              }
-            },
-            newCompTransConfig: {
-              materialCompositions: [], // Blank content - no material composition UI
-              selectedLanguages: [], // Blank - no language selection UI
-              textContent: {
-                separator: ' - ',
-                generatedText: overflowText // Only the overflow text, not the full text
-              },
-              padding: { top: 0, right: 0, bottom: 0, left: 0 },
-              alignment: { horizontal: 'left', vertical: 'top' },
-              typography: { fontFamily: 'Arial', fontSize: 12, fontSizeUnit: 'pt', fontColor: '#000000' },
-              lineBreakSettings: {
-                lineBreakSymbol: '\n',
-                lineSpacing: 1.2,
-                lineWidth: 100
-              }
-            }
-          };
-
-          // Add the overflow content to the region
-          const updatedContents = new Map(regionContents);
-          updatedContents.set(correspondingRegion.id, [overflowContentData]);
-          setRegionContents(updatedContents);
-
-          console.log('✅ Overflow content added to new mother region');
-          
-          // 🔗 ESTABLISH MOTHER-CHILD RELATIONSHIP
-          console.log('🔗 Establishing master-child relationship...');
-          motherRelationshipManager.establishRelationship(
-            currentMother!.name, // Master mother ID
-            [newMother.name], // Child mother IDs (array)
-            'new-comp-trans', // Content type
-            originalText, // Original text that caused overflow
-            [originalText.substring(0, originalText.length - overflowText.length), overflowText] // Text distribution
-          );
-          
-          console.log(`✅ Relationship established: ${currentMother!.name} -> ${newMother.name}`);
-          setNotification(`✅ New mother created with overflow text: ${newMother.name} (linked to ${currentMother!.name})`);
-          setTimeout(() => setNotification(null), 3000);
-        }
-      }
-    }, 100); // Small delay to ensure state updates are complete
-  };
-
   // Function to duplicate a mother object - using the same approach as createMotherObject
   const duplicateMother = (originalMother: AIObject) => {
     console.log('🔄 DUPLICATE BUTTON CLICKED!');
@@ -6703,6 +6561,159 @@ function App() {
     setTimeout(() => setNotification(null), 3000);
 
     console.log('✅ Duplication completed!');
+  };
+
+  // Function to handle mother duplication when text overflow occurs
+  const handleCreateNewMotherForOverflow = (originalText: string, overflowText: string) => {
+    console.log(`[v${packageJson.version}] 🔄 Creating new mother for overflow text:`, { originalText: originalText.length, overflowText: overflowText.length });
+
+    // Get fresh state data each time - avoid stale closure values
+    const getCurrentData = () => data || webCreationData;
+    const currentData = getCurrentData();
+    
+    if (!currentData) {
+      console.error(`[v${packageJson.version}] ❌ No current data available for mother duplication`);
+      return;
+    }
+
+    // Determine which dialog is open and get the region ID
+    const activeRegionId = universalDialog.isOpen ? universalDialog.regionId : newCompTransDialog?.regionId || '';
+    console.log(`[v${packageJson.version}] 🔍 Active region ID:`, activeRegionId);
+
+    if (!activeRegionId) {
+      console.error(`[v${packageJson.version}] ❌ No active region ID available from either dialog`);
+      return;
+    }
+
+    // Find the current region to determine which mother to duplicate
+    let currentMother: AIObject | null = null;
+    let currentRegion: any = null;
+
+    for (const obj of currentData.objects) {
+      if (obj.type?.includes('mother')) {
+        const regions = (obj as any).regions || [];
+        const region = regions.find((r: any) => r.id === activeRegionId);
+        if (region) {
+          currentMother = obj;
+          currentRegion = region;
+          console.log(`[v${packageJson.version}] ✅ Found matching region:`, region.id);
+          break;
+        }
+      }
+    }
+
+    if (!currentMother || !currentRegion) {
+      console.error(`[v${packageJson.version}] ❌ Could not find mother object for current region:`, activeRegionId);
+      return;
+    }
+
+    console.log(`[v${packageJson.version}] 📋 Found mother to duplicate:`, currentMother.name);
+
+    // Store references for relationship establishment
+    const masterMotherName = currentMother.name;
+    const masterRegionId = activeRegionId;
+    
+    // Store the original mother count to detect when new mother is created
+    const originalMotherCount = currentData.objects.filter(obj => obj.type?.includes('mother')).length;
+    console.log(`[v${packageJson.version}] 📊 Original mother count:`, originalMotherCount);
+
+    // Call duplicateMother function and establish relationship immediately
+    const newMotherName = `Mother_${originalMotherCount + 1}`;
+    console.log(`[v${packageJson.version}] 🔗 Will establish relationship: ${masterMotherName} -> ${newMotherName}`);
+    
+    duplicateMother(currentMother);
+
+    // Establish relationship immediately since duplicateMother is synchronous
+    setTimeout(() => {
+      console.log(`[v${packageJson.version}] 🔗 Establishing master-child relationship...`);
+      try {
+        motherRelationshipManager.establishRelationship(
+          masterMotherName, // Master mother ID
+          [newMotherName], // Child mother IDs (array)
+          'new-comp-trans', // Content type
+          originalText, // Original text that caused overflow
+          [originalText.substring(0, originalText.length - overflowText.length), overflowText] // Text distribution
+        );
+        console.log(`[v${packageJson.version}] ✅ Relationship established: ${masterMotherName} -> ${newMotherName}`);
+        
+        // Add overflow content to the new mother's corresponding region
+        const currentData = data || webCreationData;
+        if (currentData) {
+          const newMother = currentData.objects.find(obj => obj.name === newMotherName);
+          if (newMother) {
+            const newMotherRegions = (newMother as any).regions || [];
+            const correspondingRegion = newMotherRegions.find((r: any) =>
+              r.name === currentRegion.name || (r.x === currentRegion.x && r.y === currentRegion.y)
+            );
+            
+            if (correspondingRegion) {
+              console.log(`[v${packageJson.version}] 📝 Adding overflow content to new mother region:`, correspondingRegion.id);
+              
+              // Create content data for the overflow text
+              const overflowContentData = {
+                id: `overflow_${Date.now()}`,
+                type: 'new-comp-trans',
+                regionId: correspondingRegion.id,
+                layout: {
+                  occupyLeftoverSpace: true,
+                  fullWidth: true,
+                  fullHeight: true,
+                  width: { value: 100, unit: '%' as const },
+                  height: { value: 100, unit: '%' as const },
+                  horizontalAlign: 'left' as const,
+                  verticalAlign: 'top' as const,
+                  padding: { top: 0, right: 0, bottom: 0, left: 0 }
+                },
+                typography: {
+                  fontFamily: 'Arial',
+                  fontSize: 12,
+                  fontColor: '#000000'
+                },
+                content: {
+                  text: overflowText, // Only the overflow text
+                  materialCompositions: [], // Empty
+                  selectedLanguages: [],
+                  lineBreakSettings: {
+                    lineBreakSymbol: '\n',
+                    lineSpacing: 1.2,
+                    lineWidth: 100
+                  }
+                },
+                newCompTransConfig: {
+                  materialCompositions: [], // Blank content
+                  selectedLanguages: [], // Blank
+                  textContent: {
+                    separator: ' - ',
+                    generatedText: overflowText // Only the overflow text
+                  },
+                  padding: { top: 0, right: 0, bottom: 0, left: 0 },
+                  alignment: { horizontal: 'left', vertical: 'top' },
+                  typography: { fontFamily: 'Arial', fontSize: 12, fontSizeUnit: 'pt', fontColor: '#000000' },
+                  lineBreakSettings: {
+                    lineBreakSymbol: '\n',
+                    lineSpacing: 1.2,
+                    lineWidth: 100
+                  }
+                }
+              };
+
+              // Add the overflow content to the region
+              const updatedContents = new Map(regionContents);
+              updatedContents.set(correspondingRegion.id, [overflowContentData]);
+              setRegionContents(updatedContents);
+
+              console.log(`[v${packageJson.version}] ✅ Overflow content added to new mother region`);
+            }
+          }
+        }
+        
+        setNotification(`✅ New mother created with overflow text: ${newMotherName} (linked to ${masterMotherName})`);
+        setTimeout(() => setNotification(null), 3000);
+        
+      } catch (error) {
+        console.error(`[v${packageJson.version}] ❌ Error establishing relationship:`, error);
+      }
+    }, 100); // Short delay to ensure state updates
   };
 
   // Function to trash/delete a mother (except Mother_1) with cascading child deletion
@@ -9008,13 +9019,11 @@ function App() {
     setSelectedObject(newSon);
 
     // Force re-render by updating expanded mothers
-    console.log('📂 Expanding mother in hierarchy...');
     setExpandedMothers(prev => {
       const motherIndex = currentData.objects.findIndex(obj => obj.name === motherObject.name);
       console.log('👩 Mother index:', motherIndex);
       const newSet = new Set(prev);
       newSet.add(motherIndex);
-      console.log('📂 Expanded mothers:', Array.from(newSet));
       return newSet;
     });
 
@@ -9428,6 +9437,26 @@ function App() {
                 >
                   <div style={{flex: 1}}>
                     <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                      {/* Relationship indicator */}
+                      {mother.isChildMother && (
+                        <span style={{
+                          fontSize: '1.2em',
+                          color: '#ff9800',
+                          marginRight: '4px'
+                        }}>
+                          ↳
+                        </span>
+                      )}
+                      {mother.relationship && (
+                        <span style={{
+                          fontSize: '1.2em',
+                          color: '#4caf50',
+                          marginRight: '4px'
+                        }}>
+                          🔗
+                        </span>
+                      )}
+                      
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -9445,9 +9474,40 @@ function App() {
                         {isExpanded ? '▼' : '▶'}
                       </button>
                       <span>{mother.object.name} ({mother.children.length} objects)</span>
+                      
+                      {/* Relationship status badge */}
+                      {mother.isChildMother && (
+                        <span style={{
+                          fontSize: '0.7em',
+                          backgroundColor: '#ff9800',
+                          color: 'white',
+                          padding: '2px 6px',
+                          borderRadius: '10px',
+                          marginLeft: '8px'
+                        }}>
+                          Child of {mother.masterName}
+                        </span>
+                      )}
+                      {mother.relationship && (
+                        <span style={{
+                          fontSize: '0.7em',
+                          backgroundColor: '#4caf50',
+                          color: 'white',
+                          padding: '2px 6px',
+                          borderRadius: '10px',
+                          marginLeft: '8px'
+                        }}>
+                          {mother.relationship.childIds.length} children
+                        </span>
+                      )}
                     </div>
-                    <div style={{fontSize: '0.8em', opacity: 0.8, marginLeft: '24px'}}>
+                    <div style={{fontSize: '0.8em', opacity: 0.8, marginLeft: mother.isChildMother ? '48px' : '24px'}}>
                       {mother.object.typename}
+                      {mother.isChildMother && (
+                        <span style={{color: '#ff9800', marginLeft: '8px'}}>
+                          • Overflow Content
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -11516,7 +11576,6 @@ function App() {
                         // console.log('🧺 new-washing-care-symbol displayText:', displayText, 'content:', content);
                       } else if (content.type === 'new-comp-trans' && content.newCompTransConfig?.textContent?.generatedText) {
                         displayText = content.newCompTransConfig.textContent.generatedText;
-                        console.log('🌐 CANVAS RENDERING new-comp-trans displayText:', displayText, 'regionId:', content.regionId, 'contentId:', content.id);
                       } else if (content.type === 'pure-english-paragraph' && content.content?.text) {
                         displayText = content.content.text;
                       } else if (content.type === 'translation-paragraph') {
@@ -12460,7 +12519,6 @@ function App() {
                               // console.log('🧺 child new-washing-care-symbol displayText:', displayText, 'content:', content);
                             } else if (content.type === 'new-comp-trans' && content.newCompTransConfig?.textContent?.generatedText) {
                               displayText = content.newCompTransConfig.textContent.generatedText;
-                              console.log('🌐 CHILD CANVAS RENDERING new-comp-trans displayText:', displayText, 'regionId:', content.regionId, 'contentId:', content.id);
                             } else if (content.type === 'pure-english-paragraph' && content.content?.text) {
                               displayText = content.content.text;
                             } else if (content.type === 'translation-paragraph') {
@@ -13898,7 +13956,133 @@ function App() {
 
                 {(data || webCreationData)?.objects.map((obj, index) => renderObject(obj, index))}
 
-                {/* Removed connection lines - now using overlay numbers inside regions */}
+                {/* Mother-Child Relationship Lines */}
+                {(() => {
+                  const currentData = data || webCreationData;
+                  if (!currentData) return null;
+
+                  const allRelationships = motherRelationshipManager.getAllRelationships();
+                  const mmToPx = 3.78; // Conversion factor from mm to pixels
+                  
+                  const relationshipLines: React.ReactElement[] = [];
+
+                  allRelationships.forEach((relationship, masterId) => {
+                    // Find the master mother object
+                    const masterMother = currentData.objects.find(obj => obj.name === masterId);
+                    if (!masterMother) return;
+
+                    // Find all child mother objects
+                    relationship.childIds.forEach((childId, index) => {
+                      const childMother = currentData.objects.find(obj => obj.name === childId);
+                      if (!childMother) return;
+
+                      // Calculate connection points (center of each mother)
+                      const masterCenterX = masterMother.x + masterMother.width / 2;
+                      const masterCenterY = masterMother.y + masterMother.height / 2;
+                      const childCenterX = childMother.x + childMother.width / 2;
+                      const childCenterY = childMother.y + childMother.height / 2;
+
+                      // Transform to screen coordinates
+                      const masterScreenX = panX + (masterCenterX * zoom * mmToPx);
+                      const masterScreenY = panY + (masterCenterY * zoom * mmToPx);
+                      const childScreenX = panX + (childCenterX * zoom * mmToPx);
+                      const childScreenY = panY + (childCenterY * zoom * mmToPx);
+
+                      // Create dotted line connecting the mothers
+                      relationshipLines.push(
+                        <g key={`relationship-${masterId}-${childId}`}>
+                          {/* Main connecting line */}
+                          <line
+                            x1={masterScreenX}
+                            y1={masterScreenY}
+                            x2={childScreenX}
+                            y2={childScreenY}
+                            stroke="#ff9800"
+                            strokeWidth="3"
+                            strokeDasharray="8,6"
+                            opacity="0.8"
+                            style={{ pointerEvents: 'none' }}
+                          />
+                          
+                          {/* Arrow at child end */}
+                          <polygon
+                            points={`${childScreenX - 8},${childScreenY - 4} ${childScreenX},${childScreenY} ${childScreenX - 8},${childScreenY + 4}`}
+                            fill="#ff9800"
+                            opacity="0.9"
+                            style={{ pointerEvents: 'none' }}
+                          />
+                          
+                          {/* Master icon */}
+                          <circle
+                            cx={masterScreenX}
+                            cy={masterScreenY}
+                            r="8"
+                            fill="#4caf50"
+                            stroke="white"
+                            strokeWidth="2"
+                            opacity="0.9"
+                            style={{ pointerEvents: 'none' }}
+                          />
+                          <text
+                            x={masterScreenX}
+                            y={masterScreenY}
+                            textAnchor="middle"
+                            dominantBaseline="middle"
+                            fontSize="10"
+                            fontWeight="bold"
+                            fill="white"
+                            style={{ pointerEvents: 'none' }}
+                          >
+                            M
+                          </text>
+                          
+                          {/* Child icon */}
+                          <circle
+                            cx={childScreenX}
+                            cy={childScreenY}
+                            r="8"
+                            fill="#ff9800"
+                            stroke="white"
+                            strokeWidth="2"
+                            opacity="0.9"
+                            style={{ pointerEvents: 'none' }}
+                          />
+                          <text
+                            x={childScreenX}
+                            y={childScreenY}
+                            textAnchor="middle"
+                            dominantBaseline="middle"
+                            fontSize="8"
+                            fontWeight="bold"
+                            fill="white"
+                            style={{ pointerEvents: 'none' }}
+                          >
+                            {index + 1}
+                          </text>
+                          
+                          {/* Relationship label */}
+                          <text
+                            x={(masterScreenX + childScreenX) / 2}
+                            y={(masterScreenY + childScreenY) / 2 - 15}
+                            textAnchor="middle"
+                            fontSize="10"
+                            fontWeight="bold"
+                            fill="#ff9800"
+                            opacity="0.8"
+                            style={{ 
+                              pointerEvents: 'none',
+                              textShadow: '1px 1px 2px rgba(255,255,255,0.8)'
+                            }}
+                          >
+                            overflow →
+                          </text>
+                        </g>
+                      );
+                    });
+                  });
+
+                  return relationshipLines;
+                })()}
 
               </svg>
             </div>
@@ -16110,7 +16294,7 @@ function App() {
           callbackType: typeof handleCreateNewMotherForOverflow,
           contentType: universalDialog.contentType?.id
         });
-        
+
         return (
           <UniversalContentDialog
             isOpen={universalDialog.isOpen}
