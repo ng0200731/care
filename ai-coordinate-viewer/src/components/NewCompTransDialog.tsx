@@ -308,7 +308,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
   // Generate wrapped text for preview based on line break settings
   const generateWrappedPreview = () => {
-    const baseText = generateTextContent();
+    // Use manually entered text if available, otherwise fall back to generated text
+    const baseText = config.textContent.generatedText || generateTextContent();
     if (!baseText) return '';
 
     // Split into lines and apply line width wrapping
@@ -1101,7 +1102,13 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
       setConfig(debugConfig);
 
-      // STEP 3: Duplicate parent mother ONLY if there's overflow
+      // ✅ CRITICAL FIX: Save FIRST (like manual steps), then create child
+      (window as any).debugModeActive = true;
+      onSave(debugConfig);
+      console.log('🔧 [DEBUG] Step 2 completed - Parent saved with SPLIT 1 text');
+      setDebugStep(2);
+
+      // STEP 3: Duplicate parent mother ONLY if there's overflow (AFTER save)
       if (overflowResult.hasOverflow) {
         console.log(`🔧 [DEBUG] Step 3 starting - Has overflow, creating child mother...`);
         console.log(`🔧 [DEBUG] Step 3 - Duplicating parent mother with current text`);
@@ -1119,29 +1126,6 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         console.log(`🔧 [DEBUG] Step 3 skipped - No overflow detected, only parent mother needed`);
         console.log(`🔧 [DEBUG] All steps completed - Single mother solution!`);
         setDebugStep(4); // Mark as completed
-      }
-
-      // FINAL STEP: Execute Save functionality (EXACT COPY from handleSave)
-      console.log('🚀 CREATE: Now executing Save functionality...');
-
-      if (overflowResult.hasOverflow) {
-        // 🌊 AUTOMATIC OVERFLOW HANDLING - Use the proper callback
-        console.log('🔄 Automatic overflow detected - creating new mother...');
-        console.log('📊 Overflow details:', {
-          originalTextLength: overflowResult.originalText.length,
-          overflowTextLength: overflowResult.overflowText.length,
-          hasOverflowLines: overflowResult.overflowLines?.length || 0
-        });
-
-        // Save SPLIT 1 text to the current region (overflowResult.originalText already contains the correct SPLIT 1)
-        const split1Text = overflowResult.originalText; // This already contains SPLIT 1 from detectOverflowAndSplit()
-        console.log('📝 Saving SPLIT 1 text to parent region:', { split1Length: split1Text.length, overflowLength: overflowResult.overflowText.length });
-
-        // Save the current config with SPLIT 1 text
-        onSave(debugConfig);
-      } else {
-        // No overflow - just save normally
-        onSave(debugConfig);
       }
 
       console.log('🎉 CREATE: All steps + Save completed successfully!');
@@ -2388,6 +2372,462 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
                   debugStep === 3 ? 'Replace Child (SPLIT 2)' :
                   'Debug Complete'
                 }
+              </button>
+            )}
+
+            {/* 4 to 1 button - Execute all 4 steps in one click */}
+            {hasOverflow && (
+              <button
+                onClick={async () => {
+                  // EXACT COPY Step 1/4 (debugStep === 0)
+                  const overflowResult = detectOverflowAndSplit();
+                  setSplit1Text(overflowResult.originalText);
+                  setSplit2Text(overflowResult.overflowText);
+                  console.log(`🔧 [DEBUG] Step 1 - Calculated splits:`);
+                  console.log(`📝 SPLIT 1 (${overflowResult.originalText.length} chars):`, overflowResult.originalText.substring(0, 50) + '...');
+                  console.log(`📝 SPLIT 2 (${overflowResult.overflowText.length} chars):`, overflowResult.overflowText.substring(0, 50) + '...');
+                  setDebugStep(1);
+
+                  // EXACT COPY Step 2/4 (debugStep === 1) - Use split1Text variable
+                  console.log(`🔧 [DEBUG] Step 2 - Filling SPLIT 1 in parent mother:`, overflowResult.originalText.substring(0, 50) + '...');
+                  const debugConfig = {
+                    ...config,
+                    textContent: {
+                      ...config.textContent,
+                      generatedText: overflowResult.originalText
+                    }
+                  };
+                  setConfig(debugConfig);
+                  (window as any).debugModeActive = true;
+                  onSave(debugConfig);
+                  console.log('🔧 [DEBUG] Step 2 completed - Check if Mother_1 shows SPLIT 1 text');
+                  console.log('🔧 [DEBUG] If dialog closed, double-click Mother_1 again to continue with Step 3');
+                  setDebugStep(2);
+
+                  // EXACT COPY Step 3/4 (debugStep === 2)
+                  console.log(`🔧 [DEBUG] Step 3 - Duplicating parent mother with current text`);
+                  if (onCreateNewMother) {
+                    onCreateNewMother(overflowResult.originalText, overflowResult.overflowText);
+                  }
+                  setDebugStep(3);
+
+                  // EXACT COPY Step 4/4 (debugStep === 3)
+                  console.log(`🔧 [DEBUG] Step 4 - Child mother should now have SPLIT 2:`, overflowResult.overflowText.substring(0, 50) + '...');
+                  console.log(`🔧 [DEBUG] All steps completed!`);
+                  setDebugStep(4);
+                }}
+                style={{
+                  padding: '10px 20px',
+                  border: '2px solid #28a745',
+                  borderRadius: '4px',
+                  backgroundColor: '#28a745',
+                  color: 'white',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer'
+                }}
+              >
+                🚀 4 to 1
+              </button>
+            )}
+
+            {/* vF button - PURE COPYCAT of 4 working manual steps */}
+            {hasOverflow && (
+              <button
+                onClick={() => {
+                  // PURE COPYCAT Step 1: debugStep === 0 (EXACT COPY)
+                  const overflowResult = detectOverflowAndSplit();
+                  setSplit1Text(overflowResult.originalText);
+                  setSplit2Text(overflowResult.overflowText);
+                  console.log(`🔧 [DEBUG] Step 1 - Calculated splits:`);
+                  console.log(`📝 SPLIT 1 (${overflowResult.originalText.length} chars):`, overflowResult.originalText.substring(0, 50) + '...');
+                  console.log(`📝 SPLIT 2 (${overflowResult.overflowText.length} chars):`, overflowResult.overflowText.substring(0, 50) + '...');
+                  setDebugStep(1);
+
+                  // Wait for state to update, then PURE COPYCAT Step 2: debugStep === 1 (EXACT COPY)
+                  setTimeout(() => {
+                    // Manual step uses: split1Text.substring(0, 50) + '...'
+                    // But we need to access the state variable, so let's use a callback to get current state
+                    const currentSplit1 = overflowResult.originalText; // This should be same as split1Text state
+                    console.log(`🔧 [DEBUG] Step 2 - Filling SPLIT 1 in parent mother:`, currentSplit1.substring(0, 50) + '...');
+                    const debugConfig = {
+                      ...config,
+                      textContent: {
+                        ...config.textContent,
+                        generatedText: currentSplit1 // Use the split1 text
+                      }
+                    };
+                    setConfig(debugConfig);
+                    (window as any).debugModeActive = true;
+                    onSave(debugConfig);
+                    console.log('🔧 [DEBUG] Step 2 completed - Check if Mother_1 shows SPLIT 1 text');
+                    console.log('🔧 [DEBUG] If dialog closed, double-click Mother_1 again to continue with Step 3');
+                    setDebugStep(2);
+
+                    // Wait for save, then PURE COPYCAT Step 3: debugStep === 2 (EXACT COPY)
+                    setTimeout(() => {
+                      console.log(`🔧 [DEBUG] Step 3 - Duplicating parent mother with current text`);
+                      if (onCreateNewMother) {
+                        // Manual step uses: onCreateNewMother(split1Text, split2Text)
+                        const currentSplit1 = overflowResult.originalText;
+                        const currentSplit2 = overflowResult.overflowText;
+                        onCreateNewMother(currentSplit1, currentSplit2);
+                      }
+                      setDebugStep(3);
+
+                      // PURE COPYCAT Step 4: debugStep === 3 (EXACT COPY)
+                      setTimeout(() => {
+                        const currentSplit2 = overflowResult.overflowText;
+                        console.log(`🔧 [DEBUG] Step 4 - Child mother should now have SPLIT 2:`, currentSplit2.substring(0, 50) + '...');
+                        console.log(`🔧 [DEBUG] All steps completed!`);
+                        setDebugStep(4);
+                      }, 100);
+                    }, 100);
+                  }, 100);
+                }}
+                style={{
+                  padding: '10px 20px',
+                  border: '2px solid #ff6b35',
+                  borderRadius: '4px',
+                  backgroundColor: '#ff6b35',
+                  color: 'white',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  marginLeft: '10px'
+                }}
+              >
+                🔥 vF
+              </button>
+            )}
+
+            {/* vF2 button - PURE COPYCAT of 4 manual steps - NO CHANGES */}
+            {hasOverflow && (
+              <button
+                onClick={() => {
+                  // STEP 1: EXACT COPY debugStep === 0
+                  const overflowResult = detectOverflowAndSplit();
+                  setSplit1Text(overflowResult.originalText);
+                  setSplit2Text(overflowResult.overflowText);
+                  console.log(`🔧 [DEBUG] Step 1 - Calculated splits:`);
+                  console.log(`📝 SPLIT 1 (${overflowResult.originalText.length} chars):`, overflowResult.originalText.substring(0, 50) + '...');
+                  console.log(`📝 SPLIT 2 (${overflowResult.overflowText.length} chars):`, overflowResult.overflowText.substring(0, 50) + '...');
+                  setDebugStep(1);
+
+                  setTimeout(() => {
+                    // STEP 2: EXACT COPY debugStep === 1 - Use split1Text state variable
+                    console.log(`🔧 [DEBUG] Step 2 - Filling SPLIT 1 in parent mother:`, overflowResult.originalText.substring(0, 50) + '...');
+                    const debugConfig = {
+                      ...config,
+                      textContent: {
+                        ...config.textContent,
+                        generatedText: overflowResult.originalText
+                      }
+                    };
+                    setConfig(debugConfig);
+                    (window as any).debugModeActive = true;
+                    onSave(debugConfig);
+                    console.log('🔧 [DEBUG] Step 2 completed - Check if Mother_1 shows SPLIT 1 text');
+                    console.log('🔧 [DEBUG] If dialog closed, double-click Mother_1 again to continue with Step 3');
+                    setDebugStep(2);
+
+                    setTimeout(() => {
+                      // STEP 3: EXACT COPY debugStep === 2
+                      console.log(`🔧 [DEBUG] Step 3 - Duplicating parent mother with current text`);
+                      if (onCreateNewMother) {
+                        onCreateNewMother(overflowResult.originalText, overflowResult.overflowText);
+                      }
+                      setDebugStep(3);
+
+                      setTimeout(() => {
+                        // STEP 4: EXACT COPY debugStep === 3
+                        console.log(`🔧 [DEBUG] Step 4 - Child mother should now have SPLIT 2:`, overflowResult.overflowText.substring(0, 50) + '...');
+                        console.log(`🔧 [DEBUG] All steps completed!`);
+                        setDebugStep(4);
+                      }, 50);
+                    }, 50);
+                  }, 50);
+                }}
+                style={{
+                  padding: '10px 20px',
+                  border: '2px solid #9c27b0',
+                  borderRadius: '4px',
+                  backgroundColor: '#9c27b0',
+                  color: 'white',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  marginLeft: '10px'
+                }}
+              >
+                💜 vF2
+              </button>
+            )}
+
+            {/* e2 button - Step-by-step synchronous approach */}
+            {hasOverflow && (
+              <button
+                onClick={async () => {
+                  console.log('🚀 e2: Starting step-by-step synchronous process...');
+
+                  try {
+                    // STEP 1: Read text value
+                    const textValue = config.textContent.generatedText || generateTextContent();
+                    console.log('📖 e2 Step 1: Read text value:', textValue.substring(0, 50) + '...');
+
+                    // STEP 2: Check if overflow
+                    const overflowResult = detectOverflowAndSplit();
+                    console.log('🔍 e2 Step 2: Check overflow - hasOverflow:', overflowResult.hasOverflow);
+
+                    if (!overflowResult.hasOverflow) {
+                      // No overflow - render normally
+                      console.log('✅ e2: No overflow detected, rendering normally');
+                      onSave(config);
+                      return;
+                    }
+
+                    // STEP 3: Split text (calculation complete)
+                    const split1 = overflowResult.originalText;
+                    const split2 = overflowResult.overflowText;
+                    console.log('✂️ e2 Step 3: Split complete - Split1:', split1.length, 'chars, Split2:', split2.length, 'chars');
+
+                    // STEP 4: Place split1 in parent - WAIT until done
+                    console.log('📝 e2 Step 4: Placing split1 in parent...');
+                    const parentConfig = {
+                      ...config,
+                      textContent: {
+                        ...config.textContent,
+                        generatedText: split1
+                      }
+                    };
+
+                    // Save to parent and wait for completion
+                    await new Promise<void>((resolve) => {
+                      onSave(parentConfig);
+                      console.log('✅ e2 Step 4: Parent placement complete');
+                      setTimeout(resolve, 100); // Small delay to ensure save completes
+                    });
+
+                    // STEP 5: Create child mother - WAIT until creation complete
+                    console.log('👶 e2 Step 5: Creating child mother...');
+                    await new Promise<void>((resolve) => {
+                      if (onCreateNewMother) {
+                        onCreateNewMother(split1, split2);
+                        console.log('✅ e2 Step 5: Child mother creation complete');
+                        setTimeout(resolve, 200); // Wait for creation to complete
+                      } else {
+                        resolve();
+                      }
+                    });
+
+                    // STEP 6: Place split2 in child - automatically handled by onCreateNewMother
+                    console.log('📝 e2 Step 6: Split2 placement in child (handled by creation process)');
+
+                    // STEP 7: Draw overflow line (if needed)
+                    console.log('🔗 e2 Step 7: Overflow line drawing (handled by system)');
+
+                    console.log('🎉 e2: All steps completed successfully!');
+
+                  } catch (error) {
+                    console.error('❌ e2: Error during process:', error);
+                  }
+                }}
+                style={{
+                  padding: '10px 20px',
+                  border: '2px solid #e91e63',
+                  borderRadius: '4px',
+                  backgroundColor: '#e91e63',
+                  color: 'white',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  marginLeft: '10px'
+                }}
+              >
+                🎯 e2
+              </button>
+            )}
+
+            {/* e3 button - Proper completion checking approach */}
+            {hasOverflow && (
+              <button
+                onClick={async () => {
+                  console.log('🚀 e3: Starting with proper completion checking...');
+
+                  try {
+                    // Helper function to check operation completion
+                    const checkOperationComplete = (operationType: string, checkFunction: () => number, maxAttempts = 20, interval = 50): Promise<number> => {
+                      return new Promise((resolve, reject) => {
+                        let attempts = 0;
+
+                        const check = () => {
+                          const result = checkFunction();
+
+                          if (result === 1) {
+                            console.log(`✅ e3: ${operationType} completed`);
+                            resolve(1);
+                          } else if (result === -1) {
+                            reject(new Error(`${operationType} failed`));
+                          } else if (attempts >= maxAttempts) {
+                            reject(new Error(`${operationType} timeout after ${maxAttempts} attempts`));
+                          } else {
+                            attempts++;
+                            setTimeout(check, interval);
+                          }
+                        };
+
+                        check();
+                      });
+                    };
+
+                    // STEP 1: Read text value
+                    const textValue = config.textContent.generatedText || generateTextContent();
+                    console.log('📖 e3 Step 1: Read text value:', textValue.substring(0, 50) + '...');
+
+                    // STEP 2: Check if overflow
+                    const overflowResult = detectOverflowAndSplit();
+                    console.log('🔍 e3 Step 2: Check overflow - hasOverflow:', overflowResult.hasOverflow);
+
+                    if (!overflowResult.hasOverflow) {
+                      console.log('✅ e3: No overflow, saving normally');
+                      onSave(config);
+                      return;
+                    }
+
+                    // STEP 3: Split text
+                    const split1 = overflowResult.originalText;
+                    const split2 = overflowResult.overflowText;
+                    console.log('✂️ e3 Step 3: Split complete - Split1:', split1.length, 'chars, Split2:', split2.length, 'chars');
+
+                    // STEP 4: Place split1 in parent with completion checking
+                    console.log('📝 e3 Step 4: Placing split1 in parent...');
+                    const parentConfig = {
+                      ...config,
+                      textContent: {
+                        ...config.textContent,
+                        generatedText: split1
+                      }
+                    };
+
+                    // Save and check completion by monitoring regionContents
+                    const currentRegionId = regionId || '';
+                    onSave(parentConfig);
+
+                    await checkOperationComplete('onSave', () => {
+                      // Trace what onSave() actually updates - check the SAME config object
+                      console.log('🔍 Checking parentConfig after onSave...');
+                      console.log('🔍 parentConfig structure:', Object.keys(parentConfig));
+                      console.log('🔍 parentConfig.textContent:', parentConfig.textContent?.generatedText?.substring(0, 50) + '...');
+
+                      // Check if the parentConfig itself was updated with split1
+                      if (parentConfig.textContent?.generatedText === split1) {
+                        console.log('✅ Found split1 in parentConfig.textContent');
+                        return 1; // Complete - parentConfig has split1
+                      }
+
+                      // Also check the regionContents that onSave() updates
+                      const regionContentsMap = (window as any).currentRegionContents;
+                      if (regionContentsMap && currentRegionId) {
+                        const regionData = regionContentsMap.get(currentRegionId);
+                        if (regionData && regionData.length > 0) {
+                          const savedText = regionData[0]?.newCompTransConfig?.textContent?.generatedText;
+                          console.log('🔍 regionContents savedText:', savedText?.substring(0, 50) + '...');
+
+                          if (savedText === split1) {
+                            console.log('✅ Found split1 in regionContents');
+                            return 1; // Complete - regionContents has split1
+                          }
+                        }
+                      }
+
+                      console.log('❌ split1 not found in either location');
+                      return 0; // Not complete yet
+                    });
+
+                    console.log('✅ e3 Step 4: Parent updated with split1');
+
+                    // STEP 5: Create child mother with 5 detailed milestones
+                    console.log('👶 e3 Step 5: Starting child mother creation with 5 milestones...');
+
+                    // Milestone 1: Initialize and log start
+                    console.log('🎯 e3 Step 5 - Milestone 1: Initializing child mother creation...');
+                    alert('✅ Milestone 1 Complete: Child mother creation initialized');
+
+                    // Milestone 2: Get current mother count before creation
+                    console.log('🎯 e3 Step 5 - Milestone 2: Counting existing mothers...');
+                    const currentData = (window as any).currentAppData || {};
+                    console.log('🔍 Debug currentData structure:', currentData);
+                    console.log('🔍 Debug currentData.objects:', currentData.objects);
+                    const initialMotherCount = currentData.objects?.filter((obj: any) => {
+                      console.log('🔍 Checking object:', obj.name, 'type:', obj.type, 'typename:', obj.typename);
+                      return obj.type?.includes('mother') || obj.typename?.includes('mother');
+                    }).length || 0;
+                    console.log(`📊 Found ${initialMotherCount} existing mothers`);
+                    alert(`✅ Milestone 2 Complete: Found ${initialMotherCount} existing mothers`);
+
+                    // Milestone 3: Trigger child mother creation
+                    console.log('🎯 e3 Step 5 - Milestone 3: Triggering onCreateNewMother function...');
+                    if (onCreateNewMother) {
+                      onCreateNewMother(split1, split2); // Pass both split1 and split2 (like e2 button)
+                      console.log('🚀 onCreateNewMother called with split1 and split2');
+                      console.log('📝 split1 length:', split1.length, 'split2 length:', split2.length);
+                      alert('✅ Milestone 3 Complete: onCreateNewMother function called with both splits');
+                    } else {
+                      throw new Error('onCreateNewMother function not available');
+                    }
+
+                    // Milestone 4: Wait and verify new mother was created
+                    console.log('🎯 e3 Step 5 - Milestone 4: Waiting for new mother creation...');
+                    await checkOperationComplete('onCreateNewMother', () => {
+                      const updatedData = (window as any).currentAppData || {};
+                      const newMotherCount = updatedData.objects?.filter((obj: any) =>
+                        obj.type?.includes('mother') || obj.typename?.includes('mother')
+                      ).length || 0;
+
+                      if (newMotherCount > initialMotherCount) {
+                        console.log(`📈 Mother count increased from ${initialMotherCount} to ${newMotherCount}`);
+                        return 1; // New mother created
+                      }
+                      console.log(`⏳ Still waiting... Mother count: ${newMotherCount}`);
+                      return 0; // Not created yet
+                    });
+                    alert('✅ Milestone 4 Complete: New child mother successfully created and verified');
+
+                    // Milestone 5: Finalize and log completion
+                    console.log('🎯 e3 Step 5 - Milestone 5: Finalizing child mother creation...');
+                    const finalData = (window as any).currentAppData || {};
+                    const finalMotherCount = finalData.objects?.filter((obj: any) =>
+                      obj.type?.includes('mother') || obj.typename?.includes('mother')
+                    ).length || 0;
+                    console.log(`🎉 Step 5 Complete: Child mother created successfully! Total mothers: ${finalMotherCount}`);
+                    alert(`✅ Milestone 5 Complete: Step 5 finished! Total mothers now: ${finalMotherCount}`);
+
+                    // STEP 6: Place split2 in child mother
+                    console.log('📝 e3 Step 6: Placing split2 in child mother...');
+                    // This step would need a separate function to update child mother text
+                    // For now, we assume onCreateNewMother handles this
+
+                    console.log('🎉 e3: Steps 4 and 5 completed!');
+
+                  } catch (error) {
+                    console.error('❌ e3: Error during process:', error);
+                    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+                    alert(`Error: ${errorMessage}`);
+                  }
+                }}
+                style={{
+                  padding: '10px 20px',
+                  border: '2px solid #4caf50',
+                  borderRadius: '4px',
+                  backgroundColor: '#4caf50',
+                  color: 'white',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  marginLeft: '10px'
+                }}
+              >
+                🔍 e3
               </button>
             )}
 

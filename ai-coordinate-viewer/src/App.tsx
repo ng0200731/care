@@ -6651,7 +6651,15 @@ function App() {
         // Get original content to copy (everything except text)
         const originalContents = regionContents.get(overflowData.sourceRegionId) || [];
         const originalContent = originalContents.find((c: any) => c.type === 'new-comp-trans');
-        
+
+        console.log(`[v${packageJson.version}] 🔍 DEBUG - Looking for original content:`, {
+          sourceRegionId: overflowData.sourceRegionId,
+          originalContentsLength: originalContents.length,
+          originalContent: originalContent ? 'FOUND' : 'NOT FOUND',
+          split2TextLength: overflowData.split2Text.length,
+          split2TextPreview: overflowData.split2Text.substring(0, 50) + '...'
+        });
+
         if (originalContent) {
           console.log(`[v${packageJson.version}] 🧬 Creating child content with SPLIT 2 text...`);
           
@@ -13109,8 +13117,8 @@ function App() {
                     const parentRightX = (parentMother.x + parentMother.width) * scale + panX;
                     const childLeftX = childMother.x * scale + panX;
                     
-                    const arrowKey = `overflow-arrow-${parentMother.name}-${childId}`;
-                    
+                    const arrowKey = `overflow-arrow-${parentMother.name}-${childId}-${index}`;
+
                     return (
                       <g key={arrowKey}>
                         {/* Overflow connection line */}
@@ -13124,6 +13132,30 @@ function App() {
                           markerEnd="url(#overflowArrow)"
                           opacity="0.8"
                         />
+                        {/* Parent Mother label */}
+                        <text
+                          x={parentRightX - 20 / zoom}
+                          y={parentY - 15 / zoom}
+                          fill="#ff6b35"
+                          fontSize={8 / zoom}
+                          fontWeight="bold"
+                          textAnchor="middle"
+                          opacity="0.7"
+                        >
+                          Parent Mother
+                        </text>
+                        {/* Child Mother label with index */}
+                        <text
+                          x={childLeftX + 20 / zoom}
+                          y={childY - 15 / zoom}
+                          fill="#ff6b35"
+                          fontSize={8 / zoom}
+                          fontWeight="bold"
+                          textAnchor="middle"
+                          opacity="0.7"
+                        >
+                          Child Mother ({index + 1})
+                        </text>
                         {/* Connection label */}
                         <text
                           x={(parentRightX + childLeftX) / 2}
