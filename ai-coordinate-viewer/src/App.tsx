@@ -6822,19 +6822,43 @@ function App() {
   const handleCreateNewMotherForOverflow = (childMotherId: string, textContent: string) => {
     console.log(`[v${packageJson.version}] 🚀 Adding CT comp trans to child mother: ${childMotherId}`);
 
-    const currentData = data || webCreationData;
-    if (!currentData) {
-      console.error('❌ No current data available');
-      return;
-    }
-
-    // Find child mother by ID
+    // Check BOTH local and global data sources to find the child mother
+    let currentData = null;
     let childMother: AIObject | null = null;
-    for (const obj of currentData.objects) {
-      if (obj.type?.includes('mother') && obj.name === childMotherId) {
-        childMother = obj;
-        break;
+    
+    // First try local React state
+    const localData = data || webCreationData;
+    if (localData && localData.objects) {
+      console.log(`🔍 Checking local React state (${localData.objects.length} objects) for ${childMotherId}...`);
+      for (const obj of localData.objects) {
+        if (obj.type?.includes('mother') && obj.name === childMotherId) {
+          childMother = obj;
+          currentData = localData;
+          console.log('✅ Found child mother in LOCAL React state');
+          break;
+        }
       }
+    }
+    
+    // If not found in local, try global data
+    if (!childMother) {
+      const globalData = (window as any).currentAppData;
+      if (globalData && globalData.objects) {
+        console.log(`🔍 Checking global data (${globalData.objects.length} objects) for ${childMotherId}...`);
+        for (const obj of globalData.objects) {
+          if (obj.type?.includes('mother') && obj.name === childMotherId) {
+            childMother = obj;
+            currentData = globalData;
+            console.log('✅ Found child mother in GLOBAL data');
+            break;
+          }
+        }
+      }
+    }
+    
+    if (!currentData) {
+      console.error('❌ No data available in local state OR global data');
+      return;
     }
 
     if (!childMother) {

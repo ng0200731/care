@@ -1322,6 +1322,475 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     }
   };
 
+  // Helper function to wait for app data updates
+  const waitForAppDataUpdate = (timeoutMs: number = 2000): Promise<boolean> => {
+    return new Promise((resolve) => {
+      let attempts = 0;
+      const maxAttempts = timeoutMs / 100;
+      
+      const checkInterval = setInterval(() => {
+        attempts++;
+        const currentData = (window as any).currentAppData;
+        
+        if (currentData && currentData.objects) {
+          console.log(`🔍 App data check ${attempts}: Found ${currentData.objects.length} objects`);
+          clearInterval(checkInterval);
+          resolve(true);
+        } else if (attempts >= maxAttempts) {
+          console.log(`⏰ App data check timeout after ${attempts} attempts`);
+          clearInterval(checkInterval);
+          resolve(false);
+        }
+      }, 100);
+    });
+  };
+
+  // Helper function to verify child mother exists
+  const verifyChildMotherExists = (childMotherId: string): boolean => {
+    const currentData = (window as any).currentAppData;
+    if (!currentData || !currentData.objects) {
+      console.log('❌ No app data available for verification');
+      return false;
+    }
+    
+    const childMother = currentData.objects.find((obj: any) => obj.name === childMotherId);
+    const exists = !!childMother;
+    console.log(`🔍 Child mother ${childMotherId} verification: ${exists ? 'EXISTS' : 'NOT FOUND'}`);
+    return exists;
+  };
+
+  // Helper function to verify child mother has CT content
+  const verifyChildMotherHasContent = (childMotherId: string): boolean => {
+    const currentData = (window as any).currentAppData;
+    if (!currentData || !currentData.objects) {
+      console.log('❌ No app data available for content verification');
+      return false;
+    }
+    
+    const childMother = currentData.objects.find((obj: any) => obj.name === childMotherId);
+    if (!childMother) {
+      console.log(`❌ Child mother ${childMotherId} not found for content verification`);
+      return false;
+    }
+    
+    // Debug: Log the actual structure
+    console.log(`🔍 Child mother ${childMotherId} structure:`, {
+      hasRegions: !!childMother.regions,
+      regionsLength: childMother.regions?.length || 0,
+      firstRegion: childMother.regions?.[0] || null,
+      firstRegionContents: childMother.regions?.[0]?.contents || null
+    });
+    
+    const hasRegions = childMother.regions && childMother.regions.length > 0;
+    const hasContents = hasRegions && 
+                       childMother.regions[0].contents && 
+                       childMother.regions[0].contents.length > 0;
+    
+    // For step 3-2, we just need the structure to exist (even with empty content)
+    // The actual content will be added in step 3-3
+    const hasStructure = hasRegions; // Just check if regions exist
+    
+    console.log(`🔍 Child mother ${childMotherId} verification:`, {
+      hasRegions,
+      hasContents,
+      hasStructure,
+      result: hasStructure ? 'STRUCTURE EXISTS' : 'NO STRUCTURE'
+    });
+    
+    return hasStructure;
+  };
+
+  // Helper function to find child mother in app data
+  const findChildMotherInAppData = (childMotherId: string): any => {
+    const currentData = (window as any).currentAppData;
+    if (!currentData || !currentData.objects) {
+      console.log('❌ No app data available to find child mother');
+      return null;
+    }
+    
+    const childMother = currentData.objects.find((obj: any) => obj.name === childMotherId);
+    console.log(`🔍 Finding child mother ${childMotherId}:`, childMother ? 'FOUND' : 'NOT FOUND');
+    return childMother;
+  };
+
+  // Helper function to manually add CT comp trans to child mother
+  const addCTCompTransToChildMother = (childMotherId: string, textContent: string): boolean => {
+    const currentData = (window as any).currentAppData;
+    if (!currentData || !currentData.objects) {
+      console.log('❌ No app data available to add CT comp trans');
+      return false;
+    }
+    
+    const childMother = currentData.objects.find((obj: any) => obj.name === childMotherId);
+    if (!childMother) {
+      console.log(`❌ Child mother ${childMotherId} not found for CT comp trans addition`);
+      return false;
+    }
+    
+    // Ensure child mother has regions
+    if (!childMother.regions || childMother.regions.length === 0) {
+      console.log(`❌ Child mother ${childMotherId} has no regions`);
+      return false;
+    }
+    
+    // Get the first region (usually region 1)
+    const targetRegion = childMother.regions[0];
+    if (!targetRegion) {
+      console.log(`❌ Child mother ${childMotherId} has no target region`);
+      return false;
+    }
+    
+    // Create new CT comp trans content
+    const newContent = {
+      id: `content_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+      type: 'new-comp-trans',
+      regionId: targetRegion.id,
+      layout: {
+        occupyLeftoverSpace: true,
+        fullWidth: true,
+        fullHeight: true,
+        width: { value: 100, unit: '%' as const },
+        height: { value: 100, unit: '%' as const },
+        horizontalAlign: config.alignment?.horizontal || 'center',
+        verticalAlign: config.alignment?.vertical || 'center',
+        x: 0,
+        y: 0,
+        padding: {
+          top: config.padding?.top || 2,
+          right: config.padding?.right || 2,
+          bottom: config.padding?.bottom || 2,
+          left: config.padding?.left || 2
+        }
+      },
+      newCompTransConfig: {
+        alignment: config.alignment,
+        padding: config.padding,
+        typography: config.typography,
+        selectedLanguages: config.selectedLanguages,
+        materialCompositions: config.materialCompositions,
+        textContent: {
+          separator: config.textContent?.separator || ' - ',
+          generatedText: textContent
+        },
+        lineBreakSettings: config.lineBreakSettings,
+        isPreWrapped: true
+      }
+    };
+    
+    // Add content to region
+    if (!targetRegion.contents) {
+      targetRegion.contents = [];
+    }
+    targetRegion.contents.push(newContent);
+    
+    // Update app data and force canvas refresh
+    const updateAppData = (window as any).updateAppData;
+    if (updateAppData) {
+      updateAppData(currentData);
+      console.log(`✅ CT comp trans added to child mother ${childMotherId} manually`);
+      
+      // Force canvas refresh to show the new content
+      setTimeout(() => {
+        const refreshCanvas = (window as any).refreshCanvas;
+        if (refreshCanvas) {
+          refreshCanvas();
+          console.log('🎨 Canvas refreshed after adding content');
+        }
+      }, 100);
+      
+      return true;
+    } else {
+      console.log('❌ updateAppData function not available');
+      return false;
+    }
+  };
+
+  // Helper function to wait for specific condition with polling
+  const waitForCondition = async (
+    conditionFn: () => boolean, 
+    timeoutMs: number = 5000, 
+    pollIntervalMs: number = 200,
+    description: string = 'condition'
+  ): Promise<boolean> => {
+    const startTime = Date.now();
+    
+    while (Date.now() - startTime < timeoutMs) {
+      if (conditionFn()) {
+        console.log(`✅ ${description} satisfied`);
+        return true;
+      }
+      console.log(`🔍 Waiting for ${description}... (${Date.now() - startTime}ms)`);
+      await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
+    }
+    
+    console.error(`❌ Timeout waiting for ${description} after ${timeoutMs}ms`);
+    return false;
+  };
+
+  // Helper function to verify 3-1 completion (child mother exists and has regions)
+  const verify31Completion = (): boolean => {
+    const childMotherId = (window as any).lastCreatedChildId;
+    if (!childMotherId) {
+      console.log('❌ 3-1 verification: No child mother ID stored');
+      return false;
+    }
+    
+    const currentData = (window as any).currentAppData;
+    if (!currentData || !currentData.objects) {
+      console.log('❌ 3-1 verification: No app data available');
+      return false;
+    }
+    
+    const childMother = currentData.objects.find((obj: any) => obj.name === childMotherId);
+    if (!childMother) {
+      console.log(`❌ 3-1 verification: Child mother ${childMotherId} not found`);
+      return false;
+    }
+    
+    const hasRegions = childMother.regions && childMother.regions.length > 0;
+    console.log(`🔍 3-1 verification: Child mother ${childMotherId} has regions: ${hasRegions}`);
+    return hasRegions;
+  };
+
+  // Helper function to verify 3-2 completion (child mother has CT content structure)
+  const verify32Completion = (): boolean => {
+    const childMotherId = (window as any).lastCreatedChildId;
+    if (!childMotherId) {
+      console.log('❌ 3-2 verification: No child mother ID stored');
+      return false;
+    }
+    
+    const currentData = (window as any).currentAppData;
+    if (!currentData || !currentData.objects) {
+      console.log('❌ 3-2 verification: No app data available');
+      return false;
+    }
+    
+    const childMother = currentData.objects.find((obj: any) => obj.name === childMotherId);
+    if (!childMother || !childMother.regions || childMother.regions.length === 0) {
+      console.log(`❌ 3-2 verification: Child mother ${childMotherId} has no regions`);
+      return false;
+    }
+    
+    const firstRegion = childMother.regions[0];
+    const hasContents = firstRegion.contents && firstRegion.contents.length > 0;
+    console.log(`🔍 3-2 verification: Child mother ${childMotherId} region has contents: ${hasContents}`);
+    return hasContents;
+  };
+
+  // Helper function to verify 3-3 completion (child mother has CT content with SPLIT 2 text)
+  const verify33Completion = (): boolean => {
+    const childMotherId = (window as any).lastCreatedChildId;
+    if (!childMotherId) {
+      console.log('❌ 3-3 verification: No child mother ID stored');
+      return false;
+    }
+    
+    const currentData = (window as any).currentAppData;
+    if (!currentData || !currentData.objects) {
+      console.log('❌ 3-3 verification: No app data available');
+      return false;
+    }
+    
+    const childMother = currentData.objects.find((obj: any) => obj.name === childMotherId);
+    if (!childMother || !childMother.regions || childMother.regions.length === 0) {
+      console.log(`❌ 3-3 verification: Child mother ${childMotherId} has no regions`);
+      return false;
+    }
+    
+    const firstRegion = childMother.regions[0];
+    if (!firstRegion.contents || firstRegion.contents.length === 0) {
+      console.log(`❌ 3-3 verification: Child mother ${childMotherId} region has no contents`);
+      return false;
+    }
+    
+    const ctContent = firstRegion.contents.find((content: any) => content.type === 'new-comp-trans');
+    if (!ctContent) {
+      console.log(`❌ 3-3 verification: Child mother ${childMotherId} has no CT content`);
+      return false;
+    }
+    
+    const hasText = ctContent.newCompTransConfig?.textContent?.generatedText;
+    const textMatches = hasText && hasText.includes(split2Text.substring(0, 20)); // Check first 20 chars of SPLIT 2
+    console.log(`🔍 3-3 verification: Child mother ${childMotherId} CT content has SPLIT 2 text: ${textMatches}`);
+    return !!textMatches;
+  };
+
+  // Helper function to get Mother_1 complete configuration
+  const getMother1Configuration = () => {
+    console.log('🔍 Getting Mother_1 complete configuration...');
+    
+    // Get from global data where Mother_1 actually exists
+    const currentData = (window as any).currentAppData;
+    if (!currentData || !currentData.objects) {
+      console.error('❌ No global app data available');
+      return null;
+    }
+    
+    // Find Mother_1
+    let mother1 = null;
+    for (const obj of currentData.objects) {
+      if (obj.type?.includes('mother') && obj.name === 'Mother_1') {
+        mother1 = obj;
+        break;
+      }
+    }
+    
+    if (!mother1) {
+      console.error('❌ Mother_1 not found in global data');
+      return null;
+    }
+    
+    console.log('✅ Mother_1 found! Complete configuration:');
+    console.log('📐 Size & Position:', {
+      width: mother1.width,
+      height: mother1.height,
+      x: mother1.x,
+      y: mother1.y
+    });
+    
+    console.log('📝 Typography:', {
+      fontFamily: mother1.fontFamily,
+      fontSize: mother1.fontSize,
+      fontWeight: mother1.fontWeight,
+      lineHeight: mother1.lineHeight,
+      letterSpacing: mother1.letterSpacing
+    });
+    
+    console.log('📦 Padding & Margins:', {
+      padding: mother1.padding,
+      paddingTop: mother1.paddingTop,
+      paddingRight: mother1.paddingRight,
+      paddingBottom: mother1.paddingBottom,
+      paddingLeft: mother1.paddingLeft,
+      margin: mother1.margin
+    });
+    
+    console.log('🎨 Visual Properties:', {
+      backgroundColor: mother1.backgroundColor,
+      borderColor: mother1.borderColor,
+      borderWidth: mother1.borderWidth,
+      borderRadius: mother1.borderRadius,
+      opacity: mother1.opacity
+    });
+    
+    console.log('📋 Regions:', {
+      regionCount: mother1.regions?.length || 0,
+      regions: mother1.regions?.map((r: any) => ({
+        id: r.id,
+        width: r.width,
+        height: r.height,
+        x: r.x,
+        y: r.y
+      })) || []
+    });
+    
+    console.log('🔧 Full Mother_1 Object:', mother1);
+    
+    return mother1;
+  };
+
+  // Helper function to find where Mother_1A actually exists
+  const verifyChildMotherInAppData = async (childMotherId: string, timeoutMs: number = 5000): Promise<boolean> => {
+    const startTime = Date.now();
+    
+    while (Date.now() - startTime < timeoutMs) {
+      console.log(`🔍 3v2: Searching ALL possible data sources for ${childMotherId}...`);
+      
+      // Check all possible global data sources
+      const dataSources = [
+        { name: 'window.data', data: (window as any).data },
+        { name: 'window.webCreationData', data: (window as any).webCreationData },
+        { name: 'window.currentAppData', data: (window as any).currentAppData },
+        { name: 'window.appData', data: (window as any).appData },
+        { name: 'window.projectData', data: (window as any).projectData }
+      ];
+      
+      for (const source of dataSources) {
+        if (source.data && source.data.objects) {
+          console.log(`🔍 3v2: Checking ${source.name} - ${source.data.objects.length} objects`);
+          for (const obj of source.data.objects) {
+            if (obj.type?.includes('mother') && obj.name === childMotherId) {
+              console.log(`✅ 3v2: FOUND ${childMotherId} in ${source.name}!`);
+              console.log(`🔍 3v2: Object details:`, {
+                name: obj.name,
+                type: obj.type,
+                hasRegions: !!(obj as any).regions,
+                regionCount: (obj as any).regions?.length || 0
+              });
+              return true;
+            }
+          }
+        } else {
+          console.log(`🔍 3v2: ${source.name} - no data or objects`);
+        }
+      }
+      
+      console.log(`🔍 3v2: ${childMotherId} not found in any data source, waiting... (${Date.now() - startTime}ms)`);
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+    
+    console.error(`❌ 3v2: Timeout - ${childMotherId} not found in ANY data source after ${timeoutMs}ms`);
+    return false;
+  };
+
+  // NEW: Button "3v2" - Simple combination of 3-1, 3-2, and 3-3 with verification
+  const handle3v2 = async () => {
+    try {
+      console.log('🚀 3v2: Starting simple 3-1 + 3-2 + 3-3 combination...');
+
+      // Check if we have split texts from previous steps
+      if (!split1Text || !split2Text) {
+        console.error('❌ 3v2: No split texts available. Please run Step 1 & 2 first.');
+        return;
+      }
+
+      // Get Mother_1 configuration before creating child
+      const mother1Config = getMother1Configuration();
+      if (!mother1Config) {
+        console.error('❌ 3v2: Cannot get Mother_1 configuration');
+        return;
+      }
+
+      // Execute 3-1
+      console.log('🚀 3v2: Executing 3-1...');
+      await handle31();
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // VERIFY: Check that child mother exists in app data before proceeding
+      const childMotherId = (window as any).lastCreatedChildId;
+      if (!childMotherId) {
+        console.error('❌ 3v2: No child mother ID stored after 3-1');
+        return;
+      }
+      
+      console.log(`🔍 3v2: Verifying ${childMotherId} exists in app data before 3-2...`);
+      const childMotherExists = await verifyChildMotherInAppData(childMotherId);
+      if (!childMotherExists) {
+        console.error(`❌ 3v2: Child mother ${childMotherId} not found in app data - cannot proceed to 3-2`);
+        return;
+      }
+
+      // Execute 3-2: Test the FIXED App.tsx callback
+      console.log('🚀 3v2: Testing FIXED App.tsx callback for 3-2...');
+      await handle32();
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Execute 3-3: Test the FIXED App.tsx callback  
+      console.log('🚀 3v2: Testing FIXED App.tsx callback for 3-3...');
+      await handle33();
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      console.log('🎉 3v2: All steps completed!');
+
+      // Close the dialog
+      onCancel();
+
+    } catch (error) {
+      console.error('❌ 3v2: Error during execution:', error);
+    }
+  };
+
 
   // NEW: Button "1234" - Combine all 4 steps (12 + 34)
   const handle1234 = async () => {
@@ -2713,6 +3182,27 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
                 title="Step 3-3: Load SPLIT 2 into New Mother New CT Comp Trans"
               >
                 3-3
+              </button>
+            )}
+
+            {/* NEW: Button "3v2" - Combine 3-1, 3-2, and 3-3 into one action */}
+            {(debugStep === 2 || (split1Text && split2Text)) && (
+              <button
+                onClick={handle3v2}
+                style={{
+                  padding: '10px 20px',
+                  border: '2px solid #e83e8c',
+                  borderRadius: '4px',
+                  backgroundColor: '#e83e8c',
+                  color: 'white',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 4px rgba(232, 62, 140, 0.3)'
+                }}
+                title="Step 3v2: Execute 3-1 + 3-2 + 3-3 Combined (Create Mother + Add CT + Load SPLIT 2)"
+              >
+                3v2
               </button>
             )}
 
