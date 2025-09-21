@@ -1764,6 +1764,83 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     return false;
   };
 
+  // NEW: Button "4/4" - Same as "1/2" (handle12) plus duplicate mother_1 to create mother_1A
+  const handle44 = async () => {
+    try {
+      console.log('🚀 4/4: Starting Step 1 & 2 + Duplicate Mother...');
+
+      // STEP 1: Calculate Splits
+      console.log('🔧 4/4 - Step 1: Calculate Splits');
+      const overflowResult = detectOverflowAndSplit();
+      setSplit1Text(overflowResult.originalText);
+      setSplit2Text(overflowResult.overflowText);
+      console.log(`📝 SPLIT 1 (${overflowResult.originalText.length} chars):`, overflowResult.originalText.substring(0, 50) + '...');
+      console.log(`📝 SPLIT 2 (${overflowResult.overflowText.length} chars):`, overflowResult.overflowText.substring(0, 50) + '...');
+      setDebugStep(1);
+
+      // STEP 2: Fill Parent (SPLIT 1)
+      console.log('🔧 4/4 - Step 2: Fill Parent (SPLIT 1)');
+      const debugConfig = {
+        ...config,
+        textContent: {
+          ...config.textContent,
+          generatedText: overflowResult.originalText
+        }
+      };
+      setConfig(debugConfig);
+      (window as any).debugModeActive = true;
+      onSave(debugConfig);
+      setDebugStep(2);
+
+      // Wait a moment for the save to process
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // STEP 3: Find parent mother and duplicate it to create Mother_1A
+      console.log('🔧 4/4 - Step 3: Duplicating Mother_1 to create Mother_1A');
+      
+      // Find the correct parent mother by searching which mother contains this regionId
+      let parentMotherId = 'Mother_1'; // Default fallback
+      const globalData = (window as any).currentAppData;
+      if (globalData && globalData.objects) {
+        console.log(`🔍 4/4: Searching ${globalData.objects.length} objects for region ${regionId}...`);
+        for (const obj of globalData.objects) {
+          if (obj.type?.includes('mother') && obj.regions) {
+            for (const region of obj.regions) {
+              if (region.id === regionId) {
+                parentMotherId = obj.name;
+                console.log(`✅ 4/4: Found region ${regionId} in mother: ${parentMotherId}`);
+                break;
+              }
+            }
+            if (parentMotherId !== 'Mother_1') break; // Found it, stop searching
+          }
+        }
+      }
+      console.log(`🔍 4/4: Using parent mother: ${parentMotherId}`);
+      
+      // Create child mother (Mother_1A) structure
+      if (createChildMother) {
+        const childMotherId = createChildMother(parentMotherId);
+        if (childMotherId) {
+          console.log(`✅ 4/4: Child mother created: ${childMotherId} (Mother_1A)`);
+          // Store the child ID for potential later use
+          (window as any).lastCreatedChildId = childMotherId;
+        } else {
+          console.error('❌ 4/4: Failed to create child mother structure');
+          return;
+        }
+      } else {
+        console.error('❌ 4/4: createChildMother function not available');
+        return;
+      }
+
+      console.log('🎉 4/4: Completed! Mother_1 has SPLIT 1 text and Mother_1A created');
+
+    } catch (error) {
+      console.error('❌ 4/4: Error during execution:', error);
+    }
+  };
+
   // NEW: Button "3v2" - Simple combination of 3-1, 3-2, and 3-3 with verification
   const handle3v2 = async (providedSplit1Text?: string, providedSplit2Text?: string) => {
     try {
@@ -3220,17 +3297,40 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
                 disabled={!canSave()}
                 style={{
                   padding: '10px 20px',
-                  border: '2px solid #007bff',
+                  border: '2px solid #17a2b8',
                   borderRadius: '4px',
-                  backgroundColor: canSave() ? '#007bff' : '#ccc',
+                  backgroundColor: canSave() ? '#17a2b8' : '#ccc',
                   color: canSave() ? 'white' : '#666',
                   fontSize: '14px',
                   fontWeight: '600',
-                  cursor: canSave() ? 'pointer' : 'not-allowed'
+                  cursor: canSave() ? 'pointer' : 'not-allowed',
+                  boxShadow: canSave() ? '0 2px 4px rgba(23, 162, 184, 0.3)' : 'none'
                 }}
                 title="Execute Step 1 & 2: Calculate Splits + Fill Parent"
               >
                 12
+              </button>
+            )}
+
+            {/* NEW: Button "4/4" - Same as 1/2 plus duplicate Mother_1 to create Mother_1A */}
+            {hasOverflow && debugStep === 0 && (
+              <button
+                onClick={handle44}
+                disabled={!canSave()}
+                style={{
+                  padding: '10px 20px',
+                  border: '2px solid #ff8c00',
+                  borderRadius: '4px',
+                  backgroundColor: canSave() ? '#ff8c00' : '#ccc',
+                  color: canSave() ? 'white' : '#666',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: canSave() ? 'pointer' : 'not-allowed',
+                  boxShadow: canSave() ? '0 2px 4px rgba(255, 140, 0, 0.3)' : 'none'
+                }}
+                title="Execute Step 1 & 2 + Duplicate Mother_1 to create Mother_1A"
+              >
+                4/4
               </button>
             )}
 
