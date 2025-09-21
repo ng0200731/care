@@ -118,7 +118,8 @@ interface NewCompTransDialogProps {
   existingCompositions?: MaterialComposition[][]; // Array of existing composition arrays from other regions
   onSave: (config: NewCompTransConfig) => void;
   onCancel: () => void;
-  onCreateNewMother?: (originalText: string, overflowText: string) => void; // New callback for mother creation
+  onCreateNewMother?: (childMotherId: string, textContent: string) => void; // Add content to existing child mother
+  createChildMother?: (parentMotherId: string) => string; // Create child mother structure, returns child ID
 }
 
 const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
@@ -130,7 +131,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
   existingCompositions = [],
   onSave,
   onCancel,
-  onCreateNewMother
+  onCreateNewMother,
+  createChildMother
 }) => {
   const [config, setConfig] = useState<NewCompTransConfig>({
     padding: {
@@ -1216,10 +1218,10 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     }
   };
 
-  // NEW: Button "3-1" - Create New Mother with Parent Configuration + Region 1 (NO CONTENT)
+  // NEW: Button "3-1" - Create Child Mother Structure Only
   const handle31 = async () => {
     try {
-      console.log('🚀 3-1: Creating new mother with parent configuration + region 1...');
+      console.log('🚀 3-1: Creating child mother structure...');
 
       // Check if we have split texts from previous steps
       if (!split1Text || !split2Text) {
@@ -1227,98 +1229,65 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         return;
       }
 
-      console.log('🔧 3-1: Creating mother structure ONLY (configuration, size, width, padding, font family, font size, line spacing) with empty region 1');
-      console.log('📝 3-1: Parent config to copy:', {
-        padding: config.padding,
-        typography: config.typography,
-        alignment: config.alignment,
-        lineBreakSettings: config.lineBreakSettings
-      });
-
-      // Step 3-1: Create mother structure + region 1 but NO content
-      // We need to create a modified version that doesn't add content
-      if (onCreateNewMother) {
-        // Call with empty strings to create structure without content
-        onCreateNewMother('', '');
-        console.log('✅ 3-1: Mother structure + region 1 created (no content yet)');
+      console.log('🔧 3-1: Creating child mother structure (configuration, size, width, padding, font family, font size, line spacing) with empty region 1');
+      
+      // Step 3-1: Create child mother structure only
+      if (createChildMother) {
+        const childMotherId = createChildMother('Mother_1'); // Assuming parent is Mother_1
+        if (childMotherId) {
+          console.log(`✅ 3-1: Child mother structure created: ${childMotherId}`);
+          // Store the child ID for later steps
+          (window as any).lastCreatedChildId = childMotherId;
+        } else {
+          console.error('❌ 3-1: Failed to create child mother structure');
+          return;
+        }
       } else {
-        console.error('❌ 3-1: onCreateNewMother function not available');
+        console.error('❌ 3-1: createChildMother function not available');
         return;
       }
 
-      console.log('🎉 3-1: New mother with parent configuration + empty region 1 completed!');
+      console.log('🎉 3-1: Child mother structure creation completed!');
 
     } catch (error) {
       console.error('❌ 3-1: Error during execution:', error);
     }
   };
 
-  // NEW: Button "3-2" - Place New CT Comp Trans in Region 1
+  // NEW: Button "3-2" - Place New CT Comp Trans in Child Mother
   const handle32 = async () => {
     try {
-      console.log('🚀 3-2: Placing new CT comp trans in region 1...');
+      console.log('🚀 3-2: Placing new CT comp trans in child mother...');
 
-      // Find the latest child mother created by 3-1
-      const currentData = (window as any).currentAppData;
-      if (!currentData || !currentData.objects) {
-        console.error('❌ 3-2: No app data available');
+      // Get the child mother ID from previous step
+      const childMotherId = (window as any).lastCreatedChildId;
+      if (!childMotherId) {
+        console.error('❌ 3-2: No child mother ID found. Please run step 3-1 first.');
         return;
       }
 
-      const childMothers = currentData.objects.filter((obj: any) => 
-        obj.name && obj.name.includes('Mother_')
-      );
+      console.log('🔧 3-2: Adding CT comp trans to child mother:', childMotherId);
       
-      if (childMothers.length === 0) {
-        console.error('❌ 3-2: No child mother found. Please run step 3-1 first.');
-        return;
-      }
-
-      const latestChild = childMothers[childMothers.length - 1];
-      console.log('🔧 3-2: Adding new CT comp trans to child mother:', latestChild.name);
-
-      if (latestChild.regions && latestChild.regions[0]) {
-        const region = latestChild.regions[0];
-        console.log('🔧 3-2: Target region:', region.id);
-
-        // Step 3-2: Create new comp trans content in the region
-        // This simulates adding a new-comp-trans content object to the region
-        const newCompTransContent = {
-          id: `new-comp-trans-${Date.now()}`,
-          type: 'new-comp-trans',
-          newCompTransConfig: {
-            ...config,
-            textContent: {
-              ...config.textContent,
-              generatedText: '' // Empty for now, will be filled in 3-3
-            }
-          }
-        };
-
-        // Add content to region (simulated)
-        if (!region.contents) {
-          region.contents = [];
-        }
-        region.contents.push(newCompTransContent);
-        
-        console.log('✅ 3-2: New CT comp trans placed in region 1 (empty content)');
-        console.log('🔍 3-2: Region now has', region.contents.length, 'content items');
+      // Step 3-2: Add CT comp trans to child mother with empty content
+      if (onCreateNewMother) {
+        onCreateNewMother(childMotherId, ''); // Empty content for now
+        console.log('✅ 3-2: CT comp trans added to child mother (empty content)');
       } else {
-        console.error('❌ 3-2: No region 1 found in child mother');
+        console.error('❌ 3-2: onCreateNewMother function not available');
         return;
       }
 
-      console.log('🎉 3-2: New CT comp trans placement completed!');
+      console.log('🎉 3-2: CT comp trans placement completed!');
 
     } catch (error) {
       console.error('❌ 3-2: Error during execution:', error);
     }
   };
 
-  // NEW: Button "3-3" - Load SPLIT 2 into New Mother New CT Comp Trans
+  // NEW: Button "3-3" - Load SPLIT 2 into Child Mother CT Comp Trans
   const handle33 = async () => {
     try {
-      console.log('🚀 3-3: Loading SPLIT 2 into new mother new CT comp trans...');
+      console.log('🚀 3-3: Loading SPLIT 2 into child mother CT comp trans...');
 
       // Check if we have split texts
       if (!split1Text || !split2Text) {
@@ -1326,49 +1295,22 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         return;
       }
 
+      // Get the child mother ID from previous step
+      const childMotherId = (window as any).lastCreatedChildId;
+      if (!childMotherId) {
+        console.error('❌ 3-3: No child mother ID found. Please run steps 3-1 and 3-2 first.');
+        return;
+      }
+
       console.log(`📝 3-3: SPLIT 2 to load (${split2Text.length} chars):`, split2Text.substring(0, 50) + '...');
+      console.log('🔧 3-3: Loading SPLIT 2 into child mother:', childMotherId);
 
-      // Find the latest child mother and load SPLIT 2 into its content
-      const currentData = (window as any).currentAppData;
-      if (!currentData || !currentData.objects) {
-        console.error('❌ 3-3: No app data available');
-        return;
-      }
-
-      const childMothers = currentData.objects.filter((obj: any) => 
-        obj.name && obj.name.includes('Mother_')
-      );
-
-      if (childMothers.length === 0) {
-        console.error('❌ 3-3: No child mother found.');
-        return;
-      }
-
-      const latestChild = childMothers[childMothers.length - 1];
-      console.log('🔧 3-3: Loading SPLIT 2 into child mother:', latestChild.name);
-
-      if (latestChild.regions && latestChild.regions[0] && latestChild.regions[0].contents) {
-        const content = latestChild.regions[0].contents[0];
-        if (content && content.newCompTransConfig && content.newCompTransConfig.textContent) {
-          
-          // Step 3-3: Load SPLIT 2 into the content
-          content.newCompTransConfig.textContent.generatedText = split2Text;
-          
-          console.log('✅ 3-3: SPLIT 2 loaded into new CT comp trans!');
-          console.log(`🔍 3-3: Loaded text (${split2Text.length} chars):`, split2Text.substring(0, 50) + '...');
-          
-          // Trigger canvas re-render to show the updated content
-          if ((window as any).renderCanvas) {
-            (window as any).renderCanvas();
-            console.log('🎨 3-3: Canvas re-rendered with SPLIT 2 content');
-          }
-          
-        } else {
-          console.error('❌ 3-3: No new CT comp trans content found. Please run step 3-2 first.');
-          return;
-        }
+      // Step 3-3: Load SPLIT 2 into the child mother's CT comp trans
+      if (onCreateNewMother) {
+        onCreateNewMother(childMotherId, split2Text); // Load actual SPLIT 2 content
+        console.log('✅ 3-3: SPLIT 2 loaded into child mother CT comp trans!');
       } else {
-        console.error('❌ 3-3: No content found in child mother region. Please run step 3-2 first.');
+        console.error('❌ 3-3: onCreateNewMother function not available');
         return;
       }
 

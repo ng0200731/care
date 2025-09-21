@@ -6713,43 +6713,211 @@ function App() {
 
   };
 
-  // Function to handle mother duplication when text overflow occurs
-  const handleCreateNewMotherForOverflow = (originalText: string, overflowText: string) => {
-    console.log(`[v${packageJson.version}] 🚀 Creating child mother with SPLIT 1 and SPLIT 2...`);
+  // Function to create child mother structure only (Step 1)
+  const createChildMotherStructure = (parentMotherId: string): string => {
+    console.log(`🚀 Creating child mother structure from parent: ${parentMotherId}`);
 
-    // Find current mother and region
     const currentData = data || webCreationData;
-    if (!currentData) return;
-    
-    const activeRegionId = universalDialog.isOpen ? universalDialog.regionId : newCompTransDialog?.regionId || '';
-    let currentMother: AIObject | null = null;
-    
+    if (!currentData) {
+      console.error('❌ No current data available');
+      return '';
+    }
+
+    // Find parent mother by ID
+    let parentMother: AIObject | null = null;
     for (const obj of currentData.objects) {
-      if (obj.type?.includes('mother')) {
-        const regions = (obj as any).regions || [];
-        if (regions.find((r: any) => r.id === activeRegionId)) {
-          currentMother = obj;
-          break;
-        }
+      if (obj.type?.includes('mother') && obj.name === parentMotherId) {
+        parentMother = obj;
+        break;
       }
     }
 
-    if (!currentMother) return;
+    if (!parentMother) {
+      console.error(`❌ Parent mother not found: ${parentMotherId}`);
+      return '';
+    }
 
-    // originalText parameter already IS SPLIT 1 text from NewCompTransDialog
-    const split1Text = originalText; 
-    console.log(`[v${packageJson.version}] 📝 SPLIT 1 (${split1Text.length} chars) stays in Mother_1: "${split1Text.substring(0, 50)}..."`);
-    console.log(`[v${packageJson.version}] 📝 SPLIT 2 (${overflowText.length} chars) goes to Mother_2: "${overflowText.substring(0, 50)}..."`);
-    console.log(`[v${packageJson.version}] ℹ️ Parent content already saved with SPLIT 1 by dialog`);
+    // Find existing children of this specific parent
+    const existingChildren = currentData.objects.filter(obj => 
+      obj.type?.includes('mother') && 
+      obj.name?.startsWith(parentMotherId) && 
+      obj.name !== parentMotherId
+    );
 
-    // Duplicate with SPLIT 2 text - all happens synchronously
-    duplicateMother(currentMother, { 
-      split2Text: overflowText, 
-      sourceRegionId: activeRegionId 
+    // Extract letter suffixes (A, B, C...)
+    const childLetters = existingChildren
+      .map(child => child.name.replace(parentMotherId, ''))
+      .filter(suffix => /^[A-Z]$/.test(suffix))
+      .sort();
+
+    // Generate next letter
+    const nextLetter = childLetters.length === 0 ? 'A' : 
+      String.fromCharCode(childLetters[childLetters.length - 1].charCodeAt(0) + 1);
+
+    const childMotherId = `${parentMotherId}${nextLetter}`;
+
+    console.log(`🔢 Generated child mother ID: ${childMotherId}`);
+
+    // Copy all regions from parent mother
+    const originalRegions = (parentMother as any).regions || [];
+    const copiedRegions = originalRegions.map((region: any) => ({
+      ...region,
+      id: `${region.id}_copy_${childMotherId}` // Unique ID for copied region
+    }));
+
+    // Calculate position for new mother
+    const motherObjects = currentData.objects.filter(obj => obj.type?.includes('mother'));
+    const spacing = 20;
+    let maxRightX = 0;
+    motherObjects.forEach(mother => {
+      const rightEdge = mother.x + mother.width;
+      if (rightEdge > maxRightX) {
+        maxRightX = rightEdge;
+      }
     });
 
-    console.log(`[v${packageJson.version}] ✅ Both mothers updated - Parent: SPLIT 1, Child: SPLIT 2`);
-    setNotification('✅ Text split between parent and child mothers');
+    const newX = maxRightX + spacing;
+    const newY = parentMother.y;
+
+    // Create new child mother structure
+    const newMother: AIObject = {
+      name: childMotherId,
+      type: 'mother',
+      x: newX,
+      y: newY,
+      width: parentMother.width,
+      height: parentMother.height,
+      typename: 'mother',
+      margins: (parentMother as any).margins,
+      sewingPosition: (parentMother as any).sewingPosition,
+      sewingOffset: (parentMother as any).sewingOffset,
+      midFoldLine: (parentMother as any).midFoldLine,
+      regions: copiedRegions,
+      parentMotherId: parentMotherId
+    } as any;
+
+    // Add parent-child relationship
+    (parentMother as any).childMotherIds = (parentMother as any).childMotherIds || [];
+    (parentMother as any).childMotherIds.push(childMotherId);
+
+    // Add to objects array
+    const updatedObjects = [...currentData.objects, newMother];
+    const updatedData = {
+      ...currentData,
+      objects: updatedObjects,
+      totalObjects: updatedObjects.length
+    };
+
+    // Update state
+    setData(updatedData);
+    if (webCreationData) {
+      setWebCreationData(updatedData);
+    }
+
+    console.log(`✅ Child mother structure created: ${childMotherId}`);
+    return childMotherId;
+  };
+
+  // Function to add CT comp trans content to existing child mother (Step 2)
+  const handleCreateNewMotherForOverflow = (childMotherId: string, textContent: string) => {
+    console.log(`[v${packageJson.version}] 🚀 Adding CT comp trans to child mother: ${childMotherId}`);
+
+    const currentData = data || webCreationData;
+    if (!currentData) {
+      console.error('❌ No current data available');
+      return;
+    }
+
+    // Find child mother by ID
+    let childMother: AIObject | null = null;
+    for (const obj of currentData.objects) {
+      if (obj.type?.includes('mother') && obj.name === childMotherId) {
+        childMother = obj;
+        break;
+      }
+    }
+
+    if (!childMother) {
+      console.error(`❌ Child mother not found: ${childMotherId}`);
+      return;
+    }
+
+    console.log(`[v${packageJson.version}] 📝 Adding text content (${textContent.length} chars): "${textContent.substring(0, 50)}..."`);
+
+    // Get the first region of the child mother
+    const firstRegion = (childMother as any).regions?.[0];
+    if (!firstRegion) {
+      console.error(`❌ No regions found in child mother: ${childMotherId}`);
+      return;
+    }
+
+    // Find parent mother to get original content configuration
+    const parentMotherId = (childMother as any).parentMotherId;
+    let parentMother: AIObject | null = null;
+    for (const obj of currentData.objects) {
+      if (obj.type?.includes('mother') && obj.name === parentMotherId) {
+        parentMother = obj;
+        break;
+      }
+    }
+
+    if (!parentMother) {
+      console.error(`❌ Parent mother not found: ${parentMotherId}`);
+      return;
+    }
+
+    // Find parent's region content to copy configuration
+    const parentRegions = (parentMother as any).regions || [];
+    let sourceRegionId = '';
+    for (const region of parentRegions) {
+      const contents = regionContents.get(region.id) || [];
+      if (contents.find((c: any) => c.type === 'new-comp-trans')) {
+        sourceRegionId = region.id;
+        break;
+      }
+    }
+
+    if (!sourceRegionId) {
+      console.error(`❌ No source region with CT comp trans found in parent`);
+      return;
+    }
+
+    // Get original content to copy configuration
+    const originalContents = regionContents.get(sourceRegionId) || [];
+    const originalContent = originalContents.find((c: any) => c.type === 'new-comp-trans');
+    
+    if (!originalContent) {
+      console.error(`❌ No original CT comp trans content found`);
+      return;
+    }
+
+    console.log(`[v${packageJson.version}] 🧬 Creating child content with text...`);
+    
+    // Create new content with same composition but new text
+    const childContent = {
+      ...originalContent, // Copy everything (materials, languages, typography, etc.)
+      id: `child_${Date.now()}`, // New ID
+      regionId: firstRegion.id, // New region ID
+      content: { 
+        ...originalContent.content, 
+        text: textContent // Only the text content
+      },
+      newCompTransConfig: {
+        ...originalContent.newCompTransConfig,
+        textContent: { 
+          ...originalContent.newCompTransConfig?.textContent, 
+          generatedText: textContent // Only the text content
+        }
+      }
+    };
+    
+    // Add to child region
+    const updatedContents = new Map(regionContents);
+    updatedContents.set(firstRegion.id, [childContent]);
+    setRegionContents(updatedContents);
+    
+    console.log(`[v${packageJson.version}] ✅ Child mother content added with text!`);
+    setNotification(`✅ Content added to ${childMotherId}`);
     setTimeout(() => setNotification(null), 2000);
   };
 
@@ -16404,6 +16572,7 @@ function App() {
             onSave={handleUniversalContentSave}
             onCancel={handleUniversalContentCancel}
             onCreateNewMother={handleCreateNewMotherForOverflow}
+            createChildMother={createChildMotherStructure}
           />
         );
       })()}
@@ -17165,6 +17334,7 @@ function App() {
           onSave={handleNewCompTransSave}
           onCancel={handleNewCompTransCancel}
           onCreateNewMother={handleCreateNewMotherForOverflow}
+          createChildMother={createChildMotherStructure}
         />
       )}
 

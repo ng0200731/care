@@ -63,7 +63,8 @@ interface UniversalContentDialogProps {
   masterPropertiesVersion?: number; // Add version number to trigger updates
   onSave: (data: UniversalContentData) => void;
   onCancel: () => void;
-  onCreateNewMother?: (originalText: string, overflowText: string) => void; // New callback for mother creation
+  onCreateNewMother?: (childMotherId: string, textContent: string) => void; // Add content to existing child mother
+  createChildMother?: (parentMotherId: string) => string; // Create child mother structure, returns child ID
 }
 
 const fontFamilies = [
@@ -89,7 +90,8 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
   masterPropertiesVersion,
   onSave,
   onCancel,
-  onCreateNewMother
+  onCreateNewMother,
+  createChildMother
 }) => {
   // Dragging state
   const [isDragging, setIsDragging] = useState(false);
@@ -1259,6 +1261,7 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
               }}
               onCancel={onCancel}
               onCreateNewMother={onCreateNewMother}
+              createChildMother={createChildMother}
             />
             </div>
           )}
