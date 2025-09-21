@@ -1186,7 +1186,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     }
   };
 
-  // NEW: Button "34" - Combine Step 3 & Step 4
+  // NEW: Button "34" - Combine Step 3 & Step 4 (EXACT COPY of manual steps)
   const handle34 = async () => {
     try {
       console.log('🚀 34: Starting Step 3 & 4...');
@@ -1197,22 +1197,239 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         return;
       }
 
-      // STEP 3: Duplicate Mother (EXACT COPY from debugStep === 2)
-      console.log('🔧 34 - Step 3: Duplicate Mother');
+      // STEP 3: EXACT COPY from debugStep === 2
+      console.log(`🔧 [DEBUG] Step 3 - Duplicating parent mother with current text`);
       if (onCreateNewMother) {
         onCreateNewMother(split1Text, split2Text);
       }
       setDebugStep(3);
 
-      // STEP 4: Replace Child (SPLIT 2) (EXACT COPY from debugStep === 3)
-      console.log('🔧 34 - Step 4: Replace Child (SPLIT 2)');
-      console.log(`📝 Child mother now has SPLIT 2:`, split2Text.substring(0, 50) + '...');
-      setDebugStep(4);
+      // STEP 4: EXACT COPY from debugStep === 3
+      console.log(`🔧 [DEBUG] Step 4 - Child mother should now have SPLIT 2:`, split2Text.substring(0, 50) + '...');
+      console.log(`🔧 [DEBUG] All steps completed!`);
+      setDebugStep(4); // Mark as completed, don't reset yet
 
       console.log('🎉 34: Step 3 & 4 completed successfully!');
 
     } catch (error) {
       console.error('❌ 34: Error during execution:', error);
+    }
+  };
+
+  // NEW: Button "3-1" - Create New Mother with Parent Configuration + Region 1 (NO CONTENT)
+  const handle31 = async () => {
+    try {
+      console.log('🚀 3-1: Creating new mother with parent configuration + region 1...');
+
+      // Check if we have split texts from previous steps
+      if (!split1Text || !split2Text) {
+        console.error('❌ 3-1: No split texts available. Please run Step 1 & 2 first.');
+        return;
+      }
+
+      console.log('🔧 3-1: Creating mother structure ONLY (configuration, size, width, padding, font family, font size, line spacing) with empty region 1');
+      console.log('📝 3-1: Parent config to copy:', {
+        padding: config.padding,
+        typography: config.typography,
+        alignment: config.alignment,
+        lineBreakSettings: config.lineBreakSettings
+      });
+
+      // Step 3-1: Create mother structure + region 1 but NO content
+      // We need to create a modified version that doesn't add content
+      if (onCreateNewMother) {
+        // Call with empty strings to create structure without content
+        onCreateNewMother('', '');
+        console.log('✅ 3-1: Mother structure + region 1 created (no content yet)');
+      } else {
+        console.error('❌ 3-1: onCreateNewMother function not available');
+        return;
+      }
+
+      console.log('🎉 3-1: New mother with parent configuration + empty region 1 completed!');
+
+    } catch (error) {
+      console.error('❌ 3-1: Error during execution:', error);
+    }
+  };
+
+  // NEW: Button "3-2" - Place New CT Comp Trans in Region 1
+  const handle32 = async () => {
+    try {
+      console.log('🚀 3-2: Placing new CT comp trans in region 1...');
+
+      // Find the latest child mother created by 3-1
+      const currentData = (window as any).currentAppData;
+      if (!currentData || !currentData.objects) {
+        console.error('❌ 3-2: No app data available');
+        return;
+      }
+
+      const childMothers = currentData.objects.filter((obj: any) => 
+        obj.name && obj.name.includes('Mother_')
+      );
+      
+      if (childMothers.length === 0) {
+        console.error('❌ 3-2: No child mother found. Please run step 3-1 first.');
+        return;
+      }
+
+      const latestChild = childMothers[childMothers.length - 1];
+      console.log('🔧 3-2: Adding new CT comp trans to child mother:', latestChild.name);
+
+      if (latestChild.regions && latestChild.regions[0]) {
+        const region = latestChild.regions[0];
+        console.log('🔧 3-2: Target region:', region.id);
+
+        // Step 3-2: Create new comp trans content in the region
+        // This simulates adding a new-comp-trans content object to the region
+        const newCompTransContent = {
+          id: `new-comp-trans-${Date.now()}`,
+          type: 'new-comp-trans',
+          newCompTransConfig: {
+            ...config,
+            textContent: {
+              ...config.textContent,
+              generatedText: '' // Empty for now, will be filled in 3-3
+            }
+          }
+        };
+
+        // Add content to region (simulated)
+        if (!region.contents) {
+          region.contents = [];
+        }
+        region.contents.push(newCompTransContent);
+        
+        console.log('✅ 3-2: New CT comp trans placed in region 1 (empty content)');
+        console.log('🔍 3-2: Region now has', region.contents.length, 'content items');
+      } else {
+        console.error('❌ 3-2: No region 1 found in child mother');
+        return;
+      }
+
+      console.log('🎉 3-2: New CT comp trans placement completed!');
+
+    } catch (error) {
+      console.error('❌ 3-2: Error during execution:', error);
+    }
+  };
+
+  // NEW: Button "3-3" - Load SPLIT 2 into New Mother New CT Comp Trans
+  const handle33 = async () => {
+    try {
+      console.log('🚀 3-3: Loading SPLIT 2 into new mother new CT comp trans...');
+
+      // Check if we have split texts
+      if (!split1Text || !split2Text) {
+        console.error('❌ 3-3: No split texts available.');
+        return;
+      }
+
+      console.log(`📝 3-3: SPLIT 2 to load (${split2Text.length} chars):`, split2Text.substring(0, 50) + '...');
+
+      // Find the latest child mother and load SPLIT 2 into its content
+      const currentData = (window as any).currentAppData;
+      if (!currentData || !currentData.objects) {
+        console.error('❌ 3-3: No app data available');
+        return;
+      }
+
+      const childMothers = currentData.objects.filter((obj: any) => 
+        obj.name && obj.name.includes('Mother_')
+      );
+
+      if (childMothers.length === 0) {
+        console.error('❌ 3-3: No child mother found.');
+        return;
+      }
+
+      const latestChild = childMothers[childMothers.length - 1];
+      console.log('🔧 3-3: Loading SPLIT 2 into child mother:', latestChild.name);
+
+      if (latestChild.regions && latestChild.regions[0] && latestChild.regions[0].contents) {
+        const content = latestChild.regions[0].contents[0];
+        if (content && content.newCompTransConfig && content.newCompTransConfig.textContent) {
+          
+          // Step 3-3: Load SPLIT 2 into the content
+          content.newCompTransConfig.textContent.generatedText = split2Text;
+          
+          console.log('✅ 3-3: SPLIT 2 loaded into new CT comp trans!');
+          console.log(`🔍 3-3: Loaded text (${split2Text.length} chars):`, split2Text.substring(0, 50) + '...');
+          
+          // Trigger canvas re-render to show the updated content
+          if ((window as any).renderCanvas) {
+            (window as any).renderCanvas();
+            console.log('🎨 3-3: Canvas re-rendered with SPLIT 2 content');
+          }
+          
+        } else {
+          console.error('❌ 3-3: No new CT comp trans content found. Please run step 3-2 first.');
+          return;
+        }
+      } else {
+        console.error('❌ 3-3: No content found in child mother region. Please run step 3-2 first.');
+        return;
+      }
+
+      setDebugStep(4);
+      console.log('🎉 3-3: SPLIT 2 loading completed!');
+
+    } catch (error) {
+      console.error('❌ 3-3: Error during execution:', error);
+    }
+  };
+
+
+  // NEW: Button "1234" - Combine all 4 steps (12 + 34)
+  const handle1234 = async () => {
+    try {
+      console.log('🚀 1234: Starting all 4 steps in one click...');
+
+      // STEP 1: Calculate Splits (same as handle12 step 1)
+      console.log('🔧 1234 - Step 1: Calculate Splits');
+      const overflowResult = detectOverflowAndSplit();
+      const currentSplit1 = overflowResult.originalText;
+      const currentSplit2 = overflowResult.overflowText;
+      
+      // Update state for UI display
+      setSplit1Text(currentSplit1);
+      setSplit2Text(currentSplit2);
+      
+      console.log(`📝 SPLIT 1 (${currentSplit1.length} chars):`, currentSplit1.substring(0, 50) + '...');
+      console.log(`📝 SPLIT 2 (${currentSplit2.length} chars):`, currentSplit2.substring(0, 50) + '...');
+      setDebugStep(1);
+
+      // STEP 2: Fill Parent (same as handle12 step 2)
+      console.log('🔧 1234 - Step 2: Fill Parent (SPLIT 1)');
+      const debugConfig = {
+        ...config,
+        textContent: {
+          ...config.textContent,
+          generatedText: currentSplit1
+        }
+      };
+      setConfig(debugConfig);
+      (window as any).debugModeActive = true;
+      onSave(debugConfig);
+      setDebugStep(2);
+
+      // STEP 3: EXACT COPY from debugStep === 2
+      console.log(`🔧 [DEBUG] Step 3 - Duplicating parent mother with current text`);
+      if (onCreateNewMother) {
+        onCreateNewMother(currentSplit1, currentSplit2);
+      }
+      setDebugStep(3);
+
+      // STEP 4: EXACT COPY from debugStep === 3
+      console.log(`🔧 [DEBUG] Step 4 - Child mother should now have SPLIT 2:`, currentSplit2.substring(0, 50) + '...');
+      console.log(`🔧 [DEBUG] All steps completed!`);
+      setDebugStep(4); // Mark as completed, don't reset yet
+
+      console.log('🎉 1234: All 4 steps completed successfully!');
+
+    } catch (error) {
+      console.error('❌ 1234: Error during execution:', error);
     }
   };
 
@@ -2494,6 +2711,89 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
                 title="Execute Step 3 & 4: Duplicate Mother + Replace Child"
               >
                 34
+              </button>
+            )}
+
+            {/* NEW: Button "3-1" - Create New Mother with Parent Configuration */}
+            {debugStep === 2 && (split1Text && split2Text) && (
+              <button
+                onClick={handle31}
+                style={{
+                  padding: '8px 16px',
+                  border: '2px solid #fd7e14',
+                  borderRadius: '4px',
+                  backgroundColor: '#fd7e14',
+                  color: 'white',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+                title="Step 3-1: Create New Mother with Parent Configuration"
+              >
+                3-1
+              </button>
+            )}
+
+            {/* NEW: Button "3-2" - Place New CT Comp Trans in Region 1 */}
+            {debugStep === 2 && (split1Text && split2Text) && (
+              <button
+                onClick={handle32}
+                style={{
+                  padding: '8px 16px',
+                  border: '2px solid #20c997',
+                  borderRadius: '4px',
+                  backgroundColor: '#20c997',
+                  color: 'white',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+                title="Step 3-2: Place New CT Comp Trans in Region 1"
+              >
+                3-2
+              </button>
+            )}
+
+            {/* NEW: Button "3-3" - Load SPLIT 2 into New Mother New CT Comp Trans */}
+            {debugStep === 2 && (split1Text && split2Text) && (
+              <button
+                onClick={handle33}
+                style={{
+                  padding: '8px 16px',
+                  border: '2px solid #6f42c1',
+                  borderRadius: '4px',
+                  backgroundColor: '#6f42c1',
+                  color: 'white',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+                title="Step 3-3: Load SPLIT 2 into New Mother New CT Comp Trans"
+              >
+                3-3
+              </button>
+            )}
+
+
+            {/* NEW: Button "1234" - Combine all 4 steps */}
+            {hasOverflow && (
+              <button
+                onClick={handle1234}
+                disabled={!canSave()}
+                style={{
+                  padding: '12px 24px',
+                  border: '2px solid #6f42c1',
+                  borderRadius: '6px',
+                  backgroundColor: canSave() ? '#6f42c1' : '#ccc',
+                  color: canSave() ? 'white' : '#666',
+                  fontSize: '16px',
+                  fontWeight: '700',
+                  cursor: canSave() ? 'pointer' : 'not-allowed',
+                  boxShadow: canSave() ? '0 2px 4px rgba(111, 66, 193, 0.3)' : 'none'
+                }}
+                title="Execute all 4 steps: Calculate Splits → Fill Parent → Duplicate Mother → Replace Child"
+              >
+                1234
               </button>
             )}
 
