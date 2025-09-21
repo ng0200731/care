@@ -1151,6 +1151,71 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     }
   };
 
+  // NEW: Button "12" - Combine Step 1 & Step 2
+  const handle12 = async () => {
+    try {
+      console.log('🚀 12: Starting Step 1 & 2...');
+
+      // STEP 1: Calculate Splits
+      console.log('🔧 12 - Step 1: Calculate Splits');
+      const overflowResult = detectOverflowAndSplit();
+      setSplit1Text(overflowResult.originalText);
+      setSplit2Text(overflowResult.overflowText);
+      console.log(`📝 SPLIT 1 (${overflowResult.originalText.length} chars):`, overflowResult.originalText.substring(0, 50) + '...');
+      console.log(`📝 SPLIT 2 (${overflowResult.overflowText.length} chars):`, overflowResult.overflowText.substring(0, 50) + '...');
+      setDebugStep(1);
+
+      // STEP 2: Fill Parent (SPLIT 1)
+      console.log('🔧 12 - Step 2: Fill Parent (SPLIT 1)');
+      const debugConfig = {
+        ...config,
+        textContent: {
+          ...config.textContent,
+          generatedText: overflowResult.originalText
+        }
+      };
+      setConfig(debugConfig);
+      (window as any).debugModeActive = true;
+      onSave(debugConfig);
+      setDebugStep(2);
+
+      console.log('🎉 12: Step 1 & 2 completed successfully!');
+
+    } catch (error) {
+      console.error('❌ 12: Error during execution:', error);
+    }
+  };
+
+  // NEW: Button "34" - Combine Step 3 & Step 4
+  const handle34 = async () => {
+    try {
+      console.log('🚀 34: Starting Step 3 & 4...');
+
+      // Check if we have split texts from previous steps
+      if (!split1Text || !split2Text) {
+        console.error('❌ 34: No split texts available. Please run Step 1 & 2 first.');
+        return;
+      }
+
+      // STEP 3: Duplicate Mother (EXACT COPY from debugStep === 2)
+      console.log('🔧 34 - Step 3: Duplicate Mother');
+      if (onCreateNewMother) {
+        onCreateNewMother(split1Text, split2Text);
+      }
+      setDebugStep(3);
+
+      // STEP 4: Replace Child (SPLIT 2) (EXACT COPY from debugStep === 3)
+      console.log('🔧 34 - Step 4: Replace Child (SPLIT 2)');
+      console.log(`📝 Child mother now has SPLIT 2:`, split2Text.substring(0, 50) + '...');
+      setDebugStep(4);
+
+      console.log('🎉 34: Step 3 & 4 completed successfully!');
+
+    } catch (error) {
+      console.error('❌ 34: Error during execution:', error);
+    }
+  };
+
   const handleSave = async () => {
     // Always check for overflow to provide user feedback
     const overflowResult = detectOverflowAndSplit();
@@ -2388,6 +2453,47 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
                   debugStep === 3 ? 'Replace Child (SPLIT 2)' :
                   'Debug Complete'
                 }
+              </button>
+            )}
+
+            {/* NEW: Button "12" - Combine Step 1 & Step 2 */}
+            {hasOverflow && debugStep === 0 && (
+              <button
+                onClick={handle12}
+                disabled={!canSave()}
+                style={{
+                  padding: '10px 20px',
+                  border: '2px solid #007bff',
+                  borderRadius: '4px',
+                  backgroundColor: canSave() ? '#007bff' : '#ccc',
+                  color: canSave() ? 'white' : '#666',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: canSave() ? 'pointer' : 'not-allowed'
+                }}
+                title="Execute Step 1 & 2: Calculate Splits + Fill Parent"
+              >
+                12
+              </button>
+            )}
+
+            {/* NEW: Button "34" - Combine Step 3 & Step 4 */}
+            {(debugStep === 2 || debugStep === 3) && (split1Text && split2Text) && (
+              <button
+                onClick={handle34}
+                style={{
+                  padding: '10px 20px',
+                  border: '2px solid #28a745',
+                  borderRadius: '4px',
+                  backgroundColor: '#28a745',
+                  color: 'white',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+                title="Execute Step 3 & 4: Duplicate Mother + Replace Child"
+              >
+                34
               </button>
             )}
 
