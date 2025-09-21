@@ -6793,7 +6793,8 @@ function App() {
       sewingOffset: (parentMother as any).sewingOffset,
       midFoldLine: (parentMother as any).midFoldLine,
       regions: copiedRegions,
-      parentMotherId: parentMotherId
+      parentMotherId: parentMotherId,
+      isOverflowChild: true  // ✅ Mark as child mother to prevent editing
     } as any;
 
     // Add parent-child relationship
