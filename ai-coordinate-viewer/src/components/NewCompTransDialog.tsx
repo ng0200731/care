@@ -1918,6 +1918,283 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
   const handle33ButtonClick = () => handle33();
   const handle3v2ButtonClick = () => handle3v2();
 
+  // NEW: Button "FF" - Fast Flow: First save mother_1 with split1, then create mother_1A with split2
+  const handleFF = async () => {
+    try {
+      console.log('🚀 FF: Starting Fast Flow - step by step...');
+
+      // STEP 1: Calculate Splits (EXACT COPY of handle12)
+      console.log('🔧 FF - Step 1: Calculate Splits');
+      const overflowResult = detectOverflowAndSplit();
+      setSplit1Text(overflowResult.originalText);
+      setSplit2Text(overflowResult.overflowText);
+      console.log(`📝 SPLIT 1 (${overflowResult.originalText.length} chars):`, overflowResult.originalText.substring(0, 50) + '...');
+      console.log(`📝 SPLIT 2 (${overflowResult.overflowText.length} chars):`, overflowResult.overflowText.substring(0, 50) + '...');
+      setDebugStep(1);
+
+      // STEP 2: Fill Parent (SPLIT 1) - EXACT COPY of handle12
+      console.log('🟡🟡🟡 FF-DEBUG: Step 2 starting - Fill Parent (SPLIT 1)');
+      console.log('🟡🟡🟡 FF-DEBUG: split1Text length:', overflowResult.originalText.length);
+      console.log('🟡🟡🟡 FF-DEBUG: split1Text preview:', overflowResult.originalText.substring(0, 100));
+
+      const debugConfig = {
+        ...config,
+        textContent: {
+          ...config.textContent,
+          generatedText: overflowResult.originalText
+        }
+      };
+      setConfig(debugConfig);
+      (window as any).debugModeActive = true;
+
+      console.log('🟡🟡🟡 FF-DEBUG: About to call onSave() with split1Text');
+      onSave(debugConfig);
+      console.log('🟡🟡🟡 FF-DEBUG: onSave() called - mother_1 should now have SPLIT 1');
+      setDebugStep(2);
+
+      // Wait for mother_1 to be properly saved
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Verify mother_1 still has content before proceeding
+      console.log('🔴🔴🔴 FF-DEBUG: VERIFICATION - Checking mother_1 content...');
+      const currentAppData = (window as any).currentAppData;
+      if (currentAppData && currentAppData.objects) {
+        const mother1 = currentAppData.objects.find((obj: any) => obj.name === 'Mother_1');
+        console.log('🔴🔴🔴 FF-DEBUG: mother1 found:', !!mother1);
+
+        if (mother1 && mother1.regions) {
+          console.log('🔴🔴🔴 FF-DEBUG: mother1.regions length:', mother1.regions.length);
+          const targetRegion = mother1.regions.find((region: any) => region.id === regionId);
+          console.log('🔴🔴🔴 FF-DEBUG: targetRegion found:', !!targetRegion);
+          console.log('🔴🔴🔴 FF-DEBUG: regionId searching for:', regionId);
+
+          if (targetRegion) {
+            console.log('🔴🔴🔴 FF-DEBUG: targetRegion.contents length:', targetRegion.contents?.length || 0);
+            if (targetRegion.contents && targetRegion.contents.length > 0) {
+              const ctContent = targetRegion.contents.find((c: any) => c.type === 'new-comp-trans');
+              console.log('🔴🔴🔴 FF-DEBUG: CT content found:', !!ctContent);
+              if (ctContent) {
+                const textContent = ctContent.newCompTransConfig?.textContent?.generatedText;
+                console.log('🔴🔴🔴 FF-DEBUG: Text content length:', textContent?.length || 0);
+                console.log('🔴🔴🔴 FF-DEBUG: Text preview:', textContent?.substring(0, 50) || 'NO TEXT');
+                console.log('✅ FF: mother_1 content verified - proceeding with child creation');
+              } else {
+                console.log('🔴🔴🔴 FF-DEBUG: NO CT CONTENT FOUND!');
+              }
+            } else {
+              console.log('🔴🔴🔴 FF-DEBUG: NO CONTENTS IN TARGET REGION!');
+              console.warn('⚠️ FF: mother_1 content missing - will try to restore');
+              onSave(debugConfig);
+              await new Promise(resolve => setTimeout(resolve, 500));
+            }
+          } else {
+            console.log('🔴🔴🔴 FF-DEBUG: TARGET REGION NOT FOUND!');
+          }
+        } else {
+          console.log('🔴🔴🔴 FF-DEBUG: NO REGIONS IN MOTHER1!');
+        }
+      } else {
+        console.log('🔴🔴🔴 FF-DEBUG: NO APP DATA OR OBJECTS!');
+      }
+
+      // STEP 3: Create child mother with complete 3v2 process (3-1 + 3-2 + 3-3)
+      console.log('🔧 FF - Step 3: Creating mother_1A with complete 3v2 process');
+
+      // 3-1: Create child mother structure
+      console.log('🔧 FF - Step 3-1: Create child mother structure');
+      let childMotherId: string | null = null;
+
+      // Find parent mother ID
+      let parentMotherId = 'Mother_1'; // Default fallback
+      const globalData = (window as any).currentAppData;
+      if (globalData && globalData.objects) {
+        for (const obj of globalData.objects) {
+          if (obj.type?.includes('mother') && obj.regions) {
+            for (const region of obj.regions) {
+              if (region.id === regionId) {
+                parentMotherId = obj.name;
+                break;
+              }
+            }
+            if (parentMotherId !== 'Mother_1') break;
+          }
+        }
+      }
+
+      if (createChildMother) {
+        childMotherId = createChildMother(parentMotherId);
+        if (childMotherId) {
+          console.log(`✅ FF: Child mother structure created: ${childMotherId}`);
+          (window as any).lastCreatedChildId = childMotherId;
+        } else {
+          console.error('❌ FF: Failed to create child mother structure');
+          alert('Error: Failed to create child mother structure');
+          return;
+        }
+      } else {
+        console.error('❌ FF: createChildMother function not available');
+        alert('Error: createChildMother function not available');
+        return;
+      }
+
+      // Wait for child mother to be created
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // 3-2 & 3-3: Add CT comp trans and load split2Text
+      console.log('🔧 FF - Step 3-2 & 3-3: Add CT comp trans and load SPLIT 2');
+      if (onCreateNewMother && childMotherId) {
+        console.log('🟠🟠🟠 FF-DEBUG: Before onCreateNewMother - checking child mother structure...');
+
+        // Check child mother structure before adding content
+        const preAddData = (window as any).currentAppData;
+        if (preAddData && preAddData.objects) {
+          const preChildMother = preAddData.objects.find((obj: any) => obj.name === childMotherId);
+          if (preChildMother && preChildMother.regions) {
+            console.log('🟠🟠🟠 FF-DEBUG: Child mother regions:', preChildMother.regions.length);
+            console.log('🟠🟠🟠 FF-DEBUG: First region contents before:', preChildMother.regions[0]?.contents?.length || 0);
+          }
+        }
+
+        onCreateNewMother(childMotherId, overflowResult.overflowText);
+        console.log(`✅ FF: Called onCreateNewMother for ${childMotherId} with SPLIT 2 text`);
+
+        // Check child mother structure after adding content
+        setTimeout(() => {
+          console.log('🟠🟠🟠 FF-DEBUG: After onCreateNewMother - checking structure...');
+          const postAddData = (window as any).currentAppData;
+          if (postAddData && postAddData.objects) {
+            const postChildMother = postAddData.objects.find((obj: any) => obj.name === childMotherId);
+            if (postChildMother && postChildMother.regions && postChildMother.regions[0]) {
+              const region = postChildMother.regions[0];
+              console.log('🟠🟠🟠 FF-DEBUG: First region contents after:', region.contents?.length || 0);
+              if (region.contents && region.contents[0]) {
+                const content = region.contents[0];
+                console.log('🟠🟠🟠 FF-DEBUG: Content type:', content.type);
+                console.log('🟠🟠🟠 FF-DEBUG: Content has layout:', !!content.layout);
+                if (content.layout) {
+                  console.log('🟠🟠🟠 FF-DEBUG: Layout has occupyLeftoverSpace:', content.layout?.occupyLeftoverSpace);
+                } else {
+                  console.log('🟠🟠🟠 FF-DEBUG: MISSING LAYOUT OBJECT - This will cause rendering error!');
+                }
+              }
+            }
+          }
+        }, 100);
+
+      } else {
+        console.error('❌ FF: onCreateNewMother callback not available or no child mother ID');
+        alert('Error: Cannot add content to child mother');
+        return;
+      }
+
+      // Final verification that mother_1 still has content
+      console.log('🟢🟢🟢 FF-DEBUG: FINAL CHECK - Verifying mother_1 after child creation...');
+      const finalAppData = (window as any).currentAppData;
+      if (finalAppData && finalAppData.objects) {
+        const finalMother1 = finalAppData.objects.find((obj: any) => obj.name === 'Mother_1');
+        console.log('🟢🟢🟢 FF-DEBUG: Final mother1 found:', !!finalMother1);
+
+        if (finalMother1 && finalMother1.regions) {
+          console.log('🟢🟢🟢 FF-DEBUG: Final mother1.regions length:', finalMother1.regions.length);
+          const finalTargetRegion = finalMother1.regions.find((region: any) => region.id === regionId);
+          console.log('🟢🟢🟢 FF-DEBUG: Final targetRegion found:', !!finalTargetRegion);
+
+          if (finalTargetRegion) {
+            console.log('🟢🟢🟢 FF-DEBUG: Final targetRegion.contents length:', finalTargetRegion.contents?.length || 0);
+            if (finalTargetRegion.contents && finalTargetRegion.contents.length > 0) {
+              const finalCtContent = finalTargetRegion.contents.find((c: any) => c.type === 'new-comp-trans');
+              console.log('🟢🟢🟢 FF-DEBUG: Final CT content found:', !!finalCtContent);
+              if (finalCtContent) {
+                const finalTextContent = finalCtContent.newCompTransConfig?.textContent?.generatedText;
+                console.log('🟢🟢🟢 FF-DEBUG: Final text content length:', finalTextContent?.length || 0);
+                console.log('🟢🟢🟢 FF-DEBUG: Final text preview:', finalTextContent?.substring(0, 50) || 'NO TEXT');
+                console.log('✅ FF: mother_1 content still preserved after child creation');
+              } else {
+                console.log('🟢🟢🟢 FF-DEBUG: FINAL CHECK - NO CT CONTENT FOUND!');
+              }
+            } else {
+              console.log('🟢🟢🟢 FF-DEBUG: FINAL CHECK - NO CONTENTS IN TARGET REGION!');
+              console.error('❌ FF: mother_1 content was lost during child creation - restoring');
+              onSave(debugConfig);
+            }
+          } else {
+            console.log('🟢🟢🟢 FF-DEBUG: FINAL CHECK - TARGET REGION NOT FOUND!');
+          }
+        } else {
+          console.log('🟢🟢🟢 FF-DEBUG: FINAL CHECK - NO REGIONS IN MOTHER1!');
+        }
+      } else {
+        console.log('🟢🟢🟢 FF-DEBUG: FINAL CHECK - NO APP DATA OR OBJECTS!');
+      }
+
+      setDebugStep(4);
+      console.log('🎉 FF: Fast Flow completed!');
+      console.log('✅ mother_1 should have SPLIT 1 text (saved)');
+      console.log('✅ mother_1A should be created with SPLIT 2 text');
+
+      // IMPORTANT: Keep dialog open to prevent content loss
+      console.log('🔵🔵🔵 FF-DEBUG: Keeping dialog open to prevent content loss');
+      console.log('🔵🔵🔵 FF-DEBUG: Check canvas now - mother_1 should show split1Text');
+      console.log('🔵🔵🔵 FF-DEBUG: If mother_1 appears empty, the issue is canvas rendering not data loss');
+
+      // Force multiple canvas refresh mechanisms to ensure content is displayed
+      setTimeout(() => {
+        console.log('🔵🔵🔵 FF-DEBUG: Attempting multiple canvas refresh methods...');
+
+        // Method 1: Standard canvas refresh
+        const refreshCanvas = (window as any).refreshCanvas;
+        if (refreshCanvas) {
+          console.log('🔵🔵🔵 FF-DEBUG: Method 1 - refreshCanvas()');
+          refreshCanvas();
+        }
+
+        // Method 2: Force app data update
+        const updateAppData = (window as any).updateAppData;
+        const currentAppData = (window as any).currentAppData;
+        if (updateAppData && currentAppData) {
+          console.log('🔵🔵🔵 FF-DEBUG: Method 2 - updateAppData()');
+          updateAppData(currentAppData);
+        }
+
+        // Method 3: Trigger region content update
+        const updateRegionContents = (window as any).updateRegionContents;
+        if (updateRegionContents) {
+          console.log('🔵🔵🔵 FF-DEBUG: Method 3 - updateRegionContents()');
+          const targetData = (window as any).currentAppData;
+          if (targetData && targetData.objects) {
+            const mother1 = targetData.objects.find((obj: any) => obj.name === 'Mother_1');
+            if (mother1 && mother1.regions) {
+              const targetRegion = mother1.regions.find((region: any) => region.id === regionId);
+              if (targetRegion && targetRegion.contents) {
+                updateRegionContents(regionId, targetRegion.contents);
+              }
+            }
+          }
+        }
+
+        // Method 4: Force state update
+        setTimeout(() => {
+          console.log('🔵🔵🔵 FF-DEBUG: Method 4 - Force state refresh');
+          const forceUpdate = (window as any).forceUpdate;
+          if (forceUpdate) {
+            forceUpdate();
+          }
+
+          // Final check - if still not visible, it's a deeper rendering issue
+          setTimeout(() => {
+            console.log('🔵🔵🔵 FF-DEBUG: All refresh methods attempted');
+            console.log('🔵🔵🔵 FF-DEBUG: If mother_1 still empty, issue is in canvas rendering system');
+          }, 200);
+        }, 100);
+      }, 100);
+
+    } catch (error) {
+      console.error('❌ FF: Error during Fast Flow execution:', error);
+      console.error('❌ FF: Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+      alert(`FF Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
   // NEW: Button "123v2" - Combine "12" and "3v2" (Step 1&2 + Step 3v2)
   const handle123v2 = async () => {
     try {
@@ -1929,7 +2206,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
       // Verify "12" completed by checking Mother_1 canvas text matches split1Text
       console.log('🔍 123v2: Verifying "12" completion by checking Mother_1 canvas text...');
-      
+
       // Get the actual text displayed on Mother_1 canvas
       const currentData = (window as any).currentAppData;
       if (!currentData || !currentData.objects) {
@@ -1969,18 +2246,18 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
       // Get the split texts from the canvas data since closure variables are stale
       const actualSplit1Text = canvasText; // This is the SPLIT 1 text we verified
-      
+
       // Calculate SPLIT 2 from the original full text
       const fullText = generateTextContent();
       const overflowResult = detectOverflowAndSplit();
       const actualSplit2Text = overflowResult.overflowText;
-      
+
       console.log(`🔍 123v2: Passing split texts to 3v2 - SPLIT 1: ${actualSplit1Text.length} chars, SPLIT 2: ${actualSplit2Text.length} chars`);
-      
+
       // Temporarily set the split texts for 3v2 to use
       setSplit1Text(actualSplit1Text);
       setSplit2Text(actualSplit2Text);
-      
+
       // Wait for state update
       await new Promise(resolve => setTimeout(resolve, 100));
 
@@ -3432,6 +3709,29 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
                 title="Step 3v2: Execute 3-1 + 3-2 + 3-3 Combined (Create Mother + Add CT + Load SPLIT 2)"
               >
                 3v2
+              </button>
+            )}
+
+            {/* NEW: Button "FF" - Fast Flow: Combine "1/2" and "3v2" into single action */}
+            {hasOverflow && debugStep === 0 && (
+              <button
+                onClick={handleFF}
+                disabled={!canSave()}
+                style={{
+                  padding: '12px 24px',
+                  border: '3px solid #ff6600',
+                  borderRadius: '8px',
+                  backgroundColor: canSave() ? '#ff6600' : '#ccc',
+                  color: canSave() ? 'white' : '#666',
+                  fontSize: '18px',
+                  fontWeight: '800',
+                  cursor: canSave() ? 'pointer' : 'not-allowed',
+                  boxShadow: canSave() ? '0 3px 6px rgba(255, 102, 0, 0.4)' : 'none',
+                  textShadow: canSave() ? '0 1px 2px rgba(0,0,0,0.3)' : 'none'
+                }}
+                title="Fast Flow: Execute 1/2 + 3v2 in one click (Calculate + Fill Parent + Create Child Mother)"
+              >
+                FF
               </button>
             )}
 

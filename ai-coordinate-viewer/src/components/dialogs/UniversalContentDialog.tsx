@@ -288,7 +288,7 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
       let contentHeight = 0;
 
       // Check if content occupies leftover space
-      if (content.layout.occupyLeftoverSpace) {
+      if (content.layout?.occupyLeftoverSpace) {
         // For "occupy leftover space" content, we need to calculate what space was available when it was created
         // For now, we'll treat it as using remaining space at that time
         // This is complex to calculate retroactively, so we'll use a simplified approach
@@ -296,21 +296,21 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
         contentHeight = regionHeight; // Simplified: assume it took all remaining space
       } else {
         // Normal width calculation
-        if (content.layout.fullWidth || content.layout.width.value === 100) {
+        if (content.layout?.fullWidth || content.layout?.width?.value === 100) {
           contentWidth = regionWidth;
-        } else if (content.layout.width.unit === 'mm') {
-          contentWidth = content.layout.width.value;
+        } else if (content.layout?.width?.unit === 'mm') {
+          contentWidth = content.layout?.width?.value || 0;
         } else {
-          contentWidth = (content.layout.width.value / 100) * regionWidth;
+          contentWidth = (content.layout?.width?.value / 100) * regionWidth;
         }
 
         // Normal height calculation
-        if (content.layout.fullHeight || content.layout.height.value === 100) {
+        if (content.layout?.fullHeight || content.layout?.height?.value === 100) {
           contentHeight = regionHeight;
-        } else if (content.layout.height.unit === 'mm') {
-          contentHeight = content.layout.height.value;
+        } else if (content.layout?.height?.unit === 'mm') {
+          contentHeight = content.layout?.height?.value || 0;
         } else {
-          contentHeight = (content.layout.height.value / 100) * regionHeight;
+          contentHeight = (content.layout?.height?.value / 100) * regionHeight;
         }
       }
 
@@ -392,7 +392,7 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
     }
 
     // If occupying leftover space, always allow save (no area calculation needed)
-    if (formData.layout.occupyLeftoverSpace) {
+    if (formData.layout?.occupyLeftoverSpace) {
       return false;
     }
 

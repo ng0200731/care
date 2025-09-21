@@ -2828,20 +2828,20 @@ function App() {
       let contentWidth = region.width;
       let contentHeight = 0;
 
-      if (content.layout.fullWidth || content.layout.width.value === 100) {
+      if (content.layout?.fullWidth || content.layout?.width?.value === 100) {
         contentWidth = region.width;
-      } else if (content.layout.width.unit === 'mm') {
-        contentWidth = content.layout.width.value;
+      } else if (content.layout?.width?.unit === 'mm') {
+        contentWidth = content.layout?.width?.value || 0;
       } else {
-        contentWidth = (content.layout.width.value / 100) * region.width;
+        contentWidth = (content.layout?.width?.value / 100) * region.width;
       }
 
-      if (content.layout.fullHeight || content.layout.height.value === 100) {
+      if (content.layout?.fullHeight || content.layout?.height?.value === 100) {
         contentHeight = region.height;
-      } else if (content.layout.height.unit === 'mm') {
-        contentHeight = content.layout.height.value;
+      } else if (content.layout?.height?.unit === 'mm') {
+        contentHeight = content.layout?.height?.value || 0;
       } else {
-        contentHeight = (content.layout.height.value / 100) * region.height;
+        contentHeight = (content.layout?.height?.value / 100) * region.height;
       }
 
       return sum + (contentWidth * contentHeight);
@@ -6990,7 +6990,7 @@ function App() {
         text: textContent // Only the text content
       },
       layout: {
-        ...originalContent.layout,
+        ...(originalContent.layout || {}),
         // Ensure required layout properties are present
         occupyLeftoverSpace: originalContent.layout?.occupyLeftoverSpace ?? false,
         fullWidth: originalContent.layout?.fullWidth ?? true,
@@ -11536,7 +11536,7 @@ function App() {
                       let contentHeight = 0;
 
                       // Check if content occupies leftover space first
-                      if (content.layout.occupyLeftoverSpace) {
+                      if (content.layout?.occupyLeftoverSpace) {
                         // Calculate space used by other content in THIS region (excluding this one)
                         const otherContents = contents.filter((_, idx) => idx !== contentIndex);
 
@@ -11548,21 +11548,21 @@ function App() {
                           let otherHeight = 0;
 
                           // Calculate width
-                          if (otherContent.layout.fullWidth || otherContent.layout.width.value === 100) {
+                          if (otherContent.layout?.fullWidth || otherContent.layout?.width?.value === 100) {
                             otherWidth = region.width;
-                          } else if (otherContent.layout.width.unit === 'mm') {
-                            otherWidth = Math.min(otherContent.layout.width.value, region.width);
+                          } else if (otherContent.layout?.width?.unit === 'mm') {
+                            otherWidth = Math.min(otherContent.layout?.width?.value || 0, region.width);
                           } else {
-                            otherWidth = Math.min((otherContent.layout.width.value / 100) * region.width, region.width);
+                            otherWidth = Math.min((otherContent.layout?.width?.value / 100) * region.width, region.width);
                           }
 
                           // Calculate height
-                          if (otherContent.layout.fullHeight || otherContent.layout.height.value === 100) {
+                          if (otherContent.layout?.fullHeight || otherContent.layout?.height?.value === 100) {
                             otherHeight = region.height;
-                          } else if (otherContent.layout.height.unit === 'mm') {
-                            otherHeight = Math.min(otherContent.layout.height.value, region.height);
+                          } else if (otherContent.layout?.height?.unit === 'mm') {
+                            otherHeight = Math.min(otherContent.layout?.height?.value || 0, region.height);
                           } else {
-                            otherHeight = Math.min((otherContent.layout.height.value / 100) * region.height, region.height);
+                            otherHeight = Math.min((otherContent.layout?.height?.value / 100) * region.height, region.height);
                           }
 
                           // Add content rectangle (positioned at 0,0 relative to region)
@@ -11617,21 +11617,21 @@ function App() {
 
                       } else {
                         // Normal width calculation - CONSTRAINED TO REGION
-                        if (content.layout.fullWidth || content.layout.width.value === 100) {
+                        if (content.layout?.fullWidth || content.layout?.width?.value === 100) {
                           contentWidth = region.width;
-                        } else if (content.layout.width.unit === 'mm') {
-                          contentWidth = Math.min(content.layout.width.value, region.width); // Constrain to region
+                        } else if (content.layout?.width?.unit === 'mm') {
+                          contentWidth = Math.min(content.layout?.width?.value || 0, region.width); // Constrain to region
                         } else {
-                          contentWidth = Math.min((content.layout.width.value / 100) * region.width, region.width);
+                          contentWidth = Math.min((content.layout?.width?.value / 100) * region.width, region.width);
                         }
 
                         // Normal height calculation - CONSTRAINED TO REGION
-                        if (content.layout.fullHeight || content.layout.height.value === 100) {
+                        if (content.layout?.fullHeight || content.layout?.height?.value === 100) {
                           contentHeight = region.height;
-                        } else if (content.layout.height.unit === 'mm') {
-                          contentHeight = Math.min(content.layout.height.value, region.height); // Constrain to region
+                        } else if (content.layout?.height?.unit === 'mm') {
+                          contentHeight = Math.min(content.layout?.height?.value || 0, region.height); // Constrain to region
                         } else {
-                          contentHeight = Math.min((content.layout.height.value / 100) * region.height, region.height);
+                          contentHeight = Math.min((content.layout?.height?.value / 100) * region.height, region.height);
                         }
                       }
 
@@ -11651,7 +11651,7 @@ function App() {
                       // Position content within region boundaries
                       let overlayX: number, overlayY: number;
 
-                      if (content.layout.occupyLeftoverSpace && (content as any)._calculatedPosition) {
+                      if (content.layout?.occupyLeftoverSpace && (content as any)._calculatedPosition) {
                         // Use calculated position from leftover space algorithm
                         const calcPos = (content as any)._calculatedPosition;
                         overlayX = regionStartX + (calcPos.x * scale);
@@ -11683,7 +11683,7 @@ function App() {
                       }
 
                       // Update currentY for next content - but only for non-leftover content
-                      if (!content.layout.occupyLeftoverSpace) {
+                      if (!content.layout?.occupyLeftoverSpace) {
                         const nextY = currentY + contentHeight;
                         currentY = Math.min(nextY, region.height);
                       }
