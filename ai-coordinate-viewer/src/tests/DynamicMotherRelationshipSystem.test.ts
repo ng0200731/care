@@ -54,7 +54,7 @@ describe('Dynamic Mother Relationship System', () => {
   describe('Master-Child Relationship Logic', () => {
     test('should establish relationship when overflow occurs', () => {
       const masterId = 'mother_1';
-      const childIds = ['mother_1_child_1', 'mother_1_child_2'];
+    const childIds = ['mother_1A', 'mother_1B'];
       const originalText = 'This is a long composition text that requires overflow handling...';
       const textDistribution = ['First part', 'Second part', 'Third part'];
 
@@ -77,7 +77,7 @@ describe('Dynamic Mother Relationship System', () => {
       // Establish first relationship
       relationshipManager.establishRelationship(
         'mother_1',
-        ['mother_1_child_1'],
+        ['mother_1A'],
         'new-comp-trans',
         'Text 1',
         ['Text 1']
@@ -86,7 +86,7 @@ describe('Dynamic Mother Relationship System', () => {
       // Establish second relationship
       relationshipManager.establishRelationship(
         'mother_2',
-        ['mother_2_child_1', 'mother_2_child_2'],
+        ['mother_2A', 'mother_2B'],
         'new-comp-trans',
         'Text 2',
         ['Text 2 part 1', 'Text 2 part 2', 'Text 2 part 3']
@@ -102,7 +102,7 @@ describe('Dynamic Mother Relationship System', () => {
   describe('Cascade Deletion', () => {
     test('should delete all child mothers when master content changes', async () => {
       const masterId = 'mother_1';
-      const childIds = ['mother_1_child_1', 'mother_1_child_2'];
+    const childIds = ['mother_1A', 'mother_1B'];
 
       // Establish relationship
       relationshipManager.establishRelationship(

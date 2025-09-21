@@ -1231,9 +1231,29 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
       console.log('🔧 3-1: Creating child mother structure (configuration, size, width, padding, font family, font size, line spacing) with empty region 1');
       
+      // Find the correct parent mother by searching which mother contains this regionId
+      let parentMotherId = 'Mother_1'; // Default fallback
+      const globalData = (window as any).currentAppData;
+      if (globalData && globalData.objects) {
+        console.log(`🔍 3-1: Searching ${globalData.objects.length} objects for region ${regionId}...`);
+        for (const obj of globalData.objects) {
+          if (obj.type?.includes('mother') && obj.regions) {
+            for (const region of obj.regions) {
+              if (region.id === regionId) {
+                parentMotherId = obj.name;
+                console.log(`✅ 3-1: Found region ${regionId} in mother: ${parentMotherId}`);
+                break;
+              }
+            }
+            if (parentMotherId !== 'Mother_1') break; // Found it, stop searching
+          }
+        }
+      }
+      console.log(`🔍 3-1: Using parent mother: ${parentMotherId}`);
+      
       // Step 3-1: Create child mother structure only
       if (createChildMother) {
-        const childMotherId = createChildMother('Mother_1'); // Assuming parent is Mother_1
+        const childMotherId = createChildMother(parentMotherId); // Use correct parent!
         if (childMotherId) {
           console.log(`✅ 3-1: Child mother structure created: ${childMotherId}`);
           // Store the child ID for later steps
@@ -1738,10 +1758,14 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
   const handle3v2 = async () => {
     try {
       console.log('🚀 3v2: Starting simple 3-1 + 3-2 + 3-3 combination...');
+      console.log('🔍 3v2: Current regionId:', regionId);
+      console.log('🔍 3v2: Split texts available:', { split1Text: !!split1Text, split2Text: !!split2Text });
 
       // Check if we have split texts from previous steps
       if (!split1Text || !split2Text) {
         console.error('❌ 3v2: No split texts available. Please run Step 1 & 2 first.');
+        console.error('❌ 3v2: split1Text:', split1Text?.substring(0, 50) || 'null');
+        console.error('❌ 3v2: split2Text:', split2Text?.substring(0, 50) || 'null');
         return;
       }
 
@@ -1788,6 +1812,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
     } catch (error) {
       console.error('❌ 3v2: Error during execution:', error);
+      console.error('❌ 3v2: Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+      alert(`3v2 Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 

@@ -135,14 +135,26 @@ export class DynamicMotherRelationshipManager {
     // Step 4: Create child mothers for overflow chunks
     const childIds: string[] = [];
     for (let i = 1; i < textChunks.length; i++) {
-      const childId = `${masterId}_child_${i}`;
+      // Convert 1 -> A, 2 -> B, ... 26 -> Z, 27 -> AA, etc.
+      const toLetters = (num: number): string => {
+        let n = num;
+        let result = '';
+        while (n > 0) {
+          const rem = (n - 1) % 26;
+          result = String.fromCharCode(65 + rem) + result;
+          n = Math.floor((n - 1) / 26);
+        }
+        return result;
+      };
+      const letter = toLetters(i);
+      const childId = `${masterId}${letter}`;
       
       try {
         if (this.onMotherCreated) {
           await this.onMotherCreated(childId, {
             ...masterConfig,
             id: childId,
-            name: `${masterConfig.name}_Child_${i}`
+            name: `${childId}`
           });
           childIds.push(childId);
           console.log(`✅ Created child mother: ${childId}`);

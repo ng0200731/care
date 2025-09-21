@@ -263,13 +263,25 @@ export class EnhancedOverflowManager {
    * Create child mother for overflow content
    */
   private async createChildMother(config: OverflowConfig, childIndex: number): Promise<string | null> {
-    const childMotherId = `${config.motherId}_child_${childIndex}`;
+    // Convert 1 -> A, 2 -> B, ... 26 -> Z, 27 -> AA, etc.
+    const toLetters = (num: number): string => {
+      let n = num;
+      let result = '';
+      while (n > 0) {
+        const rem = (n - 1) % 26;
+        result = String.fromCharCode(65 + rem) + result;
+        n = Math.floor((n - 1) / 26);
+      }
+      return result;
+    };
+    const letter = toLetters(childIndex);
+    const childMotherId = `${config.motherId}${letter}`;
     
     try {
       if (this.onMotherCreated) {
         await this.onMotherCreated(childMotherId, {
           id: childMotherId,
-          name: `${config.motherId}_Child_${childIndex}`,
+          name: `${childMotherId}`,
           type: 'mother',
           contentType: config.contentType,
           dimensions: config.dimensionConfig,
@@ -294,7 +306,19 @@ export class EnhancedOverflowManager {
     childIndex: number,
     totalMothers: number
   ): Promise<string | null> {
-    const childMotherId = `${config.motherId}_child_${childIndex}`;
+    // Convert index to letter suffix
+    const toLetters = (num: number): string => {
+      let n = num;
+      let result = '';
+      while (n > 0) {
+        const rem = (n - 1) % 26;
+        result = String.fromCharCode(65 + rem) + result;
+        n = Math.floor((n - 1) / 26);
+      }
+      return result;
+    };
+    const letter = toLetters(childIndex);
+    const childMotherId = `${config.motherId}${letter}`;
 
     // Determine optimal region placement strategy
     const regionStrategy = this.determineRegionStrategy(config, childIndex, totalMothers);
@@ -303,7 +327,7 @@ export class EnhancedOverflowManager {
       if (this.onMotherCreated) {
         await this.onMotherCreated(childMotherId, {
           id: childMotherId,
-          name: `${config.motherId}_Child_${childIndex}`,
+          name: `${childMotherId}`,
           type: 'mother',
           contentType: config.contentType,
           dimensions: config.dimensionConfig,
