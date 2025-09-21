@@ -1179,6 +1179,51 @@ function App() {
       setTimeout(() => setNotification(null), 3000);
     }
 
+    // 🔧 FIX: Also update global data structure for NewCompTransDialog compatibility
+    const currentData = data || webCreationData;
+    if (currentData && (window as any).updateAppData) {
+      // Find the mother and region in global data
+      for (const obj of currentData.objects) {
+        if (obj.type?.includes('mother')) {
+          const regions = (obj as any).regions || [];
+          const targetRegion = regions.find((r: any) => r.id === regionId);
+          if (targetRegion) {
+            // Update the region's contents in global data
+            const regionContentsArray = targetRegion.contents || [];
+            
+            if (editingContent) {
+              // Update existing content
+              const updatedContents = regionContentsArray.map((content: any) =>
+                content.id === editingContent.id
+                  ? {
+                      ...content,
+                      type: 'new-comp-trans',
+                      newCompTransConfig: config // Store complete configuration with SPLIT 1 text
+                    }
+                  : content
+              );
+              targetRegion.contents = updatedContents;
+            } else {
+              // Add new content
+              const newGlobalContent = {
+                id: `comp-trans-${Date.now()}`,
+                type: 'new-comp-trans',
+                newCompTransConfig: config
+              };
+              targetRegion.contents = [...regionContentsArray, newGlobalContent];
+            }
+            
+            // Update global app data
+            (window as any).updateAppData(currentData);
+            console.log(`✅ Global data updated for region: ${regionId}`);
+            break;
+          }
+        }
+      }
+    } else {
+      console.log('⚠️ updateAppData function not available - global data not synchronized');
+    }
+
     // Close dialog (unless in debug mode)
     if (!(window as any).debugModeActive) {
       setNewCompTransDialog(null);
@@ -6815,6 +6860,14 @@ function App() {
       setWebCreationData(updatedData);
     }
 
+    // 🔧 FIX: Also update global data for NewCompTransDialog compatibility
+    if ((window as any).updateAppData) {
+      (window as any).updateAppData(updatedData);
+      console.log(`✅ Global app data updated with child mother: ${childMotherId}`);
+    } else {
+      console.log('⚠️ updateAppData function not available - global data not synchronized');
+    }
+
     console.log(`✅ Child mother structure created: ${childMotherId}`);
     return childMotherId;
   };
@@ -6891,28 +6944,37 @@ function App() {
       return;
     }
 
-    // Find parent's region content to copy configuration
+    // Find parent's region content to copy configuration - CHECK BOTH SOURCES
     const parentRegions = (parentMother as any).regions || [];
     let sourceRegionId = '';
+    let originalContent: any = null;
+    
     for (const region of parentRegions) {
-      const contents = regionContents.get(region.id) || [];
-      if (contents.find((c: any) => c.type === 'new-comp-trans')) {
+      // First check React state
+      const reactContents = regionContents.get(region.id) || [];
+      const reactContent = reactContents.find((c: any) => c.type === 'new-comp-trans');
+      
+      if (reactContent) {
         sourceRegionId = region.id;
+        originalContent = reactContent;
+        console.log(`✅ Found CT comp trans in React state for region: ${region.id}`);
+        break;
+      }
+      
+      // If not found in React state, check global data
+      const globalContents = region.contents || [];
+      const globalContent = globalContents.find((c: any) => c.type === 'new-comp-trans');
+      
+      if (globalContent) {
+        sourceRegionId = region.id;
+        originalContent = globalContent;
+        console.log(`✅ Found CT comp trans in global data for region: ${region.id}`);
         break;
       }
     }
 
-    if (!sourceRegionId) {
-      console.error(`❌ No source region with CT comp trans found in parent`);
-      return;
-    }
-
-    // Get original content to copy configuration
-    const originalContents = regionContents.get(sourceRegionId) || [];
-    const originalContent = originalContents.find((c: any) => c.type === 'new-comp-trans');
-    
-    if (!originalContent) {
-      console.error(`❌ No original CT comp trans content found`);
+    if (!sourceRegionId || !originalContent) {
+      console.error(`❌ No source region with CT comp trans found in parent (checked both React state and global data)`);
       return;
     }
 
@@ -6927,6 +6989,15 @@ function App() {
         ...originalContent.content, 
         text: textContent // Only the text content
       },
+      layout: {
+        ...originalContent.layout,
+        // Ensure required layout properties are present
+        occupyLeftoverSpace: originalContent.layout?.occupyLeftoverSpace ?? false,
+        fullWidth: originalContent.layout?.fullWidth ?? true,
+        fullHeight: originalContent.layout?.fullHeight ?? true,
+        width: originalContent.layout?.width ?? { value: 100, unit: '%' },
+        height: originalContent.layout?.height ?? { value: 100, unit: '%' }
+      },
       newCompTransConfig: {
         ...originalContent.newCompTransConfig,
         textContent: { 
@@ -6936,10 +7007,28 @@ function App() {
       }
     };
     
-    // Add to child region
+    // Add to child region in GLOBAL DATA (same as parent) instead of React state
+    console.log(`🔍 Adding content to child region: ${firstRegion.id} (child: ${childMotherId})`);
+    console.log(`🔍 Storing child content in GLOBAL DATA to match parent storage system`);
+    
+    // Add content to the child region in global data structure
+    if (!firstRegion.contents) {
+      firstRegion.contents = [];
+    }
+    firstRegion.contents = [childContent];
+    
+    // Update BOTH global app data AND React state for proper rendering
+    if ((window as any).updateAppData) {
+      (window as any).updateAppData(currentData);
+      console.log(`✅ Child content stored in global data for region: ${firstRegion.id}`);
+    }
+    
+    // ALSO update React state so canvas can render the child content
+    console.log(`🎨 Also updating React state for canvas rendering...`);
     const updatedContents = new Map(regionContents);
     updatedContents.set(firstRegion.id, [childContent]);
     setRegionContents(updatedContents);
+    console.log(`✅ Child content also stored in React state for region: ${firstRegion.id}`);
     
     console.log(`[v${packageJson.version}] ✅ Child mother content added with text!`);
     setNotification(`✅ Content added to ${childMotherId}`);
@@ -11806,7 +11895,10 @@ function App() {
                         // console.log('🧺 new-washing-care-symbol displayText:', displayText, 'content:', content);
                       } else if (content.type === 'new-comp-trans' && content.newCompTransConfig?.textContent?.generatedText) {
                         displayText = content.newCompTransConfig.textContent.generatedText;
-                        console.log('🎨 [v2.9.180] Canvas rendering new-comp-trans:', displayText.substring(0, 50) + '...');
+                        // Reduced logging frequency - only log occasionally to reduce console noise
+                        if (Math.random() < 0.01) { // Only log 1% of the time
+                          console.log('🎨 [v2.9.180] Canvas rendering new-comp-trans:', displayText.substring(0, 50) + '...');
+                        }
                       } else if (content.type === 'pure-english-paragraph' && content.content?.text) {
                         displayText = content.content.text;
                       } else if (content.type === 'translation-paragraph') {

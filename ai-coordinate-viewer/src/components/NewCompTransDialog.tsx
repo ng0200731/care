@@ -630,11 +630,13 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       setConfig(initialConfig);
       // overflowOption removed - automatic handling enabled
 
-      // Debug: Check if callback is available
-      console.log('🔍 [v2.9.128] NewCompTransDialog opened with callback:', {
-        hasOnCreateNewMother: !!onCreateNewMother,
-        callbackType: typeof onCreateNewMother
-      });
+      // Debug: Check if callback is available (reduced logging)
+      if (Math.random() < 0.1) { // Only log 10% of the time
+        console.log('🔍 [v2.9.128] NewCompTransDialog opened with callback:', {
+          hasOnCreateNewMother: !!onCreateNewMother,
+          callbackType: typeof onCreateNewMother
+        });
+      }
     }
   }, [isOpen, editingContent]);
 
@@ -660,7 +662,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         generatedText: generatedText
       });
     } else {
-      console.log('🔍 DEBUG: Skipping auto-generation - text was manually edited');
+      // Reduced logging: console.log('🔍 DEBUG: Skipping auto-generation - text was manually edited');
     }
   }, [config.materialCompositions, config.selectedLanguages, config.textContent.separator, isTextManuallyEdited]);
 
@@ -1219,12 +1221,16 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
   };
 
   // NEW: Button "3-1" - Create Child Mother Structure Only
-  const handle31 = async () => {
+  const handle31 = async (providedSplit1?: string, providedSplit2?: string) => {
     try {
       console.log('🚀 3-1: Creating child mother structure...');
 
+      // Use provided split texts if available, otherwise fall back to state variables
+      const useSplit1Text = providedSplit1 || split1Text;
+      const useSplit2Text = providedSplit2 || split2Text;
+
       // Check if we have split texts from previous steps
-      if (!split1Text || !split2Text) {
+      if (!useSplit1Text || !useSplit2Text) {
         console.error('❌ 3-1: No split texts available. Please run Step 1 & 2 first.');
         return;
       }
@@ -1305,12 +1311,16 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
   };
 
   // NEW: Button "3-3" - Load SPLIT 2 into Child Mother CT Comp Trans
-  const handle33 = async () => {
+  const handle33 = async (providedSplit1?: string, providedSplit2?: string) => {
     try {
       console.log('🚀 3-3: Loading SPLIT 2 into child mother CT comp trans...');
 
+      // Use provided split texts if available, otherwise fall back to state variables
+      const useSplit1Text = providedSplit1 || split1Text;
+      const useSplit2Text = providedSplit2 || split2Text;
+
       // Check if we have split texts
-      if (!split1Text || !split2Text) {
+      if (!useSplit1Text || !useSplit2Text) {
         console.error('❌ 3-3: No split texts available.');
         return;
       }
@@ -1322,12 +1332,12 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         return;
       }
 
-      console.log(`📝 3-3: SPLIT 2 to load (${split2Text.length} chars):`, split2Text.substring(0, 50) + '...');
+      console.log(`📝 3-3: SPLIT 2 to load (${useSplit2Text.length} chars):`, useSplit2Text.substring(0, 50) + '...');
       console.log('🔧 3-3: Loading SPLIT 2 into child mother:', childMotherId);
 
       // Step 3-3: Load SPLIT 2 into the child mother's CT comp trans
       if (onCreateNewMother) {
-        onCreateNewMother(childMotherId, split2Text); // Load actual SPLIT 2 content
+        onCreateNewMother(childMotherId, useSplit2Text); // Load actual SPLIT 2 content
         console.log('✅ 3-3: SPLIT 2 loaded into child mother CT comp trans!');
       } else {
         console.error('❌ 3-3: onCreateNewMother function not available');
@@ -1755,17 +1765,26 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
   };
 
   // NEW: Button "3v2" - Simple combination of 3-1, 3-2, and 3-3 with verification
-  const handle3v2 = async () => {
+  const handle3v2 = async (providedSplit1Text?: string, providedSplit2Text?: string) => {
     try {
       console.log('🚀 3v2: Starting simple 3-1 + 3-2 + 3-3 combination...');
       console.log('🔍 3v2: Current regionId:', regionId);
-      console.log('🔍 3v2: Split texts available:', { split1Text: !!split1Text, split2Text: !!split2Text });
+      
+      // Use provided split texts if available, otherwise fall back to state variables
+      const actualSplit1Text = providedSplit1Text || split1Text;
+      const actualSplit2Text = providedSplit2Text || split2Text;
+      
+      console.log('🔍 3v2: Split texts available:', { 
+        split1Text: !!actualSplit1Text, 
+        split2Text: !!actualSplit2Text,
+        fromParameters: !!(providedSplit1Text && providedSplit2Text)
+      });
 
       // Check if we have split texts from previous steps
-      if (!split1Text || !split2Text) {
+      if (!actualSplit1Text || !actualSplit2Text) {
         console.error('❌ 3v2: No split texts available. Please run Step 1 & 2 first.');
-        console.error('❌ 3v2: split1Text:', split1Text?.substring(0, 50) || 'null');
-        console.error('❌ 3v2: split2Text:', split2Text?.substring(0, 50) || 'null');
+        console.error('❌ 3v2: split1Text:', actualSplit1Text?.substring(0, 50) || 'null');
+        console.error('❌ 3v2: split2Text:', actualSplit2Text?.substring(0, 50) || 'null');
         return;
       }
 
@@ -1778,7 +1797,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
       // Execute 3-1
       console.log('🚀 3v2: Executing 3-1...');
-      await handle31();
+      await handle31(actualSplit1Text, actualSplit2Text);
       await new Promise(resolve => setTimeout(resolve, 500));
 
       // VERIFY: Check that child mother exists in app data before proceeding
@@ -1802,7 +1821,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
       // Execute 3-3: Test the FIXED App.tsx callback  
       console.log('🚀 3v2: Testing FIXED App.tsx callback for 3-3...');
-      await handle33();
+      await handle33(actualSplit1Text, actualSplit2Text);
       await new Promise(resolve => setTimeout(resolve, 500));
 
       console.log('🎉 3v2: All steps completed!');
@@ -1814,6 +1833,90 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       console.error('❌ 3v2: Error during execution:', error);
       console.error('❌ 3v2: Error stack:', error instanceof Error ? error.stack : 'No stack trace');
       alert(`3v2 Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
+  // Wrapper functions for button click handlers
+  const handle31ButtonClick = () => handle31();
+  const handle33ButtonClick = () => handle33();
+  const handle3v2ButtonClick = () => handle3v2();
+
+  // NEW: Button "123v2" - Combine "12" and "3v2" (Step 1&2 + Step 3v2)
+  const handle123v2 = async () => {
+    try {
+      console.log('🚀 123v2: Starting combined 12 + 3v2 process...');
+
+      // First execute "12" (Step 1 & 2) - NO CHANGES TO EXISTING CODE
+      console.log('🚀 123v2: Executing "12" first...');
+      await handle12();
+
+      // Verify "12" completed by checking Mother_1 canvas text matches split1Text
+      console.log('🔍 123v2: Verifying "12" completion by checking Mother_1 canvas text...');
+      
+      // Get the actual text displayed on Mother_1 canvas
+      const currentData = (window as any).currentAppData;
+      if (!currentData || !currentData.objects) {
+        console.error('❌ 123v2: No app data available for verification');
+        return;
+      }
+
+      // Find Mother_1
+      const mother1 = currentData.objects.find((obj: any) => obj.name === 'Mother_1');
+      if (!mother1) {
+        console.error('❌ 123v2: Mother_1 not found');
+        return;
+      }
+
+      // Find the region with content (check the region that was just updated)
+      const targetRegion = mother1.regions?.find((region: any) => region.id === regionId);
+      if (!targetRegion) {
+        console.error('❌ 123v2: Target region not found in Mother_1');
+        return;
+      }
+
+      // Get the actual canvas text from the region's contents
+      const regionContentsArray = targetRegion.contents || [];
+      const compTransContent = regionContentsArray.find((c: any) => c.type === 'new-comp-trans');
+      const canvasText = compTransContent?.newCompTransConfig?.textContent?.generatedText || '';
+
+      // Show popup with Mother_1 text after "12"
+      alert(`After "12" - Mother_1 Text:\n\n${canvasText}\n\n(${canvasText.length} characters)`);
+
+      // Verify "12" worked by checking if canvas has content
+      if (canvasText && canvasText.length > 0) {
+        console.log(`✅ 123v2: Mother_1 has content (${canvasText.length} chars) - "12" completed successfully!`);
+      } else {
+        console.error('❌ 123v2: Mother_1 has no content - "12" failed!');
+        return;
+      }
+
+      // Get the split texts from the canvas data since closure variables are stale
+      const actualSplit1Text = canvasText; // This is the SPLIT 1 text we verified
+      
+      // Calculate SPLIT 2 from the original full text
+      const fullText = generateTextContent();
+      const overflowResult = detectOverflowAndSplit();
+      const actualSplit2Text = overflowResult.overflowText;
+      
+      console.log(`🔍 123v2: Passing split texts to 3v2 - SPLIT 1: ${actualSplit1Text.length} chars, SPLIT 2: ${actualSplit2Text.length} chars`);
+      
+      // Temporarily set the split texts for 3v2 to use
+      setSplit1Text(actualSplit1Text);
+      setSplit2Text(actualSplit2Text);
+      
+      // Wait for state update
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Now execute "3v2" (Step 3-1, 3-2, 3-3) - Pass split texts as parameters
+      console.log('🚀 123v2: Now executing "3v2"...');
+      await handle3v2(actualSplit1Text, actualSplit2Text);
+
+      console.log('🎉 123v2: All steps completed successfully!');
+
+    } catch (error) {
+      console.error('❌ 123v2: Error during execution:', error);
+      console.error('❌ 123v2: Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+      alert(`123v2 Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -3154,7 +3257,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
             {/* NEW: Button "3-1" - Create New Mother with Parent Configuration */}
             {debugStep === 2 && (split1Text && split2Text) && (
               <button
-                onClick={handle31}
+                onClick={handle31ButtonClick}
                 style={{
                   padding: '8px 16px',
                   border: '2px solid #fd7e14',
@@ -3194,7 +3297,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
             {/* NEW: Button "3-3" - Load SPLIT 2 into New Mother New CT Comp Trans */}
             {debugStep === 2 && (split1Text && split2Text) && (
               <button
-                onClick={handle33}
+                onClick={handle33ButtonClick}
                 style={{
                   padding: '8px 16px',
                   border: '2px solid #6f42c1',
@@ -3214,7 +3317,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
             {/* NEW: Button "3v2" - Combine 3-1, 3-2, and 3-3 into one action */}
             {(debugStep === 2 || (split1Text && split2Text)) && (
               <button
-                onClick={handle3v2}
+                onClick={handle3v2ButtonClick}
                 style={{
                   padding: '10px 20px',
                   border: '2px solid #e83e8c',
@@ -3229,6 +3332,28 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
                 title="Step 3v2: Execute 3-1 + 3-2 + 3-3 Combined (Create Mother + Add CT + Load SPLIT 2)"
               >
                 3v2
+              </button>
+            )}
+
+            {/* NEW: Button "123v2" - Combine "12" and "3v2" into one action */}
+            {hasOverflow && debugStep === 0 && (
+              <button
+                onClick={handle123v2}
+                disabled={!canSave()}
+                style={{
+                  padding: '12px 24px',
+                  border: '2px solid #17a2b8',
+                  borderRadius: '6px',
+                  backgroundColor: canSave() ? '#17a2b8' : '#ccc',
+                  color: canSave() ? 'white' : '#666',
+                  fontSize: '16px',
+                  fontWeight: '700',
+                  cursor: canSave() ? 'pointer' : 'not-allowed',
+                  boxShadow: canSave() ? '0 2px 4px rgba(23, 162, 184, 0.3)' : 'none'
+                }}
+                title="Execute 12 + 3v2: Complete overflow handling in one click (Steps 1&2 + Steps 3-1,3-2,3-3)"
+              >
+                123v2
               </button>
             )}
 
