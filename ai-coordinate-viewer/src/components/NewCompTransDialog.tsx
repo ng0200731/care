@@ -1963,81 +1963,99 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     try {
       console.log('🚀 Generate: Starting Generate Flow - step by step...');
 
-      // STEP 0: Remove existing child mothers first (regeneration)
-      console.log('🗑️ Generate - Step 0: Removing existing child mothers for regeneration');
+      // STEP 0: Remove ALL active parent-linked child mothers (object hierarchy cleanup)
+      console.log('🗑️ Generate - FIRST PRIORITY: Complete removal of all active parent-linked child mothers');
       let currentAppData = (window as any).currentAppData;
-      console.log('🔬 DEBUG_FIX: currentAppData:', currentAppData);
-      console.log('🔬 DEBUG_FIX: objects count:', currentAppData?.objects?.length);
 
-      // Declare parentMotherId at function scope to prevent initialization errors
+      // Find parent mother ID
       let parentMotherId = 'Mother_1'; // Default fallback
+      let parentMother: any = null;
 
       if (currentAppData && currentAppData.objects) {
-        // Find parent mother ID
-        const parentMother = currentAppData.objects.find((obj: any) =>
+        parentMother = currentAppData.objects.find((obj: any) =>
           obj.regions && obj.regions.some((region: any) => region.id === regionId)
         );
         if (parentMother) {
           parentMotherId = parentMother.name;
         }
-        console.log('🔬 DEBUG_FIX: parentMotherId:', parentMotherId);
+        console.log('🗑️ Generate: Target parent mother:', parentMotherId);
 
-        // 🔬 DEBUG_FIX: Enhanced debugging for child mother detection
-        console.log('🔬 DEBUG_FIX: All objects in currentAppData:');
-        currentAppData.objects.forEach((obj: any, index: number) => {
-          console.log(`🔬 DEBUG_FIX: Object ${index}: name=${obj.name}, type=${obj.type}, isOverflowChild=${obj.isOverflowChild}, parentMotherId=${obj.parentMotherId}`);
+        // AGGRESSIVE CHILD MOTHER DETECTION - REMOVE ALL LINKED CHILD MOTHERS
+        const allChildMothersToRemove: any[] = [];
+
+        // Method 1: Remove ALL mothers except the primary parent (Mother_1)
+        const allNonPrimaryMothers = currentAppData.objects.filter((obj: any) =>
+          obj.type && obj.type.includes('mother') && obj.name !== parentMotherId
+        );
+        allChildMothersToRemove.push(...allNonPrimaryMothers);
+
+        // Method 2: Also check for any remaining relationship markers
+        const childrenByRelationship = currentAppData.objects.filter((obj: any) =>
+          (obj.isOverflowChild === true) ||
+          (obj.parentMotherId && obj.parentMotherId === parentMotherId)
+        );
+        childrenByRelationship.forEach((child: any) => {
+          if (!allChildMothersToRemove.find((existing: any) => existing.name === child.name)) {
+            allChildMothersToRemove.push(child);
+          }
         });
 
-        // Create a local copy of parentMotherId to avoid closure issues
-        const parentMotherIdLocal = parentMotherId;
-
-        // Find and remove existing child mothers
-        const existingChildMothers = currentAppData.objects.filter((obj: any) =>
-          obj.isOverflowChild && obj.parentMotherId === parentMotherIdLocal
+        // Method 3: Pattern-based removal (Mother_1A, Mother_1B, Mother_2, etc.)
+        const patternBasedMothers = currentAppData.objects.filter((obj: any) =>
+          obj.name && (
+            obj.name.match(/^Mother_\d+[A-Z]$/) ||  // Mother_1A, Mother_1B, etc.
+            obj.name.match(/^Mother_[2-9]\d*$/)     // Mother_2, Mother_3, etc.
+          ) && obj.name !== parentMotherId
         );
-        console.log('🔬 DEBUG_FIX: existingChildMothers found:', existingChildMothers.length);
-        console.log('🔬 DEBUG_FIX: existingChildMothers details:', existingChildMothers);
-        console.log('🔬 DEBUG_FIX: child names:', existingChildMothers.map((c: any) => c.name));
+        patternBasedMothers.forEach((child: any) => {
+          if (!allChildMothersToRemove.find((existing: any) => existing.name === child.name)) {
+            allChildMothersToRemove.push(child);
+          }
+        });
 
-        // 🔬 DEBUG_FIX: Also check for alternative patterns
-        const alternativeChildMothers = currentAppData.objects.filter((obj: any) =>
-          obj.name && obj.name.includes('Mother_') && obj.name !== parentMotherIdLocal &&
-          (obj.isOverflowChild === true || obj.parentMotherId === parentMotherIdLocal)
-        );
-        console.log('🔬 DEBUG_FIX: Alternative child pattern found:', alternativeChildMothers.length);
-        console.log('🔬 DEBUG_FIX: Alternative child names:', alternativeChildMothers.map((c: any) => c.name));
+        console.log(`🗑️ Generate: Found ${allChildMothersToRemove.length} child mothers to remove from object hierarchy:`,
+          allChildMothersToRemove.map((c: any) => c.name));
 
-        if (existingChildMothers.length > 0) {
-          console.log(`🗑️ Found ${existingChildMothers.length} existing child mothers - removing for regeneration`);
-
-          // Remove all child mothers
-          const updatedObjects = currentAppData.objects.filter((obj: any) =>
-            !(obj.isOverflowChild && obj.parentMotherId === parentMotherIdLocal)
+        if (allChildMothersToRemove.length > 0) {
+          // Remove ALL detected child mothers from objects array
+          const childMotherNamesToRemove = allChildMothersToRemove.map((c: any) => c.name);
+          const cleanedObjects = currentAppData.objects.filter((obj: any) =>
+            !childMotherNamesToRemove.includes(obj.name)
           );
-          console.log('🔬 DEBUG_FIX: objects after removal:', updatedObjects.length);
-          console.log('🔬 DEBUG_FIX: remaining object names:', updatedObjects.map((o: any) => o.name));
 
-          // Update app data without children
-          const newData = {
-            ...currentAppData,
-            objects: updatedObjects,
-            totalObjects: updatedObjects.length,
-            document: currentAppData.document || '',
-            layoutName: currentAppData.layoutName || ''
-          };
-
-          // Update global app data
-          if ((window as any).updateAppData) {
-            (window as any).updateAppData(newData);
-            console.log('🔬 DEBUG_FIX: Global app data updated after child removal');
+          // Clear ALL parent relationship tracking
+          if (parentMother) {
+            // Clear childMotherIds array completely
+            if (parentMother.childMotherIds) {
+              parentMother.childMotherIds = [];
+            }
+            // Remove any other relationship tracking properties
+            delete parentMother.hasChildren;
+            delete parentMother.childCount;
+            console.log('🗑️ Generate: Cleared ALL parent relationship tracking');
           }
 
-          console.log('✅ Existing child mothers removed - ready for regeneration');
+          // Update global app data with cleaned objects
+          const cleanedAppData = {
+            ...currentAppData,
+            objects: cleanedObjects,
+            totalObjects: cleanedObjects.length
+          };
 
-          // Wait for cleanup to complete
-          await new Promise(resolve => setTimeout(resolve, 300));
+          if ((window as any).updateAppData) {
+            (window as any).updateAppData(cleanedAppData);
+            console.log('✅ Generate: All child mothers removed from object hierarchy');
+          }
+
+          // Force canvas refresh to reflect removal
+          if ((window as any).refreshCanvas) {
+            (window as any).refreshCanvas();
+          }
+
+          // Wait for cleanup to be fully applied
+          await new Promise(resolve => setTimeout(resolve, 500));
         } else {
-          console.log('🔬 DEBUG_FIX: No existing child mothers found - proceeding with fresh generation');
+          console.log('ℹ️ Generate: No child mothers found in object hierarchy - proceeding with clean slate');
         }
       }
 
@@ -2147,8 +2165,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       // STEP 4: Create child mother for overflow content
       console.log('🔧 Generate - Step 4: Creating child mother for overflow content');
 
-      // 3-1: Create child mother structure
-      console.log('🔧 FF - Step 3-1: Create child mother structure');
+      // 3-1: Create child mother structure (FORCE Mother_1A naming)
+      console.log('🔧 FF - Step 3-1: Create child mother structure - FORCING Mother_1A naming');
       let childMotherId: string | null = null;
 
       // Find parent mother ID
@@ -2168,20 +2186,55 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         }
       }
 
-      if (createChildMother) {
-        childMotherId = createChildMother(parentMotherIdForStep3);
-        if (childMotherId) {
-          console.log(`✅ FF: Child mother structure created: ${childMotherId}`);
-          (window as any).lastCreatedChildId = childMotherId;
+      // OVERRIDE: Force next mother to be Mother_1A by temporarily setting mother count to 1
+      const originalUpdateData = (window as any).updateAppData;
+      if (originalUpdateData && globalData) {
+        // Temporarily make it look like only Mother_1 exists for naming purposes
+        const tempMotherObjects = globalData.objects.filter((obj: any) =>
+          obj.type?.includes('mother') && obj.name === parentMotherIdForStep3
+        );
+
+        // Store original objects
+        const originalObjects = globalData.objects;
+
+        // Temporarily set objects to only include Mother_1 for naming calculation
+        globalData.objects = [
+          ...globalData.objects.filter((obj: any) => !obj.type?.includes('mother')),
+          ...tempMotherObjects
+        ];
+
+        console.log('🔧 FF: Temporarily set mother count to 1 to force Mother_1A naming');
+
+        if (createChildMother) {
+          childMotherId = createChildMother(parentMotherIdForStep3);
+
+          // Restore original objects immediately after creation
+          globalData.objects = originalObjects;
+
+          if (childMotherId) {
+            console.log(`✅ FF: Child mother structure created with forced naming: ${childMotherId}`);
+            (window as any).lastCreatedChildId = childMotherId;
+          } else {
+            console.error('❌ FF: Failed to create child mother structure');
+            alert('Error: Failed to create child mother structure');
+            return;
+          }
         } else {
-          console.error('❌ FF: Failed to create child mother structure');
-          alert('Error: Failed to create child mother structure');
+          // Restore original objects if createChildMother not available
+          globalData.objects = originalObjects;
+          console.error('❌ FF: createChildMother function not available');
+          alert('Error: createChildMother function not available');
           return;
         }
       } else {
-        console.error('❌ FF: createChildMother function not available');
-        alert('Error: createChildMother function not available');
-        return;
+        console.error('❌ FF: Cannot override mother naming - falling back to standard creation');
+        if (createChildMother) {
+          childMotherId = createChildMother(parentMotherIdForStep3);
+          if (childMotherId) {
+            console.log(`✅ FF: Child mother structure created: ${childMotherId}`);
+            (window as any).lastCreatedChildId = childMotherId;
+          }
+        }
       }
 
       // Wait for child mother to be created
