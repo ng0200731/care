@@ -1119,13 +1119,150 @@ function App() {
         return newContents;
       });
 
-      // Force immediate canvas re-render by updating a render trigger
+      // ALSO UPDATE THE MAIN DATA OBJECTS to ensure persistence
+      const currentData = data || webCreationData;
+      if (currentData) {
+        const updatedObjects = currentData.objects.map(obj => {
+          if ((obj as any).regions && (obj as any).regions.some((region: any) => region.id === regionId)) {
+            // This is the mother object containing the region
+            const updatedRegions = (obj as any).regions.map((region: any) => {
+              if (region.id === regionId) {
+                // Update the region's contents
+                const updatedContents = (region.contents || []).map((content: any) =>
+                  content.id === editingContent.id
+                    ? {
+                        ...content,
+                        type: 'new-comp-trans' as const,
+                        content: {
+                          ...content.content,
+                          text: config.textContent.generatedText || 'Composition Translation',
+                          padding: config.padding,
+                          alignment: config.alignment
+                        },
+                        typography: config.typography,
+                        layout: {
+                          ...content.layout,
+                          padding: config.padding,
+                          horizontalAlign: config.alignment.horizontal,
+                          verticalAlign: config.alignment.vertical
+                        },
+                        newCompTransConfig: config // Store complete configuration
+                      }
+                    : content
+                );
+                return { ...region, contents: updatedContents };
+              }
+              return region;
+            });
+            return { ...obj, regions: updatedRegions } as any;
+          }
+          return obj;
+        });
+
+        const newData = {
+          ...currentData,
+          objects: updatedObjects
+        };
+
+        // Update the appropriate data state
+        if (data) {
+          setData(newData);
+        } else {
+          setWebCreationData(newData);
+        }
+
+        // Update global app data
+        if ((window as any).updateAppData) {
+          (window as any).updateAppData(newData);
+        }
+
+        console.log('💾 Updated main data objects with new text:', config.textContent.generatedText?.substring(0, 50));
+
+        // SMART CHILD MOTHER MANAGEMENT: Check if we need to remove/regenerate children
+        const currentMother = updatedObjects.find((obj: any) =>
+          (obj as any).regions && (obj as any).regions.some((region: any) => region.id === regionId)
+        );
+
+        if (currentMother && currentMother.name) {
+          // Check for existing child mothers in the updated data
+          const existingChildMothers = updatedObjects.filter((obj: any) =>
+            obj.isOverflowChild && obj.parentMotherId === currentMother.name
+          );
+
+          // Check if new text would overflow using improved estimation
+          const newText = config.textContent.generatedText || '';
+          const fontSize = config.typography?.fontSize || 10;
+          const lineHeight = 1.2;
+
+          // Better estimation: chars per line * lines that fit
+          const avgCharWidth = fontSize * 0.6; // rough estimate of char width
+          const charsPerLine = Math.floor(newCompTransDialog.regionWidth / avgCharWidth);
+          const lineHeightPx = fontSize * lineHeight;
+          const linesThatFit = Math.floor(newCompTransDialog.regionHeight / lineHeightPx);
+          const estimatedCharLimit = charsPerLine * linesThatFit;
+
+          const hasOverflow = newText.length > estimatedCharLimit;
+
+          console.log(`🧠 Smart child management for ${currentMother.name}:`);
+          console.log(`   - New text: "${newText}"`);
+          console.log(`   - New text length: ${newText.length} chars`);
+          console.log(`   - Region size: ${newCompTransDialog.regionWidth}x${newCompTransDialog.regionHeight}mm`);
+          console.log(`   - Font size: ${fontSize}px`);
+          console.log(`   - Chars per line: ${charsPerLine}`);
+          console.log(`   - Lines that fit: ${linesThatFit}`);
+          console.log(`   - Estimated limit: ${estimatedCharLimit} chars`);
+          console.log(`   - Has overflow: ${hasOverflow}`);
+          console.log(`   - Existing children: ${existingChildMothers.length}`);
+          if (existingChildMothers.length > 0) {
+            console.log(`   - Child names: ${existingChildMothers.map(c => c.name).join(', ')}`);
+          }
+
+          if (!hasOverflow && existingChildMothers.length > 0) {
+            // No overflow but children exist - remove them immediately
+            console.log('🗑️ No overflow detected, removing existing child mothers');
+
+            const finalUpdatedObjects = updatedObjects.filter((obj: any) =>
+              !(obj.isOverflowChild && obj.parentMotherId === currentMother.name)
+            );
+
+            const finalData = {
+              ...newData,
+              objects: finalUpdatedObjects,
+              totalObjects: finalUpdatedObjects.length
+            };
+
+            // Update the data again with children removed
+            if (data) {
+              setData(finalData);
+            } else {
+              setWebCreationData(finalData);
+            }
+
+            // Update global app data
+            if ((window as any).updateAppData) {
+              (window as any).updateAppData(finalData);
+            }
+
+            setNotification('🗑️ Removed overflow children (no longer needed)');
+            setTimeout(() => setNotification(null), 3000);
+          } else if (hasOverflow && existingChildMothers.length === 0) {
+            // Has overflow but no children - suggest using Generate button
+            setNotification('⚠️ Text overflow detected. Use "Generate" button to create overflow mothers.');
+            setTimeout(() => setNotification(null), 5000);
+          } else if (hasOverflow && existingChildMothers.length > 0) {
+            // Has overflow and children exist - suggest using Generate button to regenerate
+            setNotification('⚠️ Text changed with overflow. Use "Generate" button to regenerate children.');
+            setTimeout(() => setNotification(null), 5000);
+          }
+        }
+      }
+
+      // Force canvas re-render
       setTimeout(() => {
         setRegionContents(prevContents => new Map(prevContents));
-        // Force canvas redraw by incrementing a counter
         setNotification('🎨 Refreshing canvas...');
         setTimeout(() => setNotification(null), 100);
-      }, 0);
+      }, 100);
 
       setNotification(`✅ Updated composition translation`);
       setTimeout(() => setNotification(null), 3000);
@@ -1224,11 +1361,12 @@ function App() {
       console.log('⚠️ updateAppData function not available - global data not synchronized');
     }
 
-    // Close dialog (unless in debug mode)
-    if (!(window as any).debugModeActive) {
-      setNewCompTransDialog(null);
-    } else {
-      console.log('🔧 [DEBUG] Keeping dialog open for debug mode');
+    // Always close dialog after save
+    setNewCompTransDialog(null);
+
+    // Reset debug mode flag if it was set
+    if ((window as any).debugModeActive) {
+      console.log('🔧 [DEBUG] Resetting debug mode and closing dialog');
       (window as any).debugModeActive = false; // Reset flag
     }
   };
@@ -2568,6 +2706,9 @@ function App() {
     // Handle new-comp-trans content type - check parent-child relationship
     if (content.type === 'new-comp-trans') {
       console.log('🌐 NEW CT Comp Trans double-clicked - Checking parent-child relationship');
+      console.log('🔬 DEBUG_FIX: Full content structure:', JSON.stringify(content, null, 2));
+      console.log('🔬 DEBUG_FIX: newCompTransConfig:', content.newCompTransConfig);
+      console.log('🔬 DEBUG_FIX: text content:', content.newCompTransConfig?.textContent?.generatedText);
 
       // Find the region and mother from current data
       const currentData = data || webCreationData;
@@ -2626,37 +2767,98 @@ function App() {
         );
 
         if (childMothers.length > 0) {
-          console.log(`🗑️ Found ${childMothers.length} child mothers - Will remove them first`);
-
-          // Remove all child mothers
-          const updatedObjects = currentData.objects.filter((obj: any) =>
-            !(obj.isOverflowChild && obj.parentMotherId === motherObject.name)
-          );
-
-          // Update app data without children
-          const newData = {
-            ...currentData,
-            objects: updatedObjects,
-            totalObjects: updatedObjects.length,
-            document: currentData.document || '', // Ensure document is always a string
-            layoutName: currentData.layoutName || '' // Ensure layoutName is always a string
-          };
-
-          // Update the data state
-          if (data) {
-            setData(newData);
-          } else {
-            setWebCreationData(newData);
-          }
-
-          // Update global app data
-          if ((window as any).updateAppData) {
-            (window as any).updateAppData(newData);
-          }
-
-          console.log('✅ Child mothers removed - Now opening dialog for re-rendering');
+          console.log(`🔍 Found ${childMothers.length} child mothers - Keeping them intact for editing`);
+          // NOTE: Child mothers are now preserved when parent is double-clicked
+          // They will only be removed/regenerated when "generate" button is clicked
         }
       }
+
+      // 🔬 DEBUG_FIX: Enhanced debugging for dialog initialization
+      console.log('🔬 DEBUG_FIX: About to open dialog with editingContent:', {
+        hasEditingContent: !!content,
+        contentType: content?.type,
+        hasNewCompTransConfig: !!content?.newCompTransConfig,
+        hasTextContent: !!content?.newCompTransConfig?.textContent,
+        textValue: content?.newCompTransConfig?.textContent?.generatedText,
+        textLength: content?.newCompTransConfig?.textContent?.generatedText?.length || 0
+      });
+
+      // 🔧 FIX: Get fresh content from current state instead of using potentially stale content
+      let freshContent = content; // Fallback to original content
+
+      console.log('🔍 TEXT_SEARCH: Starting fresh content lookup for regionId:', regionId);
+      console.log('🔍 TEXT_SEARCH: Looking for content with ID:', content.id);
+      console.log('🔍 TEXT_SEARCH: Original content text:', content.newCompTransConfig?.textContent?.generatedText || 'NO TEXT');
+
+      // First, try to get fresh content from React state (regionContents)
+      const reactContents = regionContents.get(regionId) || [];
+      console.log('🔍 TEXT_SEARCH: React state contents for region:', reactContents.length, 'items');
+      reactContents.forEach((c: any, i: number) => {
+        console.log(`🔍 TEXT_SEARCH: React content ${i}:`, {
+          id: c.id,
+          type: c.type,
+          hasConfig: !!c.newCompTransConfig,
+          hasText: !!c.newCompTransConfig?.textContent?.generatedText,
+          textLength: c.newCompTransConfig?.textContent?.generatedText?.length || 0,
+          textSample: c.newCompTransConfig?.textContent?.generatedText?.substring(0, 30) || 'NO TEXT'
+        });
+      });
+
+      const reactContent = reactContents.find((c: any) => c.id === content.id && c.type === 'new-comp-trans');
+
+      if (reactContent) {
+        freshContent = reactContent;
+        console.log('✅ TEXT_SEARCH: Found fresh content in React state!');
+        console.log('🔬 TEXT_SEARCH: Fresh text content:', freshContent.newCompTransConfig?.textContent?.generatedText?.substring(0, 50) + '...');
+      } else {
+        console.log('❌ TEXT_SEARCH: Content not found in React state, trying global data...');
+
+        // If not found in React state, try global data
+        if (currentData && currentData.objects) {
+          console.log('🔍 TEXT_SEARCH: Searching global data objects:', currentData.objects.length);
+
+          for (const obj of currentData.objects) {
+            if (obj.type?.includes('mother')) {
+              console.log('🔍 TEXT_SEARCH: Checking mother:', obj.name);
+              const regions = (obj as any).regions || [];
+
+              for (const regionData of regions) {
+                console.log('🔍 TEXT_SEARCH: Checking region:', regionData.id);
+                const globalContents = regionData.contents || [];
+                console.log('🔍 TEXT_SEARCH: Region has', globalContents.length, 'contents');
+
+                globalContents.forEach((c: any, i: number) => {
+                  console.log(`🔍 TEXT_SEARCH: Global content ${i}:`, {
+                    id: c.id,
+                    type: c.type,
+                    hasConfig: !!c.newCompTransConfig,
+                    hasText: !!c.newCompTransConfig?.textContent?.generatedText,
+                    textLength: c.newCompTransConfig?.textContent?.generatedText?.length || 0,
+                    textSample: c.newCompTransConfig?.textContent?.generatedText?.substring(0, 30) || 'NO TEXT'
+                  });
+                });
+
+                const globalContent = globalContents.find((c: any) => c.id === content.id && c.type === 'new-comp-trans');
+                if (globalContent) {
+                  freshContent = globalContent;
+                  console.log('✅ TEXT_SEARCH: Found fresh content in global data!');
+                  console.log('🔬 TEXT_SEARCH: Fresh global text content:', freshContent.newCompTransConfig?.textContent?.generatedText?.substring(0, 50) + '...');
+                  break;
+                }
+              }
+            }
+          }
+        } else {
+          console.log('❌ TEXT_SEARCH: No global data available');
+        }
+      }
+
+      // Use the fresh content for dialog opening
+      console.log('🔬 TEXT_SEARCH: Final content being used:', {
+        originalLength: content.newCompTransConfig?.textContent?.generatedText?.length || 0,
+        freshLength: freshContent.newCompTransConfig?.textContent?.generatedText?.length || 0,
+        textSample: freshContent.newCompTransConfig?.textContent?.generatedText?.substring(0, 50) + '...'
+      });
 
       // Open dialog for editing (will re-render children if needed)
       setNewCompTransDialog({
@@ -2664,7 +2866,7 @@ function App() {
         regionId: regionId,
         regionWidth: region.width,
         regionHeight: region.height,
-        editingContent: content
+        editingContent: freshContent
       });
       return;
     }
@@ -6034,18 +6236,33 @@ function App() {
 
       // Check if this mother is part of a relationship
       const relationship = motherRelationshipManager.getRelationship(mother.name);
-      const isChildMother = childMotherIds.has(mother.name);
+      const isChildMother = childMotherIds.has(mother.name) || (mother as any).isOverflowChild;
+
+      // Also check if this mother has overflow children (direct child property check)
+      const hasOverflowChildren = (mother as any).childMotherIds?.length > 0;
+      const effectiveRelationship = relationship || (hasOverflowChildren ? {
+        childIds: (mother as any).childMotherIds || []
+      } : null);
+
+      // Get master name - check both relationship manager and direct parent property
+      let masterName = undefined;
+      if (isChildMother) {
+        // First try to get from relationship manager
+        const relationshipMaster = Array.from(allRelationships.entries()).find(([masterId, rel]) =>
+          rel.childIds.includes(mother.name)
+        )?.[0];
+
+        // If not found, check direct parent property
+        masterName = relationshipMaster || (mother as any).parentMotherId;
+      }
 
       mothers.push({
         object: mother,
         children: sons,
         isExpanded: false, // Will be set correctly in render
-        relationship: relationship, // Master relationship data
+        relationship: effectiveRelationship, // Master relationship data (includes direct overflow children)
         isChildMother: isChildMother, // Whether this is a child mother
-        masterName: isChildMother ? 
-          Array.from(allRelationships.entries()).find(([masterId, rel]) => 
-            rel.childIds.includes(mother.name)
-          )?.[0] : undefined
+        masterName: masterName
       });
     });
 
@@ -9759,18 +9976,20 @@ function App() {
                       {/* Relationship indicator */}
                       {mother.isChildMother && (
                         <span style={{
-                          fontSize: '1.2em',
+                          fontSize: '1.4em',
                           color: '#ff9800',
-                          marginRight: '4px'
+                          marginRight: '6px',
+                          fontWeight: 'bold'
                         }}>
-                          ↳
+                          ⤷
                         </span>
                       )}
                       {mother.relationship && (
                         <span style={{
-                          fontSize: '1.2em',
+                          fontSize: '1.4em',
                           color: '#4caf50',
-                          marginRight: '4px'
+                          marginRight: '6px',
+                          animation: 'pulse 2s infinite'
                         }}>
                           🔗
                         </span>
@@ -9797,23 +10016,29 @@ function App() {
                       {/* Relationship status badge */}
                       {mother.isChildMother && (
                         <span style={{
-                          fontSize: '0.7em',
+                          fontSize: '0.75em',
                           backgroundColor: '#ff9800',
                           color: 'white',
-                          padding: '2px 6px',
-                          borderRadius: '10px',
-                          marginLeft: '8px'
+                          padding: '3px 8px',
+                          borderRadius: '12px',
+                          marginLeft: '8px',
+                          fontWeight: 'bold',
+                          border: '1px solid #ff6f00',
+                          boxShadow: '0 2px 4px rgba(255, 152, 0, 0.3)'
                         }}>
-                          Child of {mother.masterName}
+                          ⤷ Child of {mother.masterName}
                         </span>
                       )}
                       {mother.relationship && (
                         <span style={{
-                          fontSize: '0.7em',
+                          fontSize: '0.75em',
                           backgroundColor: '#4caf50',
                           color: 'white',
-                          padding: '2px 6px',
-                          borderRadius: '10px',
+                          padding: '3px 8px',
+                          borderRadius: '12px',
+                          fontWeight: 'bold',
+                          border: '1px solid #388e3c',
+                          boxShadow: '0 2px 4px rgba(76, 175, 80, 0.3)',
                           marginLeft: '8px'
                         }}>
                           {mother.relationship.childIds.length} children

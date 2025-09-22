@@ -100,6 +100,7 @@ export interface NewCompTransConfig {
   textContent: {
     separator: string;
     generatedText: string;
+    originalText?: string; // Store the original raw text before any processing
   };
   lineBreakSettings: {
     lineBreakSymbol: string;
@@ -134,37 +135,83 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
   onCreateNewMother,
   createChildMother
 }) => {
-  const [config, setConfig] = useState<NewCompTransConfig>({
-    padding: {
-      top: 2,
-      right: 2,
-      bottom: 2,
-      left: 2
-    },
-    typography: {
-      fontFamily: 'Arial',
-      fontSize: 10,
-      fontSizeUnit: 'px'
-    },
-    alignment: {
-      horizontal: 'left',
-      vertical: 'top'
-    },
-    selectedLanguages: ['EN'], // Default to English
-    materialCompositions: [
-      { id: '1', percentage: 100, material: 'COTTON' }
-    ],
-    textContent: {
-      separator: ' - ',
-      generatedText: ''
-    },
-    lineBreakSettings: {
-      lineBreakSymbol: '\n',
-      lineSpacing: 1.2,
-      lineWidth: 100
+  // Initialize config from editing content or defaults
+  const getInitialConfig = (): NewCompTransConfig => {
+    console.log('🔬 DEBUG_FIX: getInitialConfig called');
+    console.log('🔬 DEBUG_FIX: editingContent:', editingContent);
+    console.log('🔬 DEBUG_FIX: editingContent.newCompTransConfig:', editingContent?.newCompTransConfig);
+    console.log('🔬 DEBUG_FIX: existing text:', editingContent?.newCompTransConfig?.textContent?.generatedText);
+
+    if (editingContent && editingContent.newCompTransConfig) {
+      const existingText = editingContent.newCompTransConfig.textContent?.generatedText;
+      console.log('🔬 DEBUG_FIX: Loading existing config with text:', existingText?.substring(0, 50));
+      console.log('🔬 DEBUG_FIX: Existing text full length:', existingText?.length || 0);
+      console.log('🔬 DEBUG_FIX: Existing text is empty?', !existingText || existingText.trim() === '');
+
+      // Enhanced validation of existing config structure
+      const loadedConfig = {
+        ...editingContent.newCompTransConfig,
+        selectedLanguages: editingContent.newCompTransConfig.selectedLanguages || ['EN'],
+        materialCompositions: editingContent.newCompTransConfig.materialCompositions || [
+          { id: '1', percentage: 100, material: 'COTTON' }
+        ],
+        textContent: editingContent.newCompTransConfig.textContent || {
+          separator: ' - ',
+          generatedText: '',
+          originalText: ''
+        },
+        lineBreakSettings: editingContent.newCompTransConfig.lineBreakSettings || {
+          lineBreakSymbol: '\n',
+          lineSpacing: 1.2,
+          lineWidth: 100
+        }
+        // overflowOption removed - automatic handling
+      };
+
+      console.log('🔬 DEBUG_FIX: Final loaded config text:', loadedConfig.textContent.generatedText);
+      console.log('🔬 DEBUG_FIX: Final loaded config material compositions:', loadedConfig.materialCompositions);
+      console.log('🔬 DEBUG_FIX: Final loaded config selected languages:', loadedConfig.selectedLanguages);
+
+      return loadedConfig;
     }
-    // overflowOption removed - automatic handling enabled
-  });
+
+    console.log('🔬 DEBUG_FIX: No existing config found, using defaults');
+
+    return {
+      padding: {
+        top: 2,
+        right: 2,
+        bottom: 2,
+        left: 2
+      },
+      typography: {
+        fontFamily: 'Arial',
+        fontSize: 10,
+        fontSizeUnit: 'px'
+      },
+      alignment: {
+        horizontal: 'left',
+        vertical: 'top'
+      },
+      selectedLanguages: ['EN'], // Default to English
+      materialCompositions: [
+        { id: '1', percentage: 100, material: 'COTTON' }
+      ],
+      textContent: {
+        separator: ' - ',
+        generatedText: '',
+        originalText: ''
+      },
+      lineBreakSettings: {
+        lineBreakSymbol: '\n',
+        lineSpacing: 1.2,
+        lineWidth: 100
+      }
+      // overflowOption removed - automatic handling enabled
+    };
+  };
+
+  const [config, setConfig] = useState<NewCompTransConfig>(() => getInitialConfig());
 
   // Overflow handling is now automatic - no user selection needed
 
@@ -421,8 +468,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
   // Canvas-based overflow detection and text splitting (similar to NewMultiLineDialog)
   const detectOverflowAndSplit = () => {
-    // Use manually entered text if available, otherwise fall back to generated text
-    const text = config.textContent.generatedText || generateTextContent();
+    // Use original text if available, fallback to generated text, then to auto-generated content
+    const text = config.textContent.originalText || config.textContent.generatedText || generateTextContent();
     if (!text || !regionWidth || !regionHeight) return { hasOverflow: false, originalText: text, overflowText: '' };
 
     // Calculate available space in pixels
@@ -568,67 +615,27 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     }
   };
 
-  // Initialize config from editing content or defaults
-  const getInitialConfig = (): NewCompTransConfig => {
-    if (editingContent && editingContent.newCompTransConfig) {
-      // Ensure selectedLanguages exists in existing config
-      return {
-        ...editingContent.newCompTransConfig,
-        selectedLanguages: editingContent.newCompTransConfig.selectedLanguages || ['EN'],
-        materialCompositions: editingContent.newCompTransConfig.materialCompositions || [
-          { id: '1', percentage: 100, material: 'COTTON' }
-        ],
-        textContent: editingContent.newCompTransConfig.textContent || {
-          separator: ' - ',
-          generatedText: ''
-        },
-        lineBreakSettings: editingContent.newCompTransConfig.lineBreakSettings || {
-          lineBreakSymbol: '\n',
-          lineSpacing: 1.2,
-          lineWidth: 100
-        }
-        // overflowOption removed - automatic handling
-      };
-    }
-
-    return {
-      padding: {
-        top: 2,
-        right: 2,
-        bottom: 2,
-        left: 2
-      },
-      typography: {
-        fontFamily: 'Arial',
-        fontSize: 10,
-        fontSizeUnit: 'px'
-      },
-      alignment: {
-        horizontal: 'left',
-        vertical: 'top'
-      },
-      selectedLanguages: ['EN'], // Default to English
-      materialCompositions: [
-        { id: '1', percentage: 100, material: 'COTTON' }
-      ],
-      textContent: {
-        separator: ' - ',
-        generatedText: ''
-      },
-      lineBreakSettings: {
-        lineBreakSymbol: '\n',
-        lineSpacing: 1.2,
-        lineWidth: 100
-      }
-      // overflowOption removed - automatic handling
-    };
-  };
-
   useEffect(() => {
     if (isOpen) {
       const initialConfig = getInitialConfig();
       setConfig(initialConfig);
-      // overflowOption removed - automatic handling enabled
+
+      // If we're editing existing content with text, mark as manually edited to prevent auto-generation
+      if (editingContent && editingContent.newCompTransConfig?.textContent?.generatedText) {
+        console.log('🔬 DEBUG_FIX: Setting isTextManuallyEdited=true for existing content');
+        setIsTextManuallyEdited(true);
+
+        // If originalText doesn't exist but generatedText does, assume generatedText is the original
+        const currentConfig = initialConfig;
+        if (!currentConfig.textContent.originalText && currentConfig.textContent.generatedText) {
+          currentConfig.textContent.originalText = currentConfig.textContent.generatedText;
+          console.log('🔬 DEBUG_FIX: Set originalText from generatedText for backward compatibility');
+        }
+        setConfig(currentConfig);
+      } else {
+        console.log('🔬 DEBUG_FIX: Setting isTextManuallyEdited=false for new content');
+        setIsTextManuallyEdited(false);
+      }
 
       // Debug: Check if callback is available (reduced logging)
       if (Math.random() < 0.1) { // Only log 10% of the time
@@ -644,27 +651,35 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
   // Auto-generate text content when compositions or languages change (only if not manually edited)
   useEffect(() => {
-    // Only auto-generate if the user hasn't manually edited the text
-    if (!isTextManuallyEdited) {
+    // Only auto-generate if the user hasn't manually edited the text AND there's no existing text content
+    const hasExistingText = (config.textContent.originalText && config.textContent.originalText.trim().length > 0) ||
+                           (config.textContent.generatedText && config.textContent.generatedText.trim().length > 0);
+
+    if (!isTextManuallyEdited && !hasExistingText) {
       const generatedText = generateTextContent();
       setConfig(prev => ({
         ...prev,
         textContent: {
           ...prev.textContent,
-          generatedText
+          generatedText,
+          originalText: generatedText // Store as original when auto-generated
         }
       }));
 
       // Debug: Log the current config when text is generated
-      console.log('🔍 DEBUG: Auto-generated text (not manually edited):', {
+      console.log('🔍 DEBUG: Auto-generated text (not manually edited, no existing text):', {
         lineBreakSettings: config.lineBreakSettings,
         textContent: config.textContent,
         generatedText: generatedText
       });
     } else {
-      // Reduced logging: console.log('🔍 DEBUG: Skipping auto-generation - text was manually edited');
+      if (hasExistingText) {
+        const textToShow = config.textContent.originalText || config.textContent.generatedText;
+        console.log('🔍 DEBUG: Preserving existing text content:', textToShow?.substring(0, 50) + '...');
+      }
+      // console.log('🔍 DEBUG: Skipping auto-generation - text was manually edited or existing text found');
     }
-  }, [config.materialCompositions, config.selectedLanguages, config.textContent.separator, isTextManuallyEdited]);
+  }, [config.materialCompositions, config.selectedLanguages, config.textContent.separator, isTextManuallyEdited, config.textContent.generatedText, config.textContent.originalText]);
 
   // Check for overflow whenever content or settings change
   useEffect(() => {
@@ -1003,6 +1018,11 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         if (region.contents && region.contents.length > 0) {
           region.contents.forEach((content: any) => {
             if (content.type === 'new-comp-trans' && content.newCompTransConfig) {
+              // Preserve the original text if it exists, or store current generatedText as original
+              if (!content.newCompTransConfig.textContent.originalText) {
+                content.newCompTransConfig.textContent.originalText = content.newCompTransConfig.textContent.generatedText;
+              }
+              // Update generatedText with fitted text for canvas rendering
               content.newCompTransConfig.textContent.generatedText = fittedText;
               console.log(`✅ Updated ${mother.name} with fitted text: "${fittedText.substring(0, 50)}..."`);
             }
@@ -1238,8 +1258,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       console.log('🔧 3-1: Creating child mother structure (configuration, size, width, padding, font family, font size, line spacing) with empty region 1');
       
       // Find the correct parent mother by searching which mother contains this regionId
-      let parentMotherId = 'Mother_1'; // Default fallback
       const globalData = (window as any).currentAppData;
+      let parentMotherId = 'Mother_1'; // Default fallback
       if (globalData && globalData.objects) {
         console.log(`🔍 3-1: Searching ${globalData.objects.length} objects for region ${regionId}...`);
         for (const obj of globalData.objects) {
@@ -1799,8 +1819,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       console.log('🔧 4/4 - Step 3: Duplicating Mother_1 to create Mother_1A');
       
       // Find the correct parent mother by searching which mother contains this regionId
-      let parentMotherId = 'Mother_1'; // Default fallback
       const globalData = (window as any).currentAppData;
+      let parentMotherId = 'Mother_1'; // Default fallback
       if (globalData && globalData.objects) {
         console.log(`🔍 4/4: Searching ${globalData.objects.length} objects for region ${regionId}...`);
         for (const obj of globalData.objects) {
@@ -1921,10 +1941,88 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
   // NEW: Button "FF" - Fast Flow: First save mother_1 with split1, then create mother_1A with split2
   const handleFF = async () => {
     try {
-      console.log('🚀 FF: Starting Fast Flow - step by step...');
+      console.log('🚀 Generate: Starting Generate Flow - step by step...');
+
+      // STEP 0: Remove existing child mothers first (regeneration)
+      console.log('🗑️ Generate - Step 0: Removing existing child mothers for regeneration');
+      let currentAppData = (window as any).currentAppData;
+      console.log('🔬 DEBUG_FIX: currentAppData:', currentAppData);
+      console.log('🔬 DEBUG_FIX: objects count:', currentAppData?.objects?.length);
+
+      // Declare parentMotherId at function scope to prevent initialization errors
+      let parentMotherId = 'Mother_1'; // Default fallback
+
+      if (currentAppData && currentAppData.objects) {
+        // Find parent mother ID
+        const parentMother = currentAppData.objects.find((obj: any) =>
+          obj.regions && obj.regions.some((region: any) => region.id === regionId)
+        );
+        if (parentMother) {
+          parentMotherId = parentMother.name;
+        }
+        console.log('🔬 DEBUG_FIX: parentMotherId:', parentMotherId);
+
+        // 🔬 DEBUG_FIX: Enhanced debugging for child mother detection
+        console.log('🔬 DEBUG_FIX: All objects in currentAppData:');
+        currentAppData.objects.forEach((obj: any, index: number) => {
+          console.log(`🔬 DEBUG_FIX: Object ${index}: name=${obj.name}, type=${obj.type}, isOverflowChild=${obj.isOverflowChild}, parentMotherId=${obj.parentMotherId}`);
+        });
+
+        // Create a local copy of parentMotherId to avoid closure issues
+        const parentMotherIdLocal = parentMotherId;
+
+        // Find and remove existing child mothers
+        const existingChildMothers = currentAppData.objects.filter((obj: any) =>
+          obj.isOverflowChild && obj.parentMotherId === parentMotherIdLocal
+        );
+        console.log('🔬 DEBUG_FIX: existingChildMothers found:', existingChildMothers.length);
+        console.log('🔬 DEBUG_FIX: existingChildMothers details:', existingChildMothers);
+        console.log('🔬 DEBUG_FIX: child names:', existingChildMothers.map((c: any) => c.name));
+
+        // 🔬 DEBUG_FIX: Also check for alternative patterns
+        const alternativeChildMothers = currentAppData.objects.filter((obj: any) =>
+          obj.name && obj.name.includes('Mother_') && obj.name !== parentMotherIdLocal &&
+          (obj.isOverflowChild === true || obj.parentMotherId === parentMotherIdLocal)
+        );
+        console.log('🔬 DEBUG_FIX: Alternative child pattern found:', alternativeChildMothers.length);
+        console.log('🔬 DEBUG_FIX: Alternative child names:', alternativeChildMothers.map((c: any) => c.name));
+
+        if (existingChildMothers.length > 0) {
+          console.log(`🗑️ Found ${existingChildMothers.length} existing child mothers - removing for regeneration`);
+
+          // Remove all child mothers
+          const updatedObjects = currentAppData.objects.filter((obj: any) =>
+            !(obj.isOverflowChild && obj.parentMotherId === parentMotherIdLocal)
+          );
+          console.log('🔬 DEBUG_FIX: objects after removal:', updatedObjects.length);
+          console.log('🔬 DEBUG_FIX: remaining object names:', updatedObjects.map((o: any) => o.name));
+
+          // Update app data without children
+          const newData = {
+            ...currentAppData,
+            objects: updatedObjects,
+            totalObjects: updatedObjects.length,
+            document: currentAppData.document || '',
+            layoutName: currentAppData.layoutName || ''
+          };
+
+          // Update global app data
+          if ((window as any).updateAppData) {
+            (window as any).updateAppData(newData);
+            console.log('🔬 DEBUG_FIX: Global app data updated after child removal');
+          }
+
+          console.log('✅ Existing child mothers removed - ready for regeneration');
+
+          // Wait for cleanup to complete
+          await new Promise(resolve => setTimeout(resolve, 300));
+        } else {
+          console.log('🔬 DEBUG_FIX: No existing child mothers found - proceeding with fresh generation');
+        }
+      }
 
       // STEP 1: Calculate Splits (EXACT COPY of handle12)
-      console.log('🔧 FF - Step 1: Calculate Splits');
+      console.log('🔧 Generate - Step 1: Calculate Splits');
       const overflowResult = detectOverflowAndSplit();
       setSplit1Text(overflowResult.originalText);
       setSplit2Text(overflowResult.overflowText);
@@ -1933,9 +2031,9 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       setDebugStep(1);
 
       // STEP 2: Fill Parent (SPLIT 1) - EXACT COPY of handle12
-      console.log('🟡🟡🟡 FF-DEBUG: Step 2 starting - Fill Parent (SPLIT 1)');
-      console.log('🟡🟡🟡 FF-DEBUG: split1Text length:', overflowResult.originalText.length);
-      console.log('🟡🟡🟡 FF-DEBUG: split1Text preview:', overflowResult.originalText.substring(0, 100));
+      console.log('🟡🟡🟡 Generate-DEBUG: Step 2 starting - Fill Parent (SPLIT 1)');
+      console.log('🟡🟡🟡 Generate-DEBUG: split1Text length:', overflowResult.originalText.length);
+      console.log('🟡🟡🟡 Generate-DEBUG: split1Text preview:', overflowResult.originalText.substring(0, 100));
 
       const debugConfig = {
         ...config,
@@ -1947,17 +2045,17 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       setConfig(debugConfig);
       (window as any).debugModeActive = true;
 
-      console.log('🟡🟡🟡 FF-DEBUG: About to call onSave() with split1Text');
+      console.log('🟡🟡🟡 Generate-DEBUG: About to call onSave() with split1Text');
       onSave(debugConfig);
-      console.log('🟡🟡🟡 FF-DEBUG: onSave() called - mother_1 should now have SPLIT 1');
+      console.log('🟡🟡🟡 Generate-DEBUG: onSave() called - mother_1 should now have SPLIT 1');
       setDebugStep(2);
 
       // Wait for mother_1 to be properly saved
       await new Promise(resolve => setTimeout(resolve, 1000));
 
       // Verify mother_1 still has content before proceeding
-      console.log('🔴🔴🔴 FF-DEBUG: VERIFICATION - Checking mother_1 content...');
-      const currentAppData = (window as any).currentAppData;
+      console.log('🔴🔴🔴 Generate-DEBUG: VERIFICATION - Checking mother_1 content...');
+      currentAppData = (window as any).currentAppData;
       if (currentAppData && currentAppData.objects) {
         const mother1 = currentAppData.objects.find((obj: any) => obj.name === 'Mother_1');
         console.log('🔴🔴🔴 FF-DEBUG: mother1 found:', !!mother1);
@@ -1997,32 +2095,69 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         console.log('🔴🔴🔴 FF-DEBUG: NO APP DATA OR OBJECTS!');
       }
 
+      // 🔬 DEBUG_FIX: Enhanced overflow detection debugging
+      console.log('🔬 DEBUG_FIX: Overflow detection results:', {
+        hasOverflow: overflowResult.hasOverflow,
+        overflowTextExists: !!overflowResult.overflowText,
+        overflowTextLength: overflowResult.overflowText?.length || 0,
+        overflowTextTrimmed: overflowResult.overflowText?.trim() || '',
+        overflowTextTrimmedLength: overflowResult.overflowText?.trim().length || 0,
+        originalTextLength: overflowResult.originalText?.length || 0
+      });
+
+      // CHECK: Only create child mother if there's actual overflow
+      if (!overflowResult.overflowText || overflowResult.overflowText.trim().length === 0) {
+        console.log('🔬 DEBUG_FIX: No overflow text detected - skipping child mother creation');
+        console.log('🔬 DEBUG_FIX: This means all existing child mothers should already be removed');
+        console.log('🔬 DEBUG_FIX: Saving parent with updated text and closing dialog');
+
+        // Save the current config (with split1 text) and close dialog
+        onSave(debugConfig);
+        setDebugStep(4);
+        console.log('🎉 Generate: Flow completed without overflow!');
+
+        // 🔬 DEBUG_FIX: Verify that children are actually gone after save
+        const parentMotherIdForVerification = parentMotherId; // Capture for closure
+        setTimeout(() => {
+          const finalAppData = (window as any).currentAppData;
+          if (finalAppData && finalAppData.objects) {
+            const remainingChildren = finalAppData.objects.filter((obj: any) =>
+              obj.isOverflowChild && obj.parentMotherId === parentMotherIdForVerification
+            );
+            console.log('🔬 DEBUG_FIX: Final verification - remaining children after no-overflow save:', remainingChildren.length);
+            console.log('🔬 DEBUG_FIX: Remaining child names:', remainingChildren.map((c: any) => c.name));
+          }
+        }, 500);
+
+        return;
+      }
+
       // STEP 3: Create child mother with complete 3v2 process (3-1 + 3-2 + 3-3)
-      console.log('🔧 FF - Step 3: Creating mother_1A with complete 3v2 process');
+      console.log('🔧 Generate - Step 3: Creating mother_1A with complete 3v2 process (overflow detected)');
 
       // 3-1: Create child mother structure
       console.log('🔧 FF - Step 3-1: Create child mother structure');
       let childMotherId: string | null = null;
 
       // Find parent mother ID
-      let parentMotherId = 'Mother_1'; // Default fallback
       const globalData = (window as any).currentAppData;
+      let parentMotherIdForStep3 = 'Mother_1'; // Default fallback
       if (globalData && globalData.objects) {
         for (const obj of globalData.objects) {
           if (obj.type?.includes('mother') && obj.regions) {
             for (const region of obj.regions) {
               if (region.id === regionId) {
-                parentMotherId = obj.name;
+                parentMotherIdForStep3 = obj.name;
                 break;
               }
             }
-            if (parentMotherId !== 'Mother_1') break;
+            if (parentMotherIdForStep3 !== 'Mother_1') break;
           }
         }
       }
 
       if (createChildMother) {
-        childMotherId = createChildMother(parentMotherId);
+        childMotherId = createChildMother(parentMotherIdForStep3);
         if (childMotherId) {
           console.log(`✅ FF: Child mother structure created: ${childMotherId}`);
           (window as any).lastCreatedChildId = childMotherId;
@@ -2144,22 +2279,22 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         // Method 1: Standard canvas refresh
         const refreshCanvas = (window as any).refreshCanvas;
         if (refreshCanvas) {
-          console.log('🔵🔵🔵 FF-DEBUG: Method 1 - refreshCanvas()');
+          console.log('🔵🔵🔵 Generate-DEBUG: Method 1 - refreshCanvas()');
           refreshCanvas();
         }
 
         // Method 2: Force app data update
         const updateAppData = (window as any).updateAppData;
-        const currentAppData = (window as any).currentAppData;
-        if (updateAppData && currentAppData) {
-          console.log('🔵🔵🔵 FF-DEBUG: Method 2 - updateAppData()');
-          updateAppData(currentAppData);
+        const latestAppData = (window as any).currentAppData;
+        if (updateAppData && latestAppData) {
+          console.log('🔵🔵🔵 Generate-DEBUG: Method 2 - updateAppData()');
+          updateAppData(latestAppData);
         }
 
         // Method 3: Trigger region content update
         const updateRegionContents = (window as any).updateRegionContents;
         if (updateRegionContents) {
-          console.log('🔵🔵🔵 FF-DEBUG: Method 3 - updateRegionContents()');
+          console.log('🔵🔵🔵 Generate-DEBUG: Method 3 - updateRegionContents()');
           const targetData = (window as any).currentAppData;
           if (targetData && targetData.objects) {
             const mother1 = targetData.objects.find((obj: any) => obj.name === 'Mother_1');
@@ -2174,7 +2309,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
         // Method 4: Force state update
         setTimeout(() => {
-          console.log('🔵🔵🔵 FF-DEBUG: Method 4 - Force state refresh');
+          console.log('🔵🔵🔵 Generate-DEBUG: Method 4 - Force state refresh');
           const forceUpdate = (window as any).forceUpdate;
           if (forceUpdate) {
             forceUpdate();
@@ -2182,16 +2317,16 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
           // Final check - if still not visible, it's a deeper rendering issue
           setTimeout(() => {
-            console.log('🔵🔵🔵 FF-DEBUG: All refresh methods attempted');
-            console.log('🔵🔵🔵 FF-DEBUG: If mother_1 still empty, issue is in canvas rendering system');
+            console.log('🔵🔵🔵 Generate-DEBUG: All refresh methods attempted');
+            console.log('🔵🔵🔵 Generate-DEBUG: If mother_1 still empty, issue is in canvas rendering system');
           }, 200);
         }, 100);
       }, 100);
 
     } catch (error) {
-      console.error('❌ FF: Error during Fast Flow execution:', error);
-      console.error('❌ FF: Error stack:', error instanceof Error ? error.stack : 'No stack trace');
-      alert(`FF Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('❌ Generate: Error during Generate Flow execution:', error);
+      console.error('❌ Generate: Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+      alert(`Generate Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -3311,7 +3446,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
                         ...prev,
                         textContent: {
                           ...prev.textContent,
-                          generatedText
+                          generatedText,
+                          originalText: generatedText
                         }
                       }));
                       setIsTextManuallyEdited(false);
@@ -3330,14 +3466,15 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
                   </button>
                 </div>
                 <textarea
-                  value={config.textContent.generatedText}
+                  value={config.textContent.originalText || config.textContent.generatedText}
                   onChange={(e) => {
                     setIsTextManuallyEdited(true);
                     setConfig(prev => ({
                       ...prev,
                       textContent: {
                         ...prev.textContent,
-                        generatedText: e.target.value
+                        generatedText: e.target.value,
+                        originalText: e.target.value // Store as original text too
                       }
                     }));
                   }}
@@ -3541,263 +3678,26 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
             >
               Cancel
             </button>
-            
-            {/* DEBUG: Step-by-step button */}
-            {(hasOverflow || debugStep > 0) && debugStep < 4 && (
-              <button
-                onClick={handleStepDebug}
-                style={{
-                  padding: '10px 20px',
-                  border: '2px solid #ff6b35',
-                  borderRadius: '4px',
-                  backgroundColor: '#ff6b35',
-                  color: 'white',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  cursor: 'pointer'
-                }}
-              >
-                🔧 Step {debugStep + 1}/4: {
-                  debugStep === 0 ? 'Calculate Splits' :
-                  debugStep === 1 ? 'Fill Parent (SPLIT 1)' :
-                  debugStep === 2 ? 'Duplicate Mother' :
-                  debugStep === 3 ? 'Replace Child (SPLIT 2)' :
-                  'Debug Complete'
-                }
-              </button>
-            )}
 
-            {/* NEW: Button "12" - Combine Step 1 & Step 2 */}
-            {hasOverflow && debugStep === 0 && (
-              <button
-                onClick={handle12}
-                disabled={!canSave()}
-                style={{
-                  padding: '10px 20px',
-                  border: '2px solid #17a2b8',
-                  borderRadius: '4px',
-                  backgroundColor: canSave() ? '#17a2b8' : '#ccc',
-                  color: canSave() ? 'white' : '#666',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  cursor: canSave() ? 'pointer' : 'not-allowed',
-                  boxShadow: canSave() ? '0 2px 4px rgba(23, 162, 184, 0.3)' : 'none'
-                }}
-                title="Execute Step 1 & 2: Calculate Splits + Fill Parent"
-              >
-                12
-              </button>
-            )}
-
-            {/* NEW: Button "4/4" - Same as 1/2 plus duplicate Mother_1 to create Mother_1A */}
-            {hasOverflow && debugStep === 0 && (
-              <button
-                onClick={handle44}
-                disabled={!canSave()}
-                style={{
-                  padding: '10px 20px',
-                  border: '2px solid #ff8c00',
-                  borderRadius: '4px',
-                  backgroundColor: canSave() ? '#ff8c00' : '#ccc',
-                  color: canSave() ? 'white' : '#666',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  cursor: canSave() ? 'pointer' : 'not-allowed',
-                  boxShadow: canSave() ? '0 2px 4px rgba(255, 140, 0, 0.3)' : 'none'
-                }}
-                title="Execute Step 1 & 2 + Duplicate Mother_1 to create Mother_1A"
-              >
-                4/4
-              </button>
-            )}
-
-            {/* NEW: Button "34" - Combine Step 3 & Step 4 */}
-            {(debugStep === 2 || debugStep === 3) && (split1Text && split2Text) && (
-              <button
-                onClick={handle34}
-                style={{
-                  padding: '10px 20px',
-                  border: '2px solid #28a745',
-                  borderRadius: '4px',
-                  backgroundColor: '#28a745',
-                  color: 'white',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
-                title="Execute Step 3 & 4: Duplicate Mother + Replace Child"
-              >
-                34
-              </button>
-            )}
-
-            {/* NEW: Button "3-1" - Create New Mother with Parent Configuration */}
-            {debugStep === 2 && (split1Text && split2Text) && (
-              <button
-                onClick={handle31ButtonClick}
-                style={{
-                  padding: '8px 16px',
-                  border: '2px solid #fd7e14',
-                  borderRadius: '4px',
-                  backgroundColor: '#fd7e14',
-                  color: 'white',
-                  fontSize: '12px',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
-                title="Step 3-1: Create New Mother with Parent Configuration"
-              >
-                3-1
-              </button>
-            )}
-
-            {/* NEW: Button "3-2" - Place New CT Comp Trans in Region 1 */}
-            {debugStep === 2 && (split1Text && split2Text) && (
-              <button
-                onClick={handle32}
-                style={{
-                  padding: '8px 16px',
-                  border: '2px solid #20c997',
-                  borderRadius: '4px',
-                  backgroundColor: '#20c997',
-                  color: 'white',
-                  fontSize: '12px',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
-                title="Step 3-2: Place New CT Comp Trans in Region 1"
-              >
-                3-2
-              </button>
-            )}
-
-            {/* NEW: Button "3-3" - Load SPLIT 2 into New Mother New CT Comp Trans */}
-            {debugStep === 2 && (split1Text && split2Text) && (
-              <button
-                onClick={handle33ButtonClick}
-                style={{
-                  padding: '8px 16px',
-                  border: '2px solid #6f42c1',
-                  borderRadius: '4px',
-                  backgroundColor: '#6f42c1',
-                  color: 'white',
-                  fontSize: '12px',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
-                title="Step 3-3: Load SPLIT 2 into New Mother New CT Comp Trans"
-              >
-                3-3
-              </button>
-            )}
-
-            {/* NEW: Button "3v2" - Combine 3-1, 3-2, and 3-3 into one action */}
-            {(debugStep === 2 || (split1Text && split2Text)) && (
-              <button
-                onClick={handle3v2ButtonClick}
-                style={{
-                  padding: '10px 20px',
-                  border: '2px solid #e83e8c',
-                  borderRadius: '4px',
-                  backgroundColor: '#e83e8c',
-                  color: 'white',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 4px rgba(232, 62, 140, 0.3)'
-                }}
-                title="Step 3v2: Execute 3-1 + 3-2 + 3-3 Combined (Create Mother + Add CT + Load SPLIT 2)"
-              >
-                3v2
-              </button>
-            )}
-
-            {/* NEW: Button "FF" - Fast Flow: Combine "1/2" and "3v2" into single action */}
-            {hasOverflow && debugStep === 0 && (
-              <button
-                onClick={handleFF}
-                disabled={!canSave()}
-                style={{
-                  padding: '12px 24px',
-                  border: '3px solid #ff6600',
-                  borderRadius: '8px',
-                  backgroundColor: canSave() ? '#ff6600' : '#ccc',
-                  color: canSave() ? 'white' : '#666',
-                  fontSize: '18px',
-                  fontWeight: '800',
-                  cursor: canSave() ? 'pointer' : 'not-allowed',
-                  boxShadow: canSave() ? '0 3px 6px rgba(255, 102, 0, 0.4)' : 'none',
-                  textShadow: canSave() ? '0 1px 2px rgba(0,0,0,0.3)' : 'none'
-                }}
-                title="Fast Flow: Execute 1/2 + 3v2 in one click (Calculate + Fill Parent + Create Child Mother)"
-              >
-                FF
-              </button>
-            )}
-
-            {/* NEW: Button "123v2" - Combine "12" and "3v2" into one action */}
-            {hasOverflow && debugStep === 0 && (
-              <button
-                onClick={handle123v2}
-                disabled={!canSave()}
-                style={{
-                  padding: '12px 24px',
-                  border: '2px solid #17a2b8',
-                  borderRadius: '6px',
-                  backgroundColor: canSave() ? '#17a2b8' : '#ccc',
-                  color: canSave() ? 'white' : '#666',
-                  fontSize: '16px',
-                  fontWeight: '700',
-                  cursor: canSave() ? 'pointer' : 'not-allowed',
-                  boxShadow: canSave() ? '0 2px 4px rgba(23, 162, 184, 0.3)' : 'none'
-                }}
-                title="Execute 12 + 3v2: Complete overflow handling in one click (Steps 1&2 + Steps 3-1,3-2,3-3)"
-              >
-                123v2
-              </button>
-            )}
-
-
-            {/* NEW: Button "1234" - Combine all 4 steps */}
-            {hasOverflow && (
-              <button
-                onClick={handle1234}
-                disabled={!canSave()}
-                style={{
-                  padding: '12px 24px',
-                  border: '2px solid #6f42c1',
-                  borderRadius: '6px',
-                  backgroundColor: canSave() ? '#6f42c1' : '#ccc',
-                  color: canSave() ? 'white' : '#666',
-                  fontSize: '16px',
-                  fontWeight: '700',
-                  cursor: canSave() ? 'pointer' : 'not-allowed',
-                  boxShadow: canSave() ? '0 2px 4px rgba(111, 66, 193, 0.3)' : 'none'
-                }}
-                title="Execute all 4 steps: Calculate Splits → Fill Parent → Duplicate Mother → Replace Child"
-              >
-                1234
-              </button>
-            )}
-
-            {/* NEW: Create button - Execute all 4 manual steps + Save in one click */}
+            {/* Generate button - Renamed from FF, removes and regenerates all child mothers */}
             <button
-              onClick={handleCreate}
+              onClick={handleFF}
               disabled={!canSave()}
               style={{
                 padding: '12px 24px',
-                border: 'none',
-                borderRadius: '6px',
-                backgroundColor: canSave() ? '#28a745' : '#ccc',
+                border: '3px solid #ff6600',
+                borderRadius: '8px',
+                backgroundColor: canSave() ? '#ff6600' : '#ccc',
                 color: canSave() ? 'white' : '#666',
-                fontSize: '16px',
-                fontWeight: '600',
+                fontSize: '18px',
+                fontWeight: '800',
                 cursor: canSave() ? 'pointer' : 'not-allowed',
-                boxShadow: canSave() ? '0 2px 4px rgba(40, 167, 69, 0.3)' : 'none'
+                boxShadow: canSave() ? '0 3px 6px rgba(255, 102, 0, 0.4)' : 'none',
+                textShadow: canSave() ? '0 1px 2px rgba(0,0,0,0.3)' : 'none'
               }}
-              title={hasOverflow ? 'Create composition translation with automatic overflow handling' : 'Create composition translation'}
+              title="Generate: Execute text splitting and create/regenerate child mothers with overflow content"
             >
-              {hasOverflow ? '🚀 Create' : 'Create'}
+              Generate
             </button>
           </div>
         </div>
