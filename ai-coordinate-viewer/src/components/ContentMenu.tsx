@@ -91,12 +91,16 @@ const ContentMenu: React.FC<ContentMenuProps> = ({
   const placedContentItems: Array<{content: any, regionId: string}> = [];
   const placedContentTypes = new Set<string>();
 
-  regionContents.forEach((contents, regionId) => {
-    contents.forEach((content: any) => {
-      placedContentItems.push({ content, regionId });
-      placedContentTypes.add(content.type);
+  if (regionContents) {
+    regionContents.forEach((contents, regionId) => {
+      if (contents && Array.isArray(contents)) {
+        contents.forEach((content: any) => {
+          placedContentItems.push({ content, regionId });
+          placedContentTypes.add(content.type);
+        });
+      }
     });
-  });
+  }
 
 
 

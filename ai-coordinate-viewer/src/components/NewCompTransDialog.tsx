@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import MovableDialog from './MovableDialog';
 
+// Version tracking for debugging
+const DIALOG_VERSION = 'v2.9.133-comprehensive-refresh';
+
 // Available languages from composition table (18 languages) - Database codes
 const availableLanguages = [
   { code: 'AR', name: 'Arabic' },
@@ -470,7 +473,14 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
   const detectOverflowAndSplit = () => {
     // Use original text if available, fallback to generated text, then to auto-generated content
     const text = config.textContent.originalText || config.textContent.generatedText || generateTextContent();
-    if (!text || !regionWidth || !regionHeight) return { hasOverflow: false, originalText: text, overflowText: '' };
+    console.log(`🔍 ${DIALOG_VERSION}: Detecting overflow for text:`, text?.substring(0, 50) || 'NO TEXT');
+    console.log(`🔍 ${DIALOG_VERSION}: Text length:`, text?.length || 0);
+    console.log(`🔍 ${DIALOG_VERSION}: Region dimensions:`, { regionWidth, regionHeight });
+
+    if (!text || !regionWidth || !regionHeight) {
+      console.log('🔍 OVERFLOW_DEBUG: Early return - no text or dimensions');
+      return { hasOverflow: false, originalText: text, overflowText: '' };
+    }
 
     // Calculate available space in pixels
     const regionWidthPx = regionWidth * 3.779527559; // Convert mm to px (96 DPI)
@@ -563,6 +573,12 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       const originalLines = lines.slice(0, maxVisibleLines);
       const overflowLines = lines.slice(maxVisibleLines);
 
+      console.log('🔍 OVERFLOW_DEBUG: OVERFLOW DETECTED!');
+      console.log('🔍 OVERFLOW_DEBUG: maxVisibleLines:', maxVisibleLines);
+      console.log('🔍 OVERFLOW_DEBUG: totalLines:', lines.length);
+      console.log('🔍 OVERFLOW_DEBUG: originalLines count:', originalLines.length);
+      console.log('🔍 OVERFLOW_DEBUG: overflowLines count:', overflowLines.length);
+
       return {
         hasOverflow: true,
         originalText: originalLines.join(config.lineBreakSettings.lineBreakSymbol),
@@ -571,6 +587,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       };
     }
 
+    console.log('🔍 OVERFLOW_DEBUG: NO OVERFLOW - text fits in region');
     return {
       hasOverflow: false,
       originalText: text,
@@ -617,6 +634,9 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
   useEffect(() => {
     if (isOpen) {
+      console.log(`🔧 ${DIALOG_VERSION}: NewCompTransDialog opened`);
+      console.log(`🔧 ${DIALOG_VERSION}: Dialog version loaded with child mother removal fixes`);
+
       const initialConfig = getInitialConfig();
       setConfig(initialConfig);
 
@@ -639,7 +659,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
       // Debug: Check if callback is available (reduced logging)
       if (Math.random() < 0.1) { // Only log 10% of the time
-        console.log('🔍 [v2.9.128] NewCompTransDialog opened with callback:', {
+        console.log('🔍 [v2.9.130] NewCompTransDialog opened with callback:', {
           hasOnCreateNewMother: !!onCreateNewMother,
           callbackType: typeof onCreateNewMother
         });
@@ -2021,33 +2041,42 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         }
       }
 
-      // STEP 1: Calculate Splits (EXACT COPY of handle12)
-      console.log('🔧 Generate - Step 1: Calculate Splits');
-      const overflowResult = detectOverflowAndSplit();
-      setSplit1Text(overflowResult.originalText);
-      setSplit2Text(overflowResult.overflowText);
-      console.log(`📝 SPLIT 1 (${overflowResult.originalText.length} chars):`, overflowResult.originalText.substring(0, 50) + '...');
-      console.log(`📝 SPLIT 2 (${overflowResult.overflowText.length} chars):`, overflowResult.overflowText.substring(0, 50) + '...');
-      setDebugStep(1);
-
-      // STEP 2: Fill Parent (SPLIT 1) - EXACT COPY of handle12
-      console.log('🟡🟡🟡 Generate-DEBUG: Step 2 starting - Fill Parent (SPLIT 1)');
-      console.log('🟡🟡🟡 Generate-DEBUG: split1Text length:', overflowResult.originalText.length);
-      console.log('🟡🟡🟡 Generate-DEBUG: split1Text preview:', overflowResult.originalText.substring(0, 100));
-
-      const debugConfig = {
+      // STEP 1: Clear parent canvas text
+      console.log('🔧 Generate - Step 1: Clear parent canvas text');
+      const clearConfig = {
         ...config,
         textContent: {
           ...config.textContent,
-          generatedText: overflowResult.originalText
+          generatedText: '' // Clear canvas first
         }
       };
-      setConfig(debugConfig);
+      onSave(clearConfig);
+      await new Promise(resolve => setTimeout(resolve, 100)); // Brief pause for clear
+
+      // STEP 2: Apply wrap logic and detect overflow
+      console.log('🔧 Generate - Step 2: Apply wrap logic to original text');
+      const overflowResult = detectOverflowAndSplit();
+      setSplit1Text(overflowResult.originalText);
+      setSplit2Text(overflowResult.overflowText);
+      console.log(`📝 WRAPPED TEXT (${overflowResult.originalText.length} chars):`, overflowResult.originalText.substring(0, 50) + '...');
+      console.log(`📝 OVERFLOW TEXT (${overflowResult.overflowText.length} chars):`, overflowResult.overflowText.substring(0, 50) + '...');
+      setDebugStep(1);
+
+      // STEP 3: Save wrapped text to parent canvas
+      console.log('🔧 Generate - Step 3: Save wrapped text to parent canvas');
+      const wrappedConfig = {
+        ...config,
+        textContent: {
+          ...config.textContent,
+          generatedText: overflowResult.originalText // This is the wrapped text that fits
+        }
+      };
+      setConfig(wrappedConfig);
       (window as any).debugModeActive = true;
 
-      console.log('🟡🟡🟡 Generate-DEBUG: About to call onSave() with split1Text');
-      onSave(debugConfig);
-      console.log('🟡🟡🟡 Generate-DEBUG: onSave() called - mother_1 should now have SPLIT 1');
+      console.log('🔧 Generate-DEBUG: Saving wrapped text to parent canvas');
+      onSave(wrappedConfig);
+      console.log('🔧 Generate-DEBUG: Parent canvas updated with wrapped text');
       setDebugStep(2);
 
       // Wait for mother_1 to be properly saved
@@ -2082,7 +2111,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
             } else {
               console.log('🔴🔴🔴 FF-DEBUG: NO CONTENTS IN TARGET REGION!');
               console.warn('⚠️ FF: mother_1 content missing - will try to restore');
-              onSave(debugConfig);
+              onSave(wrappedConfig);
               await new Promise(resolve => setTimeout(resolve, 500));
             }
           } else {
@@ -2105,35 +2134,18 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         originalTextLength: overflowResult.originalText?.length || 0
       });
 
-      // CHECK: Only create child mother if there's actual overflow
+      // CHECK: Determine next action based on overflow
       if (!overflowResult.overflowText || overflowResult.overflowText.trim().length === 0) {
-        console.log('🔬 DEBUG_FIX: No overflow text detected - skipping child mother creation');
-        console.log('🔬 DEBUG_FIX: This means all existing child mothers should already be removed');
-        console.log('🔬 DEBUG_FIX: Saving parent with updated text and closing dialog');
-
-        // Save the current config (with split1 text) and close dialog
-        onSave(debugConfig);
+        console.log('✅ Generate: No overflow detected - wrapped text fits in parent');
+        console.log('✅ Generate: Parent canvas already contains properly wrapped text');
+        console.log('✅ Generate: Child mothers already removed - process complete');
         setDebugStep(4);
         console.log('🎉 Generate: Flow completed without overflow!');
-
-        // 🔬 DEBUG_FIX: Verify that children are actually gone after save
-        const parentMotherIdForVerification = parentMotherId; // Capture for closure
-        setTimeout(() => {
-          const finalAppData = (window as any).currentAppData;
-          if (finalAppData && finalAppData.objects) {
-            const remainingChildren = finalAppData.objects.filter((obj: any) =>
-              obj.isOverflowChild && obj.parentMotherId === parentMotherIdForVerification
-            );
-            console.log('🔬 DEBUG_FIX: Final verification - remaining children after no-overflow save:', remainingChildren.length);
-            console.log('🔬 DEBUG_FIX: Remaining child names:', remainingChildren.map((c: any) => c.name));
-          }
-        }, 500);
-
         return;
       }
 
-      // STEP 3: Create child mother with complete 3v2 process (3-1 + 3-2 + 3-3)
-      console.log('🔧 Generate - Step 3: Creating mother_1A with complete 3v2 process (overflow detected)');
+      // STEP 4: Create child mother for overflow content
+      console.log('🔧 Generate - Step 4: Creating child mother for overflow content');
 
       // 3-1: Create child mother structure
       console.log('🔧 FF - Step 3-1: Create child mother structure');
@@ -2250,7 +2262,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
             } else {
               console.log('🟢🟢🟢 FF-DEBUG: FINAL CHECK - NO CONTENTS IN TARGET REGION!');
               console.error('❌ FF: mother_1 content was lost during child creation - restoring');
-              onSave(debugConfig);
+              onSave(wrappedConfig);
             }
           } else {
             console.log('🟢🟢🟢 FF-DEBUG: FINAL CHECK - TARGET REGION NOT FOUND!');
@@ -2463,8 +2475,17 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
   };
 
   const handleSave = async () => {
+    console.log(`🔧 ${DIALOG_VERSION}: Starting handleSave function`);
+    console.log(`🔧 ${DIALOG_VERSION}: Current config text:`, config.textContent.generatedText?.substring(0, 50) || 'NO TEXT');
+    console.log(`🔧 ${DIALOG_VERSION}: Current config text length:`, config.textContent.generatedText?.length || 0);
+
     // Always check for overflow to provide user feedback
     const overflowResult = detectOverflowAndSplit();
+    console.log(`🔧 ${DIALOG_VERSION}: Overflow result:`, {
+      hasOverflow: overflowResult.hasOverflow,
+      originalTextLength: overflowResult.originalText?.length || 0,
+      overflowTextLength: overflowResult.overflowText?.length || 0
+    });
 
     if (overflowResult.hasOverflow) {
       // 🌊 AUTOMATIC OVERFLOW HANDLING - Use the proper callback
@@ -2488,7 +2509,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       });
 
       // Use the proper callback to create new mother for overflow
-      console.log('🔍 [v2.9.128] Debug onCreateNewMother before call:', {
+      console.log('🔍 [v2.9.130] Debug onCreateNewMother before call:', {
         hasCallback: !!onCreateNewMother,
         callbackType: typeof onCreateNewMother,
         callback: onCreateNewMother
@@ -2510,8 +2531,161 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       return;
     }
 
-    // No overflow detected - proceed with normal save
-    console.log('✅ No overflow detected - saving content normally');
+    // No overflow detected - remove existing child mothers and save
+    console.log(`✅ ${DIALOG_VERSION}: No overflow detected - checking for child mothers to remove`);
+    console.log(`🔍 ${DIALOG_VERSION}: regionId:`, regionId);
+
+    // Check if child mothers exist that should be removed
+    const currentAppData = (window as any).currentAppData;
+    console.log(`🔍 ${DIALOG_VERSION}: currentAppData exists:`, !!currentAppData);
+    console.log(`🔍 ${DIALOG_VERSION}: objects count:`, currentAppData?.objects?.length);
+
+    let hasExistingChildren = false;
+
+    if (currentAppData && currentAppData.objects) {
+      console.log(`🔍 ${DIALOG_VERSION}: Entering child mother detection logic`);
+      console.log(`🔍 ${DIALOG_VERSION}: Total objects in app data:`, currentAppData.objects.length);
+      // Debug all objects
+      console.log(`🔍 ${DIALOG_VERSION}: All objects in currentAppData:`);
+      currentAppData.objects.forEach((obj: any, index: number) => {
+        console.log(`🔍 ${DIALOG_VERSION}: Object ${index}: name=${obj.name}, type=${obj.type}, isOverflowChild=${obj.isOverflowChild}, parentMotherId=${obj.parentMotherId}`);
+      });
+
+      // Find parent mother ID
+      console.log(`🔍 ${DIALOG_VERSION}: Looking for parent mother with regionId:`, regionId);
+      const parentMother = currentAppData.objects.find((obj: any) =>
+        obj.regions && obj.regions.some((region: any) => region.id === regionId)
+      );
+      const parentMotherIdForSave = parentMother ? parentMother.name : 'Mother_1';
+      console.log(`🔍 ${DIALOG_VERSION}: parentMotherIdForSave:`, parentMotherIdForSave);
+      console.log(`🔍 ${DIALOG_VERSION}: parentMother found:`, !!parentMother);
+
+      if (parentMother) {
+        console.log(`🔍 ${DIALOG_VERSION}: Parent mother details:`, {
+          name: parentMother.name,
+          type: parentMother.type,
+          childMotherIds: (parentMother as any)?.childMotherIds || []
+        });
+      }
+
+      // Check for existing child mothers using multiple detection methods
+      // Method 1: Check individual child properties (isOverflowChild && parentMotherId)
+      const existingChildMothers = currentAppData.objects.filter((obj: any) =>
+        obj.isOverflowChild && obj.parentMotherId === parentMotherIdForSave
+      );
+
+      // Method 2: Check parent's childMotherIds array (fallback method)
+      const parentChildMotherIds = (parentMother as any)?.childMotherIds || [];
+      const childMothersFromParent = currentAppData.objects.filter((obj: any) =>
+        parentChildMotherIds.includes(obj.name)
+      );
+
+      // Combine both methods and remove duplicates
+      const allChildMothers = [...existingChildMothers];
+      childMothersFromParent.forEach((child: any) => {
+        if (!allChildMothers.find((existing: any) => existing.name === child.name)) {
+          allChildMothers.push(child);
+        }
+      });
+
+      console.log(`🔍 ${DIALOG_VERSION}: existingChildMothers (method 1):`, existingChildMothers.length);
+      console.log(`🔍 ${DIALOG_VERSION}: childMothersFromParent (method 2):`, childMothersFromParent.length);
+      console.log(`🔍 ${DIALOG_VERSION}: allChildMothers (combined):`, allChildMothers.length);
+      console.log(`🔍 ${DIALOG_VERSION}: child mother names:`, allChildMothers.map((c: any) => c.name));
+
+      hasExistingChildren = allChildMothers.length > 0;
+
+      if (hasExistingChildren) {
+        console.log(`🗑️ REMOVE_DEBUG: Removing ${allChildMothers.length} child mothers (no longer needed)`);
+        console.log('🗑️ REMOVE_DEBUG: Child mothers to remove:', allChildMothers.map((c: any) => c.name));
+
+        // Remove child mothers from global data using all detected child mother names
+        const childMotherNamesToRemove = allChildMothers.map((c: any) => c.name);
+        const updatedObjects = currentAppData.objects.filter((obj: any) =>
+          !childMotherNamesToRemove.includes(obj.name)
+        );
+
+        console.log('🗑️ REMOVE_DEBUG: Objects before removal:', currentAppData.objects.length);
+        console.log('🗑️ REMOVE_DEBUG: Objects after removal:', updatedObjects.length);
+        console.log('🗑️ REMOVE_DEBUG: Remaining object names:', updatedObjects.map((o: any) => o.name));
+
+        // Also clear the parent's childMotherIds array
+        if (parentMother && (parentMother as any).childMotherIds) {
+          console.log('🗑️ REMOVE_DEBUG: Clearing parent childMotherIds array');
+          (parentMother as any).childMotherIds = [];
+        }
+
+        const newData = {
+          ...currentAppData,
+          objects: updatedObjects,
+          totalObjects: updatedObjects.length,
+          document: currentAppData.document || '',
+          layoutName: currentAppData.layoutName || ''
+        };
+
+        // Update global app data
+        if ((window as any).updateAppData) {
+          (window as any).updateAppData(newData);
+          console.log('🗑️ REMOVE_DEBUG: Global app data updated');
+
+          // Additional cleanup - remove from region contents if it exists
+          if ((window as any).updateRegionContents) {
+            console.log('🗑️ REMOVE_DEBUG: Also updating region contents');
+            (window as any).updateRegionContents();
+          }
+
+          // Force canvas refresh with all possible methods
+          console.log('🗑️ REMOVE_DEBUG: Attempting comprehensive canvas refresh');
+
+          // Method 1: Standard canvas refresh
+          if ((window as any).refreshCanvas) {
+            console.log('🗑️ REMOVE_DEBUG: Method 1 - refreshCanvas');
+            (window as any).refreshCanvas();
+          }
+
+          // Method 2: Force update
+          if ((window as any).forceUpdate) {
+            console.log('🗑️ REMOVE_DEBUG: Method 2 - forceUpdate');
+            (window as any).forceUpdate();
+          }
+
+          // Method 3: Trigger window resize
+          console.log('🗑️ REMOVE_DEBUG: Method 3 - window resize event');
+          window.dispatchEvent(new Event('resize'));
+
+          // Method 4: Re-trigger app data update
+          console.log('🗑️ REMOVE_DEBUG: Method 4 - re-trigger updateAppData');
+          (window as any).updateAppData(newData);
+
+          // Method 5: Force React state update
+          if ((window as any).setState) {
+            console.log('🗑️ REMOVE_DEBUG: Method 5 - setState');
+            (window as any).setState({});
+          }
+
+          // Method 6: Delayed comprehensive refresh
+          setTimeout(() => {
+            console.log('🗑️ REMOVE_DEBUG: Method 6 - delayed comprehensive refresh');
+            if ((window as any).refreshCanvas) {
+              (window as any).refreshCanvas();
+            }
+            if ((window as any).updateAppData) {
+              (window as any).updateAppData(newData);
+            }
+            // Trigger another resize
+            window.dispatchEvent(new Event('resize'));
+          }, 200);
+        } else {
+          console.log('🗑️ REMOVE_DEBUG: ERROR - updateAppData function not available!');
+        }
+      } else {
+        console.log(`🔍 ${DIALOG_VERSION}: No child mothers found to remove`);
+      }
+    } else {
+      console.log(`🔍 ${DIALOG_VERSION}: No currentAppData or objects - skipping child mother check`);
+    }
+
+    console.log(`✅ ${DIALOG_VERSION}: Saving content to parent` + (hasExistingChildren ? ' (child mothers removed)' : ''));
     onSave(config);
   };
 
@@ -3468,6 +3642,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
                 <textarea
                   value={config.textContent.originalText || config.textContent.generatedText}
                   onChange={(e) => {
+                    console.log(`🔧 ${DIALOG_VERSION}: User inputted text:`, e.target.value);
+                    console.log(`🔧 ${DIALOG_VERSION}: Text length:`, e.target.value.length);
                     setIsTextManuallyEdited(true);
                     setConfig(prev => ({
                       ...prev,
@@ -3677,6 +3853,26 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
               }}
             >
               Cancel
+            </button>
+
+            {/* Save button - Save text and auto-remove child mothers if no overflow */}
+            <button
+              onClick={handleSave}
+              disabled={!canSave()}
+              style={{
+                padding: '10px 20px',
+                border: '2px solid #28a745',
+                borderRadius: '6px',
+                backgroundColor: canSave() ? '#28a745' : '#ccc',
+                color: canSave() ? 'white' : '#666',
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: canSave() ? 'pointer' : 'not-allowed',
+                marginRight: '8px'
+              }}
+              title="Save: Save text content and automatically remove child mothers if no overflow"
+            >
+              Save
             </button>
 
             {/* Generate button - Renamed from FF, removes and regenerates all child mothers */}
