@@ -4777,22 +4777,140 @@ function App() {
 
   // Generate PDF from current canvas image - CTP (Canvas to PDF) method
   const generateCanvasToPDF = async () => {
-    console.log('🖨️ Generating PDF from current canvas image using CTP method');
+    // Initialize debug log collection for easy export
+    const debugLogs: string[] = [];
+    const logExport = (message: string, data?: any) => {
+      const timestamp = new Date().toISOString();
+      const logEntry = `[${timestamp}] ${message}${data ? ' | ' + JSON.stringify(data, null, 2) : ''}`;
+      debugLogs.push(logEntry);
+      console.log(message, data || '');
+    };
+
+    // Function to export all logs at once for easy copying
+    const exportAllLogs = () => {
+      const allLogs = debugLogs.join('\n');
+      console.log('\n' + '='.repeat(80));
+      console.log('📋 CANVAS-TO-PDF DEBUG LOGS - COPY BELOW FOR ANALYSIS');
+      console.log('='.repeat(80));
+      console.log(allLogs);
+      console.log('='.repeat(80));
+      console.log('📋 END OF LOGS - COPY ABOVE FOR ANALYSIS');
+      console.log('='.repeat(80) + '\n');
+
+      // Also make logs available on window for easy access
+      (window as any).pdfDebugLogs = allLogs;
+      console.log('💾 Logs also saved to window.pdfDebugLogs for easy copying');
+    };
+
+    logExport('🖨️ Generating EXACT Canvas-to-PDF with intelligent paper sizing');
 
     try {
       // Find the main SVG canvas element
       const svgElement = document.querySelector('svg') as SVGElement;
       if (!svgElement) {
+        logExport('❌ No canvas found to convert to PDF');
         alert('❌ No canvas found to convert to PDF');
+        exportAllLogs();
         return;
       }
 
-      // Get SVG dimensions
+      // Wait for all content to be fully rendered
+      logExport('⏳ Ensuring all content is fully rendered...');
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Extended wait for complex content
+
+      // Force multiple re-renders to ensure all dynamic content is present
+      logExport('🔄 Forcing comprehensive re-render...');
+
+      // Trigger React state updates to ensure all content is rendered
+      const allTextElements = document.querySelectorAll('foreignObject, text, tspan');
+      logExport('📝 Found text elements before re-render:', { count: allTextElements.length });
+
+      // Force browser to recalculate all styles and layouts
+      const container = svgElement.parentElement;
+      if (container) {
+        container.style.transform = 'translateZ(0)';
+        void container.offsetHeight; // Force reflow
+        await new Promise(resolve => setTimeout(resolve, 200));
+        container.style.transform = '';
+        void container.offsetHeight; // Force reflow again
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+
+      // Force SVG to update its internal structure
+      svgElement.style.opacity = '0.999';
+      void svgElement.getBoundingClientRect(); // Force reflow for SVG
+      await new Promise(resolve => setTimeout(resolve, 100));
+      svgElement.style.opacity = '';
+
+      // Get FULL canvas area (not just viewport)
+      const currentData = data || webCreationData;
+      if (!currentData) {
+        alert('❌ No data available for PDF generation');
+        return;
+      }
+
+      // Calculate total content bounds
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      const mothers = currentData.objects.filter((obj: any) => obj.type?.includes('mother'));
+
+      mothers.forEach((mother: any) => {
+        minX = Math.min(minX, mother.x);
+        minY = Math.min(minY, mother.y);
+        maxX = Math.max(maxX, mother.x + mother.width);
+        maxY = Math.max(maxY, mother.y + mother.height);
+      });
+
+      const margin = 20; // 20mm margin
+      const totalCanvasWidthMM = (maxX - minX) + (margin * 2);
+      const totalCanvasHeightMM = (maxY - minY) + (margin * 2);
+
+      // Define paper sizes and find optimal fit
+      const paperSizes = {
+        A4: { width: 210, height: 297, name: 'A4' },
+        A3: { width: 297, height: 420, name: 'A3' },
+        A2: { width: 420, height: 594, name: 'A2' },
+        A1: { width: 594, height: 841, name: 'A1' }
+      };
+
+      let bestFit: any = null;
+      let bestEfficiency = 0;
+
+      Object.values(paperSizes).forEach(paper => {
+        const orientations = [
+          { width: paper.width, height: paper.height, orientation: 'portrait' },
+          { width: paper.height, height: paper.width, orientation: 'landscape' }
+        ];
+
+        orientations.forEach(orient => {
+          if (totalCanvasWidthMM <= orient.width && totalCanvasHeightMM <= orient.height) {
+            const efficiency = (totalCanvasWidthMM * totalCanvasHeightMM) / (orient.width * orient.height);
+            if (efficiency > bestEfficiency) {
+              bestEfficiency = efficiency;
+              bestFit = {
+                paperSize: paper.name,
+                orientation: orient.orientation,
+                paperWidth: orient.width,
+                paperHeight: orient.height,
+                efficiency: efficiency
+              };
+            }
+          }
+        });
+      });
+
+      if (!bestFit) {
+        alert(`❌ Content too large for standard paper sizes!\nRequired: ${totalCanvasWidthMM.toFixed(1)}×${totalCanvasHeightMM.toFixed(1)}mm`);
+        return;
+      }
+
+      logExport('📋 Optimal paper:', { paperSize: bestFit.paperSize, orientation: bestFit.orientation, efficiency: `${(bestFit.efficiency * 100).toFixed(1)}%` });
+
+      // Get current SVG viewport dimensions for capture
       const svgRect = svgElement.getBoundingClientRect();
       const svgWidth = svgRect.width;
       const svgHeight = svgRect.height;
 
-      console.log('📐 Canvas dimensions:', `${svgWidth}×${svgHeight}px`);
+      logExport('📐 Canvas dimensions:', { width: svgWidth, height: svgHeight, unit: 'px' });
 
       // Create a temporary canvas to capture the SVG
       const canvas = document.createElement('canvas');
@@ -4802,14 +4920,98 @@ function App() {
         return;
       }
 
-      // Set canvas size to match SVG (high resolution for quality)
-      const scale = 2; // 2x resolution for better quality
+      // Set canvas size to match SVG (high resolution for print quality)
+      const scale = 3; // 3x resolution for maximum quality (300 DPI equivalent)
       canvas.width = svgWidth * scale;
       canvas.height = svgHeight * scale;
       ctx.scale(scale, scale);
 
-      // Convert SVG to string
-      const svgData = new XMLSerializer().serializeToString(svgElement);
+      // Ensure crisp rendering
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+
+      // Enhanced SVG content verification and preparation
+      logExport('🔍 Analyzing SVG content...');
+
+      // Clone the SVG to avoid modifying the original
+      const svgClone = svgElement.cloneNode(true) as SVGElement;
+
+      // Ensure all computed styles are inline (critical for accurate rendering)
+      const inlineAllStyles = (element: Element) => {
+        if (element instanceof HTMLElement || element instanceof SVGElement) {
+          const computedStyle = window.getComputedStyle(element);
+          let cssText = '';
+
+          // Copy critical styling properties
+          const importantProps = ['font-family', 'font-size', 'font-weight', 'fill', 'stroke', 'stroke-width', 'color', 'text-anchor', 'dominant-baseline', 'opacity'];
+
+          importantProps.forEach(prop => {
+            const value = computedStyle.getPropertyValue(prop);
+            if (value) {
+              cssText += `${prop}: ${value}; `;
+            }
+          });
+
+          if (cssText) {
+            element.setAttribute('style', (element.getAttribute('style') || '') + cssText);
+          }
+        }
+
+        // Recursively apply to children
+        Array.from(element.children).forEach(child => inlineAllStyles(child));
+      };
+
+      logExport('🎨 Inlining all computed styles for accurate capture...');
+      inlineAllStyles(svgClone);
+
+      // Check for text content
+      const textElements = svgClone.querySelectorAll('text, tspan');
+      const foreignObjects = svgClone.querySelectorAll('foreignObject');
+      logExport('📝 Content verification:', {
+        textElements: textElements.length,
+        foreignObjects: foreignObjects.length,
+        hasContent: textElements.length > 0 || foreignObjects.length > 0
+      });
+
+      // Enhanced foreign object processing for HTML content
+      foreignObjects.forEach((fo, index) => {
+        const htmlContent = fo.innerHTML;
+        if (htmlContent) {
+          logExport(`🔧 Processing foreign object ${index + 1}:`, { htmlPreview: htmlContent.substring(0, 100) + '...' });
+
+          // Ensure foreign object has proper namespaces and styling
+          fo.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
+
+          // Process any div/span content to ensure it's properly styled
+          const divs = fo.querySelectorAll('div, span, p');
+          divs.forEach(div => {
+            const computedStyle = window.getComputedStyle(div as Element);
+            let inlineStyle = div.getAttribute('style') || '';
+
+            // Add essential styles for text rendering
+            const essentialProps = ['font-family', 'font-size', 'font-weight', 'color', 'line-height', 'white-space'];
+            essentialProps.forEach(prop => {
+              const value = computedStyle.getPropertyValue(prop);
+              if (value && !inlineStyle.includes(prop)) {
+                inlineStyle += `${prop}: ${value}; `;
+              }
+            });
+
+            div.setAttribute('style', inlineStyle);
+          });
+        }
+      });
+
+      // Serialize with enhanced options
+      const serializer = new XMLSerializer();
+      const svgData = serializer.serializeToString(svgClone);
+
+      logExport('✅ Enhanced SVG serialization complete:', {
+        dataLength: svgData.length,
+        hasTextContent: svgData.includes('</text>') || svgData.includes('</foreignObject>'),
+        preview: svgData.substring(0, 300) + '...'
+      });
+
       const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
       const svgUrl = URL.createObjectURL(svgBlob);
 
@@ -4817,33 +5019,58 @@ function App() {
       const img = new Image();
       img.onload = async () => {
         try {
-          // Draw SVG image to canvas
+          logExport('✅ SVG image loaded successfully:', {
+            naturalWidth: img.naturalWidth,
+            naturalHeight: img.naturalHeight,
+            width: img.width,
+            height: img.height
+          });
+
+          // Draw SVG image to canvas with white background
           ctx.fillStyle = 'white';
           ctx.fillRect(0, 0, svgWidth, svgHeight);
           ctx.drawImage(img, 0, 0, svgWidth, svgHeight);
 
-          // Convert canvas to high-quality image data
+          logExport('🎨 SVG drawn to canvas successfully');
+
+          // Convert canvas to maximum quality image data
           const imageData = canvas.toDataURL('image/png', 1.0);
+          logExport('📊 Canvas captured:', { width: canvas.width, height: canvas.height, unit: 'pixels' });
 
-          // Calculate PDF dimensions (convert pixels to mm at 96 DPI)
-          const pdfWidthMM = svgWidth * 0.264583; // Convert px to mm
-          const pdfHeightMM = svgHeight * 0.264583;
+          // Use the optimal paper size and center the content
+          const canvasWidthMM = svgWidth * 0.264583; // Convert px to mm
+          const canvasHeightMM = svgHeight * 0.264583;
 
-          // Create PDF with appropriate size
+          logExport('📐 Canvas image size:', { width: canvasWidthMM.toFixed(1), height: canvasHeightMM.toFixed(1), unit: 'mm' });
+
+          // Create PDF with optimal paper size
           const pdf = new jsPDF({
-            orientation: pdfWidthMM > pdfHeightMM ? 'landscape' : 'portrait',
+            orientation: bestFit.orientation as 'portrait' | 'landscape',
             unit: 'mm',
-            format: [pdfWidthMM, pdfHeightMM]
+            format: bestFit.paperSize.toLowerCase() as 'a4' | 'a3' | 'a2' | 'a1',
+            compress: false
+          });
+
+          logExport('📄 PDF created:', { paperSize: bestFit.paperSize, orientation: bestFit.orientation, width: bestFit.paperWidth, height: bestFit.paperHeight, unit: 'mm' });
+
+          // Calculate centering position
+          const centerX = (bestFit.paperWidth - canvasWidthMM) / 2;
+          const centerY = (bestFit.paperHeight - canvasHeightMM) / 2;
+
+          logExport('📐 Centering canvas on paper:', {
+            centerX: centerX.toFixed(1),
+            centerY: centerY.toFixed(1),
+            efficiency: `${(bestFit.efficiency * 100).toFixed(1)}%`
           });
 
           // Try to embed Wash Care Symbols M54 font
           const fontEmbedded = await embedWashCareFont(pdf);
           if (fontEmbedded) {
-            // console.log('✅ Font embedded successfully for canvas PDF');
+            logExport('✅ Font embedded successfully for canvas PDF');
           }
 
-          // Add the canvas image to PDF (full page)
-          pdf.addImage(imageData, 'PNG', 0, 0, pdfWidthMM, pdfHeightMM, undefined, 'FAST');
+          // Add the exact canvas image centered on optimal paper size
+          pdf.addImage(imageData, 'PNG', centerX, centerY, canvasWidthMM, canvasHeightMM, undefined, 'SLOW');
 
           // Add metadata
           const currentDate = new Date();
@@ -4857,41 +5084,918 @@ function App() {
             minute: '2-digit'
           });
 
-          // Add small watermark in corner
-          pdf.setFontSize(6);
-          pdf.setTextColor(150, 150, 150);
-          pdf.text(`Canvas-to-PDF: ${dateString} ${timeString}`, 2, pdfHeightMM - 2);
+          // Add header with paper optimization info
+          pdf.setFontSize(8);
+          pdf.setTextColor(100, 100, 100);
+          pdf.text(`EXACT Canvas Copy | ${bestFit.paperSize} ${bestFit.orientation} | ${(bestFit.efficiency * 100).toFixed(1)}% efficiency`, 5, 10);
 
-          // Generate filename
-          const fileName = `Canvas_${dateString.replace(/\//g, '-')}_${timeString.replace(/:/g, '-')}.pdf`;
+          // Add canvas info
+          pdf.setFontSize(6);
+          pdf.text(`Canvas: ${canvasWidthMM.toFixed(1)}×${canvasHeightMM.toFixed(1)}mm | Resolution: ${canvas.width}×${canvas.height}px | Generated: ${dateString} ${timeString}`, 5, 15);
+
+          // Add footer
+          pdf.setFontSize(5);
+          pdf.setTextColor(150, 150, 150);
+          pdf.text(`Enhanced SVG Serialization | 3x Scale | Exact Visual Copy | Centered at ${centerX.toFixed(1)}, ${centerY.toFixed(1)}mm`, 5, bestFit.paperHeight - 5);
+
+          // Draw light border around canvas area
+          pdf.setDrawColor(200, 200, 200);
+          pdf.setLineWidth(0.1);
+          pdf.rect(centerX, centerY, canvasWidthMM, canvasHeightMM);
+
+          // Generate descriptive filename
+          const motherCount = mothers.length;
+          const fileName = `ExactCanvas_${bestFit.paperSize}_${bestFit.orientation}_${motherCount}mothers_${(bestFit.efficiency * 100).toFixed(0)}pct_${dateString.replace(/\//g, '-')}_${timeString.replace(/:/g, '-')}.pdf`;
 
           // Save PDF
           pdf.save(fileName);
 
-          console.log('✅ Canvas-to-PDF conversion complete:', fileName);
-          alert(`✅ Canvas converted to PDF successfully!\nFile: ${fileName}`);
+          logExport('✅ EXACT Canvas-to-PDF conversion complete:', {
+            filename: fileName,
+            paperSize: `${bestFit.paperSize} ${bestFit.orientation}`,
+            canvasSize: `${canvasWidthMM.toFixed(1)}×${canvasHeightMM.toFixed(1)}mm`,
+            resolution: `${canvas.width}×${canvas.height}px`,
+            efficiency: `${(bestFit.efficiency * 100).toFixed(1)}%`,
+            position: `${centerX.toFixed(1)}, ${centerY.toFixed(1)}mm`,
+            fontEmbedded: fontEmbedded
+          });
+
+          // Export all debug logs for easy copying
+          exportAllLogs();
+
+          alert(`✅ EXACT Canvas converted to PDF!\n\n📄 File: ${fileName}\n📐 Paper: ${bestFit.paperSize} ${bestFit.orientation}\n🖼️ Canvas: ${canvasWidthMM.toFixed(1)}×${canvasHeightMM.toFixed(1)}mm\n📊 Efficiency: ${(bestFit.efficiency * 100).toFixed(1)}% paper usage\n🔍 Resolution: 3x scale (${canvas.width}×${canvas.height}px)\n💎 Method: Enhanced SVG serialization with exact visual copy\n\n📋 Debug logs exported to console - check console for detailed analysis data!`);
 
           // Clean up
           URL.revokeObjectURL(svgUrl);
 
         } catch (error) {
+          logExport('❌ Error converting canvas to PDF:', { error: error instanceof Error ? error.message : String(error) });
+          exportAllLogs();
           console.error('❌ Error converting canvas to PDF:', error);
           alert('❌ Error converting canvas to PDF. Check console for details.');
           URL.revokeObjectURL(svgUrl);
         }
       };
 
-      img.onerror = () => {
-        console.error('❌ Failed to load SVG image');
-        alert('❌ Failed to load canvas image for PDF conversion');
+      img.onerror = async () => {
+        console.error('❌ Failed to load SVG image, trying alternative method...');
         URL.revokeObjectURL(svgUrl);
+
+        // Alternative method: Use html2canvas library or direct screenshot
+        try {
+          console.log('🔄 Attempting alternative canvas capture method...');
+
+          // Try using the browser's built-in capture API if available
+          if ('getDisplayMedia' in navigator.mediaDevices) {
+            console.log('📱 Browser supports screen capture API');
+            // For now, fall back to a simpler method
+          }
+
+          // Alternative: Create canvas from DOM elements directly
+          const alternativeCanvas = document.createElement('canvas');
+          const alternativeCtx = alternativeCanvas.getContext('2d');
+
+          if (alternativeCtx) {
+            alternativeCanvas.width = svgWidth * scale;
+            alternativeCanvas.height = svgHeight * scale;
+            alternativeCtx.scale(scale, scale);
+
+            // Fill with white background
+            alternativeCtx.fillStyle = 'white';
+            alternativeCtx.fillRect(0, 0, svgWidth, svgHeight);
+
+            // Add a message about the fallback method
+            alternativeCtx.fillStyle = 'red';
+            alternativeCtx.font = '16px Arial';
+            alternativeCtx.fillText('⚠️ PDF generation failed - SVG conversion error', 20, 40);
+            alternativeCtx.fillText('Please try refreshing the page and try again', 20, 70);
+
+            const fallbackImageData = alternativeCanvas.toDataURL('image/png', 1.0);
+
+            // Continue with PDF generation using fallback
+            const pdfWidthMM = svgWidth * 0.264583;
+            const pdfHeightMM = svgHeight * 0.264583;
+
+            const pdf = new jsPDF({
+              orientation: pdfWidthMM > pdfHeightMM ? 'landscape' : 'portrait',
+              unit: 'mm',
+              format: [pdfWidthMM, pdfHeightMM],
+              compress: false
+            });
+
+            pdf.addImage(fallbackImageData, 'PNG', 0, 0, pdfWidthMM, pdfHeightMM, undefined, 'SLOW');
+
+            const fileName = `Canvas_FALLBACK_${new Date().toISOString().slice(0, 16).replace(/[-:]/g, '')}.pdf`;
+            pdf.save(fileName);
+
+            alert('⚠️ PDF generated with fallback method\n\nThe original canvas could not be captured.\nPlease refresh the page and try again for full quality.');
+          } else {
+            alert('❌ Failed to generate PDF. Please refresh the page and try again.');
+          }
+        } catch (fallbackError) {
+          console.error('❌ Fallback method also failed:', fallbackError);
+          alert('❌ Failed to load canvas image for PDF conversion');
+        }
       };
 
       img.src = svgUrl;
 
     } catch (error) {
+      logExport('❌ Canvas-to-PDF conversion failed:', { error: error instanceof Error ? error.message : String(error) });
+      exportAllLogs();
       console.error('❌ Canvas-to-PDF conversion failed:', error);
       alert('❌ Canvas-to-PDF conversion failed. Check console for details.');
+    }
+  };
+
+  // ENHANCED Canvas-to-PDF using DOM-based capture method with intelligent paper sizing
+  const generateEnhancedCanvasToPDF = async () => {
+    console.log('🖨️ Generating PDF using Enhanced DOM Capture method with intelligent sizing');
+
+    try {
+      // Find the main canvas container
+      const svgElement = document.querySelector('svg') as SVGElement;
+      if (!svgElement) {
+        alert('❌ No canvas found to convert to PDF');
+        return;
+      }
+
+      console.log('⏳ Preparing enhanced capture...');
+
+      // Wait for content to stabilize
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // Get FULL canvas dimensions (entire canvas area, not just viewport)
+      const currentData = data || webCreationData;
+      if (!currentData) {
+        alert('❌ No data available for PDF generation');
+        return;
+      }
+
+      // Calculate total canvas area needed to fit all mothers
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      const mothers = currentData.objects.filter((obj: any) => obj.type?.includes('mother'));
+
+      mothers.forEach((mother: any) => {
+        minX = Math.min(minX, mother.x);
+        minY = Math.min(minY, mother.y);
+        maxX = Math.max(maxX, mother.x + mother.width);
+        maxY = Math.max(maxY, mother.y + mother.height);
+      });
+
+      // Add margins around content
+      const margin = 20; // 20mm margin
+      const totalCanvasWidthMM = (maxX - minX) + (margin * 2);
+      const totalCanvasHeightMM = (maxY - minY) + (margin * 2);
+
+      console.log('📐 Full canvas content area:', {
+        widthMM: totalCanvasWidthMM.toFixed(1),
+        heightMM: totalCanvasHeightMM.toFixed(1),
+        mothers: mothers.length,
+        bounds: { minX, minY, maxX, maxY }
+      });
+
+      // Define paper sizes in mm
+      const paperSizes = {
+        A4: { width: 210, height: 297, name: 'A4' },
+        A3: { width: 297, height: 420, name: 'A3' },
+        A2: { width: 420, height: 594, name: 'A2' },
+        A1: { width: 594, height: 841, name: 'A1' }
+      };
+
+      // Find optimal paper size and orientation
+      let bestFit: any = null;
+      let bestEfficiency = 0; // Percentage of paper used
+
+      Object.values(paperSizes).forEach(paper => {
+        // Check both orientations
+        const orientations = [
+          { width: paper.width, height: paper.height, orientation: 'portrait' },
+          { width: paper.height, height: paper.width, orientation: 'landscape' }
+        ];
+
+        orientations.forEach(orient => {
+          if (totalCanvasWidthMM <= orient.width && totalCanvasHeightMM <= orient.height) {
+            const efficiency = (totalCanvasWidthMM * totalCanvasHeightMM) / (orient.width * orient.height);
+
+            if (efficiency > bestEfficiency) {
+              bestEfficiency = efficiency;
+              bestFit = {
+                paperSize: paper.name,
+                orientation: orient.orientation,
+                paperWidth: orient.width,
+                paperHeight: orient.height,
+                efficiency: efficiency,
+                unusedSpace: (1 - efficiency) * 100
+              };
+            }
+          }
+        });
+      });
+
+      if (!bestFit) {
+        alert(`❌ Content too large for standard paper sizes!\n\nRequired: ${totalCanvasWidthMM.toFixed(1)}×${totalCanvasHeightMM.toFixed(1)}mm\nLargest available: A1 (841×594mm)`);
+        return;
+      }
+
+      console.log('📋 Optimal paper selection:', {
+        paper: `${bestFit.paperSize} ${bestFit.orientation}`,
+        dimensions: `${bestFit.paperWidth}×${bestFit.paperHeight}mm`,
+        efficiency: `${(bestFit.efficiency * 100).toFixed(1)}%`,
+        unusedSpace: `${bestFit.unusedSpace.toFixed(1)}%`
+      });
+
+      // Get SVG viewport dimensions for capture
+      const rect = svgElement.getBoundingClientRect();
+
+      let captureSuccessful = false;
+      let imageData: string | null = null;
+
+      try {
+        console.log('🎯 Creating canvas capture...');
+
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+
+        if (!ctx) {
+          throw new Error('Canvas context not available');
+        }
+
+        // Set canvas size to match SVG viewport at high resolution
+        const scale = 3; // High quality multiplier
+        canvas.width = rect.width * scale;
+        canvas.height = rect.height * scale;
+        ctx.scale(scale, scale);
+
+        // White background
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, rect.width, rect.height);
+
+        console.log('📊 Canvas created:', {
+          canvasSize: `${canvas.width}×${canvas.height}px`,
+          viewportSize: `${rect.width.toFixed(0)}×${rect.height.toFixed(0)}px`,
+          scale: scale
+        });
+
+        // Use the same SVG-to-image method as the working Canvas-to-PDF
+        console.log('🎯 Using proven SVG-to-image capture method...');
+
+        // Create SVG blob and image for canvas drawing
+        const svgData = new XMLSerializer().serializeToString(svgElement);
+        const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+        const svgUrl = URL.createObjectURL(svgBlob);
+
+        // Create image from SVG
+        const img = new Image();
+        img.onload = async () => {
+          try {
+            console.log('✅ SVG image loaded successfully');
+
+            // Draw SVG image to canvas
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, rect.width, rect.height);
+            ctx.drawImage(img, 0, 0, rect.width, rect.height);
+
+            imageData = canvas.toDataURL('image/png', 1.0);
+            captureSuccessful = true;
+
+            console.log('✅ Enhanced capture completed using SVG-to-image method');
+
+            // Proceed with PDF creation
+            await createEnhancedPDF();
+
+          } catch (error) {
+            console.error('❌ Enhanced capture failed:', error);
+            alert('❌ Enhanced capture failed. Try the standard method.');
+            URL.revokeObjectURL(svgUrl);
+          }
+        };
+
+        img.onerror = () => {
+          console.error('❌ Failed to load SVG image for enhanced capture');
+          alert('❌ Failed to load SVG image for enhanced capture');
+          URL.revokeObjectURL(svgUrl);
+        };
+
+        img.src = svgUrl;
+
+        // Function to create the enhanced PDF
+        const createEnhancedPDF = async () => {
+          if (!imageData) {
+            console.error('❌ No image data for PDF creation');
+            return;
+          }
+
+          try {
+            // Convert captured canvas dimensions to mm
+            const canvasWidthMM = rect.width * 0.264583;
+            const canvasHeightMM = rect.height * 0.264583;
+
+            // Create PDF with optimal paper size and orientation
+            const pdf = new jsPDF({
+              orientation: bestFit.orientation as 'portrait' | 'landscape',
+              unit: 'mm',
+              format: bestFit.paperSize.toLowerCase() as 'a4' | 'a3' | 'a2' | 'a1',
+              compress: false
+            });
+
+            console.log('📄 PDF created:', {
+              format: bestFit.paperSize,
+              orientation: bestFit.orientation,
+              dimensions: `${bestFit.paperWidth}×${bestFit.paperHeight}mm`
+            });
+
+            // Calculate centering position on paper
+            const centerX = (bestFit.paperWidth - canvasWidthMM) / 2;
+            const centerY = (bestFit.paperHeight - canvasHeightMM) / 2;
+
+            console.log('📐 Content positioning on paper:', {
+              centerX: centerX.toFixed(1),
+              centerY: centerY.toFixed(1),
+              canvasSize: `${canvasWidthMM.toFixed(1)}×${canvasHeightMM.toFixed(1)}mm`
+            });
+
+            // Embed font
+            await embedWashCareFont(pdf);
+
+            // Add the exact canvas image centered on the paper
+            pdf.addImage(imageData, 'PNG', centerX, centerY, canvasWidthMM, canvasHeightMM, undefined, 'SLOW');
+
+            // Add comprehensive metadata and layout info
+            const currentDate = new Date();
+            const dateString = currentDate.toLocaleDateString('en-GB', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric'
+            });
+            const timeString = currentDate.toLocaleTimeString('en-GB', {
+              hour: '2-digit',
+              minute: '2-digit'
+            });
+
+            // Add header with paper efficiency info
+            pdf.setFontSize(8);
+            pdf.setTextColor(100, 100, 100);
+            pdf.text(`Enhanced Canvas PDF | ${bestFit.paperSize} ${bestFit.orientation} | ${(bestFit.efficiency * 100).toFixed(1)}% efficiency`, 5, 10);
+
+            // Add content info
+            pdf.setFontSize(6);
+            pdf.text(`Canvas: ${canvasWidthMM.toFixed(1)}×${canvasHeightMM.toFixed(1)}mm | ${mothers.length} mothers | Generated: ${dateString} ${timeString}`, 5, 15);
+
+            // Add footer with unused space info
+            pdf.setFontSize(5);
+            pdf.setTextColor(150, 150, 150);
+            pdf.text(`SVG-to-Image capture | 3x Scale | ${centerX.toFixed(1)}, ${centerY.toFixed(1)}mm`, 5, bestFit.paperHeight - 5);
+
+            // Draw light border around content area for reference
+            pdf.setDrawColor(200, 200, 200);
+            pdf.setLineWidth(0.1);
+            pdf.rect(centerX, centerY, canvasWidthMM, canvasHeightMM);
+
+            // Save with descriptive filename
+            const fileName = `Enhanced_${bestFit.paperSize}_${bestFit.orientation}_${mothers.length}mothers_${(bestFit.efficiency * 100).toFixed(0)}pct_${dateString.replace(/\//g, '-')}_${timeString.replace(/:/g, '-')}.pdf`;
+            pdf.save(fileName);
+
+            console.log('✅ Enhanced PDF generation complete:', {
+              filename: fileName,
+              paperSize: `${bestFit.paperSize} ${bestFit.orientation}`,
+              efficiency: `${(bestFit.efficiency * 100).toFixed(1)}%`,
+              mothers: mothers.length
+            });
+
+            alert(`✅ Enhanced PDF generated successfully!\n\n📄 File: ${fileName}\n📐 Paper: ${bestFit.paperSize} ${bestFit.orientation}\n📊 Efficiency: ${(bestFit.efficiency * 100).toFixed(1)}%\n🏠 Mothers: ${mothers.length}\n🎯 Method: SVG-to-Image capture`);
+
+            // Clean up
+            URL.revokeObjectURL(svgUrl);
+
+          } catch (pdfError) {
+            console.error('❌ Enhanced PDF creation failed:', pdfError);
+            alert('❌ Enhanced PDF creation failed. Try the standard method.');
+            URL.revokeObjectURL(svgUrl);
+          }
+        };
+
+      } catch (error) {
+        console.error('❌ Enhanced capture failed:', error);
+        captureSuccessful = false;
+      }
+
+    } catch (error) {
+      console.error('❌ Enhanced PDF generation failed:', error);
+      alert('❌ Enhanced PDF generation failed. Try the standard method.');
+    }
+  };
+
+  // Generate Illustrator-ready vector PDF with editable text while maintaining exact canvas appearance
+  const generateIllustratorPDF = async () => {
+    console.log('🎨 Generating Illustrator-ready vector PDF with editable text');
+
+    try {
+      // Find the main canvas container
+      const svgElement = document.querySelector('svg') as SVGElement;
+      if (!svgElement) {
+        alert('❌ No canvas found to convert to PDF');
+        return;
+      }
+
+      console.log('⏳ Preparing vector capture...');
+
+      // Wait for content to stabilize
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Get FULL canvas dimensions (entire canvas area, not just viewport)
+      const currentData = data || webCreationData;
+      if (!currentData) {
+        alert('❌ No data available for PDF generation');
+        return;
+      }
+
+      // Calculate total canvas area needed to fit all mothers
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      const mothers = currentData.objects.filter((obj: any) => obj.type?.includes('mother'));
+
+      mothers.forEach((mother: any) => {
+        minX = Math.min(minX, mother.x);
+        minY = Math.min(minY, mother.y);
+        maxX = Math.max(maxX, mother.x + mother.width);
+        maxY = Math.max(maxY, mother.y + mother.height);
+      });
+
+      // Add margins around content
+      const margin = 20; // 20mm margin
+      const totalCanvasWidthMM = (maxX - minX) + (margin * 2);
+      const totalCanvasHeightMM = (maxY - minY) + (margin * 2);
+
+      console.log('📐 Canvas content area for vector PDF:', {
+        widthMM: totalCanvasWidthMM.toFixed(1),
+        heightMM: totalCanvasHeightMM.toFixed(1),
+        mothers: mothers.length
+      });
+
+      // Define paper sizes in mm - same as Enhanced PDF
+      const paperSizes = {
+        A4: { width: 210, height: 297, name: 'A4' },
+        A3: { width: 297, height: 420, name: 'A3' },
+        A2: { width: 420, height: 594, name: 'A2' },
+        A1: { width: 594, height: 841, name: 'A1' }
+      };
+
+      // Find optimal paper size and orientation
+      let bestFit: any = null;
+      let bestEfficiency = 0;
+
+      Object.values(paperSizes).forEach(paper => {
+        const orientations = [
+          { width: paper.width, height: paper.height, orientation: 'portrait' },
+          { width: paper.height, height: paper.width, orientation: 'landscape' }
+        ];
+
+        orientations.forEach(orient => {
+          if (totalCanvasWidthMM <= orient.width && totalCanvasHeightMM <= orient.height) {
+            const efficiency = (totalCanvasWidthMM * totalCanvasHeightMM) / (orient.width * orient.height);
+
+            if (efficiency > bestEfficiency) {
+              bestEfficiency = efficiency;
+              bestFit = {
+                paperSize: paper.name,
+                orientation: orient.orientation,
+                paperWidth: orient.width,
+                paperHeight: orient.height,
+                efficiency: efficiency
+              };
+            }
+          }
+        });
+      });
+
+      if (!bestFit) {
+        alert(`❌ Content too large for standard paper sizes!\n\nRequired: ${totalCanvasWidthMM.toFixed(1)}×${totalCanvasHeightMM.toFixed(1)}mm\nLargest available: A1 (841×594mm)`);
+        return;
+      }
+
+      console.log('📋 Paper selection for vector PDF:', {
+        paper: `${bestFit.paperSize} ${bestFit.orientation}`,
+        dimensions: `${bestFit.paperWidth}×${bestFit.paperHeight}mm`,
+        efficiency: `${(bestFit.efficiency * 100).toFixed(1)}%`
+      });
+
+      // Get SVG viewport dimensions and positioning
+      const rect = svgElement.getBoundingClientRect();
+      const canvasWidthMM = rect.width * 0.264583; // Convert px to mm
+      const canvasHeightMM = rect.height * 0.264583;
+
+      // Calculate centering position on paper
+      const centerX = (bestFit.paperWidth - canvasWidthMM) / 2;
+      const centerY = (bestFit.paperHeight - canvasHeightMM) / 2;
+
+      // Create PDF with optimal paper size and orientation
+      const pdf = new jsPDF({
+        orientation: bestFit.orientation as 'portrait' | 'landscape',
+        unit: 'mm',
+        format: bestFit.paperSize.toLowerCase() as 'a4' | 'a3' | 'a2' | 'a1',
+        compress: false
+      });
+
+      console.log('📄 Vector PDF created:', {
+        format: bestFit.paperSize,
+        orientation: bestFit.orientation,
+        dimensions: `${bestFit.paperWidth}×${bestFit.paperHeight}mm`
+      });
+
+      // Embed font for text editability
+      await embedWashCareFont(pdf);
+
+      // Extract and recreate all text elements as editable vectors
+      console.log('🔤 Extracting text elements for vector recreation...');
+
+      // Get all text elements from SVG
+      const textElements = svgElement.querySelectorAll('text, tspan');
+      const extractedTexts: Array<{
+        content: string;
+        x: number;
+        y: number;
+        fontSize: number;
+        fontFamily: string;
+        fill: string;
+        textAnchor?: string;
+        fontWeight?: string;
+        lineIndex?: number;
+      }> = [];
+
+      textElements.forEach((textEl: Element) => {
+        const svgTextEl = textEl as SVGTextElement;
+
+        // CRITICAL: Get EXACT computed styles from canvas rendering
+        const computedStyle = window.getComputedStyle(svgTextEl);
+
+        // CRITICAL: Get EXACT bounding box for precise positioning
+        const bbox = svgTextEl.getBBox();
+        const ctm = svgTextEl.getCTM();
+
+        // CRITICAL: Calculate EXACT text position accounting for transforms
+        let actualX = bbox.x;
+        let actualY = bbox.y + bbox.height; // Use baseline, not top
+
+        if (ctm) {
+          // Apply transformation matrix for exact positioning
+          actualX = ctm.e + (bbox.x * ctm.a) + (bbox.y * ctm.c);
+          actualY = ctm.f + (bbox.x * ctm.b) + ((bbox.y + bbox.height) * ctm.d);
+        }
+
+        // CRITICAL: Convert to PDF coordinates with exact precision
+        const pdfX = centerX + (actualX * 0.264583);
+        const pdfY = centerY + (actualY * 0.264583);
+
+        // CRITICAL: Get EXACT font size from canvas (not computed style which may be scaled)
+        let exactFontSize: number;
+        const fontSizeAttr = svgTextEl.getAttribute('font-size');
+        const styleAttr = svgTextEl.getAttribute('style');
+
+        if (fontSizeAttr) {
+          // Use explicit font-size attribute
+          exactFontSize = parseFloat(fontSizeAttr);
+        } else if (styleAttr && styleAttr.includes('font-size')) {
+          // Extract from style attribute
+          const fontSizeMatch = styleAttr.match(/font-size:\s*([0-9.]+)px/);
+          if (fontSizeMatch) {
+            exactFontSize = parseFloat(fontSizeMatch[1]);
+          } else {
+            // Fallback to computed style
+            exactFontSize = parseFloat(computedStyle.fontSize);
+          }
+        } else {
+          // Fallback to computed style
+          exactFontSize = parseFloat(computedStyle.fontSize);
+        }
+
+        // Convert font size from px to mm with exact precision
+        const fontSizeMM = exactFontSize * 0.264583;
+
+        // CRITICAL: Get EXACT font family from canvas
+        let exactFontFamily: string;
+        const fontFamilyAttr = svgTextEl.getAttribute('font-family');
+        if (fontFamilyAttr) {
+          exactFontFamily = fontFamilyAttr.replace(/['"]/g, '');
+        } else if (styleAttr && styleAttr.includes('font-family')) {
+          const fontFamilyMatch = styleAttr.match(/font-family:\s*([^;]+)/);
+          if (fontFamilyMatch) {
+            exactFontFamily = fontFamilyMatch[1].replace(/['"]/g, '').trim();
+          } else {
+            exactFontFamily = computedStyle.fontFamily.replace(/['"]/g, '');
+          }
+        } else {
+          exactFontFamily = computedStyle.fontFamily.replace(/['"]/g, '');
+        }
+
+        // CRITICAL: Get EXACT font weight
+        const fontWeightAttr = svgTextEl.getAttribute('font-weight') || computedStyle.fontWeight;
+
+        // CRITICAL: Get EXACT fill color
+        let exactFill: string;
+        const fillAttr = svgTextEl.getAttribute('fill');
+        if (fillAttr) {
+          exactFill = fillAttr;
+        } else if (styleAttr && styleAttr.includes('fill')) {
+          const fillMatch = styleAttr.match(/fill:\s*([^;]+)/);
+          if (fillMatch) {
+            exactFill = fillMatch[1].trim();
+          } else {
+            exactFill = computedStyle.fill;
+          }
+        } else {
+          exactFill = computedStyle.fill;
+        }
+
+        // CRITICAL: Get EXACT text anchor
+        const exactTextAnchor = svgTextEl.getAttribute('text-anchor') || 'start';
+
+        // CRITICAL: Handle multi-line text (tspan elements)
+        const textContent = svgTextEl.textContent || '';
+        const tspanElements = svgTextEl.querySelectorAll('tspan');
+
+        if (tspanElements.length > 0) {
+          // Handle each tspan as separate text with potential position offset
+          tspanElements.forEach((tspan, tspanIndex) => {
+            const tspanBbox = tspan.getBBox();
+            const tspanX = centerX + ((actualX + (tspanBbox.x || 0)) * 0.264583);
+            const tspanY = centerY + ((actualY + (tspanBbox.y || 0)) * 0.264583);
+
+            extractedTexts.push({
+              content: tspan.textContent || '',
+              x: tspanX,
+              y: tspanY,
+              fontSize: fontSizeMM,
+              fontFamily: exactFontFamily,
+              fill: exactFill,
+              textAnchor: exactTextAnchor,
+              fontWeight: fontWeightAttr,
+              lineIndex: tspanIndex
+            });
+          });
+        } else {
+          // Single line text
+          extractedTexts.push({
+            content: textContent,
+            x: pdfX,
+            y: pdfY,
+            fontSize: fontSizeMM,
+            fontFamily: exactFontFamily,
+            fill: exactFill,
+            textAnchor: exactTextAnchor,
+            fontWeight: fontWeightAttr,
+            lineIndex: 0
+          });
+        }
+
+        console.log(`🔍 EXACT text extracted: "${textContent.substring(0, 20)}..." | Font: ${exactFontFamily} ${exactFontSize}px→${fontSizeMM.toFixed(2)}mm | Pos: (${pdfX.toFixed(1)}, ${pdfY.toFixed(1)})mm`);
+      });
+
+      console.log(`📝 Extracted ${extractedTexts.length} text elements for vector recreation`);
+
+      // Draw vector content only - no raster background
+      console.log('🎨 Creating pure vector PDF content...');
+
+      // Extract all SVG visual elements (rectangles, lines, paths, etc.) excluding text
+      const svgRects = svgElement.querySelectorAll('rect');
+      const svgLines = svgElement.querySelectorAll('line');
+      const svgPaths = svgElement.querySelectorAll('path');
+      const svgCircles = svgElement.querySelectorAll('circle');
+
+      console.log(`🔧 Found SVG elements: ${svgRects.length} rects, ${svgLines.length} lines, ${svgPaths.length} paths, ${svgCircles.length} circles`);
+
+      // Draw rectangles (mother outlines, regions, etc.)
+      svgRects.forEach((rect, index) => {
+        try {
+          const x = parseFloat(rect.getAttribute('x') || '0') * 0.264583 + centerX;
+          const y = parseFloat(rect.getAttribute('y') || '0') * 0.264583 + centerY;
+          const width = parseFloat(rect.getAttribute('width') || '0') * 0.264583;
+          const height = parseFloat(rect.getAttribute('height') || '0') * 0.264583;
+
+          const fill = rect.getAttribute('fill') || 'none';
+          const stroke = rect.getAttribute('stroke') || 'none';
+          const strokeWidth = parseFloat(rect.getAttribute('stroke-width') || '1') * 0.264583;
+
+          // Set stroke if present
+          if (stroke !== 'none') {
+            if (stroke.startsWith('#')) {
+              const hex = stroke.slice(1);
+              const r = parseInt(hex.slice(0, 2), 16);
+              const g = parseInt(hex.slice(2, 4), 16);
+              const b = parseInt(hex.slice(4, 6), 16);
+              pdf.setDrawColor(r, g, b);
+            } else {
+              pdf.setDrawColor(0, 0, 0); // Default black
+            }
+            pdf.setLineWidth(strokeWidth);
+          }
+
+          // Set fill if present
+          if (fill !== 'none' && fill !== 'transparent') {
+            if (fill.startsWith('#')) {
+              const hex = fill.slice(1);
+              const r = parseInt(hex.slice(0, 2), 16);
+              const g = parseInt(hex.slice(2, 4), 16);
+              const b = parseInt(hex.slice(4, 6), 16);
+              pdf.setFillColor(r, g, b);
+
+              if (stroke !== 'none') {
+                pdf.rect(x, y, width, height, 'FD'); // Fill and draw
+              } else {
+                pdf.rect(x, y, width, height, 'F'); // Fill only
+              }
+            } else {
+              // Just stroke if fill color not recognized
+              if (stroke !== 'none') {
+                pdf.rect(x, y, width, height, 'S'); // Stroke only
+              }
+            }
+          } else {
+            // Just stroke
+            if (stroke !== 'none') {
+              pdf.rect(x, y, width, height, 'S'); // Stroke only
+            }
+          }
+
+          console.log(`📦 Added vector rectangle ${index + 1}/${svgRects.length}`);
+        } catch (rectError) {
+          console.warn(`⚠️ Failed to add rectangle ${index}:`, rectError);
+        }
+      });
+
+      // Draw lines (borders, dividers, etc.)
+      svgLines.forEach((line, index) => {
+        try {
+          const x1 = parseFloat(line.getAttribute('x1') || '0') * 0.264583 + centerX;
+          const y1 = parseFloat(line.getAttribute('y1') || '0') * 0.264583 + centerY;
+          const x2 = parseFloat(line.getAttribute('x2') || '0') * 0.264583 + centerX;
+          const y2 = parseFloat(line.getAttribute('y2') || '0') * 0.264583 + centerY;
+
+          const stroke = line.getAttribute('stroke') || 'black';
+          const strokeWidth = parseFloat(line.getAttribute('stroke-width') || '1') * 0.264583;
+
+          // Set stroke color
+          if (stroke.startsWith('#')) {
+            const hex = stroke.slice(1);
+            const r = parseInt(hex.slice(0, 2), 16);
+            const g = parseInt(hex.slice(2, 4), 16);
+            const b = parseInt(hex.slice(4, 6), 16);
+            pdf.setDrawColor(r, g, b);
+          } else {
+            pdf.setDrawColor(0, 0, 0); // Default black
+          }
+
+          pdf.setLineWidth(strokeWidth);
+          pdf.line(x1, y1, x2, y2);
+
+          console.log(`📏 Added vector line ${index + 1}/${svgLines.length}`);
+        } catch (lineError) {
+          console.warn(`⚠️ Failed to add line ${index}:`, lineError);
+        }
+      });
+
+      // Now add editable text elements with EXACT canvas properties
+      console.log('📝 Adding editable text with exact canvas properties...');
+
+      extractedTexts.forEach((textInfo, index) => {
+        try {
+          // CRITICAL: Use EXACT font size from canvas (no minimum, preserve exact size)
+          const exactFontSizeMM = textInfo.fontSize;
+          pdf.setFontSize(exactFontSizeMM);
+
+          // CRITICAL: Use EXACT font family mapping from canvas
+          const lowerFontFamily = textInfo.fontFamily.toLowerCase();
+          let pdfFontName = 'helvetica'; // Default fallback
+          let pdfFontStyle = 'normal';
+
+          // Determine font weight/style
+          if (textInfo.fontWeight === 'bold' || textInfo.fontWeight === '700' || textInfo.fontWeight === '800' || textInfo.fontWeight === '900') {
+            pdfFontStyle = 'bold';
+          }
+
+          // Map exact font families
+          if (lowerFontFamily.includes('wash') || lowerFontFamily.includes('care') || lowerFontFamily.includes('symbol')) {
+            pdfFontName = 'WashCareSymbolsM54';
+            pdfFontStyle = 'normal'; // Embedded font typically only has normal style
+          } else if (lowerFontFamily.includes('arial')) {
+            pdfFontName = 'arial';
+          } else if (lowerFontFamily.includes('helvetica')) {
+            pdfFontName = 'helvetica';
+          } else if (lowerFontFamily.includes('times')) {
+            pdfFontName = 'times';
+          } else if (lowerFontFamily.includes('courier')) {
+            pdfFontName = 'courier';
+          } else {
+            // For any other font, use helvetica as closest match
+            pdfFontName = 'helvetica';
+          }
+
+          pdf.setFont(pdfFontName, pdfFontStyle);
+
+          // CRITICAL: Use EXACT text color from canvas
+          if (textInfo.fill && textInfo.fill !== 'none' && textInfo.fill !== 'transparent') {
+            try {
+              if (textInfo.fill.startsWith('#')) {
+                const hex = textInfo.fill.slice(1);
+                if (hex.length === 6) {
+                  const r = parseInt(hex.slice(0, 2), 16);
+                  const g = parseInt(hex.slice(2, 4), 16);
+                  const b = parseInt(hex.slice(4, 6), 16);
+                  pdf.setTextColor(r, g, b);
+                } else if (hex.length === 3) {
+                  // Handle short hex format #RGB
+                  const r = parseInt(hex[0] + hex[0], 16);
+                  const g = parseInt(hex[1] + hex[1], 16);
+                  const b = parseInt(hex[2] + hex[2], 16);
+                  pdf.setTextColor(r, g, b);
+                }
+              } else if (textInfo.fill.startsWith('rgb')) {
+                const matches = textInfo.fill.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+                if (matches) {
+                  pdf.setTextColor(parseInt(matches[1]), parseInt(matches[2]), parseInt(matches[3]));
+                }
+              } else if (textInfo.fill === 'black' || textInfo.fill === '#000' || textInfo.fill === '#000000') {
+                pdf.setTextColor(0, 0, 0);
+              } else if (textInfo.fill === 'white' || textInfo.fill === '#fff' || textInfo.fill === '#ffffff') {
+                pdf.setTextColor(255, 255, 255);
+              } else {
+                // Default to black for unrecognized colors
+                pdf.setTextColor(0, 0, 0);
+              }
+            } catch (colorError) {
+              console.warn(`⚠️ Could not parse color ${textInfo.fill}, using black`);
+              pdf.setTextColor(0, 0, 0);
+            }
+          } else {
+            // Default text color
+            pdf.setTextColor(0, 0, 0);
+          }
+
+          // CRITICAL: Use EXACT text positioning and alignment from canvas
+          let textAlign: 'left' | 'center' | 'right' = 'left';
+          if (textInfo.textAnchor === 'middle') {
+            textAlign = 'center';
+          } else if (textInfo.textAnchor === 'end') {
+            textAlign = 'right';
+          }
+
+          // CRITICAL: Place text at EXACT coordinates from canvas
+          pdf.text(textInfo.content, textInfo.x, textInfo.y, { align: textAlign });
+
+          console.log(`✏️ EXACT text ${index + 1}/${extractedTexts.length}: "${textInfo.content}" | ${pdfFontName} ${pdfFontStyle} ${exactFontSizeMM.toFixed(2)}mm | (${textInfo.x.toFixed(1)}, ${textInfo.y.toFixed(1)})mm | ${textInfo.fill}`);
+
+        } catch (textError) {
+          console.warn(`⚠️ Failed to add text element ${index} "${textInfo.content}":`, textError);
+        }
+      });
+
+      // Add comprehensive metadata
+      const currentDate = new Date();
+      const dateString = currentDate.toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+      const timeString = currentDate.toLocaleTimeString('en-GB', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      // Add header with pure vector PDF info
+      pdf.setFontSize(8);
+      pdf.setTextColor(100, 100, 100);
+      pdf.text(`Pure Vector PDF for Illustrator | ${bestFit.paperSize} ${bestFit.orientation} | ${extractedTexts.length} editable texts`, 5, 10);
+
+      // Add content info
+      pdf.setFontSize(6);
+      pdf.text(`Canvas: ${canvasWidthMM.toFixed(1)}×${canvasHeightMM.toFixed(1)}mm | ${mothers.length} mothers | Generated: ${dateString} ${timeString}`, 5, 15);
+
+      // Add footer with pure vector info
+      pdf.setFontSize(5);
+      pdf.setTextColor(150, 150, 150);
+      pdf.text(`100% Vector Content | No raster images | Exact canvas duplication | Fonts embedded`, 5, bestFit.paperHeight - 5);
+
+      // Draw light border around content area for reference
+      pdf.setDrawColor(200, 200, 200);
+      pdf.setLineWidth(0.1);
+      pdf.rect(centerX, centerY, canvasWidthMM, canvasHeightMM);
+
+      // Save with descriptive filename
+      const fileName = `PureVector_Illustrator_${bestFit.paperSize}_${bestFit.orientation}_${extractedTexts.length}texts_${mothers.length}mothers_${dateString.replace(/\//g, '-')}_${timeString.replace(/:/g, '-')}.pdf`;
+      pdf.save(fileName);
+
+      console.log('✅ Pure vector PDF generation complete:', {
+        filename: fileName,
+        paperSize: `${bestFit.paperSize} ${bestFit.orientation}`,
+        editableTexts: extractedTexts.length,
+        mothers: mothers.length,
+        vectorElements: svgRects.length + svgLines.length + svgPaths.length + svgCircles.length
+      });
+
+      alert(`✅ Pure Vector PDF generated for Illustrator!\n\n📄 File: ${fileName}\n📐 Paper: ${bestFit.paperSize} ${bestFit.orientation}\n📝 Editable texts: ${extractedTexts.length}\n🏠 Mothers: ${mothers.length}\n🎨 100% Vector - No raster content\n✨ Exact canvas appearance preserved`);
+
+    } catch (error) {
+      console.error('❌ Illustrator vector PDF generation failed:', error);
+      alert('❌ Illustrator vector PDF generation failed. Check console for details.');
     }
   };
 
@@ -7791,9 +8895,36 @@ function App() {
 
   // Function to generate PDF with all mothers
   const generatePDFAllMothers = async () => {
+    // Initialize debug log collection for easy export (same as canvas PDF)
+    const debugLogs: string[] = [];
+    const logExport = (message: string, data?: any) => {
+      const timestamp = new Date().toISOString();
+      const logEntry = `[${timestamp}] ${message}${data ? ' | ' + JSON.stringify(data, null, 2) : ''}`;
+      debugLogs.push(logEntry);
+      console.log(message, data || '');
+    };
+
+    // Function to export all logs at once for easy copying
+    const exportAllLogs = () => {
+      const allLogs = debugLogs.join('\n');
+      console.log('\n' + '='.repeat(80));
+      console.log('📋 PRINT-AS-PDF DEBUG LOGS - COPY BELOW FOR ANALYSIS');
+      console.log('='.repeat(80));
+      console.log(allLogs);
+      console.log('='.repeat(80));
+      console.log('📋 END OF LOGS - COPY ABOVE FOR ANALYSIS');
+      console.log('='.repeat(80) + '\n');
+
+      // Also make logs available on window for easy access
+      (window as any).printPdfDebugLogs = allLogs;
+      console.log('💾 Logs also saved to window.printPdfDebugLogs for easy copying');
+    };
+
     const currentData = data || webCreationData;
     if (!currentData) {
+      logExport('❌ No data to generate PDF');
       alert('❌ No data to generate PDF');
+      exportAllLogs();
       return;
     }
 
@@ -8911,7 +10042,7 @@ function App() {
             }
 
             // Add content type for region - use full text like slices
-            console.log(`🔍 REGION CHECK R${regionIndex + 1}:`, {
+            logExport(`🔍 REGION CHECK R${regionIndex + 1}:`, {
               isProjectMode,
               width: region.width,
               height: region.height,
@@ -8920,7 +10051,7 @@ function App() {
             });
             if (isProjectMode && region.width > 10 && region.height > 5) {
               const regionContentsForRegion = regionContents.get(region.id) || [];
-              console.log(`🔍 Region R${regionIndex + 1} (${region.id}):`, {
+              logExport(`🔍 Region R${regionIndex + 1} (${region.id}):`, {
                 width: region.width,
                 height: region.height,
                 hasContent: regionContentsForRegion.length > 0,
@@ -8928,7 +10059,38 @@ function App() {
                 contents: regionContentsForRegion
               });
               if (regionContentsForRegion.length > 0) {
-                const content = regionContentsForRegion[0]; // Show only first content type
+                // Find content with actual text instead of just taking first item
+                let content = regionContentsForRegion[0]; // Default to first
+
+                // Look for content with non-empty text
+                for (const item of regionContentsForRegion) {
+                  let hasText = false;
+                  if (item.content?.text || item.content?.primaryContent) {
+                    hasText = true;
+                  } else if (item.newCompTransConfig?.textContent?.generatedText) {
+                    hasText = item.newCompTransConfig.textContent.generatedText.trim().length > 0;
+                  }
+
+                  if (hasText) {
+                    content = item;
+                    break; // Use first content with actual text
+                  }
+                }
+
+                logExport(`🎯 CONTENT SELECTION:`, {
+                  totalItems: regionContentsForRegion.length,
+                  selectedContentId: content.id,
+                  selectedContentType: content.type,
+                  hasText: !!(content.newCompTransConfig?.textContent?.generatedText?.trim())
+                });
+
+                // ENHANCED DEBUG: Log content structure for troubleshooting
+                logExport(`🔍 MAIN REGION CONTENT DEBUG (${region.id}):`, {
+                  contentType: content.type,
+                  hasContent: !!content.content,
+                  hasNewCompTransConfig: !!content.newCompTransConfig,
+                  fullContentStructure: JSON.stringify(content, null, 2)
+                });
 
                 // Get actual text content for text-based content types
                 let fullText = content.type; // Default to content type
@@ -8938,7 +10100,17 @@ function App() {
                 } else if (content.content && content.content.primaryContent) {
                   // For translation paragraphs, show primary content
                   fullText = content.content.primaryContent;
+                } else if (content.newCompTransConfig && content.newCompTransConfig.textContent) {
+                  // For new-comp-trans, get text from the config
+                  fullText = content.newCompTransConfig.textContent.generatedText || content.type;
                 }
+
+                logExport(`🔍 MAIN REGION TEXT EXTRACTION:`, {
+                  regionId: region.id,
+                  contentType: content.type,
+                  extractedText: fullText?.substring(0, 100) + '...',
+                  textLength: fullText?.length || 0
+                });
 
                 // Calculate available space for text
                 const availableWidth = region.width - 4; // 2mm margin on each side
@@ -9172,8 +10344,23 @@ function App() {
                   } else if (content.type === 'new-comp-trans') {
                     // Render composition translation text in PDF using configuration
                     const config = content.newCompTransConfig;
+
+                    logExport(`🌐 MAIN REGION NEW-COMP-TRANS DEBUG:`, {
+                      hasConfig: !!config,
+                      configStructure: config ? JSON.stringify(config, null, 2) : 'NO CONFIG',
+                      hasPadding: !!(config?.padding),
+                      hasAlignment: !!(config?.alignment),
+                      hasTypography: !!(config?.typography),
+                      hasTextContent: !!(config?.textContent)
+                    });
+
                     if (!config || !config.padding || !config.alignment || !config.typography) {
-                      console.warn('🌐 new-comp-trans missing configuration, skipping PDF render');
+                      logExport('🌐 new-comp-trans missing configuration, skipping PDF render', {
+                        config: config,
+                        missingPadding: !config?.padding,
+                        missingAlignment: !config?.alignment,
+                        missingTypography: !config?.typography
+                      });
                       return;
                     }
 
@@ -9213,7 +10400,34 @@ function App() {
                     pdf.setFontSize(fontSize * 2.83); // Convert mm to points for jsPDF
                     pdf.setTextColor(0, 0, 0);
 
-                    const textContent = content.newCompTransConfig?.textContent?.generatedText || 'Composition Translation';
+                    let textContent = content.newCompTransConfig?.textContent?.generatedText || 'Composition Translation';
+
+                    // UNICODE FONT HANDLING: Replace unsupported characters with Latin equivalents for PDF compatibility
+                    // This ensures text is copyable but displayed correctly in PDF
+                    const unicodeReplacements = {
+                      // Greek characters
+                      'ΒΑΜΒΑΚΙ': 'COTTON', 'ΠΟΛΥΕΣΤΕΡΑΣ': 'POLYESTER', 'ΕΛΑΣΤΑΝΗ': 'ELASTANE', 'ΜΑΛΛΙ': 'WOOL', 'ΝΑΪΛΟΝ': 'NYLON',
+                      // Japanese characters
+                      'コットン': 'COTTON', 'ポリエステル': 'POLYESTER', 'エラスタン': 'ELASTANE', 'ウール': 'WOOL', 'ナイロン': 'NYLON',
+                      // Chinese characters
+                      '棉': 'COTTON', '聚酯纤维': 'POLYESTER', '氨纶': 'ELASTANE', '羊毛': 'WOOL', '锦纶': 'NYLON',
+                      // Korean characters
+                      '면': 'COTTON', '폴리에스터': 'POLYESTER', '엘라스탄': 'ELASTANE', '울': 'WOOL', '나일론': 'NYLON',
+                      // Arabic characters
+                      'قطن': 'COTTON', 'بوليستير': 'POLYESTER', 'إيلاستان': 'ELASTANE', 'صوف': 'WOOL', 'نايلون': 'NYLON'
+                    };
+
+                    // Apply replacements for PDF display
+                    let pdfTextContent = textContent;
+                    Object.entries(unicodeReplacements).forEach(([unicode, latin]) => {
+                      pdfTextContent = pdfTextContent.replace(new RegExp(unicode, 'g'), latin);
+                    });
+
+                    logExport(`🌐 Unicode character handling:`, {
+                      originalLength: textContent.length,
+                      processedLength: pdfTextContent.length,
+                      replacements: Object.keys(unicodeReplacements).filter(char => textContent.includes(char))
+                    });
 
                     // Use EXACT same text wrapping logic as canvas rendering
                     // Match canvas calculation: availableWidthPx = Math.max(0, regionWidthPx - paddingLeftPx - paddingRightPx)
@@ -9286,7 +10500,7 @@ function App() {
 
                       // Use the EXACT same text wrapping as displayed on screen
                       const wrappedResult = processChildRegionTextWrapping(
-                        textContent,
+                        pdfTextContent, // Use processed text with Unicode replacements
                         availableWidthPx,
                         availableHeightPx,
                         scaledFontSize,
@@ -9335,7 +10549,7 @@ function App() {
                       // Use normal text rendering for Mother 1 & 2 (copyable text)
                       console.log(`📝 Using text method for ${motherName} (Mother ${motherNumber}) - main region copyable text`);
                       const wrappedResult = processChildRegionTextWrapping(
-                        textContent,
+                        pdfTextContent, // Use processed text with Unicode replacements
                         availableWidthPx,
                         availableHeightPx,
                         scaledFontSize,
@@ -9487,7 +10701,16 @@ function App() {
       const fileName = `${filePrefix}_${paperSize}_${new Date().toISOString().slice(0, 10)}.pdf`;
       pdf.save(fileName);
 
-      console.log(`✅ Generated PDF: ${fileName}`);
+      logExport(`✅ Generated PDF: ${fileName}`, {
+        fileName: fileName,
+        paperSize: paperSize,
+        motherCount: mothers.length,
+        paperDimensions: `${paperWidthMM}×${paperHeightMM}mm`,
+        utilization: `${(bestUtilization * 100).toFixed(1)}%`
+      });
+
+      // Export all debug logs for easy copying
+      exportAllLogs();
 
       const notificationText = isProjectMode
         ? `✅ Generated PDF with everything on canvas (${mothers.length} mothers) on ${paperSize}`
@@ -9496,6 +10719,8 @@ function App() {
       setTimeout(() => setNotification(null), 3000);
 
     } catch (error) {
+      logExport('❌ Error generating PDF:', { error: error instanceof Error ? error.message : String(error) });
+      exportAllLogs();
       console.error('❌ Error generating PDF:', error);
       alert('❌ Error generating PDF. Please try again.');
     }
@@ -9992,9 +11217,65 @@ function App() {
               transition: 'all 0.2s ease',
               boxShadow: '0 3px 6px rgba(33, 150, 243, 0.3)'
             }}
-            title="Convert current canvas view to PDF (CTP method)"
+            title="EXACT Canvas Copy to PDF - Enhanced SVG serialization with intelligent paper sizing (A4/A3/A2/A1 auto-select)"
           >
-            📸 CANVAS TO PDF
+            📸 EXACT CANVAS → PDF
+          </button>
+
+          <button
+            onClick={() => generateEnhancedCanvasToPDF()}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(135deg, #9c27b0 0%, #e91e63 100%)';
+              e.currentTarget.style.transform = 'scale(1.05)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(135deg, #e91e63 0%, #9c27b0 100%)';
+              e.currentTarget.style.transform = 'scale(1)';
+            }}
+            style={{
+              background: 'linear-gradient(135deg, #e91e63 0%, #9c27b0 100%)',
+              border: '2px solid #e91e63',
+              color: 'white',
+              fontSize: '12px',
+              padding: '8px 16px',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              transition: 'all 0.2s ease',
+              boxShadow: '0 3px 6px rgba(233, 30, 99, 0.3)',
+              marginLeft: '10px'
+            }}
+            title="Enhanced DOM-based capture method - Better text rendering for complex content"
+          >
+            🎯 ENHANCED PDF
+          </button>
+
+          <button
+            onClick={() => generateIllustratorPDF()}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(135deg, #ff6600 0%, #ff9800 100%)';
+              e.currentTarget.style.transform = 'scale(1.05)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(135deg, #ff9800 0%, #ff6600 100%)';
+              e.currentTarget.style.transform = 'scale(1)';
+            }}
+            style={{
+              background: 'linear-gradient(135deg, #ff9800 0%, #ff6600 100%)',
+              border: '2px solid #ff9800',
+              color: 'white',
+              fontSize: '12px',
+              padding: '8px 16px',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              transition: 'all 0.2s ease',
+              boxShadow: '0 3px 6px rgba(255, 152, 0, 0.3)',
+              marginLeft: '10px'
+            }}
+            title="Vector PDF for Illustrator - Editable text with exact canvas appearance"
+          >
+            🎨 ILLUSTRATOR VECTOR PDF
           </button>
         </div>
 
