@@ -10400,33 +10400,16 @@ function App() {
                     pdf.setFontSize(fontSize * 2.83); // Convert mm to points for jsPDF
                     pdf.setTextColor(0, 0, 0);
 
-                    let textContent = content.newCompTransConfig?.textContent?.generatedText || 'Composition Translation';
+                    const textContent = content.newCompTransConfig?.textContent?.generatedText || 'Composition Translation';
 
-                    // UNICODE FONT HANDLING: Replace unsupported characters with Latin equivalents for PDF compatibility
-                    // This ensures text is copyable but displayed correctly in PDF
-                    const unicodeReplacements = {
-                      // Greek characters
-                      'ΒΑΜΒΑΚΙ': 'COTTON', 'ΠΟΛΥΕΣΤΕΡΑΣ': 'POLYESTER', 'ΕΛΑΣΤΑΝΗ': 'ELASTANE', 'ΜΑΛΛΙ': 'WOOL', 'ΝΑΪΛΟΝ': 'NYLON',
-                      // Japanese characters
-                      'コットン': 'COTTON', 'ポリエステル': 'POLYESTER', 'エラスタン': 'ELASTANE', 'ウール': 'WOOL', 'ナイロン': 'NYLON',
-                      // Chinese characters
-                      '棉': 'COTTON', '聚酯纤维': 'POLYESTER', '氨纶': 'ELASTANE', '羊毛': 'WOOL', '锦纶': 'NYLON',
-                      // Korean characters
-                      '면': 'COTTON', '폴리에스터': 'POLYESTER', '엘라스탄': 'ELASTANE', '울': 'WOOL', '나일론': 'NYLON',
-                      // Arabic characters
-                      'قطن': 'COTTON', 'بوليستير': 'POLYESTER', 'إيلاستان': 'ELASTANE', 'صوف': 'WOOL', 'نايلون': 'NYLON'
-                    };
+                    // UNICODE DETECTION: Check if text contains Unicode characters that need canvas rendering
+                    const hasUnicodeChars = /[^\x00-\x7F]/.test(textContent); // Detects non-ASCII characters
 
-                    // Apply replacements for PDF display
-                    let pdfTextContent = textContent;
-                    Object.entries(unicodeReplacements).forEach(([unicode, latin]) => {
-                      pdfTextContent = pdfTextContent.replace(new RegExp(unicode, 'g'), latin);
-                    });
-
-                    logExport(`🌐 Unicode character handling:`, {
-                      originalLength: textContent.length,
-                      processedLength: pdfTextContent.length,
-                      replacements: Object.keys(unicodeReplacements).filter(char => textContent.includes(char))
+                    logExport(`🌐 Unicode detection:`, {
+                      hasUnicodeChars: hasUnicodeChars,
+                      textLength: textContent.length,
+                      textPreview: textContent.substring(0, 100) + '...',
+                      willUseCanvasRendering: hasUnicodeChars
                     });
 
                     // Use EXACT same text wrapping logic as canvas rendering
@@ -10443,15 +10426,14 @@ function App() {
                     }
                     const scaledFontSize = Math.max(6, fontSizeForProcessing); // No zoom in PDF, but keep minimum
 
-                    // 🎯 SELECTIVE CTP METHOD: Use different rendering based on mother type
-                    // Mother 1 & 2: Use old method (text-based, copyable)
-                    // Mother 3+: Use CTP method (image-based) for composition translation content
+                    // 🎯 SELECTIVE CTP METHOD: Use canvas rendering for Unicode text preservation
+                    // If text contains Unicode characters, use canvas rendering to preserve original characters
+                    // Otherwise use text rendering for copyable text
                     const motherName = mother.name || '';
                     const motherNumber = parseInt(motherName.match(/Mother_(\d+)/)?.[1] || '1');
-                    const forceCanvasToImageMethod = motherNumber >= 3; // CTP method only for Mother 3+
 
-                    if (forceCanvasToImageMethod) {
-                      console.log(`🎯 Using CTP method for ${motherName} (Mother ${motherNumber}) - main region composition translation as image`);
+                    if (hasUnicodeChars) {
+                      logExport(`🎯 Using canvas method for Unicode text preservation in ${motherName} - main region as image`);
 
                       // Create a temporary canvas for rendering international text
                       const tempCanvas = document.createElement('canvas');
@@ -10498,9 +10480,9 @@ function App() {
                                         configAlignment.horizontal === 'right' ? 'right' : 'left';
                       tempCtx.textBaseline = 'top'; // Critical: match SVG text baseline
 
-                      // Use the EXACT same text wrapping as displayed on screen
+                      // Use the EXACT same text wrapping as displayed on screen (preserve original Unicode)
                       const wrappedResult = processChildRegionTextWrapping(
-                        pdfTextContent, // Use processed text with Unicode replacements
+                        textContent, // Use original text with Unicode characters preserved
                         availableWidthPx,
                         availableHeightPx,
                         scaledFontSize,
@@ -10546,10 +10528,10 @@ function App() {
                       createSelectableTextOverlay(`main-${region.id}`, textContent, regionBounds);
 
                     } else {
-                      // Use normal text rendering for Mother 1 & 2 (copyable text)
-                      console.log(`📝 Using text method for ${motherName} (Mother ${motherNumber}) - main region copyable text`);
+                      // Use normal text rendering for ASCII-only text (copyable text)
+                      logExport(`📝 Using text method for ${motherName} - main region copyable text (no Unicode chars)`);
                       const wrappedResult = processChildRegionTextWrapping(
-                        pdfTextContent, // Use processed text with Unicode replacements
+                        textContent, // Use original text (safe since no Unicode chars detected)
                         availableWidthPx,
                         availableHeightPx,
                         scaledFontSize,
