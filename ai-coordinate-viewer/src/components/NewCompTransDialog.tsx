@@ -139,7 +139,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
   createChildMother
 }) => {
   // Initialize config from editing content or defaults
-  const getInitialConfig = (): NewCompTransConfig => {
+  function getInitialConfig(): NewCompTransConfig {
     console.log('🔬 DEBUG_FIX: getInitialConfig called');
     console.log('🔬 DEBUG_FIX: editingContent:', editingContent);
     console.log('🔬 DEBUG_FIX: editingContent.newCompTransConfig:', editingContent?.newCompTransConfig);
@@ -469,17 +469,22 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     }
   };
 
-  // Canvas-based overflow detection and text splitting (similar to NewMultiLineDialog)
-  const detectOverflowAndSplit = () => {
+  // Enhanced N-split overflow detection and text splitting
+  const detectOverflowAndSplitN = () => {
     // Use original text if available, fallback to generated text, then to auto-generated content
     const text = config.textContent.originalText || config.textContent.generatedText || generateTextContent();
-    console.log(`🔍 ${DIALOG_VERSION}: Detecting overflow for text:`, text?.substring(0, 50) || 'NO TEXT');
-    console.log(`🔍 ${DIALOG_VERSION}: Text length:`, text?.length || 0);
-    console.log(`🔍 ${DIALOG_VERSION}: Region dimensions:`, { regionWidth, regionHeight });
+    console.log(`🔍 N-SPLIT: Detecting overflow for text:`, text?.substring(0, 50) || 'NO TEXT');
+    console.log(`🔍 N-SPLIT: Text length:`, text?.length || 0);
+    console.log(`🔍 N-SPLIT: Region dimensions:`, { regionWidth, regionHeight });
 
     if (!text || !regionWidth || !regionHeight) {
-      console.log('🔍 OVERFLOW_DEBUG: Early return - no text or dimensions');
-      return { hasOverflow: false, originalText: text, overflowText: '' };
+      console.log('🔍 N-SPLIT: Early return - no text or dimensions');
+      return {
+        hasOverflow: false,
+        textSplits: [text || ''],
+        totalSplits: 1,
+        splitDetails: [{ text: text || '', lines: 0 }]
+      };
     }
 
     // Calculate available space in pixels
@@ -493,53 +498,88 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     const availableWidthPx = Math.max(0, regionWidthPx - paddingLeftPx - paddingRightPx);
     const availableHeightPx = Math.max(0, regionHeightPx - paddingTopPx - paddingBottomPx);
 
-    // Convert font size to pixels (CONSISTENT with canvas rendering)
+    // Convert font size to pixels
     let fontSizePx = config.typography.fontSize;
     if (config.typography.fontSizeUnit === 'mm') {
       fontSizePx = config.typography.fontSize * 3.779527559;
     } else if (config.typography.fontSizeUnit === 'pt') {
       fontSizePx = (config.typography.fontSize * 4/3);
     }
-    
-    // Apply zoom scaling for consistency with canvas rendering
-    // Note: zoom = 1.0 for standard view, this ensures math consistency
-    const zoom = 1.0; // Use standard zoom for consistent mathematical calculations
+
+    const zoom = 1.0;
     const scaledFontSize = Math.max(6, fontSizePx * zoom);
 
     // Text width estimation using canvas measurement
     const estimateTextWidth = (text: string): number => {
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
-      if (!context) return text.length * 2; // Fallback
+      if (!context) return text.length * 2;
 
       context.font = `${scaledFontSize}px ${config.typography.fontFamily}`;
       const textWidthPx = context.measureText(text).width;
-      return textWidthPx / 3.779527559; // Convert to mm
+      return textWidthPx / 3.779527559;
     };
 
     const availableWidthMm = availableWidthPx / 3.779527559;
-    const fontSizeMm = fontSizePx / 3.779527559;
+
+    // CRITICAL: Apply safety buffer exactly like Text Overflow Analysis Settings
+    // From Settings.tsx: userSafetyBuffer = 1.5mm
+    const userSafetyBuffer = 1.5;
+    const effectiveAvailableWidth = availableWidthMm - userSafetyBuffer;
+
+    const scaledFontSizeMm = scaledFontSize / 3.779527559;
+    const lineHeightMm = scaledFontSizeMm * (config.lineBreakSettings?.lineSpacing || 1.2);
+    const availableHeightMm = availableHeightPx / 3.779527559;
+
+    // CRITICAL: Follow Text Overflow Analysis Settings exactly
+    // From Settings.tsx: maxVisibleLines = Math.floor(availableHeightMm / lineHeightMm)
+    const maxLinesPerMother = Math.floor(availableHeightMm / lineHeightMm);
+
+    console.log(`🔍 N-SPLIT: Font calculations:`, {
+      scaledFontSizeMm: scaledFontSizeMm.toFixed(2),
+      lineSpacing: config.lineBreakSettings?.lineSpacing || 1.2,
+      lineHeightMm: lineHeightMm.toFixed(2),
+      availableHeightMm: availableHeightMm.toFixed(2),
+      maxLinesPerMother
+    });
+
+    console.log(`🔍 N-SPLIT: Text Overflow Analysis Settings compliance:`, {
+      regionWidthMm: regionWidth,
+      regionHeightMm: regionHeight,
+      availableWidthMm: availableWidthMm.toFixed(1),
+      userSafetyBuffer: userSafetyBuffer,
+      effectiveAvailableWidth: effectiveAvailableWidth.toFixed(1),
+      maxLinesPerMother: maxLinesPerMother,
+      note: 'Following Settings.tsx calculations exactly'
+    });
+
+    console.log(`🔍 N-SPLIT: Max lines per mother: ${maxLinesPerMother}`);
 
     // Word wrapping logic
     const wrapTextToLines = (text: string): string[] => {
-      const manualLines = text.split(config.lineBreakSettings.lineBreakSymbol);
+      const lineBreakSymbol = config.lineBreakSettings?.lineBreakSymbol || '\n';
+      const manualLines = text.split(lineBreakSymbol);
       const wrappedLines: string[] = [];
+
+      console.log(`🔍 N-SPLIT: Line break symbol: "${lineBreakSymbol}"`);
+      console.log(`🔍 N-SPLIT: Manual lines from original text: ${manualLines.length}`);
 
       manualLines.forEach(line => {
         const trimmedLine = line.trim();
         if (!trimmedLine) {
-          wrappedLines.push(''); // Preserve empty lines
+          wrappedLines.push('');
           return;
         }
 
         const words = trimmedLine.split(' ');
         let currentLine = '';
 
-        words.forEach((word, index) => {
+        words.forEach((word) => {
           const testLine = currentLine ? `${currentLine} ${word}` : word;
           const testWidth = estimateTextWidth(testLine);
 
-          if (testWidth <= availableWidthMm) {
+          // CRITICAL: Use effectiveAvailableWidth with safety buffer (like Text Overflow Analysis Settings)
+          if (testWidth <= effectiveAvailableWidth) {
             currentLine = testLine;
           } else {
             if (currentLine) {
@@ -559,40 +599,114 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       return wrappedLines;
     };
 
-    const lines = wrapTextToLines(text);
+    const allLines = wrapTextToLines(text);
+    console.log(`🔍 N-SPLIT: Total lines after wrapping: ${allLines.length}`);
 
-    // Check for height overflow (using scaled font size for consistency)
-    const scaledFontSizeMm = scaledFontSize / 3.779527559;
-    const lineHeightMm = scaledFontSizeMm * config.lineBreakSettings.lineSpacing;
-    const totalTextHeightMm = lines.length * lineHeightMm;
-    const availableHeightMm = availableHeightPx / 3.779527559;
-    const hasOverflow = totalTextHeightMm > availableHeightMm;
-
-    if (hasOverflow) {
-      const maxVisibleLines = Math.floor(availableHeightMm / lineHeightMm);
-      const originalLines = lines.slice(0, maxVisibleLines);
-      const overflowLines = lines.slice(maxVisibleLines);
-
-      console.log('🔍 OVERFLOW_DEBUG: OVERFLOW DETECTED!');
-      console.log('🔍 OVERFLOW_DEBUG: maxVisibleLines:', maxVisibleLines);
-      console.log('🔍 OVERFLOW_DEBUG: totalLines:', lines.length);
-      console.log('🔍 OVERFLOW_DEBUG: originalLines count:', originalLines.length);
-      console.log('🔍 OVERFLOW_DEBUG: overflowLines count:', overflowLines.length);
-
+    // Check if splitting is needed
+    if (allLines.length <= maxLinesPerMother) {
+      console.log('🔍 N-SPLIT: NO OVERFLOW - text fits in single mother');
       return {
-        hasOverflow: true,
-        originalText: originalLines.join(config.lineBreakSettings.lineBreakSymbol),
-        overflowText: overflowLines.join(config.lineBreakSettings.lineBreakSymbol),
-        overflowLines: overflowLines // Store the actual wrapped lines
+        hasOverflow: false,
+        textSplits: [text],
+        totalSplits: 1,
+        splitDetails: [{ text: text, lines: allLines.length }]
       };
     }
 
-    console.log('🔍 OVERFLOW_DEBUG: NO OVERFLOW - text fits in region');
+    // Calculate how many mothers needed - be more conservative
+    const totalMothersNeeded = Math.ceil(allLines.length / maxLinesPerMother);
+    console.log(`🔍 N-SPLIT: OVERFLOW DETECTED - Need ${totalMothersNeeded} mothers`);
+
+    // Double-check: ensure maxLinesPerMother is reasonable
+    if (maxLinesPerMother <= 0) {
+      console.error(`❌ N-SPLIT: Invalid maxLinesPerMother: ${maxLinesPerMother}`);
+      return {
+        hasOverflow: false,
+        textSplits: [text],
+        totalSplits: 1,
+        splitDetails: [{ text: text, lines: allLines.length }]
+      };
+    }
+
+    // Split lines optimally - fill each mother completely before moving to next
+    const textSplits: string[] = [];
+    const splitDetails: { text: string; lines: number }[] = [];
+
+    console.log(`🔍 N-SPLIT: Starting optimal distribution across ${totalMothersNeeded} mothers`);
+    console.log(`🔍 N-SPLIT: Total lines to distribute: ${allLines.length}`);
+    console.log(`🔍 N-SPLIT: Max lines per mother: ${maxLinesPerMother}`);
+
+    let currentLineIndex = 0;
+    let motherIndex = 0;
+
+    while (currentLineIndex < allLines.length && motherIndex < totalMothersNeeded) {
+      // For each mother, take exactly maxLinesPerMother lines (or remaining lines if it's the last mother)
+      const isLastMother = motherIndex === totalMothersNeeded - 1;
+      const remainingLines = allLines.length - currentLineIndex;
+
+      // Strategic distribution: Fill each mother to capacity, except last one which takes remainder
+      let linesToTake: number;
+      if (isLastMother) {
+        // Last mother takes all remaining lines
+        linesToTake = remainingLines;
+      } else {
+        // Non-last mothers take full capacity (maxLinesPerMother) to ensure optimal fill
+        linesToTake = Math.min(maxLinesPerMother, remainingLines);
+      }
+
+      const motherLines = allLines.slice(currentLineIndex, currentLineIndex + linesToTake);
+      const motherText = motherLines.join(config.lineBreakSettings?.lineBreakSymbol || '\n');
+
+      textSplits.push(motherText);
+      splitDetails.push({ text: motherText, lines: motherLines.length });
+
+      // Calculate fill percentage for this mother
+      const fillPercentage = ((motherLines.length / maxLinesPerMother) * 100).toFixed(1);
+
+      console.log(`🔍 N-SPLIT: Split ${motherIndex + 1}/${totalMothersNeeded} - ${motherLines.length}/${maxLinesPerMother} lines (${fillPercentage}% fill)`);
+      console.log(`🔍 N-SPLIT: Fill type: ${isLastMother ? 'LAST MOTHER - ALL REMAINING' : 'OPTIMAL CAPACITY FILL'}`);
+      console.log(`🔍 N-SPLIT: Text preview: "${motherText.substring(0, 50)}..."`);
+      console.log(`🔍 N-SPLIT: Remaining after this split: ${allLines.length - (currentLineIndex + linesToTake)} lines`);
+
+      // CRITICAL VALIDATION: Check against Text Overflow Analysis Settings expectations
+      if (!isLastMother && motherLines.length < maxLinesPerMother) {
+        console.warn(`⚠️ SETTINGS VIOLATION: Mother ${motherIndex + 1} not filled to capacity! Expected ${maxLinesPerMother} lines, got ${motherLines.length}`);
+      }
+      if (!isLastMother && fillPercentage !== '100.0') {
+        console.warn(`⚠️ SETTINGS VIOLATION: Mother ${motherIndex + 1} fill percentage is ${fillPercentage}%, should be 100.0%`);
+      }
+
+      currentLineIndex += linesToTake;
+      motherIndex++;
+    }
+
+    // Final validation: ensure no text is lost
+    const originalLineCount = allLines.length;
+    const distributedLineCount = splitDetails.reduce((sum, detail) => sum + detail.lines, 0);
+
+    if (originalLineCount !== distributedLineCount) {
+      console.error(`❌ N-SPLIT: Line distribution error! Original: ${originalLineCount}, Distributed: ${distributedLineCount}`);
+      console.error(`❌ N-SPLIT: Split details:`, splitDetails.map(d => ({ lines: d.lines, textLength: d.text.length })));
+    } else {
+      console.log(`✅ N-SPLIT: Perfect line distribution! ${originalLineCount} lines distributed across ${totalMothersNeeded} mothers`);
+    }
+
     return {
-      hasOverflow: false,
-      originalText: text,
-      overflowText: '',
-      overflowLines: []
+      hasOverflow: true,
+      textSplits,
+      totalSplits: totalMothersNeeded,
+      splitDetails
+    };
+  };
+
+  // Legacy function for backward compatibility
+  const detectOverflowAndSplit = () => {
+    const nSplitResult = detectOverflowAndSplitN();
+    return {
+      hasOverflow: nSplitResult.hasOverflow,
+      originalText: nSplitResult.textSplits[0] || '',
+      overflowText: nSplitResult.textSplits.slice(1).join('\n\n') || '',
+      overflowLines: nSplitResult.textSplits.slice(1)
     };
   };
 
@@ -953,6 +1067,11 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     const availableWidthMm = availableWidthPx / 3.779527559;
     const fontSizeMm = fontSizePx / 3.779527559;
 
+    // CRITICAL: Apply safety buffer exactly like Text Overflow Analysis Settings
+    // From Settings.tsx: userSafetyBuffer = 1.5mm
+    const userSafetyBuffer = 1.5;
+    const effectiveAvailableWidth = availableWidthMm - userSafetyBuffer;
+
     // Word wrapping logic
     const wrapTextToLines = (text: string): string[] => {
       const manualLines = text.split(originalConfig.lineBreakSettings.lineBreakSymbol);
@@ -979,7 +1098,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
           const testLine = currentLine ? `${currentLine} ${word}` : word;
           const testWidth = estimateTextWidth(testLine);
 
-          if (testWidth <= availableWidthMm) {
+          // CRITICAL: Use effectiveAvailableWidth with safety buffer (like Text Overflow Analysis Settings)
+          if (testWidth <= effectiveAvailableWidth) {
             currentLine = testLine;
           } else {
             if (currentLine) {
@@ -1958,10 +2078,68 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
   const handle33ButtonClick = () => handle33();
   const handle3v2ButtonClick = () => handle3v2();
 
+  // Special console logging function for easy capture
+  const logNSplitDebug = (message: string, data?: any) => {
+    const timestamp = new Date().toLocaleTimeString();
+    const logMessage = `🎯 N-SPLIT-DEBUG [${timestamp}]: ${message}`;
+    console.log(logMessage, data || '');
+
+    // Also store in window for easy access
+    if (!(window as any).nSplitLogs) {
+      (window as any).nSplitLogs = [];
+    }
+    (window as any).nSplitLogs.push({
+      timestamp,
+      message,
+      data
+    });
+  };
+
+  // Function to export debug logs
+  const exportNSplitLogs = () => {
+    const logs = (window as any).nSplitLogs || [];
+    const logText = logs.map((log: any) =>
+      `[${log.timestamp}] ${log.message}${log.data ? ' | ' + JSON.stringify(log.data) : ''}`
+    ).join('\n');
+
+    console.log('📋 ALL N-SPLIT DEBUG LOGS:');
+    console.log(logText);
+
+    // Copy to clipboard if possible
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(logText).then(() => {
+        console.log('✅ Logs copied to clipboard!');
+      }).catch(() => {
+        console.log('❌ Could not copy to clipboard');
+      });
+    }
+
+    return logText;
+  };
+
+  // Make functions available globally for easy access after dialog closes
+  React.useEffect(() => {
+    (window as any).exportNSplitLogs = exportNSplitLogs;
+    (window as any).clearNSplitLogs = clearNSplitLogs;
+
+    return () => {
+      // Cleanup on unmount (optional)
+      // delete (window as any).exportNSplitLogs;
+      // delete (window as any).clearNSplitLogs;
+    };
+  }, []);
+
+  // Clear debug logs
+  const clearNSplitLogs = () => {
+    (window as any).nSplitLogs = [];
+    console.log('🧹 N-Split debug logs cleared');
+  };
+
   // NEW: Button "FF" - Fast Flow: First save mother_1 with split1, then create mother_1A with split2
   const handleFF = async () => {
     try {
       console.log('🚀 Generate: Starting Generate Flow - step by step...');
+      console.log('🚀 Generate: Current text to process:', (config.textContent.originalText || config.textContent.generatedText || generateTextContent()).substring(0, 100) + '...');
 
       // STEP 0: Remove ALL active parent-linked child mothers (object hierarchy cleanup)
       console.log('🗑️ Generate - FIRST PRIORITY: Complete removal of all active parent-linked child mothers');
@@ -1983,11 +2161,13 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         // AGGRESSIVE CHILD MOTHER DETECTION - REMOVE ALL LINKED CHILD MOTHERS
         const allChildMothersToRemove: any[] = [];
 
-        // Method 1: Remove ALL mothers except the primary parent (Mother_1)
-        const allNonPrimaryMothers = currentAppData.objects.filter((obj: any) =>
-          obj.type && obj.type.includes('mother') && obj.name !== parentMotherId
+        // Method 1: Remove child mothers that are linked to this parent only
+        const directChildMothers = currentAppData.objects.filter((obj: any) =>
+          obj.type && obj.type.includes('mother') &&
+          obj.name !== parentMotherId &&
+          (obj.parentMotherId === parentMotherId || obj.isOverflowChild === true)
         );
-        allChildMothersToRemove.push(...allNonPrimaryMothers);
+        allChildMothersToRemove.push(...directChildMothers);
 
         // Method 2: Also check for any remaining relationship markers
         const childrenByRelationship = currentAppData.objects.filter((obj: any) =>
@@ -2071,13 +2251,58 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       onSave(clearConfig);
       await new Promise(resolve => setTimeout(resolve, 100)); // Brief pause for clear
 
-      // STEP 2: Apply wrap logic and detect overflow
-      console.log('🔧 Generate - Step 2: Apply wrap logic to original text');
-      const overflowResult = detectOverflowAndSplit();
-      setSplit1Text(overflowResult.originalText);
-      setSplit2Text(overflowResult.overflowText);
-      console.log(`📝 WRAPPED TEXT (${overflowResult.originalText.length} chars):`, overflowResult.originalText.substring(0, 50) + '...');
-      console.log(`📝 OVERFLOW TEXT (${overflowResult.overflowText.length} chars):`, overflowResult.overflowText.substring(0, 50) + '...');
+      // STEP 2: Apply N-split logic and detect overflow
+      logNSplitDebug('STEP 2: Apply N-split logic to original text');
+      const nSplitResult = detectOverflowAndSplitN();
+      logNSplitDebug('N-SPLIT RESULT', {
+        totalSplits: nSplitResult.totalSplits,
+        hasOverflow: nSplitResult.hasOverflow,
+        textSplitsLength: nSplitResult.textSplits?.length || 0
+      });
+
+      // Store all splits for later use
+      const allTextSplits = nSplitResult.textSplits;
+      setSplit1Text(allTextSplits[0] || '');
+      setSplit2Text(allTextSplits.slice(1).join('\n\n') || ''); // Store remaining splits as split2 for legacy compatibility
+
+      // Store all splits in window for advanced N-split usage
+      (window as any).lastNSplitResult = {
+        textSplits: allTextSplits,
+        totalSplits: nSplitResult.totalSplits,
+        hasOverflow: nSplitResult.hasOverflow,
+        splitDetails: nSplitResult.splitDetails
+      };
+
+      // Log each split with detailed analysis
+      allTextSplits.forEach((split, index) => {
+        console.log(`📝 SPLIT ${index + 1}/${nSplitResult.totalSplits} (${split.length} chars):`, split.substring(0, 50) + '...');
+        if (index === 0) {
+          console.log(`👑 Split 1 (Parent): "${split.substring(0, 100)}..."`);
+        } else {
+          console.log(`👶 Split ${index + 1} (Child ${index}): "${split.substring(0, 100)}..."`);
+        }
+      });
+
+      // Verify total text distribution
+      const totalOriginalText = config.textContent.originalText || config.textContent.generatedText || generateTextContent();
+      const lineBreakSymbol = config.lineBreakSettings?.lineBreakSymbol || '\n';
+      const totalSplitText = allTextSplits.join(lineBreakSymbol);
+      console.log(`🔍 TEXT VERIFICATION: Original text length: ${totalOriginalText.length}`);
+      console.log(`🔍 TEXT VERIFICATION: Total split text length: ${totalSplitText.length}`);
+      console.log(`🔍 TEXT VERIFICATION: Text distribution complete: ${totalOriginalText.length === totalSplitText.length ? '✅' : '❌'}`);
+
+      if (totalOriginalText.length !== totalSplitText.length) {
+        console.warn(`⚠️ TEXT MISMATCH: Original vs Split difference: ${totalOriginalText.length - totalSplitText.length} chars`);
+        console.warn(`⚠️ Original text preview: "${totalOriginalText.substring(0, 100)}..."`);
+        console.warn(`⚠️ Split text preview: "${totalSplitText.substring(0, 100)}..."`);
+      }
+
+      // Verify text distribution percentages
+      allTextSplits.forEach((split, index) => {
+        const percentage = ((split.length / totalOriginalText.length) * 100).toFixed(1);
+        console.log(`📊 Split ${index + 1} fills ${percentage}% of total text (${split.length}/${totalOriginalText.length} chars)`);
+      });
+
       setDebugStep(1);
 
       // STEP 3: Save wrapped text to parent canvas
@@ -2086,7 +2311,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         ...config,
         textContent: {
           ...config.textContent,
-          generatedText: overflowResult.originalText // This is the wrapped text that fits
+          generatedText: nSplitResult.textSplits[0] // This is the wrapped text that fits
         }
       };
       setConfig(wrappedConfig);
@@ -2142,18 +2367,20 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         console.log('🔴🔴🔴 FF-DEBUG: NO APP DATA OR OBJECTS!');
       }
 
-      // 🔬 DEBUG_FIX: Enhanced overflow detection debugging
-      console.log('🔬 DEBUG_FIX: Overflow detection results:', {
-        hasOverflow: overflowResult.hasOverflow,
-        overflowTextExists: !!overflowResult.overflowText,
-        overflowTextLength: overflowResult.overflowText?.length || 0,
-        overflowTextTrimmed: overflowResult.overflowText?.trim() || '',
-        overflowTextTrimmedLength: overflowResult.overflowText?.trim().length || 0,
-        originalTextLength: overflowResult.originalText?.length || 0
+      // 🔬 N-SPLIT: Enhanced overflow detection debugging
+      console.log('🔬 N-SPLIT: Overflow detection results:', {
+        hasOverflow: nSplitResult.hasOverflow,
+        totalSplits: nSplitResult.totalSplits,
+        needsChildMothers: nSplitResult.totalSplits > 1,
+        splits: nSplitResult.textSplits.map((split, i) => ({
+          index: i + 1,
+          length: split.length,
+          preview: split.substring(0, 30) + '...'
+        }))
       });
 
-      // CHECK: Determine next action based on overflow
-      if (!overflowResult.overflowText || overflowResult.overflowText.trim().length === 0) {
+      // CHECK: Determine next action based on N-split result
+      if (nSplitResult.totalSplits <= 1) {
         console.log('✅ Generate: No overflow detected - wrapped text fits in parent');
         console.log('✅ Generate: Parent canvas already contains properly wrapped text');
         console.log('✅ Generate: Child mothers already removed - process complete');
@@ -2162,12 +2389,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         return;
       }
 
-      // STEP 4: Create child mother for overflow content
-      console.log('🔧 Generate - Step 4: Creating child mother for overflow content');
-
-      // 3-1: Create child mother structure (FORCE Mother_1A naming)
-      console.log('🔧 FF - Step 3-1: Create child mother structure - FORCING Mother_1A naming');
-      let childMotherId: string | null = null;
+      // STEP 4: Create N child mothers for overflow content
+      console.log(`🔧 Generate - Step 4: Creating ${nSplitResult.totalSplits - 1} child mothers for overflow content`);
 
       // Find parent mother ID
       const globalData = (window as any).currentAppData;
@@ -2186,106 +2409,166 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         }
       }
 
-      // OVERRIDE: Force next mother to be Mother_1A by temporarily setting mother count to 1
-      const originalUpdateData = (window as any).updateAppData;
-      if (originalUpdateData && globalData) {
-        // Temporarily make it look like only Mother_1 exists for naming purposes
-        const tempMotherObjects = globalData.objects.filter((obj: any) =>
-          obj.type?.includes('mother') && obj.name === parentMotherIdForStep3
-        );
+      logNSplitDebug(`STEP 4: Creating ${nSplitResult.totalSplits - 1} child mothers for splits 2-${nSplitResult.totalSplits}`);
 
-        // Store original objects
-        const originalObjects = globalData.objects;
+      // Store created child mother IDs
+      const createdChildMotherIds: string[] = [];
 
-        // Temporarily set objects to only include Mother_1 for naming calculation
-        globalData.objects = [
-          ...globalData.objects.filter((obj: any) => !obj.type?.includes('mother')),
-          ...tempMotherObjects
-        ];
+      // Create N-1 child mothers sequentially (since split 1 goes to parent)
+      for (let i = 1; i < nSplitResult.totalSplits; i++) {
+        const childNumber = i;
+        const totalChildrenNeeded = nSplitResult.totalSplits - 1;
 
-        console.log('🔧 FF: Temporarily set mother count to 1 to force Mother_1A naming');
+        logNSplitDebug(`LOOP ITERATION ${i}: Creating child mother ${childNumber}/${totalChildrenNeeded} (for split ${i + 1}/${nSplitResult.totalSplits})`);
 
+        // Check current state before creation
+        const preCreationData = (window as any).currentAppData;
+        if (preCreationData && preCreationData.objects) {
+          const existingMothers = preCreationData.objects.filter((obj: any) => obj.type?.includes('mother'));
+          logNSplitDebug(`PRE-CREATION: Found ${existingMothers.length} existing mothers`, existingMothers.map((m: any) => m.name));
+        }
+
+        let childMotherId: string | null = null;
+
+        // Enhanced approach: Call createChildMother with N-split context
         if (createChildMother) {
-          childMotherId = createChildMother(parentMotherIdForStep3);
+          try {
+            logNSplitDebug(`CALLING createChildMother for iteration ${i}`);
 
-          // Restore original objects immediately after creation
-          globalData.objects = originalObjects;
+            childMotherId = createChildMother(parentMotherIdForStep3);
 
-          if (childMotherId) {
-            console.log(`✅ FF: Child mother structure created with forced naming: ${childMotherId}`);
-            (window as any).lastCreatedChildId = childMotherId;
-          } else {
-            console.error('❌ FF: Failed to create child mother structure');
-            alert('Error: Failed to create child mother structure');
+            logNSplitDebug(`createChildMother returned: ${childMotherId}`);
+
+            if (childMotherId) {
+              logNSplitDebug(`SUCCESS: Child mother created: ${childMotherId} (holds split ${i + 1})`);
+              createdChildMotherIds.push(childMotherId);
+              (window as any).lastCreatedChildId = childMotherId;
+
+              // Store N-split context for this child
+              (window as any)[`childMother_${childMotherId}_splitIndex`] = i + 1;
+              (window as any)[`childMother_${childMotherId}_totalSplits`] = nSplitResult.totalSplits;
+
+              // Verify creation was successful
+              const postCreationData = (window as any).currentAppData;
+              if (postCreationData && postCreationData.objects) {
+                const existingMothersAfter = postCreationData.objects.filter((obj: any) => obj.type?.includes('mother'));
+                logNSplitDebug(`POST-CREATION: Found ${existingMothersAfter.length} mothers`, existingMothersAfter.map((m: any) => m.name));
+
+                const createdMother = postCreationData.objects.find((obj: any) => obj.name === childMotherId);
+                if (createdMother) {
+                  logNSplitDebug(`VERIFICATION SUCCESS: ${childMotherId} exists in app data`);
+                } else {
+                  logNSplitDebug(`VERIFICATION FAILED: ${childMotherId} NOT found in app data!`);
+                }
+              }
+
+              // Wait longer between creations to ensure proper state updates
+              logNSplitDebug(`Waiting 1000ms before next iteration...`);
+              await new Promise(resolve => setTimeout(resolve, 1000)); // Increased wait time
+            } else {
+              logNSplitDebug(`FAILED: createChildMother returned null for iteration ${i}`);
+              alert(`Error: Failed to create child mother ${childNumber} for N-split ${i + 1}/${nSplitResult.totalSplits}`);
+              return;
+            }
+          } catch (error) {
+            logNSplitDebug(`EXCEPTION in iteration ${i}`, error);
+            alert(`Error: Failed to create child mother ${childNumber} for N-split ${i + 1}/${nSplitResult.totalSplits}: ${error}`);
             return;
           }
         } else {
-          // Restore original objects if createChildMother not available
-          globalData.objects = originalObjects;
-          console.error('❌ FF: createChildMother function not available');
+          logNSplitDebug('FAILED: createChildMother function not available');
           alert('Error: createChildMother function not available');
           return;
         }
-      } else {
-        console.error('❌ FF: Cannot override mother naming - falling back to standard creation');
-        if (createChildMother) {
-          childMotherId = createChildMother(parentMotherIdForStep3);
-          if (childMotherId) {
-            console.log(`✅ FF: Child mother structure created: ${childMotherId}`);
-            (window as any).lastCreatedChildId = childMotherId;
-          }
-        }
+
+        logNSplitDebug(`COMPLETED iteration ${i}, continuing to next...`);
       }
 
-      // Wait for child mother to be created
+      logNSplitDebug(`FINAL RESULT: Created ${createdChildMotherIds.length} child mothers`, createdChildMotherIds);
+
+      // Auto-export logs for easy capture after dialog closes
+      setTimeout(() => {
+        console.log('🎯 AUTO-EXPORTING N-SPLIT LOGS FOR EASY CAPTURE:');
+        exportNSplitLogs();
+        console.log('🎯 TO ACCESS LOGS AFTER DIALOG CLOSES, RUN: exportNSplitLogs()');
+      }, 100);
+
+      // Wait for all child mothers to be fully created
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      // 3-2 & 3-3: Add CT comp trans and load split2Text
-      console.log('🔧 FF - Step 3-2 & 3-3: Add CT comp trans and load SPLIT 2');
-      if (onCreateNewMother && childMotherId) {
-        console.log('🟠🟠🟠 FF-DEBUG: Before onCreateNewMother - checking child mother structure...');
+      // STEP 5: Distribute text across all child mothers
+      console.log(`🔧 Generate - Step 5: Distributing text across ${createdChildMotherIds.length} child mothers`);
 
-        // Check child mother structure before adding content
-        const preAddData = (window as any).currentAppData;
-        if (preAddData && preAddData.objects) {
-          const preChildMother = preAddData.objects.find((obj: any) => obj.name === childMotherId);
-          if (preChildMother && preChildMother.regions) {
-            console.log('🟠🟠🟠 FF-DEBUG: Child mother regions:', preChildMother.regions.length);
-            console.log('🟠🟠🟠 FF-DEBUG: First region contents before:', preChildMother.regions[0]?.contents?.length || 0);
-          }
+      // Distribute text to each child mother using N-split data
+      for (let i = 0; i < createdChildMotherIds.length; i++) {
+        const childMotherId = createdChildMotherIds[i];
+        const splitIndex = i + 1; // Split 0 is for parent, split 1+ for children
+        const textForChild = nSplitResult.textSplits[splitIndex] || '';
+
+        console.log(`🔧 Generate: Adding text to child mother ${i + 1}/${createdChildMotherIds.length} (${childMotherId})`);
+        console.log(`📝 N-SPLIT ${splitIndex + 1}/${nSplitResult.totalSplits}: Text for ${childMotherId} (${textForChild.length} chars):`, textForChild.substring(0, 50) + '...');
+        console.log(`🔍 Generate: Full N-split ${splitIndex + 1} content: "${textForChild.substring(0, 100)}..."`);
+
+        // Verify we have the right split
+        const expectedSplitIndex = (window as any)[`childMother_${childMotherId}_splitIndex`];
+        if (expectedSplitIndex && expectedSplitIndex !== splitIndex + 1) {
+          console.warn(`⚠️ N-SPLIT MISMATCH: Expected split ${expectedSplitIndex} but assigning split ${splitIndex + 1} to ${childMotherId}`);
         }
 
-        onCreateNewMother(childMotherId, overflowResult.overflowText);
-        console.log(`✅ FF: Called onCreateNewMother for ${childMotherId} with SPLIT 2 text`);
+        if (onCreateNewMother && childMotherId && textForChild) {
+          console.log(`🟠 Generate: Before onCreateNewMother - adding N-split ${splitIndex + 1} text to ${childMotherId}`);
+
+          // Check child mother structure before adding content
+          const preAddData = (window as any).currentAppData;
+          if (preAddData && preAddData.objects) {
+            const preChildMother = preAddData.objects.find((obj: any) => obj.name === childMotherId);
+            if (preChildMother && preChildMother.regions) {
+              console.log(`🟠 Generate: Child mother ${childMotherId} has ${preChildMother.regions.length} regions`);
+              console.log(`🟠 Generate: First region contents before: ${preChildMother.regions[0]?.contents?.length || 0}`);
+            }
+          }
+
+          onCreateNewMother(childMotherId, textForChild);
+          console.log(`✅ Generate: Added N-split ${splitIndex + 1}/${nSplitResult.totalSplits} text to ${childMotherId}`);
+          console.log(`✅ N-SPLIT CONFIRMATION: ${childMotherId} now holds split ${splitIndex + 1} of ${nSplitResult.totalSplits} total splits`);
 
         // Check child mother structure after adding content
         setTimeout(() => {
-          console.log('🟠🟠🟠 FF-DEBUG: After onCreateNewMother - checking structure...');
+          console.log(`🟠🟠🟠 N-SPLIT DEBUG: After onCreateNewMother - checking structure for split ${splitIndex + 1}...`);
           const postAddData = (window as any).currentAppData;
           if (postAddData && postAddData.objects) {
             const postChildMother = postAddData.objects.find((obj: any) => obj.name === childMotherId);
             if (postChildMother && postChildMother.regions && postChildMother.regions[0]) {
               const region = postChildMother.regions[0];
-              console.log('🟠🟠🟠 FF-DEBUG: First region contents after:', region.contents?.length || 0);
+              console.log(`🟠🟠🟠 N-SPLIT DEBUG: First region contents after: ${region.contents?.length || 0}`);
               if (region.contents && region.contents[0]) {
                 const content = region.contents[0];
-                console.log('🟠🟠🟠 FF-DEBUG: Content type:', content.type);
-                console.log('🟠🟠🟠 FF-DEBUG: Content has layout:', !!content.layout);
+                console.log(`🟠🟠🟠 N-SPLIT DEBUG: Content type: ${content.type}`);
+                console.log(`🟠🟠🟠 N-SPLIT DEBUG: Content has layout: ${!!content.layout}`);
                 if (content.layout) {
-                  console.log('🟠🟠🟠 FF-DEBUG: Layout has occupyLeftoverSpace:', content.layout?.occupyLeftoverSpace);
+                  console.log(`🟠🟠🟠 N-SPLIT DEBUG: Layout has occupyLeftoverSpace: ${content.layout?.occupyLeftoverSpace}`);
                 } else {
-                  console.log('🟠🟠🟠 FF-DEBUG: MISSING LAYOUT OBJECT - This will cause rendering error!');
+                  console.log(`🟠🟠🟠 N-SPLIT DEBUG: MISSING LAYOUT OBJECT - This will cause rendering error!`);
                 }
+                // Also log the actual text content to verify N-split worked
+                const actualText = content.newCompTransConfig?.textContent?.generatedText;
+                console.log(`🟠🟠🟠 N-SPLIT DEBUG: Actual text stored (${actualText?.length || 0} chars): "${actualText?.substring(0, 50) || 'NO TEXT'}..."`);
               }
             }
           }
         }, 100);
 
-      } else {
-        console.error('❌ FF: onCreateNewMother callback not available or no child mother ID');
-        alert('Error: Cannot add content to child mother');
-        return;
+        } else {
+          console.error(`❌ Generate: onCreateNewMother callback not available or no child mother ID for ${childMotherId}`);
+          alert(`Error: Cannot add N-split ${splitIndex + 1} content to child mother ${childMotherId}`);
+          return;
+        }
+
+        // Wait between child text distributions
+        await new Promise(resolve => setTimeout(resolve, 200));
       }
+
+      console.log(`✅ Generate: Text distribution completed for all ${createdChildMotherIds.length} child mothers`);
 
       // Final verification that mother_1 still has content
       console.log('🟢🟢🟢 FF-DEBUG: FINAL CHECK - Verifying mother_1 after child creation...');
@@ -2328,9 +2611,16 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       }
 
       setDebugStep(4);
-      console.log('🎉 FF: Fast Flow completed!');
-      console.log('✅ mother_1 should have SPLIT 1 text (saved)');
-      console.log('✅ mother_1A should be created with SPLIT 2 text');
+      console.log('🎉 Generate: N-Split Flow completed!');
+      console.log(`✅ mother_1 should have SPLIT 1 text (saved)`);
+      console.log(`✅ Created ${createdChildMotherIds.length} child mothers for splits 2-${nSplitResult.totalSplits}`);
+      console.log(`🎯 N-SPLIT SUMMARY: Total ${nSplitResult.totalSplits} mothers created (1 parent + ${createdChildMotherIds.length} children)`);
+
+      // Log each child mother and its split assignment
+      createdChildMotherIds.forEach((childId, index) => {
+        const splitNumber = index + 2; // Split 1 is parent, Split 2+ are children
+        console.log(`✅ ${childId} should have SPLIT ${splitNumber} text`);
+      });
 
       // IMPORTANT: Keep dialog open to prevent content loss
       console.log('🔵🔵🔵 FF-DEBUG: Keeping dialog open to prevent content loss');
@@ -2633,9 +2923,24 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         parentChildMotherIds.includes(obj.name)
       );
 
-      // Combine both methods and remove duplicates
+      // Method 3: Pattern-based detection for any Mother_1A, Mother_1B, etc. related to this parent
+      const patternChildMothers = currentAppData.objects.filter((obj: any) =>
+        obj.type && obj.type.includes('mother') &&
+        obj.name && obj.name !== parentMotherIdForSave &&
+        (obj.name.startsWith(parentMotherIdForSave + 'A') ||
+         obj.name.startsWith(parentMotherIdForSave + 'B') ||
+         obj.name.startsWith(parentMotherIdForSave + 'C') ||
+         obj.name.match(new RegExp(`^${parentMotherIdForSave}[A-Z]$`)))
+      );
+
+      // Method 4: Check for any overflow children regardless of parentMotherId (aggressive cleanup)
+      const allOverflowChildren = currentAppData.objects.filter((obj: any) =>
+        obj.isOverflowChild === true
+      );
+
+      // Combine all methods and remove duplicates
       const allChildMothers = [...existingChildMothers];
-      childMothersFromParent.forEach((child: any) => {
+      [...childMothersFromParent, ...patternChildMothers, ...allOverflowChildren].forEach((child: any) => {
         if (!allChildMothers.find((existing: any) => existing.name === child.name)) {
           allChildMothers.push(child);
         }
@@ -2643,6 +2948,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
       console.log(`🔍 ${DIALOG_VERSION}: existingChildMothers (method 1):`, existingChildMothers.length);
       console.log(`🔍 ${DIALOG_VERSION}: childMothersFromParent (method 2):`, childMothersFromParent.length);
+      console.log(`🔍 ${DIALOG_VERSION}: patternChildMothers (method 3):`, patternChildMothers.length);
+      console.log(`🔍 ${DIALOG_VERSION}: allOverflowChildren (method 4):`, allOverflowChildren.length);
       console.log(`🔍 ${DIALOG_VERSION}: allChildMothers (combined):`, allChildMothers.length);
       console.log(`🔍 ${DIALOG_VERSION}: child mother names:`, allChildMothers.map((c: any) => c.name));
 
@@ -3948,6 +4255,41 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
             >
               Generate
             </button>
+
+            {/* Debug Log Buttons */}
+            <div style={{ marginTop: '10px', display: 'flex', gap: '8px' }}>
+              <button
+                onClick={() => { clearNSplitLogs(); }}
+                style={{
+                  padding: '4px 8px',
+                  fontSize: '12px',
+                  backgroundColor: '#FF6B6B',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+                title="Clear N-Split debug logs"
+              >
+                Clear Logs
+              </button>
+
+              <button
+                onClick={() => { exportNSplitLogs(); }}
+                style={{
+                  padding: '4px 8px',
+                  fontSize: '12px',
+                  backgroundColor: '#4ECDC4',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+                title="Export N-Split debug logs to console and clipboard"
+              >
+                Export Logs
+              </button>
+            </div>
           </div>
         </div>
     </MovableDialog>

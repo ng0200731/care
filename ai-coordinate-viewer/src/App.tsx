@@ -1610,13 +1610,28 @@ function App() {
   };
 
   const getOverflowRole = (contentId: string): 'initiator' | 'connector' | 'none' => {
-    const contentType = getContentTypeFromId(contentId);
-    const chain = overflowChains.get(contentType) || [];
-    const chainIndex = chain.indexOf(contentId);
+    if (!contentId) {
+      console.warn('⚠️ getOverflowRole called with empty contentId');
+      return 'none';
+    }
 
-    if (chainIndex === -1) return 'none';
-    if (chainIndex === 0) return 'initiator';
-    return 'connector';
+    try {
+      const contentType = getContentTypeFromId(contentId);
+      if (!overflowChains) {
+        console.warn('⚠️ overflowChains is undefined in getOverflowRole');
+        return 'none';
+      }
+
+      const chain = overflowChains.get(contentType) || [];
+      const chainIndex = chain.indexOf(contentId);
+
+      if (chainIndex === -1) return 'none';
+      if (chainIndex === 0) return 'initiator';
+      return 'connector';
+    } catch (error) {
+      console.error('❌ Error in getOverflowRole:', error);
+      return 'none';
+    }
   };
 
   // 🎯 CONSISTENT FONT SCALING FUNCTION
@@ -2537,10 +2552,20 @@ function App() {
   // Helper function to get content type from content ID
   const getContentTypeFromId = (contentId: string): string => {
     // Find the content in regionContents to get its type
+    if (!regionContents) {
+      console.warn('⚠️ regionContents is undefined in getContentTypeFromId');
+      return 'unknown';
+    }
+
     for (const [regionId, contents] of Array.from(regionContents.entries())) {
-      const content = contents.find((c: any) => c.id === contentId);
+      if (!contents || !Array.isArray(contents)) {
+        console.warn(`⚠️ Contents for region ${regionId} is not an array:`, contents);
+        continue;
+      }
+
+      const content = contents.find((c: any) => c && c.id === contentId);
       if (content) {
-        return content.type;
+        return content.type || 'unknown';
       }
     }
     return 'unknown';
@@ -6977,13 +7002,19 @@ function App() {
 
   // Function to create child mother structure only (Step 1)
   const createChildMotherStructure = (parentMotherId: string): string => {
-    console.log(`🚀 Creating child mother structure from parent: ${parentMotherId}`);
+    console.log(`🚀 N-SPLIT DEBUG: Creating child mother structure from parent: ${parentMotherId}`);
 
-    const currentData = data || webCreationData;
+    // CRITICAL FIX: Use global app data for accurate state during N-split
+    const globalAppData = (window as any).currentAppData;
+    const currentData = globalAppData || data || webCreationData;
     if (!currentData) {
-      console.error('❌ No current data available');
+      console.error('❌ N-SPLIT DEBUG: No current data available');
       return '';
     }
+
+    console.log(`🔧 N-SPLIT DEBUG: Using ${globalAppData ? 'global' : 'local'} app data for state consistency`);
+
+    console.log(`🔍 N-SPLIT DEBUG: Current data has ${currentData.objects.length} objects`);
 
     // Find parent mother by ID
     let parentMother: AIObject | null = null;
@@ -6995,30 +7026,34 @@ function App() {
     }
 
     if (!parentMother) {
-      console.error(`❌ Parent mother not found: ${parentMotherId}`);
+      console.error(`❌ N-SPLIT DEBUG: Parent mother not found: ${parentMotherId}`);
       return '';
     }
 
     // Find existing children of this specific parent
-    const existingChildren = currentData.objects.filter(obj => 
-      obj.type?.includes('mother') && 
-      obj.name?.startsWith(parentMotherId) && 
+    const existingChildren = currentData.objects.filter((obj: any) =>
+      obj.type?.includes('mother') &&
+      obj.name?.startsWith(parentMotherId) &&
       obj.name !== parentMotherId
     );
 
+    console.log(`🔍 N-SPLIT DEBUG: Found ${existingChildren.length} existing children:`, existingChildren.map((child: any) => child.name));
+
     // Extract letter suffixes (A, B, C...)
     const childLetters = existingChildren
-      .map(child => child.name.replace(parentMotherId, ''))
-      .filter(suffix => /^[A-Z]$/.test(suffix))
+      .map((child: any) => child.name.replace(parentMotherId, ''))
+      .filter((suffix: string) => /^[A-Z]$/.test(suffix))
       .sort();
 
+    console.log(`🔍 N-SPLIT DEBUG: Extracted child letters:`, childLetters);
+
     // Generate next letter
-    const nextLetter = childLetters.length === 0 ? 'A' : 
+    const nextLetter = childLetters.length === 0 ? 'A' :
       String.fromCharCode(childLetters[childLetters.length - 1].charCodeAt(0) + 1);
 
     const childMotherId = `${parentMotherId}${nextLetter}`;
 
-    console.log(`🔢 Generated child mother ID: ${childMotherId}`);
+    console.log(`🔢 N-SPLIT DEBUG: Generated child mother ID: ${childMotherId}`);
 
     // Copy all regions from parent mother
     const originalRegions = (parentMother as any).regions || [];
@@ -7028,10 +7063,10 @@ function App() {
     }));
 
     // Calculate position for new mother
-    const motherObjects = currentData.objects.filter(obj => obj.type?.includes('mother'));
+    const motherObjects = currentData.objects.filter((obj: any) => obj.type?.includes('mother'));
     const spacing = 20;
     let maxRightX = 0;
-    motherObjects.forEach(mother => {
+    motherObjects.forEach((mother: any) => {
       const rightEdge = mother.x + mother.width;
       if (rightEdge > maxRightX) {
         maxRightX = rightEdge;
@@ -7077,10 +7112,22 @@ function App() {
       setWebCreationData(updatedData);
     }
 
-    // 🔧 FIX: Also update global data for NewCompTransDialog compatibility
+    // 🔧 CRITICAL FIX: Update global data immediately for N-split consistency
+    (window as any).currentAppData = updatedData;
     if ((window as any).updateAppData) {
       (window as any).updateAppData(updatedData);
-      console.log(`✅ Global app data updated with child mother: ${childMotherId}`);
+      console.log(`✅ N-SPLIT DEBUG: Global app data updated with child mother: ${childMotherId}`);
+    }
+
+    // Verify the child was added to global state
+    const verifyGlobalData = (window as any).currentAppData;
+    if (verifyGlobalData && verifyGlobalData.objects) {
+      const createdChild = verifyGlobalData.objects.find((obj: any) => obj.name === childMotherId);
+      if (createdChild) {
+        console.log(`✅ N-SPLIT DEBUG: Verified ${childMotherId} exists in global app data`);
+      } else {
+        console.error(`❌ N-SPLIT DEBUG: ${childMotherId} NOT found in global app data after creation!`);
+      }
     } else {
       console.log('⚠️ updateAppData function not available - global data not synchronized');
     }
@@ -11191,10 +11238,10 @@ function App() {
     const mmToPx = 3.78; // Conversion factor for true 1:1 at 96 DPI
     const scale = zoom * mmToPx;
 
-    const baseX = (obj.x * scale) + panX;
-    const baseY = (obj.y * scale) + panY;
-    const width = Math.max(obj.width * scale, 2);
-    const height = Math.max(obj.height * scale, 2);
+    const baseX = ((obj.x || 0) * scale) + panX;
+    const baseY = ((obj.y || 0) * scale) + panY;
+    const width = Math.max((obj.width || 0) * scale, 2);
+    const height = Math.max((obj.height || 0) * scale, 2);
 
     const isSelected = selectedObject === obj;
 
@@ -11233,9 +11280,9 @@ function App() {
     const topY = baseY - 5;
     const leftX = baseX - 5;
 
-    // Format dimensions to appropriate precision
-    const widthMm = obj.width.toFixed(1);
-    const heightMm = obj.height.toFixed(1);
+    // Format dimensions to appropriate precision (with null checks for N-split generated mothers)
+    const widthMm = (obj.width || 0).toFixed(1);
+    const heightMm = (obj.height || 0).toFixed(1);
 
     return (
       <g key={index}>
@@ -14575,11 +14622,21 @@ function App() {
                       const childMother = currentData.objects.find(obj => obj.name === childId);
                       if (!childMother) return;
 
-                      // Calculate connection points (center of each mother)
-                      const masterCenterX = masterMother.x + masterMother.width / 2;
-                      const masterCenterY = masterMother.y + masterMother.height / 2;
-                      const childCenterX = childMother.x + childMother.width / 2;
-                      const childCenterY = childMother.y + childMother.height / 2;
+                      // Calculate connection points (center of each mother) with null checks
+                      const masterCenterX = (masterMother.x || 0) + (masterMother.width || 0) / 2;
+                      const masterCenterY = (masterMother.y || 0) + (masterMother.height || 0) / 2;
+                      const childCenterX = (childMother.x || 0) + (childMother.width || 0) / 2;
+                      const childCenterY = (childMother.y || 0) + (childMother.height || 0) / 2;
+
+                      // Skip rendering if any of the mothers have invalid coordinates
+                      if (!masterMother.x || !masterMother.y || !masterMother.width || !masterMother.height ||
+                          !childMother.x || !childMother.y || !childMother.width || !childMother.height) {
+                        console.warn('Skipping relationship line due to incomplete mother coordinates:', {
+                          master: { x: masterMother.x, y: masterMother.y, w: masterMother.width, h: masterMother.height },
+                          child: { x: childMother.x, y: childMother.y, w: childMother.width, h: childMother.height }
+                        });
+                        return;
+                      }
 
                       // Transform to screen coordinates
                       const masterScreenX = panX + (masterCenterX * zoom * mmToPx);
