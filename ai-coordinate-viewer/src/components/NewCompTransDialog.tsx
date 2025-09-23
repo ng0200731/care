@@ -2485,6 +2485,14 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       }
 
       logNSplitDebug(`FINAL RESULT: Created ${createdChildMotherIds.length} child mothers`, createdChildMotherIds);
+      logNSplitDebug(`TEXT DISTRIBUTION STARTING: Will distribute ${nSplitResult.textSplits.length} splits to child mothers`);
+
+      // Log the split assignment plan
+      createdChildMotherIds.forEach((childId, index) => {
+        const splitIndex = index + 1; // Child gets split 1, 2, 3... (parent gets split 0)
+        const splitContent = nSplitResult.textSplits[splitIndex] || '';
+        logNSplitDebug(`PLAN: ${childId} (index ${index}) should get split ${splitIndex + 1} (${splitContent.length} chars)`);
+      });
 
       // Auto-export logs for easy capture after dialog closes
       setTimeout(() => {
@@ -2494,13 +2502,21 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       }, 100);
 
       // Wait for all child mothers to be fully created
+      logNSplitDebug(`About to wait 500ms before text distribution...`);
       await new Promise(resolve => setTimeout(resolve, 500));
+      logNSplitDebug(`Wait completed, proceeding to text distribution...`);
 
       // STEP 5: Distribute text across all child mothers
-      console.log(`🔧 Generate - Step 5: Distributing text across ${createdChildMotherIds.length} child mothers`);
+      logNSplitDebug(`STEP 5: Distributing text across ${createdChildMotherIds.length} child mothers`);
+      logNSplitDebug(`About to start text distribution loop`, {
+        createdChildMotherIdsLength: createdChildMotherIds.length,
+        createdChildMotherIds: createdChildMotherIds,
+        nSplitResultTextSplitsLength: nSplitResult.textSplits.length
+      });
 
       // Distribute text to each child mother using N-split data
       for (let i = 0; i < createdChildMotherIds.length; i++) {
+        logNSplitDebug(`TEXT LOOP ITERATION ${i}: Starting distribution for child ${i}`);
         const childMotherId = createdChildMotherIds[i];
         const splitIndex = i + 1; // Split 0 is for parent, split 1+ for children
         const textForChild = nSplitResult.textSplits[splitIndex] || '';
@@ -2516,56 +2532,127 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         }
 
         if (onCreateNewMother && childMotherId && textForChild) {
-          console.log(`🟠 Generate: Before onCreateNewMother - adding N-split ${splitIndex + 1} text to ${childMotherId}`);
+          logNSplitDebug(`ASSIGNING TEXT: ${childMotherId} gets split ${splitIndex + 1} (${textForChild.length} chars)`, {
+            childMotherId,
+            splitIndex: splitIndex + 1,
+            textLength: textForChild.length,
+            textPreview: textForChild.substring(0, 100)
+          });
 
-          // Check child mother structure before adding content
-          const preAddData = (window as any).currentAppData;
-          if (preAddData && preAddData.objects) {
-            const preChildMother = preAddData.objects.find((obj: any) => obj.name === childMotherId);
-            if (preChildMother && preChildMother.regions) {
-              console.log(`🟠 Generate: Child mother ${childMotherId} has ${preChildMother.regions.length} regions`);
-              console.log(`🟠 Generate: First region contents before: ${preChildMother.regions[0]?.contents?.length || 0}`);
-            }
-          }
+          // Enhanced pre-check: Verify child mother exists and has proper structure
+          let preCheckPassed = false;
+          let retryCount = 0;
+          const maxRetries = 5;
 
-          onCreateNewMother(childMotherId, textForChild);
-          console.log(`✅ Generate: Added N-split ${splitIndex + 1}/${nSplitResult.totalSplits} text to ${childMotherId}`);
-          console.log(`✅ N-SPLIT CONFIRMATION: ${childMotherId} now holds split ${splitIndex + 1} of ${nSplitResult.totalSplits} total splits`);
-
-        // Check child mother structure after adding content
-        setTimeout(() => {
-          console.log(`🟠🟠🟠 N-SPLIT DEBUG: After onCreateNewMother - checking structure for split ${splitIndex + 1}...`);
-          const postAddData = (window as any).currentAppData;
-          if (postAddData && postAddData.objects) {
-            const postChildMother = postAddData.objects.find((obj: any) => obj.name === childMotherId);
-            if (postChildMother && postChildMother.regions && postChildMother.regions[0]) {
-              const region = postChildMother.regions[0];
-              console.log(`🟠🟠🟠 N-SPLIT DEBUG: First region contents after: ${region.contents?.length || 0}`);
-              if (region.contents && region.contents[0]) {
-                const content = region.contents[0];
-                console.log(`🟠🟠🟠 N-SPLIT DEBUG: Content type: ${content.type}`);
-                console.log(`🟠🟠🟠 N-SPLIT DEBUG: Content has layout: ${!!content.layout}`);
-                if (content.layout) {
-                  console.log(`🟠🟠🟠 N-SPLIT DEBUG: Layout has occupyLeftoverSpace: ${content.layout?.occupyLeftoverSpace}`);
-                } else {
-                  console.log(`🟠🟠🟠 N-SPLIT DEBUG: MISSING LAYOUT OBJECT - This will cause rendering error!`);
+          while (!preCheckPassed && retryCount < maxRetries) {
+            const preAddData = (window as any).currentAppData;
+            if (preAddData && preAddData.objects) {
+              const preChildMother = preAddData.objects.find((obj: any) => obj.name === childMotherId);
+              if (preChildMother && preChildMother.regions && preChildMother.regions.length > 0) {
+                console.log(`✅ Generate: Child mother ${childMotherId} verified with ${preChildMother.regions.length} regions (attempt ${retryCount + 1})`);
+                preCheckPassed = true;
+              } else {
+                retryCount++;
+                console.log(`⏳ Generate: Child mother ${childMotherId} not ready, retrying (${retryCount}/${maxRetries})...`);
+                if (retryCount < maxRetries) {
+                  await new Promise(resolve => setTimeout(resolve, 300));
                 }
-                // Also log the actual text content to verify N-split worked
-                const actualText = content.newCompTransConfig?.textContent?.generatedText;
-                console.log(`🟠🟠🟠 N-SPLIT DEBUG: Actual text stored (${actualText?.length || 0} chars): "${actualText?.substring(0, 50) || 'NO TEXT'}..."`);
+              }
+            } else {
+              retryCount++;
+              console.log(`⏳ Generate: App data not ready, retrying (${retryCount}/${maxRetries})...`);
+              if (retryCount < maxRetries) {
+                await new Promise(resolve => setTimeout(resolve, 300));
               }
             }
           }
-        }, 100);
+
+          if (!preCheckPassed) {
+            console.error(`❌ Generate: Child mother ${childMotherId} failed pre-check after ${maxRetries} attempts`);
+            alert(`Error: Child mother ${childMotherId} is not ready for content assignment`);
+            continue; // Skip this child and continue with the next one
+          }
+
+          // Call the callback with verified child mother
+          onCreateNewMother(childMotherId, textForChild);
+          logNSplitDebug(`TEXT ASSIGNED: Called onCreateNewMother for ${childMotherId} with split ${splitIndex + 1}`);
+
+          // Enhanced post-check: Verify content was actually added
+          let postCheckPassed = false;
+          let postRetryCount = 0;
+          const maxPostRetries = 5;
+
+          while (!postCheckPassed && postRetryCount < maxPostRetries) {
+            await new Promise(resolve => setTimeout(resolve, 200)); // Wait for content addition
+
+            console.log(`🔍 N-SPLIT DEBUG: Post-check attempt ${postRetryCount + 1} for ${childMotherId}...`);
+            const postAddData = (window as any).currentAppData;
+            if (postAddData && postAddData.objects) {
+              const postChildMother = postAddData.objects.find((obj: any) => obj.name === childMotherId);
+              if (postChildMother && postChildMother.regions && postChildMother.regions[0]) {
+                const region = postChildMother.regions[0];
+                const hasContent = region.contents && region.contents.length > 0;
+                const hasCtContent = hasContent && region.contents.find((c: any) => c.type === 'new-comp-trans');
+
+                if (hasCtContent) {
+                  const content = region.contents.find((c: any) => c.type === 'new-comp-trans');
+                  const actualText = content.newCompTransConfig?.textContent?.generatedText;
+                  console.log(`✅ N-SPLIT DEBUG: Content verified for ${childMotherId} - ${actualText?.length || 0} chars: "${actualText?.substring(0, 50) || 'NO TEXT'}..."`);
+                  postCheckPassed = true;
+                } else {
+                  postRetryCount++;
+                  console.log(`⏳ N-SPLIT DEBUG: Content not ready for ${childMotherId}, retrying (${postRetryCount}/${maxPostRetries})...`);
+                  if (postRetryCount < maxPostRetries) {
+                    await new Promise(resolve => setTimeout(resolve, 400));
+                  }
+                }
+              } else {
+                postRetryCount++;
+                console.log(`⏳ N-SPLIT DEBUG: Child mother structure changed, retrying (${postRetryCount}/${maxPostRetries})...`);
+                if (postRetryCount < maxPostRetries) {
+                  await new Promise(resolve => setTimeout(resolve, 400));
+                }
+              }
+            } else {
+              postRetryCount++;
+              console.log(`⏳ N-SPLIT DEBUG: App data unavailable, retrying (${postRetryCount}/${maxPostRetries})...`);
+              if (postRetryCount < maxPostRetries) {
+                await new Promise(resolve => setTimeout(resolve, 400));
+              }
+            }
+          }
+
+          if (!postCheckPassed) {
+            console.error(`❌ N-SPLIT DEBUG: Content verification failed for ${childMotherId} after ${maxPostRetries} attempts`);
+            console.error(`❌ This indicates the onCreateNewMother callback failed or had timing issues`);
+            alert(`Warning: Content may not have been added to ${childMotherId}. Check manually.`);
+          }
 
         } else {
-          console.error(`❌ Generate: onCreateNewMother callback not available or no child mother ID for ${childMotherId}`);
+          logNSplitDebug(`FAILED TEXT ASSIGNMENT: ${childMotherId}`, {
+            hasOnCreateNewMother: !!onCreateNewMother,
+            hasChildMotherId: !!childMotherId,
+            hasTextForChild: !!textForChild,
+            textLength: textForChild?.length || 0
+          });
+
+          if (!onCreateNewMother) {
+            logNSplitDebug('ERROR: onCreateNewMother callback not available');
+          }
+          if (!childMotherId) {
+            logNSplitDebug('ERROR: childMotherId is empty');
+          }
+          if (!textForChild) {
+            logNSplitDebug('ERROR: textForChild is empty');
+          }
+
           alert(`Error: Cannot add N-split ${splitIndex + 1} content to child mother ${childMotherId}`);
           return;
         }
 
-        // Wait between child text distributions
-        await new Promise(resolve => setTimeout(resolve, 200));
+        // Longer wait between child text distributions to allow data synchronization
+        console.log(`⏳ Generate: Waiting 800ms before next child distribution...`);
+        await new Promise(resolve => setTimeout(resolve, 800));
       }
 
       console.log(`✅ Generate: Text distribution completed for all ${createdChildMotherIds.length} child mothers`);

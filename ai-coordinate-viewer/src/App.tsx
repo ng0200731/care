@@ -7137,8 +7137,9 @@ function App() {
   };
 
   // Function to add CT comp trans content to existing child mother (Step 2)
-  const handleCreateNewMotherForOverflow = (childMotherId: string, textContent: string) => {
-    console.log(`[v${packageJson.version}] 🚀 Adding CT comp trans to child mother: ${childMotherId}`);
+  const handleCreateNewMotherForOverflow = async (childMotherId: string, textContent: string) => {
+    console.log(`🎯 N-SPLIT OVERFLOW: Adding CT comp trans to child mother: ${childMotherId}`);
+    console.log(`🎯 N-SPLIT OVERFLOW: Text content (${textContent.length} chars): "${textContent.substring(0, 50)}..."`);
 
     // Check BOTH local and global data sources to find the child mother
     let currentData = null;
@@ -7208,37 +7209,78 @@ function App() {
       return;
     }
 
-    // Find parent's region content to copy configuration - CHECK BOTH SOURCES
+    // Find parent's region content to copy configuration - CHECK BOTH SOURCES WITH RETRY
     const parentRegions = (parentMother as any).regions || [];
     let sourceRegionId = '';
     let originalContent: any = null;
-    
-    for (const region of parentRegions) {
-      // First check React state
-      const reactContents = regionContents.get(region.id) || [];
-      const reactContent = reactContents.find((c: any) => c.type === 'new-comp-trans');
-      
-      if (reactContent) {
-        sourceRegionId = region.id;
-        originalContent = reactContent;
-        console.log(`✅ Found CT comp trans in React state for region: ${region.id}`);
-        break;
+
+    // Add retry logic for finding parent content (handles timing issues)
+    let parentContentFound = false;
+    let parentRetryCount = 0;
+    const maxParentRetries = 3;
+
+    while (!parentContentFound && parentRetryCount < maxParentRetries) {
+      for (const region of parentRegions) {
+        // First check React state
+        const reactContents = regionContents.get(region.id) || [];
+        const reactContent = reactContents.find((c: any) => c.type === 'new-comp-trans');
+
+        if (reactContent) {
+          sourceRegionId = region.id;
+          originalContent = reactContent;
+          console.log(`✅ Found CT comp trans in React state for region: ${region.id} (attempt ${parentRetryCount + 1})`);
+          parentContentFound = true;
+          break;
+        }
+
+        // If not found in React state, check global data
+        const globalContents = region.contents || [];
+        const globalContent = globalContents.find((c: any) => c.type === 'new-comp-trans');
+
+        if (globalContent) {
+          sourceRegionId = region.id;
+          originalContent = globalContent;
+          console.log(`✅ Found CT comp trans in global data for region: ${region.id} (attempt ${parentRetryCount + 1})`);
+          parentContentFound = true;
+          break;
+        }
       }
-      
-      // If not found in React state, check global data
-      const globalContents = region.contents || [];
-      const globalContent = globalContents.find((c: any) => c.type === 'new-comp-trans');
-      
-      if (globalContent) {
-        sourceRegionId = region.id;
-        originalContent = globalContent;
-        console.log(`✅ Found CT comp trans in global data for region: ${region.id}`);
-        break;
+
+      if (!parentContentFound) {
+        parentRetryCount++;
+        console.log(`⏳ Parent content not found, retrying (${parentRetryCount}/${maxParentRetries})...`);
+        if (parentRetryCount < maxParentRetries) {
+          // Brief wait to allow React state/global data to synchronize
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
       }
     }
 
     if (!sourceRegionId || !originalContent) {
-      console.error(`❌ No source region with CT comp trans found in parent (checked both React state and global data)`);
+      console.error(`❌ No source region with CT comp trans found in parent after ${maxParentRetries} attempts`);
+      console.error(`❌ Searched ${parentRegions.length} parent regions in both React state and global data`);
+      console.error(`❌ Parent mother: ${parentMotherId}, Child mother: ${childMotherId}`);
+
+      // Enhanced error reporting
+      if (parentRegions.length === 0) {
+        console.error(`❌ Parent mother has no regions!`);
+      } else {
+        console.error(`❌ Parent regions checked:`, parentRegions.map((r: any) => ({
+          id: r.id,
+          hasContents: !!(r.contents && r.contents.length > 0),
+          contentTypes: (r.contents || []).map((c: any) => c.type)
+        })));
+
+        // Also check React state info
+        parentRegions.forEach((region: any) => {
+          const reactContents = regionContents.get(region.id) || [];
+          console.error(`❌ React state for ${region.id}:`, {
+            contentCount: reactContents.length,
+            contentTypes: reactContents.map((c: any) => c.type)
+          });
+        });
+      }
+
       return;
     }
 
@@ -7289,12 +7331,23 @@ function App() {
     
     // ALSO update React state so canvas can render the child content
     console.log(`🎨 Also updating React state for canvas rendering...`);
-    const updatedContents = new Map(regionContents);
-    updatedContents.set(firstRegion.id, [childContent]);
-    setRegionContents(updatedContents);
-    console.log(`✅ Child content also stored in React state for region: ${firstRegion.id}`);
+    console.log(`🔍 BEFORE update - regionContents Map size: ${regionContents.size}`);
+    console.log(`🔍 BEFORE update - existing regions in Map:`, Array.from(regionContents.keys()));
+
+    // CRITICAL FIX: Preserve ALL existing region contents when updating React state
+    setRegionContents(prevContents => {
+      const updatedContents = new Map(prevContents); // Copy ALL existing contents
+      updatedContents.set(firstRegion.id, [childContent]); // Add/update only this region
+
+      console.log(`🔍 AFTER update - regionContents Map size: ${updatedContents.size}`);
+      console.log(`🔍 AFTER update - all regions in Map:`, Array.from(updatedContents.keys()));
+      console.log(`✅ Child content added to React state for region: ${firstRegion.id} while preserving other regions`);
+
+      return updatedContents;
+    });
     
-    console.log(`[v${packageJson.version}] ✅ Child mother content added with text!`);
+    console.log(`🎯 N-SPLIT OVERFLOW: ✅ Child mother content added with text for ${childMotherId}!`);
+    console.log(`🎯 N-SPLIT OVERFLOW: Content should now be visible in ${childMotherId}`);
     setNotification(`✅ Content added to ${childMotherId}`);
     setTimeout(() => setNotification(null), 2000);
   };
