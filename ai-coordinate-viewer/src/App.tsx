@@ -5272,6 +5272,81 @@ function App() {
       const textElements = svgClone.querySelectorAll('text, tspan');
       console.log(`🔤 Found ${textElements.length} text elements to convert`);
 
+      // Mixed font system utility functions (defined at function scope)
+      const getUserCanvasFont = (): string => {
+        // Try to get user's selected canvas font from any rendered text element
+        const existingTextEl = document.querySelector('svg text[font-family]');
+        if (existingTextEl) {
+          const fontFamilyAttr = existingTextEl.getAttribute('font-family');
+          if (fontFamilyAttr && !fontFamilyAttr.includes('SimSun') && !fontFamilyAttr.includes('小塚ゴシック') && !fontFamilyAttr.includes('Adobe 명조')) {
+            return fontFamilyAttr.replace(/["']/g, '');
+          }
+        }
+        return 'Arial'; // Default fallback
+      };
+
+      const canvasFontFamily = getUserCanvasFont();
+      console.log(`🎨 Using canvas font: ${canvasFontFamily}`);
+
+      // Language detection patterns
+      const languagePatterns = {
+        chinese: /[\u4E00-\u9FFF]/,
+        japanese: /[\u3040-\u309F\u30A0-\u30FF]/,
+        korean: /[\uAC00-\uD7AF]/,
+        arabic: /[\u0600-\u06FF]/
+      };
+
+      // Font mapping based on requirements
+      const getFontForLanguage = (text: string): string => {
+        if (languagePatterns.chinese.test(text)) return '宋体, SimSun, Arial, sans-serif';
+        if (languagePatterns.japanese.test(text)) return '小塚ゴシック Pr6N R, Arial, sans-serif';
+        if (languagePatterns.korean.test(text)) return 'Adobe 명조 Std M, Arial, sans-serif';
+        return `${canvasFontFamily}, Arial, sans-serif`; // User's canvas font for all other languages
+      };
+
+      // Segment text into language-based words/phrases instead of individual characters
+      const segmentTextByLanguage = (text: string) => {
+        const segments = [];
+        let currentSegment = '';
+        let currentLanguage = 'other';
+
+        const getCharLanguage = (char: string): string => {
+          if (languagePatterns.chinese.test(char)) return 'chinese';
+          if (languagePatterns.japanese.test(char)) return 'japanese';
+          if (languagePatterns.korean.test(char)) return 'korean';
+          if (languagePatterns.arabic.test(char)) return 'arabic';
+          return 'other';
+        };
+
+        for (let i = 0; i < text.length; i++) {
+          const char = text[i];
+          const charLanguage = getCharLanguage(char);
+
+          // For non-CJK languages, group by words (space-separated)
+          if (charLanguage === 'other') {
+            if (currentLanguage === 'other') {
+              currentSegment += char;
+            } else {
+              if (currentSegment) segments.push({ text: currentSegment, language: currentLanguage });
+              currentSegment = char;
+              currentLanguage = 'other';
+            }
+          } else {
+            // For CJK languages, each character can be its own segment or group consecutive same-language chars
+            if (charLanguage === currentLanguage) {
+              currentSegment += char;
+            } else {
+              if (currentSegment) segments.push({ text: currentSegment, language: currentLanguage });
+              currentSegment = char;
+              currentLanguage = charLanguage;
+            }
+          }
+        }
+
+        if (currentSegment) segments.push({ text: currentSegment, language: currentLanguage });
+        return segments;
+      };
+
       const fontUrls = {
         'default': 'https://fonts.gstatic.com/s/notosans/v28/o-0mIpQJIZ2s92b7w3pFVLHC9Q.woff2',
         'arabic': 'https://fonts.gstatic.com/s/notosansarabic/v18/nwpxtLGrOAZMl5nJ_wfgRg3DrWFZWsnVBJ8PSGs.woff2',
@@ -5282,53 +5357,93 @@ function App() {
 
       const loadedFonts: {[key: string]: any} = {};
 
-      // Load required fonts
-      for (const [fontKey, fontUrl] of Object.entries(fontUrls)) {
-        try {
-          console.log(`📥 Loading ${fontKey} font from: ${fontUrl}`);
-          const font = await new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => reject(new Error('Font load timeout')), 10000);
-            window.opentype.load(fontUrl, (err: any, font: any) => {
-              clearTimeout(timeout);
-              if (err) {
-                console.error(`❌ Font load error for ${fontKey}:`, err);
-                reject(err);
-              } else {
-                console.log(`✅ Font ${fontKey} loaded successfully:`, font.names);
-                resolve(font);
-              }
-            });
-          });
-          loadedFonts[fontKey] = font;
-        } catch (error) {
-          console.warn(`⚠️ Failed to load ${fontKey} font:`, error);
-        }
-      }
+      // Skip font loading to avoid Illustrator compatibility issues
+      console.log('⚠️ Skipping Noto font loading to ensure Illustrator compatibility');
+      console.log('🔄 Using system fonts: Arial, 宋体, 小塚ゴシック Pr6N R, Adobe 명조 Std M');
 
-      console.log('📋 Font loading summary:', Object.keys(loadedFonts));
+      // Mixed font system for outline button - apply language-specific fonts
 
-      // If no fonts loaded, fall back to text with proper attributes
+      // Apply mixed font system to each text element
       if (Object.keys(loadedFonts).length === 0) {
-        console.warn('⚠️ No fonts loaded, using text fallback with RTL attributes');
+        console.warn('⚠️ All font loading failed, using mixed font system with text fallback');
 
         textElements.forEach((textEl) => {
           const textContent = textEl.textContent || '';
-          const hasArabic = /[\u0600-\u06FF]/.test(textContent);
+          if (!textContent.trim()) return;
 
-          if (hasArabic) {
-            // Apply proper RTL attributes for Arabic text but keep within bounds
-            textEl.setAttribute('direction', 'rtl');
-            textEl.setAttribute('unicode-bidi', 'bidi-override');
-            // Don't use text-anchor="end" as it pushes text outside bounds
-            // textEl.setAttribute('text-anchor', 'end');
-            textEl.setAttribute('font-family', 'Noto Sans Arabic, Arial Unicode MS, Arial, sans-serif');
-            console.log(`🔄 Applied RTL attributes to: "${textContent}"`);
+          // Check for mixed languages in single text element
+          const hasChinese = languagePatterns.chinese.test(textContent);
+          const hasJapanese = languagePatterns.japanese.test(textContent);
+          const hasKorean = languagePatterns.korean.test(textContent);
+          const hasArabic = languagePatterns.arabic.test(textContent);
+          const hasMultipleLanguages = [hasChinese, hasJapanese, hasKorean, hasArabic].filter(Boolean).length > 1;
+
+          if (hasMultipleLanguages) {
+            // Handle mixed language text within single element using proper segmentation
+            console.log(`🔄 Mixed languages detected in: "${textContent}"`);
+
+            const x = textEl.getAttribute('x') || '0';
+            const y = textEl.getAttribute('y') || '0';
+            const fontSize = textEl.getAttribute('font-size') || '16';
+            const textAnchor = textEl.getAttribute('text-anchor') || 'start';
+
+            // Segment text by language groups
+            const segments = segmentTextByLanguage(textContent);
+
+            // Clear original text and create tspan elements for each segment
+            textEl.innerHTML = '';
+            textEl.setAttribute('x', x);
+            textEl.setAttribute('y', y);
+            textEl.setAttribute('font-size', fontSize);
+            textEl.setAttribute('text-anchor', textAnchor);
+
+            segments.forEach((segment, index) => {
+              const span = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+              span.textContent = segment.text;
+
+              // Only set x position for the first segment, others will flow naturally
+              if (index === 0) {
+                span.setAttribute('x', x);
+              }
+              span.setAttribute('y', y);
+              span.setAttribute('font-size', fontSize);
+
+              // Apply appropriate font based on segment language
+              const fontFamily = segment.language === 'chinese' ? '宋体, SimSun, Arial, sans-serif' :
+                               segment.language === 'japanese' ? '小塚ゴシック Pr6N R, Arial, sans-serif' :
+                               segment.language === 'korean' ? 'Adobe 명조 Std M, Arial, sans-serif' :
+                               segment.language === 'arabic' ? `${canvasFontFamily}, Arial, sans-serif` :
+                               `${canvasFontFamily}, Arial, sans-serif`;
+
+              span.setAttribute('font-family', fontFamily);
+              span.setAttribute('fill', 'black');
+              span.setAttribute('stroke', 'none');
+
+              if (segment.language === 'arabic') {
+                span.setAttribute('direction', 'rtl');
+                span.setAttribute('unicode-bidi', 'bidi-override');
+              }
+
+              textEl.appendChild(span);
+            });
+
+            console.log(`✅ Applied mixed fonts to segments: ${segments.map(s => `"${s.text}"(${s.language})`).join(', ')}`);
           } else {
-            textEl.setAttribute('font-family', 'Noto Sans, Arial, sans-serif');
-          }
+            // Single language - apply appropriate font
+            const fontFamily = getFontForLanguage(textContent);
+            textEl.setAttribute('font-family', fontFamily);
 
-          textEl.setAttribute('fill', 'black');
-          textEl.setAttribute('stroke', 'none');
+            if (hasArabic) {
+              textEl.setAttribute('direction', 'rtl');
+              textEl.setAttribute('unicode-bidi', 'bidi-override');
+            }
+
+            textEl.setAttribute('fill', 'black');
+            textEl.setAttribute('stroke', 'none');
+
+            const langType = hasChinese ? 'Chinese' : hasJapanese ? 'Japanese' : hasKorean ? 'Korean' : hasArabic ? 'Arabic' : 'Canvas';
+            console.log(`🔄 Applied ${langType} font to: "${textContent}"`);
+          }
         });
       } else {
         // Handle mixed LTR/RTL text properly with font conversion
@@ -5425,30 +5540,50 @@ function App() {
 
           if (selectedFont) {
             try {
-              // Don't reverse Arabic - keep original text order
+              // Convert text to path using loaded font
+              console.log(`🔄 Converting "${textContent}" using ${hasArabic ? 'Arabic' : hasChinese ? 'Chinese' : hasJapanese ? 'Japanese' : hasKorean ? 'Korean' : 'default'} font`);
+
               const path = selectedFont.getPath(textContent, x, y, fontSize);
               const pathData = path.toPathData();
 
-              const pathElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-              pathElement.setAttribute('d', pathData);
-              pathElement.setAttribute('fill', 'black');
-              pathElement.setAttribute('stroke', 'none');
+              if (pathData && pathData.length > 0) {
+                const pathElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                pathElement.setAttribute('d', pathData);
+                pathElement.setAttribute('fill', 'black');
+                pathElement.setAttribute('stroke', 'none');
 
-              textEl.parentNode?.replaceChild(pathElement, textEl);
-
-              console.log(`✅ Converted "${textContent}" to path`);
+                textEl.parentNode?.replaceChild(pathElement, textEl);
+                console.log(`✅ Successfully converted "${textContent}" to vector path`);
+              } else {
+                throw new Error('Empty path data generated');
+              }
             } catch (error) {
-              console.warn(`⚠️ Failed to convert text "${textContent}":`, error);
-              // Fallback: Apply proper RTL attributes for text
+              console.warn(`⚠️ Path conversion failed for "${textContent}":`, error);
+              console.log('🔄 Falling back to text with proper font family...');
+
+              // Fallback: Apply mixed font system
+              const fontFamily = getFontForLanguage(textContent);
+              textEl.setAttribute('font-family', fontFamily);
+
               if (hasArabic) {
                 textEl.setAttribute('direction', 'rtl');
                 textEl.setAttribute('unicode-bidi', 'bidi-override');
-                // Don't use text-anchor="end" as it pushes text outside label bounds
-                // textEl.setAttribute('text-anchor', 'end');
-                textEl.setAttribute('font-family', 'Noto Sans Arabic, Arial Unicode MS, Arial');
               }
               textEl.setAttribute('fill', 'black');
+              textEl.setAttribute('stroke', 'none');
             }
+          } else {
+            // No font available, use mixed font system
+            console.warn(`⚠️ No font available for "${textContent}", using mixed font system`);
+            const fontFamily = getFontForLanguage(textContent);
+            textEl.setAttribute('font-family', fontFamily);
+
+            if (hasArabic) {
+              textEl.setAttribute('direction', 'rtl');
+              textEl.setAttribute('unicode-bidi', 'bidi-override');
+            }
+            textEl.setAttribute('fill', 'black');
+            textEl.setAttribute('stroke', 'none');
           }
         }
       }
