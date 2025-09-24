@@ -438,6 +438,7 @@ function App() {
   const [showDimensions, setShowDimensions] = useState(true);
   const [showPreview, setShowPreview] = useState(true); // Toggle to show/hide input values in regions
   const [showPartitionLines, setShowPartitionLines] = useState(true); // Toggle to show/hide region and slice solid lines
+  const [showEffects, setShowEffects] = useState(true); // Toggle to show/hide grey backgrounds for content types
   const [showContentTypeNames, setShowContentTypeNames] = useState(true); // Toggle to show/hide content type names like "new-multiline-line", "new-washing-care-symbol"
   const [showSupportingLines, setShowSupportingLines] = useState(true); // Toggle to show/hide dotted lines (margin, padding, mid-fold)
   const [showSewingLines, setShowSewingLines] = useState(true); // Toggle to show/hide sewing lines (top, left, bottom, right) and mid-fold lines
@@ -3012,6 +3013,11 @@ function App() {
   const getRegionBackgroundColor = (regionId: string) => {
     const contents = regionContents.get(regionId) || [];
 
+    // If effects are disabled, return transparent
+    if (!showEffects) {
+      return 'transparent';
+    }
+
     if (contents.length === 0) {
       // Empty region - light gray background
       return 'rgba(243, 244, 246, 0.3)'; // Very light gray
@@ -3028,7 +3034,11 @@ function App() {
       'translation-paragraph': 'rgba(245, 158, 11, 0.15)',   // Light amber/orange background
       'washing-symbol': 'rgba(139, 92, 246, 0.15)',          // Light purple background
       'image': 'rgba(239, 68, 68, 0.15)',                    // Light red background
-      'coo': 'rgba(6, 182, 212, 0.15)'                       // Light cyan background
+      'coo': 'rgba(6, 182, 212, 0.15)',                      // Light cyan background
+      'new-line-text': 'rgba(59, 130, 246, 0.15)',          // Light blue background for new line text
+      'new-multi-line': 'rgba(16, 185, 129, 0.15)',         // Light green background for multi-line
+      'new-washing-care-symbol': 'rgba(139, 92, 246, 0.15)', // Light purple background for washing symbols
+      'new-comp-trans': 'rgba(245, 158, 11, 0.15)'          // Light amber background for comp trans
     };
 
     const resultColor = backgroundColors[contentType] || 'rgba(107, 114, 128, 0.15)'; // Light gray fallback
@@ -13672,6 +13682,11 @@ function App() {
                             width={overlayWidth}
                             height={overlayHeight}
                             fill={(() => {
+                              // If effects are disabled, return transparent
+                              if (!showEffects) {
+                                return 'transparent';
+                              }
+
                               // Use content-type specific background color with higher opacity for visibility
                               const contentType = content.type;
                               const backgroundColors: { [key: string]: string } = {
@@ -13680,7 +13695,11 @@ function App() {
                                 'translation-paragraph': 'rgba(245, 158, 11, 0.25)',   // Light amber/orange background
                                 'washing-symbol': 'rgba(139, 92, 246, 0.25)',          // Light purple background
                                 'image': 'rgba(239, 68, 68, 0.25)',                    // Light red background
-                                'coo': 'rgba(6, 182, 212, 0.25)'                       // Light cyan background
+                                'coo': 'rgba(6, 182, 212, 0.25)',                      // Light cyan background
+                                'new-line-text': 'rgba(59, 130, 246, 0.25)',          // Light blue background for new line text
+                                'new-multi-line': 'rgba(16, 185, 129, 0.25)',         // Light green background for multi-line
+                                'new-washing-care-symbol': 'rgba(139, 92, 246, 0.25)', // Light purple background for washing symbols
+                                'new-comp-trans': 'rgba(245, 158, 11, 0.25)'          // Light amber background for comp trans
                               };
                               return backgroundColors[contentType] || 'rgba(107, 114, 128, 0.25)';
                             })()}
@@ -16174,6 +16193,20 @@ function App() {
                     title="Toggle visibility of region and slice partition lines"
                   >
                     📐 Partition Line
+                  </button>
+
+                  <button
+                    onClick={() => setShowEffects(!showEffects)}
+                    style={{
+                      ...buttonStyle,
+                      background: showEffects ? '#e3f2fd' : 'white',
+                      color: showEffects ? '#1976d2' : '#666',
+                      fontSize: '10px',
+                      padding: '4px 6px'
+                    }}
+                    title="Toggle visibility of grey backgrounds for content types (line text, multi-line, washing symbols, comp trans)"
+                  >
+                    ✨ Effects
                   </button>
 
                   <button
