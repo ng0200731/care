@@ -5308,11 +5308,24 @@ function App() {
         arabic: /[\u0600-\u06FF]/
       };
 
-      // Font mapping based on requirements
+      // Font mapping based on requirements - MODIFIED: Single font approach
       const getFontForLanguage = (text: string): string => {
+        // TEST: Use single font for mixed text to avoid segmentation issues
         if (languagePatterns.chinese.test(text)) return '宋体, SimSun, Arial, sans-serif';
         if (languagePatterns.japanese.test(text)) return '小塚ゴシック Pr6N R, Arial, sans-serif';
         if (languagePatterns.korean.test(text)) return 'Adobe 명조 Std M, Arial, sans-serif';
+
+        // For mixed language text, prioritize CJK font that can render most characters
+        if (languagePatterns.chinese.test(text) && languagePatterns.korean.test(text)) {
+          return '宋体, SimSun, Arial, sans-serif'; // Chinese font for CH+KO mix
+        }
+        if (languagePatterns.chinese.test(text) && languagePatterns.japanese.test(text)) {
+          return '宋体, SimSun, Arial, sans-serif'; // Chinese font for CH+JA mix
+        }
+        if (languagePatterns.korean.test(text) && languagePatterns.japanese.test(text)) {
+          return 'Adobe 명조 Std M, Arial, sans-serif'; // Korean font for KO+JA mix
+        }
+
         return `${canvasFontFamily}, Arial, sans-serif`; // User's canvas font for all other languages
       };
 
@@ -5390,7 +5403,8 @@ function App() {
           const hasArabic = languagePatterns.arabic.test(textContent);
           const hasMultipleLanguages = [hasChinese, hasJapanese, hasKorean, hasArabic].filter(Boolean).length > 1;
 
-          if (hasMultipleLanguages) {
+          // MODIFIED: Skip segmentation - use 2-font approach like Korean (1 line with mixed fonts)
+          if (false && hasMultipleLanguages) {
             // Handle mixed language text within single element using proper segmentation
             console.log(`🔄 Mixed languages detected in: "${textContent}"`);
 

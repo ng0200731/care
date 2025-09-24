@@ -6,7 +6,10 @@
       "Bash(npx tsc:*)",
       "Bash(npm start)",
       "Bash(npm test:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(cat:*)",
+      "Bash(sed:*)",
+      "Bash(start D:projectlayout2caresegmentation_test.html)"
     ],
     "deny": [],
     "ask": []

@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Character-Level Segmentation Analysis</title>
+</head>
+<body>
+    <h1>Character-Level Segmentation Analysis</h1>
+    <div id="output"></div>
+
+    <script>
+        // Exact copy of the language detection patterns from App.tsx
+        const languagePatterns = {
+            chinese: /[\u4E00-\u9FFF]/,
+            japanese: /[\u3040-\u309F\u30A0-\u30FF]/,
+            korean: /[\uAC00-\uD7AF]/,
+            arabic: /[\u0600-\u06FF]/
+        };
+
+        // Exact copy of the getCharLanguage function from App.tsx
+        const getCharLanguage = (char) => {
+            if (languagePatterns.chinese.test(char)) return 'chinese';
+            if (languagePatterns.japanese.test(char)) return 'japanese';
+            if (languagePatterns.korean.test(char)) return 'korean';
+            if (languagePatterns.arabic.test(char)) return 'arabic';
+            return 'other';
+        };
+
+        // Exact copy of the segmentTextByLanguage function from App.tsx
+        const segmentTextByLanguage = (text) => {
+            const segments = [];
+            let currentSegment = '';
+            let currentLanguage = 'other';
+
+            for (let i = 0; i < text.length; i++) {
+                const char = text[i];
+                const charLanguage = getCharLanguage(char);
+
+                // For non-CJK languages, group by words (space-separated)
+                if (charLanguage === 'other') {
+                    if (currentLanguage === 'other') {
+                        currentSegment += char;
+                    } else {
+                        if (currentSegment) segments.push({ text: currentSegment, language: currentLanguage });
+                        currentSegment = char;
+                        currentLanguage = 'other';
+                    }
+                } else {
+                    // For CJK languages, each character can be its own segment or group consecutive same-language chars
+                    if (charLanguage === currentLanguage) {
+                        currentSegment += char;
+                    } else {
+                        if (currentSegment) segments.push({ text: currentSegment, language: currentLanguage });
+                        currentSegment = char;
+                        currentLanguage = charLanguage;
+                    }
+                }
+            }
+
+            if (currentSegment) segments.push({ text: currentSegment, language: currentLanguage });
+            return segments;
+        };
+
+        // Test cases from the user's question
+        const testCases = [
+            "聚酯纤维 - 폴리에스터",
+            "엘라스탄 - elastan -",
+            "聚酯纤维",
+            "폴리에스터",
+            "엘라스탄",
+            "elastan",
+            "-",
+            " - ",
+            "ABC - 한국어",
+            "中文 - English",
+            "日本語 - 한국어"
+        ];
+
+        function analyzeText(text) {
+            const segments = segmentTextByLanguage(text);
+
+            let analysis = `<h3>Text: "${text}"</h3>`;
+            analysis += `<p><strong>Total Segments:</strong> ${segments.length}</p>`;
+
+            analysis += `<table border="1" style="border-collapse: collapse; margin: 10px 0;">`;
+            analysis += `<tr><th>Segment #</th><th>Text</th><th>Language</th><th>Unicode Range</th></tr>`;
+
+            segments.forEach((segment, index) => {
+                const unicodeInfo = segment.text.split('').map(char => {
+                    const code = char.charCodeAt(0);
+                    return `${char} (U+${code.toString(16).toUpperCase().padStart(4, '0')})`;
+                }).join(', ');
+
+                analysis += `<tr>`;
+                analysis += `<td>${index + 1}</td>`;
+                analysis += `<td>"${segment.text}"</td>`;
+                analysis += `<td>${segment.language}</td>`;
+                analysis += `<td>${unicodeInfo}</td>`;
+                analysis += `</tr>`;
+            });
+            analysis += `</table>`;
+
+            // Character-by-character breakdown
+            analysis += `<h4>Character-by-Character Breakdown:</h4>`;
+            analysis += `<table border="1" style="border-collapse: collapse; margin: 10px 0;">`;
+            analysis += `<tr><th>Position</th><th>Character</th><th>Unicode</th><th>Language</th></tr>`;
+
+            for (let i = 0; i < text.length; i++) {
+                const char = text[i];
+                const charLanguage = getCharLanguage(char);
+                const code = char.charCodeAt(0);
+
+                analysis += `<tr>`;
+                analysis += `<td>${i + 1}</td>`;
+                analysis += `<td>"${char}"</td>`;
+                analysis += `<td>U+${code.toString(16).toUpperCase().padStart(4, '0')}</td>`;
+                analysis += `<td>${charLanguage}</td>`;
+                analysis += `</tr>`;
+            }
+            analysis += `</table><hr>`;
+
+            return analysis;
+        }
+
+        // Run analysis on all test cases
+        let output = '';
+        testCases.forEach(testCase => {
+            output += analyzeText(testCase);
+        });
+
+        document.getElementById('output').innerHTML = output;
+    </script>
+</body>
+</html>
