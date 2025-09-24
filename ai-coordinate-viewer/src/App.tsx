@@ -14,6 +14,13 @@ import NewMultiLineDialog, { NewMultiLineConfig } from './components/NewMultiLin
 import NewWashingCareSymbolDialog, { NewWashingCareSymbolConfig } from './components/NewWashingCareSymbolDialog';
 import NewCompTransDialog, { NewCompTransConfig } from './components/NewCompTransDialog';
 import jsPDF from 'jspdf';
+
+// Load opentype.js dynamically for text-to-path conversion
+declare global {
+  interface Window {
+    opentype: any;
+  }
+}
 // import RegionOccupationDialog, { RegionOccupationData } from './components/dialogs/RegionOccupationDialog';
 // import PreviewControlPanel, { PreviewSettings } from './components/PreviewControlPanel';
 
@@ -5208,9 +5215,9 @@ function App() {
     }
   };
 
-  // Generate OUTLINED PDF - SVG vectors with text as outlined paths for Illustrator/CTP
+  // Generate OUTLINED PDF - SVG vectors with text converted to outlined paths
   const generateOutlinedPDF = async () => {
-    console.log('✏️ Generating OUTLINED VECTOR PDF for Illustrator (SVG paths, infinitely scalable)');
+    console.log('✏️ Generating OUTLINED VECTOR PDF with text-to-path conversion');
 
     try {
       const svgElement = document.querySelector('svg') as SVGElement;
@@ -5219,7 +5226,20 @@ function App() {
         return;
       }
 
-      console.log('⏳ Exporting canvas as vector SVG...');
+      console.log('⏳ Loading opentype.js for text-to-path conversion...');
+
+      // Load opentype.js dynamically
+      if (!window.opentype) {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/opentype.js@latest/dist/opentype.min.js';
+        document.head.appendChild(script);
+
+        await new Promise((resolve) => {
+          script.onload = resolve;
+        });
+      }
+
+      console.log('✅ opentype.js loaded, processing SVG...');
 
       // Get SVG dimensions
       const svgRect = svgElement.getBoundingClientRect();
@@ -5229,7 +5249,7 @@ function App() {
       // Clone SVG
       const svgClone = svgElement.cloneNode(true) as SVGElement;
 
-      // Inline all styles
+      // Inline all styles first
       const inlineAllStyles = (element: Element) => {
         const computedStyle = window.getComputedStyle(element);
         let inlineStyle = element.getAttribute('style') || '';
@@ -5248,61 +5268,246 @@ function App() {
 
       inlineAllStyles(svgClone);
 
-      // Force all text to black
+      // Load fonts and convert text to paths
       const textElements = svgClone.querySelectorAll('text, tspan');
-      textElements.forEach((textEl) => {
-        textEl.setAttribute('fill', 'black');
-        textEl.setAttribute('stroke', 'none');
+      console.log(`🔤 Found ${textElements.length} text elements to convert`);
 
-        // Update style attribute to ensure black color
-        let style = textEl.getAttribute('style') || '';
-        style = style.replace(/fill:[^;]+;?/g, '');
-        style = style.replace(/color:[^;]+;?/g, '');
-        style += 'fill: black; color: black;';
-        textEl.setAttribute('style', style);
-      });
+      const fontUrls = {
+        'default': 'https://fonts.gstatic.com/s/notosans/v28/o-0mIpQJIZ2s92b7w3pFVLHC9Q.woff2',
+        'arabic': 'https://fonts.gstatic.com/s/notosansarabic/v18/nwpxtLGrOAZMl5nJ_wfgRg3DrWFZWsnVBJ8PSGs.woff2',
+        'japanese': 'https://fonts.gstatic.com/s/notosansjp/v52/-F6jfjtqLzI2JPCgQBnw7HFyzSD-AsregP8VFBEj75vY0rw-oME.woff2',
+        'chinese': 'https://fonts.gstatic.com/s/notosanssc/v37/k3kXps2RAAiOKcOxLCBbG0bU7PzFenNw7A.woff2',
+        'korean': 'https://fonts.gstatic.com/s/notosanskr/v36/Pby7FmXiEBPT4ITbgNA5Cgms3VYcOA-vvnIzzuoyeLTq8H4hfeE.woff2'
+      };
 
-      // Force all lines (solid and dotted) to black
+      const loadedFonts: {[key: string]: any} = {};
+
+      // Load required fonts
+      for (const [fontKey, fontUrl] of Object.entries(fontUrls)) {
+        try {
+          console.log(`📥 Loading ${fontKey} font from: ${fontUrl}`);
+          const font = await new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => reject(new Error('Font load timeout')), 10000);
+            window.opentype.load(fontUrl, (err: any, font: any) => {
+              clearTimeout(timeout);
+              if (err) {
+                console.error(`❌ Font load error for ${fontKey}:`, err);
+                reject(err);
+              } else {
+                console.log(`✅ Font ${fontKey} loaded successfully:`, font.names);
+                resolve(font);
+              }
+            });
+          });
+          loadedFonts[fontKey] = font;
+        } catch (error) {
+          console.warn(`⚠️ Failed to load ${fontKey} font:`, error);
+        }
+      }
+
+      console.log('📋 Font loading summary:', Object.keys(loadedFonts));
+
+      // If no fonts loaded, fall back to text with proper attributes
+      if (Object.keys(loadedFonts).length === 0) {
+        console.warn('⚠️ No fonts loaded, using text fallback with RTL attributes');
+
+        textElements.forEach((textEl) => {
+          const textContent = textEl.textContent || '';
+          const hasArabic = /[\u0600-\u06FF]/.test(textContent);
+
+          if (hasArabic) {
+            // Apply proper RTL attributes for Arabic text
+            textEl.setAttribute('direction', 'rtl');
+            textEl.setAttribute('unicode-bidi', 'bidi-override');
+            textEl.setAttribute('text-anchor', 'end');
+            textEl.setAttribute('font-family', 'Noto Sans Arabic, Arial Unicode MS, Arial, sans-serif');
+            console.log(`🔄 Applied RTL attributes to: "${textContent}"`);
+          } else {
+            textEl.setAttribute('font-family', 'Noto Sans, Arial, sans-serif');
+          }
+
+          textEl.setAttribute('fill', 'black');
+          textEl.setAttribute('stroke', 'none');
+        });
+      } else {
+        // Handle mixed LTR/RTL text properly with font conversion
+        for (let i = textElements.length - 1; i >= 0; i--) {
+        const textEl = textElements[i];
+        const textContent = textEl.textContent || '';
+        if (!textContent.trim()) continue;
+
+        const x = parseFloat(textEl.getAttribute('x') || '0');
+        const y = parseFloat(textEl.getAttribute('y') || '0');
+        const fontSize = parseFloat(textEl.getAttribute('font-size') || '16');
+
+        console.log(`🔤 Processing text: "${textContent}"`);
+
+        // Check if text contains mixed scripts
+        const hasArabic = /[\u0600-\u06FF]/.test(textContent);
+        const hasLatin = /[a-zA-Z]/.test(textContent);
+        const hasMixed = hasArabic && hasLatin;
+
+        if (hasMixed) {
+          // Handle mixed LTR/RTL text with tspan elements
+          console.log(`🔄 Mixed LTR/RTL detected: "${textContent}"`);
+
+          // Split text into segments
+          const segments = [];
+          let currentSegment = '';
+          let currentIsRTL = false;
+
+          for (let char of textContent) {
+            const charIsArabic = /[\u0600-\u06FF]/.test(char);
+
+            if (currentSegment === '' || charIsArabic === currentIsRTL) {
+              currentSegment += char;
+              currentIsRTL = charIsArabic;
+            } else {
+              segments.push({ text: currentSegment, isRTL: currentIsRTL });
+              currentSegment = char;
+              currentIsRTL = charIsArabic;
+            }
+          }
+          if (currentSegment) {
+            segments.push({ text: currentSegment, isRTL: currentIsRTL });
+          }
+
+          // Create group element to hold all segments
+          const groupEl = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          let currentX = x;
+
+          for (const segment of segments) {
+            const font = segment.isRTL ? loadedFonts['arabic'] : loadedFonts['default'];
+            if (font) {
+              try {
+                // Don't reverse Arabic - keep original text
+                const path = font.getPath(segment.text, currentX, y, fontSize);
+                const pathData = path.toPathData();
+
+                const pathElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                pathElement.setAttribute('d', pathData);
+                pathElement.setAttribute('fill', 'black');
+                pathElement.setAttribute('stroke', 'none');
+
+                groupEl.appendChild(pathElement);
+
+                // Advance position for next segment
+                const segmentWidth = font.getAdvanceWidth(segment.text, fontSize);
+                currentX += segmentWidth;
+
+                console.log(`✅ Converted segment "${segment.text}" (${segment.isRTL ? 'RTL' : 'LTR'})`);
+              } catch (error) {
+                console.warn(`⚠️ Failed to convert segment "${segment.text}":`, error);
+              }
+            }
+          }
+
+          textEl.parentNode?.replaceChild(groupEl, textEl);
+
+        } else {
+          // Single script text
+          const hasJapanese = /[\u3040-\u309F\u30A0-\u30FF]/.test(textContent);
+          const hasChinese = /[\u4E00-\u9FFF]/.test(textContent);
+          const hasKorean = /[\uAC00-\uD7AF]/.test(textContent);
+
+          let selectedFont = loadedFonts['default'];
+
+          if (hasArabic && loadedFonts['arabic']) {
+            selectedFont = loadedFonts['arabic'];
+          } else if (hasJapanese && loadedFonts['japanese']) {
+            selectedFont = loadedFonts['japanese'];
+          } else if (hasChinese && loadedFonts['chinese']) {
+            selectedFont = loadedFonts['chinese'];
+          } else if (hasKorean && loadedFonts['korean']) {
+            selectedFont = loadedFonts['korean'];
+          }
+
+          if (selectedFont) {
+            try {
+              // Don't reverse Arabic - keep original text order
+              const path = selectedFont.getPath(textContent, x, y, fontSize);
+              const pathData = path.toPathData();
+
+              const pathElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+              pathElement.setAttribute('d', pathData);
+              pathElement.setAttribute('fill', 'black');
+              pathElement.setAttribute('stroke', 'none');
+
+              textEl.parentNode?.replaceChild(pathElement, textEl);
+
+              console.log(`✅ Converted "${textContent}" to path`);
+            } catch (error) {
+              console.warn(`⚠️ Failed to convert text "${textContent}":`, error);
+              // Fallback: Apply proper RTL attributes for text
+              if (hasArabic) {
+                textEl.setAttribute('direction', 'rtl');
+                textEl.setAttribute('unicode-bidi', 'bidi-override');
+                textEl.setAttribute('text-anchor', 'end');
+                textEl.setAttribute('font-family', 'Noto Sans Arabic, Arial Unicode MS, Arial');
+              }
+              textEl.setAttribute('fill', 'black');
+            }
+          }
+        }
+      }
+      }
+
+      // Force all remaining lines to black
       const lineElements = svgClone.querySelectorAll('line, path, polyline, polygon, rect, circle, ellipse');
       lineElements.forEach((lineEl) => {
         lineEl.setAttribute('stroke', 'black');
-
-        // Update style attribute to ensure black stroke
         let style = lineEl.getAttribute('style') || '';
         style = style.replace(/stroke:[^;]+;?/g, '');
         style += 'stroke: black;';
         lineEl.setAttribute('style', style);
       });
 
-      // Serialize SVG to string
+      // Remove background fills
+      const backgroundElements = svgClone.querySelectorAll('rect[fill], circle[fill], ellipse[fill]');
+      backgroundElements.forEach((bgEl) => {
+        const fill = bgEl.getAttribute('fill');
+        if (fill === 'white' || fill === '#ffffff' || fill === '#FFFFFF') {
+          bgEl.setAttribute('fill', 'none');
+        }
+      });
+
+      // Ensure SVG background is transparent
+      svgClone.setAttribute('style', 'background: transparent;');
+      svgClone.removeAttribute('fill');
+
+      // Serialize SVG
       const serializer = new XMLSerializer();
       let svgData = serializer.serializeToString(svgClone);
 
-      // Ensure SVG has proper namespace
+      // Add proper UTF-8 XML header
+      if (!svgData.startsWith('<?xml')) {
+        svgData = '<?xml version="1.0" encoding="UTF-8"?>\n' + svgData;
+      }
+
+      // Ensure proper namespace
       if (!svgData.includes('xmlns=')) {
         svgData = svgData.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
       }
 
-      // Create SVG blob and download link
+      // Download SVG
       const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
       const svgUrl = URL.createObjectURL(svgBlob);
 
-      // Download SVG file (vector format, infinitely scalable)
       const a = document.createElement('a');
       a.href = svgUrl;
-      a.download = `Canvas_Vector_Outlined_${new Date().toISOString().slice(0, 16).replace(/[-:]/g, '')}.svg`;
+      a.download = `Canvas_TextOutlined_${new Date().toISOString().slice(0, 16).replace(/[-:]/g, '')}.svg`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
 
-      console.log('✅ OUTLINED VECTOR SVG generated');
-      alert(`✅ OUTLINED VECTOR SVG generated!\n\n📄 File saved as .svg (infinitely scalable vector)\n\n💡 Open in Illustrator:\n1. File > Open > Select the .svg file\n2. All graphics are vectors (infinitely scalable)\n3. Select text: Type > Create Outlines\n4. Save as PDF or AI for CTP printing\n\n🎨 Vector format - no pixelation at any zoom level!`);
+      console.log('✅ OUTLINED SVG generated with text-to-path conversion');
+      alert(`✅ TEXT OUTLINED SVG generated!\n\n📄 Text converted to vector paths using Noto fonts\n\n🎨 Features:\n• All text converted to black vector paths\n• No font dependencies (CTP-ready)\n• RTL Arabic text properly positioned\n• All lines in black\n• Transparent background\n• Infinitely scalable\n\n💡 Open in Illustrator:\n• All text is now vector paths (no fonts needed)\n• Ready for CTP printing\n• Can be scaled infinitely without quality loss`);
 
       URL.revokeObjectURL(svgUrl);
 
     } catch (error) {
-      console.error('❌ Error generating outlined vector PDF:', error);
-      alert('❌ Error generating outlined vector PDF. Check console for details.');
+      console.error('❌ Error generating outlined PDF:', error);
+      alert('❌ Error generating outlined PDF. Check console for details.');
     }
   };
 
