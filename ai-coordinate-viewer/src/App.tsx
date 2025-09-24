@@ -440,6 +440,7 @@ function App() {
   const [showPartitionLines, setShowPartitionLines] = useState(true); // Toggle to show/hide slice dotted lines
   const [showRegionBorders, setShowRegionBorders] = useState(true); // Toggle to show/hide region solid borders
   const [showEffects, setShowEffects] = useState(true); // Toggle to show/hide grey backgrounds for content types
+  const [showLabels, setShowLabels] = useState(true); // Toggle to show/hide text labels (object names, types, dimensions)
   const [showContentTypeNames, setShowContentTypeNames] = useState(true); // Toggle to show/hide content type names like "new-multiline-line", "new-washing-care-symbol"
   const [showSupportingLines, setShowSupportingLines] = useState(true); // Toggle to show/hide dotted lines (margin, padding, mid-fold)
   const [showSewingLines, setShowSewingLines] = useState(true); // Toggle to show/hide sewing lines (top, left, bottom, right) and mid-fold lines
@@ -13013,18 +13014,22 @@ function App() {
         />
 
         {/* Object name and type */}
-        <text
-          x={baseX + 5} y={baseY + 15}
-          fontSize={fontSize} fill="#333" fontWeight="bold"
-        >
-          {obj.name}
-        </text>
-        <text
-          x={baseX + 5} y={baseY + 28}
-          fontSize={smallFontSize} fill="#666"
-        >
-          {obj.type || obj.typename}
-        </text>
+        {showLabels && (
+          <>
+            <text
+              x={baseX + 5} y={baseY + 15}
+              fontSize={fontSize} fill="#333" fontWeight="bold"
+            >
+              {obj.name}
+            </text>
+            <text
+              x={baseX + 5} y={baseY + 28}
+              fontSize={smallFontSize} fill="#666"
+            >
+              {obj.type || obj.typename}
+            </text>
+          </>
+        )}
 
         {/* Display actual content for son objects */}
         {obj.type?.includes('son') && (() => {
@@ -13239,8 +13244,8 @@ function App() {
           return null;
         })()}
 
-        {/* Dimension labels (only when enabled) */}
-        {showDimensions && (
+        {/* Dimension labels (only when enabled and labels are shown) */}
+        {showDimensions && showLabels && (
           <>
             {/* Width label (top center) */}
             <text
@@ -13773,7 +13778,7 @@ function App() {
                   })()}
 
                   {/* Region Label */}
-                  {showPartitionNames && (
+                  {showPartitionNames && showLabels && (
                     <text
                       x={baseX + (region.x * scale) + (region.width * scale) / 2}
                       y={baseY + (region.y * scale) + 15}
@@ -13790,18 +13795,20 @@ function App() {
                   )}
 
                   {/* Region Dimensions */}
-                  <text
-                    x={baseX + (region.x * scale) + (region.width * scale) / 2}
-                    y={baseY + (region.y * scale) + (region.height * scale) - 5}
-                    fill={region.borderColor}
-                    fontSize="8"
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    opacity="0.7"
-                    style={{ pointerEvents: 'none' }}
-                  >
-                    {region.width}×{region.height}mm
-                  </text>
+                  {showLabels && (
+                    <text
+                      x={baseX + (region.x * scale) + (region.width * scale) / 2}
+                      y={baseY + (region.y * scale) + (region.height * scale) - 5}
+                      fill={region.borderColor}
+                      fontSize="8"
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      opacity="0.7"
+                      style={{ pointerEvents: 'none' }}
+                    >
+                      {region.width}×{region.height}mm
+                    </text>
+                  )}
 
                   {/* Overflow Sequence Number - Large overlay when toggle is ON */}
                   {showOverflowNumbers && (() => {
@@ -14719,7 +14726,7 @@ function App() {
                         />
 
                         {/* Child Region Label */}
-                        {showPartitionNames && (
+                        {showPartitionNames && showLabels && (
                           <text
                             x={baseX + (childRegion.x * scale) + (childRegion.width * scale) / 2}
                             y={baseY + (childRegion.y * scale) + 12}
@@ -14735,17 +14742,19 @@ function App() {
                         )}
 
                         {/* Child Region Dimensions */}
-                        <text
-                          x={baseX + (childRegion.x * scale) + (childRegion.width * scale) / 2}
-                          y={baseY + (childRegion.y * scale) + (childRegion.height * scale) - 3}
-                          fill={childRegion.borderColor}
-                          fontSize="6"
-                          textAnchor="middle"
-                          dominantBaseline="middle"
-                          opacity="0.7"
-                        >
-                          {childRegion.width}×{childRegion.height}mm
-                        </text>
+                        {showLabels && (
+                          <text
+                            x={baseX + (childRegion.x * scale) + (childRegion.width * scale) / 2}
+                            y={baseY + (childRegion.y * scale) + (childRegion.height * scale) - 3}
+                            fill={childRegion.borderColor}
+                            fontSize="6"
+                            textAnchor="middle"
+                            dominantBaseline="middle"
+                            opacity="0.7"
+                          >
+                            {childRegion.width}×{childRegion.height}mm
+                          </text>
+                        )}
 
                         {/* Child Region Overflow Sequence Number - Large overlay when toggle is ON */}
                         {showOverflowNumbers && (() => {
@@ -16222,6 +16231,20 @@ function App() {
                     title="Toggle visibility of grey backgrounds for content types (line text, multi-line, washing symbols, comp trans)"
                   >
                     ✨ Effects
+                  </button>
+
+                  <button
+                    onClick={() => setShowLabels(!showLabels)}
+                    style={{
+                      ...buttonStyle,
+                      background: showLabels ? '#e3f2fd' : 'white',
+                      color: showLabels ? '#1976d2' : '#666',
+                      fontSize: '10px',
+                      padding: '4px 6px'
+                    }}
+                    title="Toggle visibility of text labels (object names, types, dimensions)"
+                  >
+                    🏷️ Labels
                   </button>
 
                   <button
