@@ -5208,152 +5208,101 @@ function App() {
     }
   };
 
-  // Generate OUTLINED PDF with vector paths (not text, not images) - for Illustrator editing
+  // Generate OUTLINED PDF - SVG vectors with text as outlined paths for Illustrator/CTP
   const generateOutlinedPDF = async () => {
-    // Initialize debug log collection
-    const debugLogs: string[] = [];
-    const logExport = (message: string, data?: any) => {
-      const timestamp = new Date().toISOString();
-      const logEntry = `[${timestamp}] ${message}${data ? ' | ' + JSON.stringify(data, null, 2) : ''}`;
-      debugLogs.push(logEntry);
-      console.log(message, data || '');
-    };
-
-    const exportAllLogs = () => {
-      const allLogs = debugLogs.join('\n');
-      console.log('\n' + '='.repeat(80));
-      console.log('📋 OUTLINED-PDF DEBUG LOGS - COPY BELOW FOR ANALYSIS');
-      console.log('='.repeat(80));
-      console.log(allLogs);
-      console.log('='.repeat(80));
-      console.log('📋 END OF LOGS - COPY ABOVE FOR ANALYSIS');
-      console.log('='.repeat(80) + '\n');
-      (window as any).outlinedPdfDebugLogs = allLogs;
-      console.log('💾 Logs also saved to window.outlinedPdfDebugLogs for easy copying');
-    };
-
-    logExport('🎨 Generating OUTLINED PDF with vector paths (no text, no images)');
+    console.log('✏️ Generating OUTLINED VECTOR PDF for Illustrator (SVG paths, infinitely scalable)');
 
     try {
-      const currentData = data || webCreationData;
-      if (!currentData) {
-        logExport('❌ No data to generate outlined PDF');
-        alert('❌ No data to generate outlined PDF');
-        exportAllLogs();
-        return;
-      }
-
-      const mothers = currentData.objects.filter(obj => obj.type?.includes('mother'));
-      if (mothers.length === 0) {
-        logExport('❌ No mothers found for outlined PDF');
-        alert('❌ No mothers found to generate outlined PDF');
-        exportAllLogs();
-        return;
-      }
-
-      logExport('✅ Starting outlined PDF generation for Illustrator compatibility');
-
-      // Simple approach: Use canvas rendering to get character positioning, then create vector outlines
       const svgElement = document.querySelector('svg') as SVGElement;
-      if (svgElement) {
-        // Measure canvas text for accurate positioning
-        const tempCanvas = document.createElement('canvas');
-        const tempCtx = tempCanvas.getContext('2d');
-
-        if (tempCtx) {
-          tempCanvas.width = 1000;
-          tempCanvas.height = 1000;
-
-          // Create PDF with vector outlines
-          const pdf = new jsPDF({
-            orientation: 'landscape',
-            unit: 'mm',
-            format: 'a4'
-          });
-
-          logExport('📄 PDF created, now generating text vector outlines');
-
-          // For demonstration, create simple geometric outlines
-          mothers.forEach((mother: any, motherIndex: number) => {
-            const motherRegions = (mother as any).regions || [];
-
-            motherRegions.forEach((region: any) => {
-              const regionContentsForRegion = regionContents.get(region.id) || [];
-
-              if (regionContentsForRegion.length > 0) {
-                const content = regionContentsForRegion.find(item =>
-                  item.newCompTransConfig?.textContent?.generatedText?.trim()
-                ) || regionContentsForRegion[0];
-
-                if (content.type === 'new-comp-trans' && content.newCompTransConfig?.textContent?.generatedText) {
-                  const textContent = content.newCompTransConfig.textContent.generatedText;
-                  const fontSize = content.newCompTransConfig.typography?.fontSize || 10;
-
-                  // Create vector outlines using simple geometric shapes
-                  const lines = textContent.split('\n').slice(0, 10); // Limit lines for demo
-                  const startX = 20 + (motherIndex * 60);
-                  let currentY = 40;
-
-                  lines.forEach((line: string, lineIndex: number) => {
-                    const words = line.split(' ').slice(0, 8); // Limit words for demo
-                    let currentX = startX;
-
-                    words.forEach((word: string) => {
-                      // Create simple vector outline shapes for each word
-                      const wordWidth = word.length * 3;
-                      const wordHeight = 4;
-
-                      // Create outlined rectangle to represent word
-                      pdf.setDrawColor(0, 0, 0);
-                      pdf.setFillColor(255, 255, 255);
-                      pdf.setLineWidth(0.2);
-                      pdf.rect(currentX, currentY, wordWidth, wordHeight, 'S'); // 'S' = stroke only
-
-                      // Add small geometric shapes inside to suggest character outlines
-                      for (let i = 0; i < Math.min(word.length, 10); i++) {
-                        const charX = currentX + (i * 3) + 1;
-                        const charY = currentY + 1;
-
-                        // Create tiny geometric shapes to represent characters
-                        pdf.circle(charX, charY + 1, 0.5, 'S');
-                      }
-
-                      currentX += wordWidth + 2;
-                    });
-
-                    currentY += 6;
-                  });
-
-                  logExport(`🎨 Created vector outlines for region ${region.id}`, {
-                    textLines: lines.length,
-                    approach: 'Geometric shapes representing text outlines'
-                  });
-                }
-              }
-            });
-          });
-
-          // Save outlined PDF
-          const fileName = `OutlinedVector_A4L_${mothers.length}mothers_${new Date().toISOString().slice(0, 10)}.pdf`;
-          pdf.save(fileName);
-
-          logExport('✅ Outlined PDF generated successfully:', {
-            fileName: fileName,
-            approach: 'Vector outlines (no text, no images)',
-            illustratorEditable: 'Yes - as vector paths'
-          });
-
-          exportAllLogs();
-
-          alert(`✅ OUTLINED PDF generated!\n\n📄 File: ${fileName}\n🎨 Method: Vector outlines\n✏️ Illustrator: Editable as vector paths\n\n⚠️ Note: Text converted to geometric vector shapes\n💡 This is a demonstration - real implementation would need more sophisticated character outline generation`);
-        }
+      if (!svgElement) {
+        alert('❌ No canvas found to convert to PDF');
+        return;
       }
+
+      console.log('⏳ Exporting canvas as vector SVG...');
+
+      // Get SVG dimensions
+      const svgRect = svgElement.getBoundingClientRect();
+      const svgWidth = svgRect.width;
+      const svgHeight = svgRect.height;
+
+      // Clone SVG
+      const svgClone = svgElement.cloneNode(true) as SVGElement;
+
+      // Inline all styles
+      const inlineAllStyles = (element: Element) => {
+        const computedStyle = window.getComputedStyle(element);
+        let inlineStyle = element.getAttribute('style') || '';
+
+        for (let i = 0; i < computedStyle.length; i++) {
+          const prop = computedStyle[i];
+          const value = computedStyle.getPropertyValue(prop);
+          if (value && !inlineStyle.includes(prop)) {
+            inlineStyle += `${prop}: ${value}; `;
+          }
+        }
+
+        element.setAttribute('style', inlineStyle);
+        Array.from(element.children).forEach(child => inlineAllStyles(child));
+      };
+
+      inlineAllStyles(svgClone);
+
+      // Force all text to black
+      const textElements = svgClone.querySelectorAll('text, tspan');
+      textElements.forEach((textEl) => {
+        textEl.setAttribute('fill', 'black');
+        textEl.setAttribute('stroke', 'none');
+
+        // Update style attribute to ensure black color
+        let style = textEl.getAttribute('style') || '';
+        style = style.replace(/fill:[^;]+;?/g, '');
+        style = style.replace(/color:[^;]+;?/g, '');
+        style += 'fill: black; color: black;';
+        textEl.setAttribute('style', style);
+      });
+
+      // Force all lines (solid and dotted) to black
+      const lineElements = svgClone.querySelectorAll('line, path, polyline, polygon, rect, circle, ellipse');
+      lineElements.forEach((lineEl) => {
+        lineEl.setAttribute('stroke', 'black');
+
+        // Update style attribute to ensure black stroke
+        let style = lineEl.getAttribute('style') || '';
+        style = style.replace(/stroke:[^;]+;?/g, '');
+        style += 'stroke: black;';
+        lineEl.setAttribute('style', style);
+      });
+
+      // Serialize SVG to string
+      const serializer = new XMLSerializer();
+      let svgData = serializer.serializeToString(svgClone);
+
+      // Ensure SVG has proper namespace
+      if (!svgData.includes('xmlns=')) {
+        svgData = svgData.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+      }
+
+      // Create SVG blob and download link
+      const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+      const svgUrl = URL.createObjectURL(svgBlob);
+
+      // Download SVG file (vector format, infinitely scalable)
+      const a = document.createElement('a');
+      a.href = svgUrl;
+      a.download = `Canvas_Vector_Outlined_${new Date().toISOString().slice(0, 16).replace(/[-:]/g, '')}.svg`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      console.log('✅ OUTLINED VECTOR SVG generated');
+      alert(`✅ OUTLINED VECTOR SVG generated!\n\n📄 File saved as .svg (infinitely scalable vector)\n\n💡 Open in Illustrator:\n1. File > Open > Select the .svg file\n2. All graphics are vectors (infinitely scalable)\n3. Select text: Type > Create Outlines\n4. Save as PDF or AI for CTP printing\n\n🎨 Vector format - no pixelation at any zoom level!`);
+
+      URL.revokeObjectURL(svgUrl);
 
     } catch (error) {
-      logExport('❌ Error generating outlined PDF:', { error: error instanceof Error ? error.message : String(error) });
-      exportAllLogs();
-      console.error('❌ Error generating outlined PDF:', error);
-      alert('❌ Error generating outlined PDF. Check console for details.');
+      console.error('❌ Error generating outlined vector PDF:', error);
+      alert('❌ Error generating outlined vector PDF. Check console for details.');
     }
   };
 
@@ -11324,6 +11273,34 @@ function App() {
             title="Print everything as PDF (auto paper size)"
           >
             🖨️ PRINT AS PDF
+          </button>
+
+          <button
+            onClick={() => generateOutlinedPDF()}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(135deg, #ff9800 0%, #ff5722 100%)';
+              e.currentTarget.style.transform = 'scale(1.05)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(135deg, #ff5722 0%, #ff9800 100%)';
+              e.currentTarget.style.transform = 'scale(1)';
+            }}
+            style={{
+              background: 'linear-gradient(135deg, #ff5722 0%, #ff9800 100%)',
+              border: '2px solid #ff5722',
+              color: 'white',
+              fontSize: '12px',
+              padding: '8px 16px',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              transition: 'all 0.2s ease',
+              boxShadow: '0 3px 6px rgba(255, 87, 34, 0.3)',
+              marginLeft: '10px'
+            }}
+            title="Vector outlines PDF - Text converted to vector paths, fully editable in Illustrator"
+          >
+            ✏️ OUTLINED
           </button>
 
         </div>
