@@ -444,6 +444,7 @@ function App() {
   const [showContentTypeNames, setShowContentTypeNames] = useState(true); // Toggle to show/hide content type names like "new-multiline-line", "new-washing-care-symbol"
   const [showSupportingLines, setShowSupportingLines] = useState(true); // Toggle to show/hide dotted lines (margin, padding, mid-fold)
   const [showSewingLines, setShowSewingLines] = useState(true); // Toggle to show/hide sewing lines (top, left, bottom, right) and mid-fold lines
+  const [showLinkedLines, setShowLinkedLines] = useState(true); // Toggle to show/hide linked lines
   const [showPartitionNames, setShowPartitionNames] = useState(true); // Toggle to show/hide region and slice labels (R1, R2, S1, S2)
   const [autoFitNotification, setAutoFitNotification] = useState(false);
   // Removed unused capture mode states
@@ -15450,8 +15451,9 @@ function App() {
 
               const overflowLinks: React.ReactElement[] = [];
 
-              // Find mothers with overflow children and create sequential links
-              motherObjects.forEach(mother => {
+              // Find mothers with overflow children and create sequential links (only if showLinkedLines is enabled)
+              if (showLinkedLines) {
+                motherObjects.forEach(mother => {
                 const childIds = (mother as any).childMotherIds || [];
                 if (childIds.length === 0) return;
 
@@ -15516,7 +15518,8 @@ function App() {
                     </g>
                   );
                 }
-              });
+                });
+              }
 
               return overflowLinks;
             })()}
@@ -16235,6 +16238,20 @@ function App() {
 
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginTop: '5px' }}>
+                  <button
+                    onClick={() => setShowLinkedLines(!showLinkedLines)}
+                    style={{
+                      ...buttonStyle,
+                      background: showLinkedLines ? '#e3f2fd' : 'white',
+                      color: showLinkedLines ? '#1976d2' : '#666',
+                      fontSize: '10px',
+                      padding: '4px 6px'
+                    }}
+                    title="Toggle linked lines between overflow mothers"
+                  >
+                    🔗 Linked Line
+                  </button>
+
                   <button
                     onClick={() => setShowDimensions(!showDimensions)}
                     style={{
