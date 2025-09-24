@@ -5316,10 +5316,11 @@ function App() {
           const hasArabic = /[\u0600-\u06FF]/.test(textContent);
 
           if (hasArabic) {
-            // Apply proper RTL attributes for Arabic text
+            // Apply proper RTL attributes for Arabic text but keep within bounds
             textEl.setAttribute('direction', 'rtl');
             textEl.setAttribute('unicode-bidi', 'bidi-override');
-            textEl.setAttribute('text-anchor', 'end');
+            // Don't use text-anchor="end" as it pushes text outside bounds
+            // textEl.setAttribute('text-anchor', 'end');
             textEl.setAttribute('font-family', 'Noto Sans Arabic, Arial Unicode MS, Arial, sans-serif');
             console.log(`🔄 Applied RTL attributes to: "${textContent}"`);
           } else {
@@ -5442,7 +5443,8 @@ function App() {
               if (hasArabic) {
                 textEl.setAttribute('direction', 'rtl');
                 textEl.setAttribute('unicode-bidi', 'bidi-override');
-                textEl.setAttribute('text-anchor', 'end');
+                // Don't use text-anchor="end" as it pushes text outside label bounds
+                // textEl.setAttribute('text-anchor', 'end');
                 textEl.setAttribute('font-family', 'Noto Sans Arabic, Arial Unicode MS, Arial');
               }
               textEl.setAttribute('fill', 'black');
