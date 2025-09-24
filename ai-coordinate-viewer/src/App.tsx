@@ -15367,69 +15367,6 @@ function App() {
 
             {/* Chain connections moved to SVG level - see after all objects rendered */}
 
-            {/* OVERFLOW ARROWS - Parent to Child Mother Connections */}
-            {(() => {
-              if (!data && !webCreationData) return null;
-              
-              const currentData = data || webCreationData;
-              if (!currentData) return null;
-              
-              const motherObjects = currentData.objects.filter(obj => obj.type?.includes('mother'));
-              const mmToPx = 3.78;
-              const scale = zoom * mmToPx;
-              
-              return motherObjects
-                .filter(mother => (mother as any).childMotherIds && (mother as any).childMotherIds.length > 0)
-                .map(parentMother => {
-                  const childIds = (parentMother as any).childMotherIds || [];
-                  
-                  return childIds.map((childId: string, index: number) => {
-                    const childMother = motherObjects.find(m => m.name === childId);
-                    if (!childMother) return null;
-                    
-                    // Calculate arrow position from parent to child
-                    const parentX = (parentMother.x + parentMother.width / 2) * scale + panX;
-                    const parentY = (parentMother.y + parentMother.height / 2) * scale + panY;
-                    const childX = (childMother.x + childMother.width / 2) * scale + panX;
-                    const childY = (childMother.y + childMother.height / 2) * scale + panY;
-                    
-                    // Adjust line endpoints to mother edges instead of centers
-                    const parentRightX = (parentMother.x + parentMother.width) * scale + panX;
-                    const childLeftX = childMother.x * scale + panX;
-                    
-                    const arrowKey = `overflow-arrow-${parentMother.name}-${childId}`;
-                    
-                    return (
-                      <g key={arrowKey}>
-                        {/* Overflow connection line */}
-                        <line
-                          x1={parentRightX}
-                          y1={parentY}
-                          x2={childLeftX}
-                          y2={childY}
-                          stroke="#ff6b35"
-                          strokeWidth={2 / zoom}
-                          markerEnd="url(#overflowArrow)"
-                          opacity="0.8"
-                        />
-                        {/* Connection label */}
-                        <text
-                          x={(parentRightX + childLeftX) / 2}
-                          y={(parentY + childY) / 2 - 10 / zoom}
-                          fill="#ff6b35"
-                          fontSize={10 / zoom}
-                          fontWeight="bold"
-                          textAnchor="middle"
-                          opacity="0.7"
-                        >
-                          OVERFLOW
-                        </text>
-                      </g>
-                    );
-                  }).filter(Boolean);
-                })
-                .flat();
-            })()}
 
             {/* ZOOM-INDEPENDENT arrow marker for overflow connections */}
             <defs>
@@ -15448,6 +15385,85 @@ function App() {
                 />
               </marker>
             </defs>
+
+            {/* OVERFLOW LINKS - Mother to immediate next mother connections */}
+            {(() => {
+              const currentData = data || webCreationData;
+              if (!currentData) return null;
+
+              const motherObjects = currentData.objects.filter(obj => obj.type?.includes('mother'));
+              const mmToPx = 3.78;
+              const scale = zoom * mmToPx;
+
+              const overflowLinks: React.ReactElement[] = [];
+
+              // Find mothers with overflow children and create sequential links
+              motherObjects.forEach(mother => {
+                const childIds = (mother as any).childMotherIds || [];
+                if (childIds.length === 0) return;
+
+                // Create chain: mother -> child1, child1 -> child2, etc.
+                const chain = [mother, ...childIds.map((id: string) => motherObjects.find(m => m.name === id)).filter(Boolean)];
+
+                for (let i = 0; i < chain.length - 1; i++) {
+                  const fromMother = chain[i];
+                  const toMother = chain[i + 1];
+                  if (!fromMother || !toMother) continue;
+
+                  // Calculate connection points: right edge midpoint to left edge midpoint
+                  const fromRightX = (fromMother.x + fromMother.width) * scale + panX;
+                  const fromMidY = (fromMother.y + fromMother.height / 2) * scale + panY;
+
+                  const toLeftX = toMother.x * scale + panX;
+                  const toMidY = (toMother.y + toMother.height / 2) * scale + panY;
+
+                  const linkKey = `overflow-link-${fromMother.name}-${toMother.name}`;
+
+                  overflowLinks.push(
+                    <g key={linkKey}>
+                      {/* Connection line from right midpoint to left midpoint */}
+                      <line
+                        x1={fromRightX}
+                        y1={fromMidY}
+                        x2={toLeftX}
+                        y2={toMidY}
+                        stroke="#ff6600"
+                        strokeWidth={3 / zoom}
+                        opacity="0.8"
+                        style={{ pointerEvents: 'none' }}
+                      />
+
+                      {/* Arrow at target left edge */}
+                      <polygon
+                        points={`${toLeftX - 12/zoom},${toMidY - 6/zoom} ${toLeftX},${toMidY} ${toLeftX - 12/zoom},${toMidY + 6/zoom}`}
+                        fill="#ff6600"
+                        opacity="0.9"
+                        style={{ pointerEvents: 'none' }}
+                      />
+
+                      {/* LINKED text above the connection line */}
+                      {showLabels && (
+                        <text
+                          x={(fromRightX + toLeftX) / 2}
+                          y={(fromMidY + toMidY) / 2 - 8/zoom}
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          fontSize={12 / zoom}
+                          fontWeight="bold"
+                          fill="#ff6600"
+                          opacity="0.8"
+                          style={{ pointerEvents: 'none' }}
+                        >
+                          LINKED
+                        </text>
+                      )}
+                    </g>
+                  );
+                }
+              });
+
+              return overflowLinks;
+            })()}
 
             {/* Sewing Lines with Dimensions */}
             {showSewingLines && (() => {
@@ -16375,143 +16391,6 @@ function App() {
 
                 {(data || webCreationData)?.objects.map((obj, index) => renderObject(obj, index))}
 
-                {/* Mother-Child Relationship Lines */}
-                {(() => {
-                  const currentData = data || webCreationData;
-                  if (!currentData) return null;
-
-                  const allRelationships = motherRelationshipManager.getAllRelationships();
-                  const mmToPx = 3.78; // Conversion factor from mm to pixels
-                  
-                  const relationshipLines: React.ReactElement[] = [];
-
-                  allRelationships.forEach((relationship, masterId) => {
-                    // Find the master mother object
-                    const masterMother = currentData.objects.find(obj => obj.name === masterId);
-                    if (!masterMother) return;
-
-                    // Find all child mother objects
-                    relationship.childIds.forEach((childId, index) => {
-                      const childMother = currentData.objects.find(obj => obj.name === childId);
-                      if (!childMother) return;
-
-                      // Calculate connection points (center of each mother) with null checks
-                      const masterCenterX = (masterMother.x || 0) + (masterMother.width || 0) / 2;
-                      const masterCenterY = (masterMother.y || 0) + (masterMother.height || 0) / 2;
-                      const childCenterX = (childMother.x || 0) + (childMother.width || 0) / 2;
-                      const childCenterY = (childMother.y || 0) + (childMother.height || 0) / 2;
-
-                      // Skip rendering if any of the mothers have invalid coordinates
-                      if (!masterMother.x || !masterMother.y || !masterMother.width || !masterMother.height ||
-                          !childMother.x || !childMother.y || !childMother.width || !childMother.height) {
-                        console.warn('Skipping relationship line due to incomplete mother coordinates:', {
-                          master: { x: masterMother.x, y: masterMother.y, w: masterMother.width, h: masterMother.height },
-                          child: { x: childMother.x, y: childMother.y, w: childMother.width, h: childMother.height }
-                        });
-                        return;
-                      }
-
-                      // Transform to screen coordinates
-                      const masterScreenX = panX + (masterCenterX * zoom * mmToPx);
-                      const masterScreenY = panY + (masterCenterY * zoom * mmToPx);
-                      const childScreenX = panX + (childCenterX * zoom * mmToPx);
-                      const childScreenY = panY + (childCenterY * zoom * mmToPx);
-
-                      // Create dotted line connecting the mothers
-                      relationshipLines.push(
-                        <g key={`relationship-${masterId}-${childId}`}>
-                          {/* Main connecting line */}
-                          <line
-                            x1={masterScreenX}
-                            y1={masterScreenY}
-                            x2={childScreenX}
-                            y2={childScreenY}
-                            stroke="#ff9800"
-                            strokeWidth="3"
-                            strokeDasharray="8,6"
-                            opacity="0.8"
-                            style={{ pointerEvents: 'none' }}
-                          />
-                          
-                          {/* Arrow at child end */}
-                          <polygon
-                            points={`${childScreenX - 8},${childScreenY - 4} ${childScreenX},${childScreenY} ${childScreenX - 8},${childScreenY + 4}`}
-                            fill="#ff9800"
-                            opacity="0.9"
-                            style={{ pointerEvents: 'none' }}
-                          />
-                          
-                          {/* Master icon */}
-                          <circle
-                            cx={masterScreenX}
-                            cy={masterScreenY}
-                            r="8"
-                            fill="#4caf50"
-                            stroke="white"
-                            strokeWidth="2"
-                            opacity="0.9"
-                            style={{ pointerEvents: 'none' }}
-                          />
-                          <text
-                            x={masterScreenX}
-                            y={masterScreenY}
-                            textAnchor="middle"
-                            dominantBaseline="middle"
-                            fontSize="10"
-                            fontWeight="bold"
-                            fill="white"
-                            style={{ pointerEvents: 'none' }}
-                          >
-                            M
-                          </text>
-                          
-                          {/* Child icon */}
-                          <circle
-                            cx={childScreenX}
-                            cy={childScreenY}
-                            r="8"
-                            fill="#ff9800"
-                            stroke="white"
-                            strokeWidth="2"
-                            opacity="0.9"
-                            style={{ pointerEvents: 'none' }}
-                          />
-                          <text
-                            x={childScreenX}
-                            y={childScreenY}
-                            textAnchor="middle"
-                            dominantBaseline="middle"
-                            fontSize="8"
-                            fontWeight="bold"
-                            fill="white"
-                            style={{ pointerEvents: 'none' }}
-                          >
-                            {index + 1}
-                          </text>
-                          
-                          {/* Relationship label */}
-                          <text
-                            x={(masterScreenX + childScreenX) / 2}
-                            y={(masterScreenY + childScreenY) / 2 - 15}
-                            textAnchor="middle"
-                            fontSize="10"
-                            fontWeight="bold"
-                            fill="#ff9800"
-                            opacity="0.8"
-                            style={{ 
-                              pointerEvents: 'none',
-                              textShadow: '1px 1px 2px rgba(255,255,255,0.8)'
-                            }}
-                          >
-                            overflow →
-                          </text>
-                        </g>
-                      );
-                    });
-                  });
-
-                  return relationshipLines;
-                })()}
 
               </svg>
             </div>
