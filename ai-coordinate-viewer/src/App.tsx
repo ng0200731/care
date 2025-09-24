@@ -15428,34 +15428,40 @@ function App() {
                         x2={toLeftX}
                         y2={toMidY}
                         stroke="#ff6600"
-                        strokeWidth={3 / zoom}
+                        strokeWidth={3}
                         opacity="0.8"
                         style={{ pointerEvents: 'none' }}
+                        vectorEffect="non-scaling-stroke"
                       />
 
                       {/* Arrow at target left edge */}
-                      <polygon
-                        points={`${toLeftX - 12/zoom},${toMidY - 6/zoom} ${toLeftX},${toMidY} ${toLeftX - 12/zoom},${toMidY + 6/zoom}`}
-                        fill="#ff6600"
-                        opacity="0.9"
-                        style={{ pointerEvents: 'none' }}
-                      />
+                      <g transform={`scale(${1/zoom})`} style={{transformOrigin: `${toLeftX}px ${toMidY}px`}}>
+                        <polygon
+                          points={`${toLeftX - 12},${toMidY - 6} ${toLeftX},${toMidY} ${toLeftX - 12},${toMidY + 6}`}
+                          fill="#ff6600"
+                          opacity="0.9"
+                          vectorEffect="non-scaling-stroke"
+                          style={{ pointerEvents: 'none' }}
+                        />
+                      </g>
 
                       {/* LINKED text above the connection line */}
                       {showLabels && (
-                        <text
-                          x={(fromRightX + toLeftX) / 2}
-                          y={(fromMidY + toMidY) / 2 - 8/zoom}
-                          textAnchor="middle"
-                          dominantBaseline="middle"
-                          fontSize={12 / zoom}
-                          fontWeight="bold"
-                          fill="#ff6600"
-                          opacity="0.8"
-                          style={{ pointerEvents: 'none' }}
-                        >
-                          LINKED
-                        </text>
+                        <g transform={`scale(${1/zoom})`} style={{transformOrigin: `${(fromRightX + toLeftX) / 2}px ${(fromMidY + toMidY) / 2 - 8}px`}}>
+                          <text
+                            x={(fromRightX + toLeftX) / 2}
+                            y={(fromMidY + toMidY) / 2 - 8}
+                            textAnchor="middle"
+                            dominantBaseline="middle"
+                            fontSize="12"
+                            fontWeight="bold"
+                            fill="#ff6600"
+                            opacity="0.8"
+                            style={{ pointerEvents: 'none' }}
+                          >
+                            LINKED
+                          </text>
+                        </g>
                       )}
                     </g>
                   );
