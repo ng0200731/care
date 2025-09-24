@@ -437,7 +437,8 @@ function App() {
   const [mouseCoords, setMouseCoords] = useState({ x: 0, y: 0 });
   const [showDimensions, setShowDimensions] = useState(true);
   const [showPreview, setShowPreview] = useState(true); // Toggle to show/hide input values in regions
-  const [showPartitionLines, setShowPartitionLines] = useState(true); // Toggle to show/hide region and slice solid lines
+  const [showPartitionLines, setShowPartitionLines] = useState(true); // Toggle to show/hide slice dotted lines
+  const [showRegionBorders, setShowRegionBorders] = useState(true); // Toggle to show/hide region solid borders
   const [showEffects, setShowEffects] = useState(true); // Toggle to show/hide grey backgrounds for content types
   const [showContentTypeNames, setShowContentTypeNames] = useState(true); // Toggle to show/hide content type names like "new-multiline-line", "new-washing-care-symbol"
   const [showSupportingLines, setShowSupportingLines] = useState(true); // Toggle to show/hide dotted lines (margin, padding, mid-fold)
@@ -9831,9 +9832,9 @@ function App() {
           const hasSlices = region.children && region.children.length > 0;
 
           if (hasSlices) {
-            // Draw parent region lines only if partition lines are enabled
-            if (showPartitionLines) {
-              // Solid black partition lines when partition lines are enabled
+            // Draw parent region lines only if region borders are enabled
+            if (showRegionBorders) {
+              // Solid black region borders when region borders are enabled
               pdf.setDrawColor(0, 0, 0); // Black for parent
               pdf.setLineWidth(0.3); // Standard thickness
               pdf.setLineDashPattern([], 0); // Solid line
@@ -9860,8 +9861,8 @@ function App() {
               const childX = regionX + relativeX;
               const childY = regionY + relativeY;
 
-              // Draw slice outline only if partition lines are enabled
-              if (showPartitionLines) {
+              // Draw slice outline only if region borders are enabled
+              if (showRegionBorders) {
                 pdf.setDrawColor(0, 0, 0); // Black for slices
                 pdf.setLineWidth(0.3); // Standard thickness
                 pdf.rect(childX, childY, childRegion.width, childRegion.height);
@@ -10471,9 +10472,9 @@ function App() {
               }
             });
           } else {
-            // Draw regular region lines only if partition lines are enabled
-            if (showPartitionLines) {
-              // Solid black partition lines when partition lines are enabled
+            // Draw regular region lines only if region borders are enabled
+            if (showRegionBorders) {
+              // Solid black region borders when region borders are enabled
               pdf.setDrawColor(0, 0, 0); // Black for regions
               pdf.setLineWidth(0.3); // Standard thickness
               pdf.setLineDashPattern([], 0); // Solid line
@@ -13434,17 +13435,17 @@ function App() {
                             const hasContent = (regionContents.get(region.id) || []).length > 0;
                             return hasContent ? '#ffebee' : getRegionBackgroundColor(region.id); // Red tint for occupied, content-type color for empty
                           })() : getRegionBackgroundColor(region.id)}
-                    stroke={!showPartitionLines ? 'none' : // Hide partition lines when toggled off
+                    stroke={!showRegionBorders ? 'none' : // Hide region borders when toggled off
                             hoveredRegionId === region.id ? '#ff6b35' : // Orange border on hover
                             dragOverRegion === region.id ?
                             (() => {
                               const hasContent = (regionContents.get(region.id) || []).length > 0;
                               return hasContent ? '#f44336' : '#2196f3'; // Red border for occupied, blue for empty
                             })() : strokeColor}
-                    strokeWidth={!showPartitionLines ? 0 : // Hide partition lines when toggled off
+                    strokeWidth={!showRegionBorders ? 0 : // Hide region borders when toggled off
                                 hoveredRegionId === region.id ? 5 : // Thicker border on hover
                                 dragOverRegion === region.id ? 4 : strokeWidth}
-                    strokeDasharray="5,5"
+                    strokeDasharray={!showPartitionLines ? 'none' : '5,5'} // Only show dotted pattern when partition lines are enabled
                     opacity={hoveredRegionId === region.id ? 1.0 : // Full opacity on hover
                             dragOverRegion === region.id ? 0.9 : 0.7}
                     style={{ cursor: isProjectMode ? 'copy' : 'pointer' }}
@@ -13704,9 +13705,9 @@ function App() {
                               return backgroundColors[contentType] || 'rgba(107, 114, 128, 0.25)';
                             })()}
                             opacity={0.8}
-                            stroke={getContentObjectColor(content.type, contentIndex)}
-                            strokeWidth={2}
-                            strokeOpacity={0.9}
+                            stroke={!showRegionBorders ? 'none' : getContentObjectColor(content.type, contentIndex)}
+                            strokeWidth={!showRegionBorders ? 0 : 2}
+                            strokeOpacity={!showRegionBorders ? 0 : 0.9}
                             rx={3}
                             ry={3}
                             style={{
@@ -14666,17 +14667,17 @@ function App() {
                                   const hasContent = (regionContents.get(childRegion.id) || []).length > 0;
                                   return hasContent ? '#ffebee' : getRegionBackgroundColor(childRegion.id); // Red tint for occupied, content-type color for empty
                                 })() : getRegionBackgroundColor(childRegion.id)}
-                          stroke={!showPartitionLines ? 'none' : // Hide partition lines when toggled off
+                          stroke={!showRegionBorders ? 'none' : // Hide region borders when toggled off
                                   hoveredRegionId === childRegion.id ? '#ff6b35' : // Orange border on hover
                                   dragOverRegion === childRegion.id ?
                                   (() => {
                                     const hasContent = (regionContents.get(childRegion.id) || []).length > 0;
                                     return hasContent ? '#f44336' : '#4caf50'; // Red border for occupied, green for empty
                                   })() : childStrokeColor}
-                          strokeWidth={!showPartitionLines ? 0 : // Hide partition lines when toggled off
+                          strokeWidth={!showRegionBorders ? 0 : // Hide region borders when toggled off
                                       hoveredRegionId === childRegion.id ? 4 : // Thicker border on hover
                                       dragOverRegion === childRegion.id ? 3 : childStrokeWidth}
-                          strokeDasharray="3,3"
+                          strokeDasharray={!showPartitionLines ? 'none' : '3,3'} // Only show dotted pattern when partition lines are enabled
                           opacity={hoveredRegionId === childRegion.id ? 1.0 : // Full opacity on hover
                                   dragOverRegion === childRegion.id ? 0.9 : 0.8}
                           style={{ cursor: isProjectMode ? 'copy' : 'pointer' }}
@@ -16190,9 +16191,23 @@ function App() {
                       fontSize: '10px',
                       padding: '4px 6px'
                     }}
-                    title="Toggle visibility of region and slice partition lines"
+                    title="Toggle visibility of slice dotted partition lines"
                   >
                     📐 Partition Line
+                  </button>
+
+                  <button
+                    onClick={() => setShowRegionBorders(!showRegionBorders)}
+                    style={{
+                      ...buttonStyle,
+                      background: showRegionBorders ? '#e3f2fd' : 'white',
+                      color: showRegionBorders ? '#1976d2' : '#666',
+                      fontSize: '10px',
+                      padding: '4px 6px'
+                    }}
+                    title="Toggle visibility of region solid border lines"
+                  >
+                    ▭ Region Border
                   </button>
 
                   <button
