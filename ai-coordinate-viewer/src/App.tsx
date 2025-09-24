@@ -15421,47 +15421,44 @@ function App() {
 
                   overflowLinks.push(
                     <g key={linkKey}>
-                      {/* Connection line from right midpoint to left midpoint */}
+                      {/* Connection line from right midpoint to left midpoint - constant thickness */}
                       <line
                         x1={fromRightX}
                         y1={fromMidY}
                         x2={toLeftX}
                         y2={toMidY}
                         stroke="#ff6600"
-                        strokeWidth={3}
+                        strokeWidth="3"
                         opacity="0.8"
-                        style={{ pointerEvents: 'none' }}
                         vectorEffect="non-scaling-stroke"
+                        style={{ pointerEvents: 'none' }}
                       />
 
-                      {/* Arrow at target left edge */}
-                      <g transform={`scale(${1/zoom})`} style={{transformOrigin: `${toLeftX}px ${toMidY}px`}}>
+                      {/* Arrow at target left edge - constant size */}
+                      <g transform={`translate(${toLeftX}, ${toMidY}) scale(${1/zoom})`}>
                         <polygon
-                          points={`${toLeftX - 12},${toMidY - 6} ${toLeftX},${toMidY} ${toLeftX - 12},${toMidY + 6}`}
+                          points="-12,-6 0,0 -12,6"
                           fill="#ff6600"
                           opacity="0.9"
-                          vectorEffect="non-scaling-stroke"
                           style={{ pointerEvents: 'none' }}
                         />
                       </g>
 
-                      {/* LINKED text above the connection line */}
+                      {/* LINKED text above the connection line - using system's consistent font scaling */}
                       {showLabels && (
-                        <g transform={`scale(${1/zoom})`} style={{transformOrigin: `${(fromRightX + toLeftX) / 2}px ${(fromMidY + toMidY) / 2 - 8}px`}}>
-                          <text
-                            x={(fromRightX + toLeftX) / 2}
-                            y={(fromMidY + toMidY) / 2 - 8}
-                            textAnchor="middle"
-                            dominantBaseline="middle"
-                            fontSize="12"
-                            fontWeight="bold"
-                            fill="#ff6600"
-                            opacity="0.8"
-                            style={{ pointerEvents: 'none' }}
-                          >
-                            LINKED
-                          </text>
-                        </g>
+                        <text
+                          x={(fromRightX + toLeftX) / 2}
+                          y={(fromMidY + toMidY) / 2 - 15}
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          fontSize={calculateConsistentFontSize(12, 'px', zoom)}
+                          fontWeight="bold"
+                          fill="#ff6600"
+                          opacity="0.8"
+                          style={{ pointerEvents: 'none' }}
+                        >
+                          LINKED
+                        </text>
                       )}
                     </g>
                   );
