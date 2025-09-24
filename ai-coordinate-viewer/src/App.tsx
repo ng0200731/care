@@ -5284,6 +5284,20 @@ function App() {
       const textElements = svgClone.querySelectorAll('text, tspan');
       console.log(`🔤 Found ${textElements.length} text elements to convert`);
 
+      // Inject CSS for dash character font override
+      const style = document.createElement('style');
+      style.textContent = `
+        @font-face {
+          font-family: 'DashOverride';
+          src: local('Arial'), local('Helvetica');
+          unicode-range: U+002D; /* Only applies to hyphen-minus character */
+        }
+        .mixed-font-dash {
+          font-family: 'DashOverride', 宋体, SimSun, Adobe 명조 Std M, Arial, sans-serif !important;
+        }
+      `;
+      document.head.appendChild(style);
+
       // Mixed font system utility functions (defined at function scope)
       const getUserCanvasFont = (): string => {
         // Try to get user's selected canvas font from any rendered text element
@@ -5308,9 +5322,14 @@ function App() {
         arabic: /[\u0600-\u06FF]/
       };
 
-      // Font mapping based on requirements - MODIFIED: Single font approach
+      // Font mapping based on requirements - MODIFIED: Enhanced for dash character handling
       const getFontForLanguage = (text: string): string => {
-        // TEST: Use single font for mixed text to avoid segmentation issues
+        // For mixed Chinese+Korean with dashes: use DashOverride font class
+        if (languagePatterns.chinese.test(text) && languagePatterns.korean.test(text) && text.includes('-')) {
+          return 'DashOverride, 宋体, SimSun, Adobe 명조 Std M, Arial, sans-serif'; // DashOverride handles dashes with Arial
+        }
+
+        // Single language detection
         if (languagePatterns.chinese.test(text)) return '宋体, SimSun, Arial, sans-serif';
         if (languagePatterns.japanese.test(text)) return '小塚ゴシック Pr6N R, Arial, sans-serif';
         if (languagePatterns.korean.test(text)) return 'Adobe 명조 Std M, Arial, sans-serif';
@@ -5336,6 +5355,7 @@ function App() {
         let currentLanguage = 'other';
 
         const getCharLanguage = (char: string): string => {
+          if (char === '-') return 'canvas'; // Special case: dash characters use canvas font (Arial Regular)
           if (languagePatterns.chinese.test(char)) return 'chinese';
           if (languagePatterns.japanese.test(char)) return 'japanese';
           if (languagePatterns.korean.test(char)) return 'korean';
@@ -5401,10 +5421,12 @@ function App() {
           const hasJapanese = languagePatterns.japanese.test(textContent);
           const hasKorean = languagePatterns.korean.test(textContent);
           const hasArabic = languagePatterns.arabic.test(textContent);
-          const hasMultipleLanguages = [hasChinese, hasJapanese, hasKorean, hasArabic].filter(Boolean).length > 1;
+          const hasDash = textContent.includes('-'); // Detect "-" characters requiring canvas font
+          const hasMultipleLanguages = [hasChinese, hasJapanese, hasKorean].filter(Boolean).length > 1 ||
+                                     (hasDash && ([hasChinese, hasJapanese, hasKorean].filter(Boolean).length > 0));
 
-          // MODIFIED: Skip segmentation - use 2-font approach like Korean (1 line with mixed fonts)
-          if (false && hasMultipleLanguages) {
+          // MODIFIED: Enable segmentation to create separate tspan elements with explicit fonts
+          if (hasMultipleLanguages) {
             // Handle mixed language text within single element using proper segmentation
             console.log(`🔄 Mixed languages detected in: "${textContent}"`);
 
@@ -5423,23 +5445,25 @@ function App() {
             textEl.setAttribute('font-size', fontSize);
             textEl.setAttribute('text-anchor', textAnchor);
 
+            // Calculate cumulative x-positions to prevent overlap
+            let currentX = parseFloat(x);
+
             segments.forEach((segment, index) => {
               const span = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
               span.textContent = segment.text;
 
-              // Only set x position for the first segment, others will flow naturally
-              if (index === 0) {
-                span.setAttribute('x', x);
-              }
+              // Set absolute x position for each segment to prevent overlap
+              span.setAttribute('x', currentX.toString());
               span.setAttribute('y', y);
               span.setAttribute('font-size', fontSize);
 
-              // Apply appropriate font based on segment language
-              const fontFamily = segment.language === 'chinese' ? '宋体, SimSun, Arial, sans-serif' :
-                               segment.language === 'japanese' ? '小塚ゴシック Pr6N R, Arial, sans-serif' :
-                               segment.language === 'korean' ? 'Adobe 명조 Std M, Arial, sans-serif' :
-                               segment.language === 'arabic' ? `${canvasFontFamily}, Arial, sans-serif` :
-                               `${canvasFontFamily}, Arial, sans-serif`;
+              // Apply EXPLICIT font based on segment language (no fallback to avoid CSS font stack issues)
+              const fontFamily = segment.language === 'chinese' ? '宋体, SimSun' : // Ensure Chinese uses SimSun
+                               segment.language === 'japanese' ? '小塚ゴシック Pr6N R' : // Only Japanese font
+                               segment.language === 'korean' ? 'Adobe 명조 Std M' : // Only Korean font
+                               segment.language === 'arabic' ? `${canvasFontFamily}` : // Only canvas font
+                               segment.language === 'canvas' ? 'Arial' : // Only Arial for "-" characters
+                               `${canvasFontFamily}`; // Only canvas font for other
 
               span.setAttribute('font-family', fontFamily);
               span.setAttribute('fill', 'black');
@@ -5451,6 +5475,19 @@ function App() {
               }
 
               textEl.appendChild(span);
+
+              // Calculate width of this segment and update currentX for next segment
+              // Create temporary canvas to measure text width with the specific font
+              const canvas = document.createElement('canvas');
+              const ctx = canvas.getContext('2d');
+              if (ctx) {
+                ctx.font = `${fontSize}px ${fontFamily}`;
+                const segmentWidth = ctx.measureText(segment.text).width;
+                currentX += segmentWidth;
+              } else {
+                // Fallback: estimate character width if canvas not available
+                currentX += segment.text.length * parseFloat(fontSize) * 0.6;
+              }
             });
 
             console.log(`✅ Applied mixed fonts to segments: ${segments.map(s => `"${s.text}"(${s.language})`).join(', ')}`);
@@ -5460,8 +5497,10 @@ function App() {
             textEl.setAttribute('font-family', fontFamily);
 
             if (hasArabic) {
+              // Arabic: Keep as 1 line with RTL direction and canvas font (Arial)
               textEl.setAttribute('direction', 'rtl');
               textEl.setAttribute('unicode-bidi', 'bidi-override');
+              textEl.setAttribute('font-family', `${canvasFontFamily}, Arial, sans-serif`); // Use canvas font for Arabic
             }
 
             textEl.setAttribute('fill', 'black');

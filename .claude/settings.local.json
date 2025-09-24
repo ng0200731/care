@@ -9,7 +9,8 @@
       "Bash(node:*)",
       "Bash(cat:*)",
       "Bash(sed:*)",
-      "Bash(start D:projectlayout2caresegmentation_test.html)"
+      "Bash(start D:projectlayout2caresegmentation_test.html)",
+      "Bash(start D:projectlayout2caretest-mixed-font.html)"
     ],
     "deny": [],
     "ask": []
