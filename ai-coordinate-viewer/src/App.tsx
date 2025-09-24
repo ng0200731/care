@@ -4879,9 +4879,157 @@ function App() {
 
       inlineAllStyles(svgClone);
 
-      // Copy outline button's text processing (keeping perfect line formatting)
+      // COPY OUTLINE BUTTON'S TEXT PROCESSING EXACTLY
+
+      // Copy outline's utility functions and variables
+      const getUserCanvasFont = (): string => {
+        const existingTextEl = document.querySelector('svg text[font-family]');
+        if (existingTextEl) {
+          const fontFamilyAttr = existingTextEl.getAttribute('font-family');
+          if (fontFamilyAttr && !fontFamilyAttr.includes('SimSun') && !fontFamilyAttr.includes('小塚ゴシック') && !fontFamilyAttr.includes('Adobe 명조')) {
+            return fontFamilyAttr.replace(/["']/g, '');
+          }
+        }
+        return 'Arial';
+      };
+
+      const canvasFontFamily = getUserCanvasFont();
+
+      const languagePatterns = {
+        chinese: /[\u4E00-\u9FFF]/,
+        japanese: /[\u3040-\u309F\u30A0-\u30FF]/,
+        korean: /[\uAC00-\uD7AF]/,
+        arabic: /[\u0600-\u06FF]/
+      };
+
+      const getFontForLanguage = (text: string): string => {
+        if (languagePatterns.chinese.test(text) && languagePatterns.korean.test(text) && text.includes('-')) {
+          return 'DashOverride, 宋体, SimSun, Adobe 명조 Std M, Arial, sans-serif';
+        }
+        if (languagePatterns.chinese.test(text)) return '宋体, SimSun, Arial, sans-serif';
+        if (languagePatterns.japanese.test(text)) return '小塚ゴシック Pr6N R, Arial, sans-serif';
+        if (languagePatterns.korean.test(text)) return 'Adobe 명조 Std M, Arial, sans-serif';
+        if (languagePatterns.arabic.test(text)) return `${canvasFontFamily}, Arial, sans-serif`;
+        return `${canvasFontFamily}, Arial, sans-serif`;
+      };
+
+      // 1. Copy outline's segmentation method
+      const segmentTextByLanguage = (text: string) => {
+        const segments = [];
+        let currentSegment = '';
+        let currentLanguage = 'other';
+
+        for (let char of text) {
+          const charLanguage = languagePatterns.chinese.test(char) ? 'chinese' :
+                               languagePatterns.japanese.test(char) ? 'japanese' :
+                               languagePatterns.korean.test(char) ? 'korean' :
+                               languagePatterns.arabic.test(char) ? 'arabic' :
+                               char === '-' ? 'canvas' : 'other';
+
+          if (charLanguage === 'other') {
+            if (currentLanguage === 'other') {
+              currentSegment += char;
+            } else {
+              if (currentSegment) segments.push({ text: currentSegment, language: currentLanguage });
+              currentSegment = char;
+              currentLanguage = 'other';
+            }
+          } else {
+            if (charLanguage === currentLanguage) {
+              currentSegment += char;
+            } else {
+              if (currentSegment) segments.push({ text: currentSegment, language: currentLanguage });
+              currentSegment = char;
+              currentLanguage = charLanguage;
+            }
+          }
+        }
+
+        if (currentSegment) segments.push({ text: currentSegment, language: currentLanguage });
+        return segments;
+      };
+
+      // 2. Copy outline's text processing with Arabic RTL/LTR handling
       const textElements = svgClone.querySelectorAll('text, tspan');
-      console.log(`🔤 Found ${textElements.length} text elements with perfect formatting`);
+      console.log(`🔤 Found ${textElements.length} text elements - copying outline processing`);
+
+      textElements.forEach(textEl => {
+        const textContent = textEl.textContent || '';
+        if (!textContent.trim()) return;
+
+        const hasChinese = languagePatterns.chinese.test(textContent);
+        const hasJapanese = languagePatterns.japanese.test(textContent);
+        const hasKorean = languagePatterns.korean.test(textContent);
+        const hasArabic = languagePatterns.arabic.test(textContent);
+        const hasDash = textContent.includes('-');
+        const hasMultipleLanguages = [hasChinese, hasJapanese, hasKorean].filter(Boolean).length > 1 ||
+                                   (hasDash && ([hasChinese, hasJapanese, hasKorean].filter(Boolean).length > 0));
+
+        // Copy outline's mixed language handling
+        if (hasMultipleLanguages) {
+          const x = textEl.getAttribute('x') || '0';
+          const y = textEl.getAttribute('y') || '0';
+          const fontSize = textEl.getAttribute('font-size') || '12';
+
+          const segments = segmentTextByLanguage(textContent);
+          textEl.innerHTML = '';
+          textEl.setAttribute('x', x);
+          textEl.setAttribute('y', y);
+
+          let currentX = parseFloat(x);
+
+          segments.forEach((segment, index) => {
+            const span = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+            span.textContent = segment.text;
+            span.setAttribute('x', currentX.toString());
+            span.setAttribute('y', y);
+            span.setAttribute('font-size', fontSize);
+
+            const fontFamily = segment.language === 'chinese' ? '宋体, SimSun' :
+                             segment.language === 'japanese' ? '小塚ゴシック Pr6N R' :
+                             segment.language === 'korean' ? 'Adobe 명조 Std M' :
+                             segment.language === 'arabic' ? `${canvasFontFamily}` :
+                             segment.language === 'canvas' ? 'Arial' :
+                             `${canvasFontFamily}`;
+
+            span.setAttribute('font-family', fontFamily);
+            span.setAttribute('fill', 'black');
+            span.setAttribute('stroke', 'none');
+
+            // Copy outline's Arabic RTL handling
+            if (segment.language === 'arabic') {
+              span.setAttribute('direction', 'rtl');
+              span.setAttribute('unicode-bidi', 'bidi-override');
+            }
+
+            textEl.appendChild(span);
+
+            // Copy outline's width calculation
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.font = `${fontSize}px ${fontFamily}`;
+              const segmentWidth = ctx.measureText(segment.text).width;
+              currentX += segmentWidth;
+            } else {
+              currentX += segment.text.length * parseFloat(fontSize) * 0.6;
+            }
+          });
+        } else {
+          // Copy outline's single language handling
+          const fontFamily = getFontForLanguage(textContent);
+          textEl.setAttribute('font-family', fontFamily);
+
+          if (hasArabic) {
+            textEl.setAttribute('direction', 'rtl');
+            textEl.setAttribute('unicode-bidi', 'bidi-override');
+            textEl.setAttribute('font-family', `${canvasFontFamily}, Arial, sans-serif`);
+          }
+
+          textEl.setAttribute('fill', 'black');
+          textEl.setAttribute('stroke', 'none');
+        }
+      });
 
       // Copy outline button's styling cleanup
       const lineElements = svgClone.querySelectorAll('line, path, polyline, polygon, rect, circle, ellipse');
