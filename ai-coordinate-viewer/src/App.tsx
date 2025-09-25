@@ -10995,7 +10995,7 @@ function App() {
                       }
 
                       // Draw content padding boundaries (green dotted lines) for child regions if supporting lines are enabled
-                      if (showSupportingLines && (paddingTop > 0 || paddingRight > 0 || paddingBottom > 0 || paddingLeft > 0)) {
+                      if (showSupportingLines && !onlyPreview && (paddingTop > 0 || paddingRight > 0 || paddingBottom > 0 || paddingLeft > 0)) {
                         pdf.setDrawColor(76, 175, 80); // Green color (#4CAF50)
                         pdf.setLineWidth(0.2); // Fine style - very thin lines
 
@@ -11639,7 +11639,7 @@ function App() {
                   }
 
                   // Draw content padding boundaries (green dotted lines) if supporting lines are enabled
-                  if (showSupportingLines && (paddingTop > 0 || paddingRight > 0 || paddingBottom > 0 || paddingLeft > 0)) {
+                  if (showSupportingLines && !onlyPreview && (paddingTop > 0 || paddingRight > 0 || paddingBottom > 0 || paddingLeft > 0)) {
                     pdf.setDrawColor(76, 175, 80); // Green color (#4CAF50)
                     pdf.setLineWidth(0.2); // Fine style - very thin lines
 
@@ -14323,9 +14323,9 @@ function App() {
                               return backgroundColors[contentType] || 'rgba(107, 114, 128, 0.25)';
                             })()}
                             opacity={0.8}
-                            stroke={!showRegionBorders ? 'none' : getContentObjectColor(content.type, contentIndex)}
-                            strokeWidth={!showRegionBorders ? 0 : 2}
-                            strokeOpacity={!showRegionBorders ? 0 : 0.9}
+                            stroke={!showRegionBorders || onlyPreview ? 'none' : getContentObjectColor(content.type, contentIndex)}
+                            strokeWidth={!showRegionBorders || onlyPreview ? 0 : 2}
+                            strokeOpacity={!showRegionBorders || onlyPreview ? 0 : 0.9}
                             rx={3}
                             ry={3}
                             style={{
@@ -15008,7 +15008,7 @@ function App() {
                       const paddingLeftPx = config.padding.left * scale;
                       
                       // Only show if any padding is greater than 0 and supporting lines are enabled
-                      if (!showSupportingLines || (config.padding.top === 0 && config.padding.right === 0 &&
+                      if (!showSupportingLines || onlyPreview || (config.padding.top === 0 && config.padding.right === 0 &&
                           config.padding.bottom === 0 && config.padding.left === 0)) {
                         return null;
                       }
@@ -15094,7 +15094,7 @@ function App() {
                       const paddingLeftPx = config.padding.left * scale;
 
                       // Only show if any padding is greater than 0 and supporting lines are enabled
-                      if (!showSupportingLines || (config.padding.top === 0 && config.padding.right === 0 &&
+                      if (!showSupportingLines || onlyPreview || (config.padding.top === 0 && config.padding.right === 0 &&
                           config.padding.bottom === 0 && config.padding.left === 0)) {
                         return null;
                       }
@@ -15811,7 +15811,7 @@ function App() {
                             const paddingLeftPx = config.padding.left * scale;
 
                             // Only show if any padding is greater than 0 and supporting lines are enabled
-                            if (!showSupportingLines || (config.padding.top === 0 && config.padding.right === 0 &&
+                            if (!showSupportingLines || onlyPreview || (config.padding.top === 0 && config.padding.right === 0 &&
                                 config.padding.bottom === 0 && config.padding.left === 0)) {
                               return null;
                             }
@@ -16416,7 +16416,7 @@ function App() {
           return (
             <>
               {/* Margin Rectangle */}
-              {motherMeta.margins && selectedObject === obj && showSupportingLines && (
+              {motherMeta.margins && selectedObject === obj && showSupportingLines && !onlyPreview && (
                 <>
                   <rect
                     x={baseX + (motherMeta.margins.left * scale)}
