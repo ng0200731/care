@@ -9594,13 +9594,31 @@ function App() {
     const layoutId = urlParams.get('layoutId');
     const isEditingExisting = !!layoutId;
 
+    // Get existing layout name when overwriting to preserve user's chosen name
+    let existingLayoutName = '';
+    if (saveOption === 'overwrite' && layoutId && !customName) {
+      try {
+        const projectSlug = urlParams.get('projectSlug');
+        const projectStorageKey = `project_${projectSlug}_layouts`;
+        const existingLayouts = JSON.parse(localStorage.getItem(projectStorageKey) || '[]');
+        const existingLayout = existingLayouts.find((layout: any) => layout.id === layoutId);
+        if (existingLayout && existingLayout.name) {
+          existingLayoutName = existingLayout.name;
+          console.log('✅ Preserving existing project name:', existingLayoutName);
+        }
+      } catch (error) {
+        console.warn('⚠️ Could not retrieve existing layout name:', error);
+      }
+    }
+
     console.log('💾 Project Mode: Saving to project with option:', {
       motherCount,
       regionContents: regionContents.size,
       projectMode: isProjectMode,
       saveOption,
       isEditingExisting,
-      layoutId
+      layoutId,
+      existingLayoutName
     });
 
     try {
@@ -9608,9 +9626,11 @@ function App() {
       const layoutState = {
         // Layout metadata - use existing ID if overwriting, new ID if saving as new
         id: saveOption === 'overwrite' && layoutId ? layoutId : `layout_${Date.now()}`,
-        name: customName || (saveOption === 'overwrite' && layoutId
-          ? `Layout ${layoutId.replace('layout_', '')} (Updated ${new Date().toLocaleString()})`
-          : `Layout ${new Date().toLocaleString()}`),
+        name: customName || (saveOption === 'overwrite' && layoutId && existingLayoutName
+          ? existingLayoutName  // Preserve existing project name
+          : saveOption === 'overwrite' && layoutId
+            ? `Layout ${layoutId.replace('layout_', '')} (Updated ${new Date().toLocaleString()})`
+            : `Layout ${new Date().toLocaleString()}`),
         createdAt: saveOption === 'overwrite' && layoutId
           ? new Date().toISOString() // Keep original creation time if we had it
           : new Date().toISOString(),
@@ -9691,9 +9711,11 @@ function App() {
         const fallbackLayoutState = {
           // Layout metadata - use existing ID if overwriting, new ID if saving as new
           id: saveOption === 'overwrite' && layoutId ? layoutId : `layout_${Date.now()}`,
-          name: customName || (saveOption === 'overwrite' && layoutId
-            ? `Layout ${layoutId.replace('layout_', '')} (Updated ${new Date().toLocaleString()})`
-            : `Layout ${new Date().toLocaleString()}`),
+          name: customName || (saveOption === 'overwrite' && layoutId && existingLayoutName
+            ? existingLayoutName  // Preserve existing project name (same as main save)
+            : saveOption === 'overwrite' && layoutId
+              ? `Layout ${layoutId.replace('layout_', '')} (Updated ${new Date().toLocaleString()})`
+              : `Layout ${new Date().toLocaleString()}`),
           createdAt: saveOption === 'overwrite' && layoutId
             ? new Date().toISOString() // Keep original creation time if we had it
             : new Date().toISOString(),
