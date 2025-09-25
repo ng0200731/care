@@ -430,6 +430,8 @@ function App() {
 
   // Canvas view state
   const [zoom, setZoom] = useState(1); // 1 = 1:1 scale (1mm = 1px at 96 DPI)
+  const [zoomWarning, setZoomWarning] = useState(''); // Warning message for zoom limits
+  const [textOverlapWarning, setTextOverlapWarning] = useState(''); // Warning message for text overlaps
   const [panX, setPanX] = useState(0);
   const [panY, setPanY] = useState(0);
   const [isPanning, setIsPanning] = useState(false);
@@ -4283,7 +4285,17 @@ function App() {
 
   // Canvas control functions
   const handleZoomIn = () => setZoom(prev => Math.min(prev * 1.2, 5));
-  const handleZoomOut = () => setZoom(prev => Math.max(prev / 1.2, 0.1));
+  const handleZoomOut = () => {
+    const newZoom = zoom / 1.2;
+    if (newZoom < 1.0) {
+      // Show warning when trying to zoom below 100%
+      console.warn('⚠️ Minimum zoom is 100% - cannot zoom below this level');
+      setZoomWarning('Minimum zoom is 100%');
+      setTimeout(() => setZoomWarning(''), 2000); // Clear warning after 2 seconds
+      return; // Don't change zoom
+    }
+    setZoom(newZoom);
+  };
   const handleZoomReset = () => {
     setZoom(1);
     setPanX(0);
@@ -4384,18 +4396,78 @@ function App() {
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
     const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
-    const newZoom = Math.max(0.1, Math.min(5, zoom * zoomFactor));
+    const newZoom = Math.min(5, zoom * zoomFactor);
+
+    // Check minimum zoom limit (100%)
+    if (newZoom < 1.0 && zoom >= 1.0) {
+      // Show warning when trying to zoom below 100% via scroll
+      console.warn('⚠️ Minimum zoom is 100% - cannot zoom below this level (scroll)');
+      setZoomWarning('Minimum zoom is 100%');
+      setTimeout(() => setZoomWarning(''), 2000);
+      return; // Don't change zoom
+    }
+
+    // Enforce minimum zoom of 100%
+    const finalZoom = Math.max(1.0, newZoom);
 
     // Zoom towards mouse position
     const rect = e.currentTarget.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
-    const zoomRatio = newZoom / zoom;
+    const zoomRatio = finalZoom / zoom;
     setPanX(prev => mouseX - (mouseX - prev) * zoomRatio);
     setPanY(prev => mouseY - (mouseY - prev) * zoomRatio);
-    setZoom(newZoom);
+    setZoom(finalZoom);
   };
+
+  // Function to detect text overlap issues
+  const detectTextOverlap = () => {
+    if (!data || !data.objects) return;
+
+    // Get all regions from all objects (using any cast to access regions)
+    const regions = data.objects.flatMap(obj => (obj as any).regions || []);
+    const textRegions = regions.filter((region: any) => {
+      const contents = (window as any).regionContentsArray || [];
+      const regionContent = contents.find((content: any) => content.regionId === region.id);
+      return regionContent && regionContent.type && regionContent.type.includes('text');
+    });
+
+    let overlapDetected = false;
+    for (let i = 0; i < textRegions.length; i++) {
+      for (let j = i + 1; j < textRegions.length; j++) {
+        const region1 = textRegions[i];
+        const region2 = textRegions[j];
+
+        // Check if regions overlap (rectangles intersect)
+        const overlap = !(region1.x + region1.width <= region2.x ||
+                         region2.x + region2.width <= region1.x ||
+                         region1.y + region1.height <= region2.y ||
+                         region2.y + region2.height <= region1.y);
+
+        if (overlap) {
+          overlapDetected = true;
+          console.warn('🚫 Text overlap detected between regions:', region1.id, 'and', region2.id);
+          break;
+        }
+      }
+      if (overlapDetected) break;
+    }
+
+    if (overlapDetected && !textOverlapWarning) {
+      setTextOverlapWarning('Text elements are overlapping');
+      setTimeout(() => setTextOverlapWarning(''), 4000);
+    }
+  };
+
+  // Run overlap detection when data changes or zoom changes
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      detectTextOverlap();
+    }, 500); // Debounce to avoid too frequent checks
+
+    return () => clearTimeout(timer);
+  }, [data, zoom, textOverlapWarning]);
 
   const panToObject = (obj: AIObject) => {
 
@@ -19927,6 +19999,52 @@ function App() {
       )}
 
 
+
+      {/* Zoom Warning Overlay - Center of Screen */}
+      {zoomWarning && (
+        <div style={{
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          background: 'rgba(255, 193, 7, 0.95)',
+          color: '#856404',
+          padding: '15px 25px',
+          borderRadius: '8px',
+          fontSize: '16px',
+          fontWeight: 'bold',
+          border: '2px solid #ffc107',
+          boxShadow: '0 4px 15px rgba(255, 193, 7, 0.4)',
+          zIndex: 10000,
+          textAlign: 'center',
+          minWidth: '250px'
+        }}>
+          ⚠️ {zoomWarning}
+        </div>
+      )}
+
+      {/* Text Overlap Warning Overlay - Center of Screen */}
+      {textOverlapWarning && (
+        <div style={{
+          position: 'fixed',
+          top: '45%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          background: 'rgba(220, 53, 69, 0.95)',
+          color: 'white',
+          padding: '15px 25px',
+          borderRadius: '8px',
+          fontSize: '16px',
+          fontWeight: 'bold',
+          border: '2px solid #dc3545',
+          boxShadow: '0 4px 15px rgba(220, 53, 69, 0.4)',
+          zIndex: 10001,
+          textAlign: 'center',
+          minWidth: '300px'
+        }}>
+          🚫 {textOverlapWarning}
+        </div>
+      )}
 
       {/* Version Footer */}
       <div style={{
