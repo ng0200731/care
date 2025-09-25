@@ -16800,7 +16800,16 @@ function App() {
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginTop: '5px' }}>
                   <button
-                    onClick={() => setOnlyPreview(!onlyPreview)}
+                    onClick={() => {
+                      const newOnlyPreview = !onlyPreview;
+                      setOnlyPreview(newOnlyPreview);
+
+                      // When turning Only Preview OFF, automatically turn ON Content Type and Sewing Line
+                      if (!newOnlyPreview) {
+                        setShowContentTypeNames(true);
+                        setShowSewingLines(true);
+                      }
+                    }}
                     style={{
                       ...buttonStyle,
                       background: onlyPreview ? '#e8f5e8' : 'white',
