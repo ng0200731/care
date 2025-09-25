@@ -447,6 +447,7 @@ function App() {
   const [showSupportingLines, setShowSupportingLines] = useState(true); // Toggle to show/hide dotted lines (margin, padding, mid-fold)
   const [showSewingLines, setShowSewingLines] = useState(true); // Toggle to show/hide sewing lines (top, left, bottom, right) and mid-fold lines
   const [showLinkedLines, setShowLinkedLines] = useState(true); // Toggle to show/hide linked lines
+  const [onlyPreview, setOnlyPreview] = useState(true); // Toggle to show only preview content (default ON)
   const [showPartitionNames, setShowPartitionNames] = useState(true); // Toggle to show/hide region and slice labels (R1, R2, S1, S2)
   const [autoFitNotification, setAutoFitNotification] = useState(false);
   // Removed unused capture mode states
@@ -16799,13 +16800,30 @@ function App() {
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginTop: '5px' }}>
                   <button
+                    onClick={() => setOnlyPreview(!onlyPreview)}
+                    style={{
+                      ...buttonStyle,
+                      background: onlyPreview ? '#e8f5e8' : 'white',
+                      color: onlyPreview ? '#2e7d32' : '#666',
+                      fontSize: '10px',
+                      padding: '4px 6px',
+                      fontWeight: 'bold'
+                    }}
+                    title="Toggle only preview mode - when ON shows only preview content, when OFF shows all buttons"
+                  >
+                    👁️ Only Preview
+                  </button>
+
+                  <button
                     onClick={() => setShowLinkedLines(!showLinkedLines)}
                     style={{
                       ...buttonStyle,
                       background: showLinkedLines ? '#e3f2fd' : 'white',
                       color: showLinkedLines ? '#1976d2' : '#666',
                       fontSize: '10px',
-                      padding: '4px 6px'
+                      padding: '4px 6px',
+                      opacity: onlyPreview ? 0.5 : 1,
+                      pointerEvents: onlyPreview ? 'none' : 'auto'
                     }}
                     title="Toggle linked lines between overflow mothers"
                   >
@@ -16819,8 +16837,11 @@ function App() {
                       background: showDimensions ? '#e3f2fd' : 'white',
                       color: showDimensions ? '#1976d2' : '#666',
                       fontSize: '10px',
-                      padding: '4px 6px'
+                      padding: '4px 6px',
+                      opacity: onlyPreview ? 0.5 : 1,
+                      pointerEvents: onlyPreview ? 'none' : 'auto'
                     }}
+                    title="Toggle dimension labels"
                   >
                     📏 Dimensions
                   </button>
@@ -16847,7 +16868,9 @@ function App() {
                       background: showPartitionLines ? '#e3f2fd' : 'white',
                       color: showPartitionLines ? '#1976d2' : '#666',
                       fontSize: '10px',
-                      padding: '4px 6px'
+                      padding: '4px 6px',
+                      opacity: onlyPreview ? 0.5 : 1,
+                      pointerEvents: onlyPreview ? 'none' : 'auto'
                     }}
                     title="Toggle visibility of slice dotted partition lines"
                   >
@@ -16861,7 +16884,9 @@ function App() {
                       background: showRegionBorders ? '#e3f2fd' : 'white',
                       color: showRegionBorders ? '#1976d2' : '#666',
                       fontSize: '10px',
-                      padding: '4px 6px'
+                      padding: '4px 6px',
+                      opacity: onlyPreview ? 0.5 : 1,
+                      pointerEvents: onlyPreview ? 'none' : 'auto'
                     }}
                     title="Toggle visibility of region solid border lines"
                   >
@@ -16875,7 +16900,9 @@ function App() {
                       background: showEffects ? '#e3f2fd' : 'white',
                       color: showEffects ? '#1976d2' : '#666',
                       fontSize: '10px',
-                      padding: '4px 6px'
+                      padding: '4px 6px',
+                      opacity: onlyPreview ? 0.5 : 1,
+                      pointerEvents: onlyPreview ? 'none' : 'auto'
                     }}
                     title="Toggle visibility of grey backgrounds for content types (line text, multi-line, washing symbols, comp trans)"
                   >
@@ -16889,7 +16916,9 @@ function App() {
                       background: showLabels ? '#e3f2fd' : 'white',
                       color: showLabels ? '#1976d2' : '#666',
                       fontSize: '10px',
-                      padding: '4px 6px'
+                      padding: '4px 6px',
+                      opacity: onlyPreview ? 0.5 : 1,
+                      pointerEvents: onlyPreview ? 'none' : 'auto'
                     }}
                     title="Toggle visibility of text labels (object names, types, dimensions)"
                   >
@@ -16903,7 +16932,9 @@ function App() {
                       background: showSupportingLines ? '#e3f2fd' : 'white',
                       color: showSupportingLines ? '#1976d2' : '#666',
                       fontSize: '10px',
-                      padding: '4px 6px'
+                      padding: '4px 6px',
+                      opacity: onlyPreview ? 0.5 : 1,
+                      pointerEvents: onlyPreview ? 'none' : 'auto'
                     }}
                     title="Toggle visibility of supporting lines (margin, padding, mid-fold)"
                   >
@@ -16917,7 +16948,9 @@ function App() {
                       background: showPartitionNames ? '#e3f2fd' : 'white',
                       color: showPartitionNames ? '#1976d2' : '#666',
                       fontSize: '10px',
-                      padding: '4px 6px'
+                      padding: '4px 6px',
+                      opacity: onlyPreview ? 0.5 : 1,
+                      pointerEvents: onlyPreview ? 'none' : 'auto'
                     }}
                     title="Toggle visibility of partition names (R1, R2, S1, S2)"
                   >
@@ -16931,7 +16964,9 @@ function App() {
                       background: showContentTypeNames ? '#e3f2fd' : 'white',
                       color: showContentTypeNames ? '#1976d2' : '#666',
                       fontSize: '10px',
-                      padding: '4px 6px'
+                      padding: '4px 6px',
+                      opacity: onlyPreview ? 0.5 : 1,
+                      pointerEvents: onlyPreview ? 'none' : 'auto'
                     }}
                     title="Toggle visibility of content type names (new-multiline-line, new-washing-care-symbol)"
                   >
@@ -16945,7 +16980,9 @@ function App() {
                       background: showSewingLines ? '#fff3e0' : 'white',
                       color: showSewingLines ? '#ff5722' : '#666',
                       fontSize: '10px',
-                      padding: '4px 6px'
+                      padding: '4px 6px',
+                      opacity: onlyPreview ? 0.5 : 1,
+                      pointerEvents: onlyPreview ? 'none' : 'auto'
                     }}
                     title="Toggle visibility of sewing lines (top, left, bottom, right) and mid-fold lines"
                   >
