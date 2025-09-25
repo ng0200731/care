@@ -13856,8 +13856,8 @@ function App() {
           return null;
         })()}
 
-        {/* Dimension labels (only when enabled and labels are shown) */}
-        {showDimensions && showLabels && (
+        {/* Dimension labels (only when dimensions toggle is enabled) */}
+        {showDimensions && (
           <>
             {/* Width label (top center) */}
             <text
