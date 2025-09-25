@@ -11,7 +11,10 @@
       "Bash(sed:*)",
       "Bash(start D:projectlayout2caresegmentation_test.html)",
       "Bash(start D:projectlayout2caretest-mixed-font.html)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git pull:*)"
     ],
     "deny": [],
     "ask": []
