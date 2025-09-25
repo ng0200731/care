@@ -3019,8 +3019,8 @@ function App() {
   const getRegionBackgroundColor = (regionId: string) => {
     const contents = regionContents.get(regionId) || [];
 
-    // If effects are disabled, return transparent
-    if (!showEffects) {
+    // If effects are disabled or onlyPreview is enabled, return transparent
+    if (!showEffects || onlyPreview) {
       return 'transparent';
     }
 
@@ -13627,7 +13627,7 @@ function App() {
         />
 
         {/* Object name and type */}
-        {showLabels && (
+        {showLabels && !onlyPreview && (
           <>
             <text
               x={baseX + 5} y={baseY + 15}
@@ -13858,7 +13858,7 @@ function App() {
         })()}
 
         {/* Dimension labels (only when dimensions toggle is enabled) */}
-        {showDimensions && (
+        {showDimensions && !onlyPreview && (
           <>
             {/* Width label (top center) */}
             <text
@@ -13913,7 +13913,7 @@ function App() {
         {isWebCreationMode && obj.type?.includes('mother') && (
           <>
             {/* Margin Rectangle */}
-            {showMarginRectangles && showSupportingLines && (() => {
+            {showMarginRectangles && showSupportingLines && !onlyPreview && (() => {
               // Use the actual object's margins, not the global config
               const objectMargins = (obj as any).margins || motherConfig.margins;
               const mmToPx = 3.78;
@@ -14053,17 +14053,17 @@ function App() {
                             const hasContent = (regionContents.get(region.id) || []).length > 0;
                             return hasContent ? '#ffebee' : getRegionBackgroundColor(region.id); // Red tint for occupied, content-type color for empty
                           })() : getRegionBackgroundColor(region.id)}
-                    stroke={!showRegionBorders ? 'none' : // Hide region borders when toggled off
+                    stroke={!showRegionBorders || onlyPreview ? 'none' : // Hide region borders when toggled off or in onlyPreview mode
                             hoveredRegionId === region.id ? '#ff6b35' : // Orange border on hover
                             dragOverRegion === region.id ?
                             (() => {
                               const hasContent = (regionContents.get(region.id) || []).length > 0;
                               return hasContent ? '#f44336' : '#2196f3'; // Red border for occupied, blue for empty
                             })() : strokeColor}
-                    strokeWidth={!showRegionBorders ? 0 : // Hide region borders when toggled off
+                    strokeWidth={!showRegionBorders || onlyPreview ? 0 : // Hide region borders when toggled off or in onlyPreview mode
                                 hoveredRegionId === region.id ? 5 : // Thicker border on hover
                                 dragOverRegion === region.id ? 4 : strokeWidth}
-                    strokeDasharray={!showPartitionLines ? 'none' : '5,5'} // Only show dotted pattern when partition lines are enabled
+                    strokeDasharray={!showPartitionLines || onlyPreview ? 'none' : '5,5'} // Only show dotted pattern when partition lines are enabled or in onlyPreview mode
                     opacity={hoveredRegionId === region.id ? 1.0 : // Full opacity on hover
                             dragOverRegion === region.id ? 0.9 : 0.7}
                     style={{ cursor: isProjectMode ? 'copy' : 'pointer' }}
@@ -14301,8 +14301,8 @@ function App() {
                             width={overlayWidth}
                             height={overlayHeight}
                             fill={(() => {
-                              // If effects are disabled, return transparent
-                              if (!showEffects) {
+                              // If effects are disabled or onlyPreview is enabled, return transparent
+                              if (!showEffects || onlyPreview) {
                                 return 'transparent';
                               }
 
@@ -14391,7 +14391,7 @@ function App() {
                   })()}
 
                   {/* Region Label */}
-                  {showPartitionNames && showLabels && (
+                  {showPartitionNames && showLabels && !onlyPreview && (
                     <text
                       x={baseX + (region.x * scale) + (region.width * scale) / 2}
                       y={baseY + (region.y * scale) + 15}
@@ -14458,7 +14458,7 @@ function App() {
                   })()}
 
                   {/* Content Type Name Overlay - Center of parent region (only if no children) */}
-                  {showContentTypeNames && (() => {
+                  {showContentTypeNames && !onlyPreview && (() => {
                     // Only show content type for parent regions without children (slices)
                     if (region.children && region.children.length > 0) return null;
 
@@ -15289,17 +15289,17 @@ function App() {
                                   const hasContent = (regionContents.get(childRegion.id) || []).length > 0;
                                   return hasContent ? '#ffebee' : getRegionBackgroundColor(childRegion.id); // Red tint for occupied, content-type color for empty
                                 })() : getRegionBackgroundColor(childRegion.id)}
-                          stroke={!showRegionBorders ? 'none' : // Hide region borders when toggled off
+                          stroke={!showRegionBorders || onlyPreview ? 'none' : // Hide region borders when toggled off or in onlyPreview mode
                                   hoveredRegionId === childRegion.id ? '#ff6b35' : // Orange border on hover
                                   dragOverRegion === childRegion.id ?
                                   (() => {
                                     const hasContent = (regionContents.get(childRegion.id) || []).length > 0;
                                     return hasContent ? '#f44336' : '#4caf50'; // Red border for occupied, green for empty
                                   })() : childStrokeColor}
-                          strokeWidth={!showRegionBorders ? 0 : // Hide region borders when toggled off
+                          strokeWidth={!showRegionBorders || onlyPreview ? 0 : // Hide region borders when toggled off or in onlyPreview mode
                                       hoveredRegionId === childRegion.id ? 4 : // Thicker border on hover
                                       dragOverRegion === childRegion.id ? 3 : childStrokeWidth}
-                          strokeDasharray={!showPartitionLines ? 'none' : '3,3'} // Only show dotted pattern when partition lines are enabled
+                          strokeDasharray={!showPartitionLines || onlyPreview ? 'none' : '3,3'} // Only show dotted pattern when partition lines are enabled or in onlyPreview mode
                           opacity={hoveredRegionId === childRegion.id ? 1.0 : // Full opacity on hover
                                   dragOverRegion === childRegion.id ? 0.9 : 0.8}
                           style={{ cursor: isProjectMode ? 'copy' : 'pointer' }}
@@ -15341,7 +15341,7 @@ function App() {
                         />
 
                         {/* Child Region Label */}
-                        {showPartitionNames && showLabels && (
+                        {showPartitionNames && showLabels && !onlyPreview && (
                           <text
                             x={baseX + (childRegion.x * scale) + (childRegion.width * scale) / 2}
                             y={baseY + (childRegion.y * scale) + 12}
@@ -15406,7 +15406,7 @@ function App() {
                         })()}
 
                         {/* Content Type Name Overlay - Center of slice */}
-                        {showContentTypeNames && (() => {
+                        {showContentTypeNames && !onlyPreview && (() => {
                           const sliceContents = regionContents.get(childRegion.id) || [];
                           if (sliceContents.length === 0) return null;
 
@@ -16012,8 +16012,8 @@ function App() {
 
               const overflowLinks: React.ReactElement[] = [];
 
-              // Find mothers with overflow children and create sequential links (only if showLinkedLines is enabled)
-              if (showLinkedLines) {
+              // Find mothers with overflow children and create sequential links (only if showLinkedLines is enabled and not in onlyPreview mode)
+              if (showLinkedLines && !onlyPreview) {
                 motherObjects.forEach(mother => {
                 const childIds = (mother as any).childMotherIds || [];
                 if (childIds.length === 0) return;
@@ -16086,7 +16086,7 @@ function App() {
             })()}
 
             {/* Sewing Lines with Dimensions */}
-            {showSewingLines && (() => {
+            {showSewingLines && !onlyPreview && (() => {
               // Check if mid-fold line is enabled - if so, don't show sewing lines
               const objectMidFoldLine = (obj as any).midFoldLine;
               if (objectMidFoldLine && objectMidFoldLine.enabled) {
@@ -16267,7 +16267,7 @@ function App() {
                 return (
                   <>
                     {/* Top Padding Area - controlled by supporting lines toggle */}
-                    {showSupportingLines && (
+                    {showSupportingLines && !onlyPreview && (
                       <rect
                         x={lineStartX}
                         y={topPaddingY}
@@ -16278,7 +16278,7 @@ function App() {
                       />
                     )}
                     {/* Bottom Padding Area - controlled by supporting lines toggle */}
-                    {showSupportingLines && (
+                    {showSupportingLines && !onlyPreview && (
                       <rect
                         x={lineStartX}
                         y={bottomPaddingY}
@@ -16345,7 +16345,7 @@ function App() {
                 return (
                   <>
                     {/* Left Padding Area - controlled by supporting lines toggle */}
-                    {showSupportingLines && (
+                    {showSupportingLines && !onlyPreview && (
                       <rect
                         x={leftPaddingX}
                         y={lineStartY}
@@ -16356,7 +16356,7 @@ function App() {
                       />
                     )}
                     {/* Right Padding Area - controlled by supporting lines toggle */}
-                    {showSupportingLines && (
+                    {showSupportingLines && !onlyPreview && (
                       <rect
                         x={rightPaddingX}
                         y={lineStartY}
