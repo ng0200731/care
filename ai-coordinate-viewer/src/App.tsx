@@ -1898,6 +1898,21 @@ function App() {
     const effectiveWidthPx = effectiveWidth * mmToPx;
     const effectiveHeightPx = effectiveHeight * mmToPx;
 
+    // 🔍 DEBUG: Log canvas measurements for mother comparison
+    const debugRegionName = (window as any).debugMotherRegionName;
+    const isMotherDebug = debugRegionName &&
+      (debugRegionName.includes('mother_1') || debugRegionName.includes('mother_3'));
+    if (isMotherDebug) {
+      console.log(`🎨 CANVAS DEBUG - ${debugRegionName}:`, {
+        text: text.substring(0, 20) + '...',
+        fontSize: fontSize,
+        fontFamily: fontFamily,
+        effectiveWidthPx: effectiveWidthPx,
+        effectiveHeightPx: effectiveHeightPx,
+        padding: padding
+      });
+    }
+
     // Get precise capacity metrics with max utilization setting
     const capacity = calculatePreciseTextCapacity(regionWidth, regionHeight, fontSize, fontFamily, padding, maxUtilization);
 
@@ -14674,6 +14689,23 @@ function App() {
                           zoom  // Use current zoom for consistent zoom behavior like overflow
                         );
 
+                        // 🔍 DEBUG: Log font configuration for mother comparison
+                        const fontFamily = content.newCompTransConfig?.typography?.fontFamily || 'Arial';
+                        const fontSize = regionWrappingFontSize;
+                        if (region.name.includes('mother_1') || region.name.includes('mother_3')) {
+                          // Set global debug region name for canvas debugging
+                          (window as any).debugMotherRegionName = region.name;
+                          console.log(`🔍 MOTHER DEBUG - ${region.name} CompTrans:`, {
+                            fontFamily: fontFamily,
+                            fontSize: fontSize,
+                            availableWidth: availableWidthPx,
+                            availableHeight: availableHeightPx,
+                            text: displayText.substring(0, 30) + '...',
+                            padding: content.newCompTransConfig?.padding,
+                            alignment: content.newCompTransConfig?.alignment
+                          });
+                        }
+
                         // CONSISTENT OVERFLOW LOGIC: Always run split1 processing
                         // This simulates the N-split detection logic from the dialog
                         const regionProcessedResult = processChildRegionTextWrapping(
@@ -14681,7 +14713,7 @@ function App() {
                           availableWidthPx,
                           availableHeightPx,
                           regionWrappingFontSize,
-                          content.newCompTransConfig?.typography?.fontFamily || 'Arial',
+                          fontFamily,
                           content.newCompTransConfig?.lineBreakSettings?.lineBreakSymbol || '\n',
                           content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2
                         );
@@ -15674,12 +15706,14 @@ function App() {
                             const availableHeightPx = Math.max(0, regionHeightPx - paddingTopPx - paddingBottomPx);
 
                             // Use consistent font size calculation for child region text rendering
+                            // 🔧 FIX: Use newCompTransConfig for comp trans content (was using newMultiLineConfig)
+                            const configToUse = content.type === 'new-comp-trans' ? content.newCompTransConfig : content.newMultiLineConfig;
                             const scaledFontSize = calculateConsistentFontSize(
-                              content.newMultiLineConfig?.typography?.fontSize || 12,
-                              content.newMultiLineConfig?.typography?.fontSizeUnit || 'px',
+                              configToUse?.typography?.fontSize || 12,
+                              configToUse?.typography?.fontSizeUnit || 'px',
                               zoom
                             );
-                            const lineSpacing = content.newMultiLineConfig?.lineBreak?.lineSpacing || 1.2;
+                            const lineSpacing = configToUse?.lineBreak?.lineSpacing || configToUse?.lineBreakSettings?.lineSpacing || 1.2;
                             const lineHeight = scaledFontSize * lineSpacing;
 
                             // Calculate text positioning based on alignment
