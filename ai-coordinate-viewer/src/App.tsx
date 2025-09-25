@@ -14628,10 +14628,11 @@ function App() {
                         hasOverflow = false;
                         optimalFit = { overflow: '' };
                       } else if (content.type === 'new-comp-trans') {
-                        // Apply Canvas-First Sync logic-slice to composition translation (same as new-multi-line)
-                        // console.log('🧪 Canvas: Applying Canvas-First Sync logic-slice to composition translation');
+                        // Apply consistent overflow logic approach for new-comp-trans
+                        // Always run split1 logic, determine number of additional mothers needed (0 for no overflow)
+                        console.log('🔧 NEW-COMP-TRANS: Using consistent overflow logic approach');
 
-                        // Calculate available space for text in region (EXACT COPY from new-multi-line logic)
+                        // Calculate available space for text in region
                         const regionWidthPx = region.width * scale;
                         const regionHeightPx = region.height * scale;
                         const paddingLeftPx = padding.left * scale;
@@ -14642,42 +14643,43 @@ function App() {
                         const availableWidthPx = Math.max(0, regionWidthPx - paddingLeftPx - paddingRightPx);
                         const availableHeightPx = Math.max(0, regionHeightPx - paddingTopPx - paddingBottomPx);
 
-                        // Calculate font size for region using consistent scaling
-                        // Use zoom-independent font scaling for text wrapping calculations
+                        // Calculate font size using zoom-dependent scaling (same as overflow logic)
+                        // This ensures zoom in/out maintains same ratio like overflow text
                         const regionWrappingFontSize = calculateConsistentFontSize(
                           content.newCompTransConfig?.typography?.fontSize || 12,
                           content.newCompTransConfig?.typography?.fontSizeUnit || 'px',
-                          1.0  // Fixed zoom for mathematical consistency
-                        );
-                        
-                        // Use zoom-dependent font scaling for visual rendering
-                        const regionDisplayFontSize = calculateConsistentFontSize(
-                          content.newCompTransConfig?.typography?.fontSize || 12,
-                          content.newCompTransConfig?.typography?.fontSizeUnit || 'px',
-                          zoom  // Current zoom for visual scaling
+                          zoom  // Use current zoom for consistent zoom behavior like overflow
                         );
 
-                        // Check if text is already pre-wrapped (from duplicated mother overflow)
-                        if (content.newCompTransConfig?.isPreWrapped) {
-                          // Text is already properly wrapped, just split by newlines
-                          displayLines = displayText.split('\n');
-                          hasOverflow = false;
-                          console.log('✅ Canvas: Using pre-wrapped text (no re-wrapping):', displayLines);
-                        } else {
-                          // Process text wrapping using Canvas-First Sync logic-slice (same as new-multi-line)
-                          const regionProcessedResult = processChildRegionTextWrapping(
-                            displayText,
-                            availableWidthPx,
-                            availableHeightPx,
-                            regionWrappingFontSize,  // Use zoom-independent font for wrapping
-                            content.newCompTransConfig?.typography?.fontFamily || 'Arial',
-                            content.newCompTransConfig?.lineBreakSettings?.lineBreakSymbol || '\n',
-                            content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2
-                          );
+                        // CONSISTENT OVERFLOW LOGIC: Always run split1 processing
+                        // This simulates the N-split detection logic from the dialog
+                        const regionProcessedResult = processChildRegionTextWrapping(
+                          displayText,
+                          availableWidthPx,
+                          availableHeightPx,
+                          regionWrappingFontSize,
+                          content.newCompTransConfig?.typography?.fontFamily || 'Arial',
+                          content.newCompTransConfig?.lineBreakSettings?.lineBreakSymbol || '\n',
+                          content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2
+                        );
 
-                          displayLines = regionProcessedResult.lines;
-                          hasOverflow = regionProcessedResult.hasOverflow;
-                        }
+                        // Always use split1 result (first split of the text)
+                        displayLines = regionProcessedResult.lines;
+                        hasOverflow = regionProcessedResult.hasOverflow;
+
+                        // Consistent logic: Determine additional mothers needed
+                        const additionalMothersNeeded = hasOverflow ? 1 : 0; // Could be extended for N-split later
+
+                        console.log('🔧 NEW-COMP-TRANS: Consistent overflow logic result:', {
+                          inputText: displayText.substring(0, 50) + '...',
+                          splitTextUsed: displayLines.join(' ').substring(0, 50) + '...',
+                          hasOverflow: hasOverflow,
+                          additionalMothersNeeded: additionalMothersNeeded,
+                          linesUsed: displayLines.length,
+                          currentZoom: zoom,
+                          fontSizeUsed: regionWrappingFontSize,
+                          approach: 'Always process split1, zoom-consistent like overflow text'
+                        });
 
                         // console.log('✅ Canvas: Applied Canvas-First Sync logic-slice to composition translation:', {
                         //   regionId: region.id,
