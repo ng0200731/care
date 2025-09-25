@@ -15008,7 +15008,7 @@ function App() {
                       const paddingLeftPx = config.padding.left * scale;
                       
                       // Only show if any padding is greater than 0 and supporting lines are enabled
-                      if (!showSupportingLines || onlyPreview || (config.padding.top === 0 && config.padding.right === 0 &&
+                      if (!showSupportingLines || onlyPreview || onlyPreview || (config.padding.top === 0 && config.padding.right === 0 &&
                           config.padding.bottom === 0 && config.padding.left === 0)) {
                         return null;
                       }
@@ -15094,7 +15094,7 @@ function App() {
                       const paddingLeftPx = config.padding.left * scale;
 
                       // Only show if any padding is greater than 0 and supporting lines are enabled
-                      if (!showSupportingLines || onlyPreview || (config.padding.top === 0 && config.padding.right === 0 &&
+                      if (!showSupportingLines || onlyPreview || onlyPreview || (config.padding.top === 0 && config.padding.right === 0 &&
                           config.padding.bottom === 0 && config.padding.left === 0)) {
                         return null;
                       }
@@ -15183,7 +15183,7 @@ function App() {
                       const paddingLeftPx = config.padding.left * scale;
 
                       // Only show if any padding is greater than 0 and supporting lines are enabled
-                      if (!showSupportingLines ||
+                      if (!showSupportingLines || onlyPreview ||
                           (config.padding.top === 0 && config.padding.right === 0 &&
                            config.padding.bottom === 0 && config.padding.left === 0)) {
                         return null;
