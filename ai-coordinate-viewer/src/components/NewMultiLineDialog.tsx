@@ -750,14 +750,40 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
 
         {/* Text Content */}
         <div style={{ marginBottom: '24px' }}>
-          <h3 style={{
-            margin: '0 0 12px 0',
-            fontSize: '16px',
-            fontWeight: '600',
-            color: '#2d3748'
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '12px'
           }}>
-            Text Content
-          </h3>
+            <h3 style={{
+              margin: 0,
+              fontSize: '16px',
+              fontWeight: '600',
+              color: '#2d3748'
+            }}>
+              Text Content
+            </h3>
+            <button
+              type="button"
+              onClick={() => {
+                // Order Variable functionality - placeholder for now
+                console.log('Order Variable clicked for Text Content');
+              }}
+              style={{
+                padding: '6px 12px',
+                border: '1px solid #007bff',
+                borderRadius: '4px',
+                backgroundColor: '#007bff',
+                color: 'white',
+                fontSize: '11px',
+                cursor: 'pointer',
+                fontWeight: '500'
+              }}
+            >
+              🔄 Order Variable
+            </button>
+          </div>
           <div>
             <label style={{ fontSize: '14px', color: '#4a5568', display: 'block', marginBottom: '4px' }}>
               Text Value (use {config.lineBreak.symbol} for line breaks)
@@ -785,14 +811,40 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
 
         {/* Line Break Controls */}
         <div style={{ marginBottom: '24px' }}>
-          <h3 style={{
-            margin: '0 0 12px 0',
-            fontSize: '16px',
-            fontWeight: '600',
-            color: '#2d3748'
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '12px'
           }}>
-            Line Break Settings
-          </h3>
+            <h3 style={{
+              margin: 0,
+              fontSize: '16px',
+              fontWeight: '600',
+              color: '#2d3748'
+            }}>
+              Line Break Settings
+            </h3>
+            <button
+              type="button"
+              onClick={() => {
+                // Order Variable functionality for multiple line settings - placeholder for now
+                console.log('Order Variable clicked for Line Break Settings');
+              }}
+              style={{
+                padding: '6px 12px',
+                border: '1px solid #007bff',
+                borderRadius: '4px',
+                backgroundColor: '#007bff',
+                color: 'white',
+                fontSize: '11px',
+                cursor: 'pointer',
+                fontWeight: '500'
+              }}
+            >
+              🔄 Order Variable
+            </button>
+          </div>
           <div style={{
             display: 'grid',
             gridTemplateColumns: '2fr 1fr 1fr',

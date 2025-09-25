@@ -3889,12 +3889,37 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
             backgroundColor: '#f8f9fa'
           }}>
             <div style={{
-              fontSize: '12px',
-              fontWeight: '600',
-              marginBottom: '12px',
-              color: '#333'
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '12px'
             }}>
-              Line Break Settings:
+              <div style={{
+                fontSize: '12px',
+                fontWeight: '600',
+                color: '#333'
+              }}>
+                Line Break Settings:
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  // Order Variable functionality for multiple line settings - placeholder for now
+                  console.log('Order Variable clicked for Line Break Settings');
+                }}
+                style={{
+                  padding: '6px 12px',
+                  border: '1px solid #007bff',
+                  borderRadius: '4px',
+                  backgroundColor: '#007bff',
+                  color: 'white',
+                  fontSize: '11px',
+                  cursor: 'pointer',
+                  fontWeight: '500'
+                }}
+              >
+                🔄 Order Variable
+              </button>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
@@ -4010,12 +4035,37 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
             backgroundColor: '#f8f9fa'
           }}>
             <div style={{
-              fontSize: '12px',
-              fontWeight: '600',
-              marginBottom: '12px',
-              color: '#333'
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '12px'
             }}>
-              Text Content:
+              <div style={{
+                fontSize: '12px',
+                fontWeight: '600',
+                color: '#333'
+              }}>
+                Text Content:
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  // Order Variable functionality - placeholder for now
+                  console.log('Order Variable clicked');
+                }}
+                style={{
+                  padding: '6px 12px',
+                  border: '1px solid #007bff',
+                  borderRadius: '4px',
+                  backgroundColor: '#007bff',
+                  color: 'white',
+                  fontSize: '11px',
+                  cursor: 'pointer',
+                  fontWeight: '500'
+                }}
+              >
+                🔄 Order Variable
+              </button>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 3fr', gap: '16px' }}>
