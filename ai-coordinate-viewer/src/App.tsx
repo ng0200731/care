@@ -16804,8 +16804,28 @@ function App() {
                       const newOnlyPreview = !onlyPreview;
                       setOnlyPreview(newOnlyPreview);
 
-                      // When turning Only Preview OFF, automatically turn ON Content Type and Sewing Line
-                      if (!newOnlyPreview) {
+                      if (newOnlyPreview) {
+                        // When turning Only Preview ON: force all buttons OFF
+                        setShowLinkedLines(false);
+                        setShowDimensions(false);
+                        setShowPartitionLines(false);
+                        setShowRegionBorders(false);
+                        setShowEffects(false);
+                        setShowLabels(false);
+                        setShowSupportingLines(false);
+                        setShowPartitionNames(false);
+                        setShowContentTypeNames(false);
+                        setShowSewingLines(false);
+                      } else {
+                        // When turning Only Preview OFF: force all buttons ON
+                        setShowLinkedLines(true);
+                        setShowDimensions(true);
+                        setShowPartitionLines(true);
+                        setShowRegionBorders(true);
+                        setShowEffects(true);
+                        setShowLabels(true);
+                        setShowSupportingLines(true);
+                        setShowPartitionNames(true);
                         setShowContentTypeNames(true);
                         setShowSewingLines(true);
                       }
