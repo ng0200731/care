@@ -13800,7 +13800,7 @@ function App() {
               ));
 
               // Add margin guide lines if this object is selected and supporting lines are enabled
-              const marginGuides = selectedObject === obj && showSupportingLines ? [
+              const marginGuides = selectedObject === obj && showSupportingLines && !onlyPreview ? [
                 // Top margin line
                 <line
                   key="margin-top"
@@ -16227,7 +16227,7 @@ function App() {
             }
 
             {/* Mid-Fold Line Rendering (New Enhanced System) */}
-            {obj.type?.includes('mother') && (() => {
+            {obj.type?.includes('mother') && !onlyPreview && (() => {
               const objectMidFoldLine = (obj as any).midFoldLine;
               if (!objectMidFoldLine || !objectMidFoldLine.enabled) {
                 return null;
