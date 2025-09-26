@@ -4997,6 +4997,9 @@ function App() {
 
   // NEW: Perfect SVG - Combines outline's text formatting + PDF's 40x90mm scaling
   const exportPerfectSVG = async () => {
+    // Show confirmation popup when button is clicked
+    alert('🚀 Perfect SVG button clicked!\n\n✨ Processing CJK segments for perfect rendering...\n🔧 Now ALL Chinese/Japanese/Korean text gets proper segmentation!\n\n⏳ Processing...');
+
     console.log('✨ Exporting PERFECT SVG: Outline text formatting + 40x90mm mother_1');
 
     try {
@@ -5162,8 +5165,18 @@ function App() {
         const hasKorean = languagePatterns.korean.test(textContent);
         const hasArabic = languagePatterns.arabic.test(textContent);
         const hasDash = textContent.includes('-');
+        // MODIFIED: Also segment single CJK languages to ensure consistent handling
         const hasMultipleLanguages = [hasChinese, hasJapanese, hasKorean].filter(Boolean).length > 1 ||
-                                   (hasDash && ([hasChinese, hasJapanese, hasKorean].filter(Boolean).length > 0));
+                                   (hasDash && ([hasChinese, hasJapanese, hasKorean].filter(Boolean).length > 0)) ||
+                                   hasChinese || hasJapanese || hasKorean; // Segment ALL CJK text
+
+        // Simple detection and logging for CJK text
+        const x = textEl.getAttribute('x') || '0';
+        const y = textEl.getAttribute('y') || '0';
+
+        if (hasChinese || hasJapanese || hasKorean) {
+          console.log(`🔍 CJK text found: "${textContent.substring(0, 20)}..." at x=${x} y=${y} willSegment=${hasMultipleLanguages}`);
+        }
 
         // Copy outline's mixed language handling
         if (hasMultipleLanguages) {
@@ -5176,7 +5189,40 @@ function App() {
           textEl.setAttribute('x', x);
           textEl.setAttribute('y', y);
 
+          // Fix segment positioning for ALL CJK text based on text anchor
           let currentX = parseFloat(x);
+          const textAnchor = textEl.getAttribute('text-anchor') || 'start';
+
+          // Fix center alignment issue specifically
+          if (textAnchor === 'middle') {
+            // For center-aligned text, we need to calculate where the text actually starts
+            // The x position represents the center, but segments need absolute positions
+            console.log(`🔧 BEFORE: Center-aligned CJK at x=${currentX} (center position)`);
+
+            // Keep the original center position - let each segment calculate from center
+            // Don't adjust currentX, but make sure segments use relative positioning
+            textEl.setAttribute('text-anchor', 'start'); // Change anchor to start for segments
+
+            // Calculate the actual starting position for the first segment
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.font = `${fontSize}px Arial`; // Use Arial to measure total width first
+              const totalWidth = ctx.measureText(textContent).width;
+              currentX = currentX - totalWidth / 2; // Start from left edge
+              console.log(`🔧 AFTER: Center-aligned CJK adjusted to start at x=${currentX} (total width: ${totalWidth}px)`);
+            }
+          } else if (textAnchor === 'end') {
+            // For right-anchored text, segments need to start from the left edge
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.font = `${fontSize}px ${fontFamily}`;
+              const totalWidth = ctx.measureText(textContent).width;
+              currentX = currentX - totalWidth;
+              console.log(`🔧 Right-anchored CJK: start adjusted to x=${currentX}`);
+            }
+          }
 
           segments.forEach((segment, index) => {
             const span = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
@@ -5184,6 +5230,11 @@ function App() {
             span.setAttribute('x', currentX.toString());
             span.setAttribute('y', y);
             span.setAttribute('font-size', fontSize);
+
+            // DEBUG: Log each segment positioning
+            if (hasChinese || hasJapanese || hasKorean) {
+              console.log(`  📝 Segment ${index}: "${segment.text}" (${segment.language}) x=${currentX} y=${y}`);
+            }
 
             const fontFamily = segment.language === 'chinese' ? '宋体, SimSun' :
                              segment.language === 'japanese' ? '小塚ゴシック Pr6N R' :
@@ -5210,9 +5261,21 @@ function App() {
             if (ctx) {
               ctx.font = `${fontSize}px ${fontFamily}`;
               const segmentWidth = ctx.measureText(segment.text).width;
+              const oldX = currentX;
               currentX += segmentWidth;
+
+              // DEBUG: Log positioning updates
+              if (hasChinese || hasJapanese || hasKorean) {
+                console.log(`    ➡️ Width: ${segmentWidth.toFixed(1)}px, currentX: ${oldX.toFixed(1)} → ${currentX.toFixed(1)}`);
+              }
             } else {
-              currentX += segment.text.length * parseFloat(fontSize) * 0.6;
+              const fallbackWidth = segment.text.length * parseFloat(fontSize) * 0.6;
+              const oldX = currentX;
+              currentX += fallbackWidth;
+
+              if (hasChinese || hasJapanese || hasKorean) {
+                console.log(`    ➡️ Fallback width: ${fallbackWidth.toFixed(1)}px, currentX: ${oldX.toFixed(1)} → ${currentX.toFixed(1)}`);
+              }
             }
           });
         } else {
@@ -15114,14 +15177,12 @@ function App() {
                         <g key={`${region.id}-text-group-${contentIndex}`}>
                           {/* Render text lines or washing care symbols without clipping */}
                           <g>
-                            {content.type === 'new-washing-care-symbol' || (content.type === 'new-comp-trans' && displayText && /^[bGBJ5]+$/.test(displayText.replace(/\s/g, ''))) ? (
+                            {(content.type === 'new-washing-care-symbol' || (content.type === 'new-comp-trans' && displayText && /^[bGBJ5\s]+$/.test(displayText))) ? (
                               // Render washing care symbols using Wash Care Symbols M54 font with configuration
-                              // This includes both direct washing care symbols and comp trans content with only wash symbols
                               (() => {
-                                // Extract symbols based on content type
                                 const symbols = content.type === 'new-washing-care-symbol'
                                   ? (content.content?.symbols || ['b', 'G', '5', 'B', 'J'])
-                                  : displayText.replace(/\s/g, '').split(''); // For comp trans, use displayText
+                                  : displayText.replace(/\s/g, '').split(''); // For comp trans, extract from displayText
 
                                 // Use configuration settings based on content type
                                 const configIconSize = content.type === 'new-washing-care-symbol'
@@ -15915,180 +15976,161 @@ function App() {
                             const lineSpacing = configToUse?.lineBreak?.lineSpacing || configToUse?.lineBreakSettings?.lineSpacing || 1.2;
                             const lineHeight = scaledFontSize * lineSpacing;
 
-                            // Calculate text positioning based on alignment
-                            let textX = childBaseX + paddingLeftPx;
-                            let textY = childBaseY + paddingTopPx;
+                            // Calculate composition translation specific font sizes if applicable (same as region)
+                            const isCompTrans = content.type === 'new-comp-trans';
+                            const compTransDisplayFontSize = isCompTrans ? calculateConsistentFontSize(
+                              content.newCompTransConfig?.typography?.fontSize || fontSize,
+                              content.newCompTransConfig?.typography?.fontSizeUnit || fontSizeUnit,
+                              zoom
+                            ) : undefined;
+
+                            // Calculate text positioning based on alignment (copy region's exact logic)
+                            // Enhanced text anchor and position calculation with safety margins (same as region)
+                            let textAnchor: 'start' | 'middle' | 'end' = 'start';
+
+                            // Calculate safety margins consistent with text wrapping logic (same as region)
+                            const fontSizeMm = scaledFontSize / 3.779527559; // Convert px to mm
+                            const baseSafetyMargin = fontSizeMm * 0.1; // 10% of font size
+                            const renderingMargin = 0.5; // 0.5mm for rendering discrepancies
+                            const totalSafetyMargin = baseSafetyMargin + renderingMargin;
+                            const safetyMarginPx = totalSafetyMargin * 3.779527559; // Convert to pixels
+
+                            // Apply safety margins to text positioning (same as region)
+                            let textX = childBaseX + paddingLeftPx + safetyMarginPx;
 
                             if (textAlign === 'center') {
-                              textX = childBaseX + regionWidthPx / 2;
+                              textAnchor = 'middle';
+                              // Center within the available area (respecting padding and safety margins) (same as region)
+                              const availableAreaX = childBaseX + paddingLeftPx + safetyMarginPx;
+                              const availableAreaWidth = regionWidthPx - paddingLeftPx - paddingRightPx - (2 * safetyMarginPx);
+                              textX = availableAreaX + availableAreaWidth / 2;
                             } else if (textAlign === 'right') {
-                              textX = childBaseX + regionWidthPx - paddingRightPx;
+                              textAnchor = 'end';
+                              textX = childBaseX + regionWidthPx - paddingRightPx - safetyMarginPx;
                             }
 
+                            // Calculate vertical starting position based on vertical alignment (same as region, using startY)
+                            let startY = childBaseY + paddingTopPx;
                             if (verticalAlign === 'center') {
                               const totalTextHeight = displayLines.length * lineHeight;
-                              textY = childBaseY + (regionHeightPx - totalTextHeight) / 2;
+                              startY = childBaseY + (regionHeightPx - totalTextHeight) / 2;
                             } else if (verticalAlign === 'bottom') {
                               const totalTextHeight = displayLines.length * lineHeight;
-                              textY = childBaseY + regionHeightPx - paddingBottomPx - totalTextHeight;
+                              startY = childBaseY + regionHeightPx - paddingBottomPx - totalTextHeight;
                             }
 
                             // Render text lines (same as main regions)
                             if (displayLines.length === 0) return null;
 
-                            // Set text anchor based on alignment
-                            let textAnchor: 'start' | 'middle' | 'end' = 'start';
-                            if (textAlign === 'center') {
-                              textAnchor = 'middle';
-                            } else if (textAlign === 'right') {
-                              textAnchor = 'end';
-                            }
+                            // Render text lines or washing care symbols without clipping (same structure as main regions)
+                            return (
+                              <g key={`${childRegion.id}-text-group-${contentIndex}`}>
+                                {/* Render text lines or washing care symbols without clipping */}
+                                <g>
+                                  {(content.type === 'new-washing-care-symbol' || (content.type === 'new-comp-trans' && displayText && /^[bGBJ5\s]+$/.test(displayText))) ? (
+                                    // Render washing care symbols using Wash Care Symbols M54 font with configuration
+                                    (() => {
+                                      const symbols = content.type === 'new-washing-care-symbol'
+                                        ? (content.content?.symbols || ['b', 'G', '5', 'B', 'J'])
+                                        : displayText.replace(/\s/g, '').split(''); // For comp trans, extract from displayText
 
-                            // Render washing care symbols, composition translation with symbols, or regular text
-                            if (content.type === 'new-washing-care-symbol') {
-                              // Render washing care symbols using Wash Care Symbols M54 font in child regions with configuration
-                              const symbols = content.content?.symbols || ['b', 'G', '5', 'B', 'J'];
+                                      // Use configuration settings based on content type
+                                      const configIconSize = content.type === 'new-washing-care-symbol'
+                                        ? (content.content?.iconSize || 8)
+                                        : (content.newCompTransConfig?.typography?.fontSize || 8);
+                                      const configPadding = content.type === 'new-washing-care-symbol'
+                                        ? (content.content?.padding || { top: 2, left: 2, bottom: 2, right: 2 })
+                                        : (content.newCompTransConfig?.padding || { top: 2, left: 2, bottom: 2, right: 2 });
+                                      const configAlignment = content.type === 'new-washing-care-symbol'
+                                        ? (content.content?.alignment || { horizontal: 'center', vertical: 'center' })
+                                        : (content.newCompTransConfig?.alignment || { horizontal: 'center', vertical: 'center' });
 
-                              // Use configuration settings if available
-                              const configIconSize = content.content?.iconSize || 8; // Default 8mm
-                              const configPadding = content.content?.padding || { top: 2, left: 2, bottom: 2, right: 2 };
-                              const configAlignment = content.content?.alignment || { horizontal: 'center', vertical: 'center' };
+                                      // Convert mm to pixels for rendering
+                                      const mmToPx = 3.78; // 1mm = 3.78px at 96 DPI
+                                      const symbolSizePx = configIconSize * mmToPx * zoom;
+                                      const paddingTopPx = configPadding.top * mmToPx * zoom;
+                                      const paddingLeftPx = configPadding.left * mmToPx * zoom;
+                                      const paddingBottomPx = configPadding.bottom * mmToPx * zoom;
+                                      const paddingRightPx = configPadding.right * mmToPx * zoom;
 
-                              // Convert mm to pixels for rendering
-                              const mmToPx = 3.78; // 1mm = 3.78px at 96 DPI
-                              const symbolSizePx = configIconSize * mmToPx * zoom;
-                              const paddingTopPx = configPadding.top * mmToPx * zoom;
-                              const paddingLeftPx = configPadding.left * mmToPx * zoom;
-                              const paddingBottomPx = configPadding.bottom * mmToPx * zoom;
-                              const paddingRightPx = configPadding.right * mmToPx * zoom;
+                                      // Calculate available space after padding
+                                      const availableWidth = regionWidthPx - paddingLeftPx - paddingRightPx;
+                                      const availableHeight = regionHeightPx - paddingTopPx - paddingBottomPx;
+                                      const symbolSpacing = availableWidth / symbols.length;
 
-                              // Calculate available space after padding
-                              const availableWidth = regionWidthPx - paddingLeftPx - paddingRightPx;
-                              const availableHeight = regionHeightPx - paddingTopPx - paddingBottomPx;
-                              const symbolSpacing = availableWidth / symbols.length;
+                                      // Calculate container position based on alignment
+                                      let containerX = childBaseX + paddingLeftPx;
+                                      let containerY = childBaseY + paddingTopPx;
 
-                              // Calculate container position based on alignment
-                              let containerX = childBaseX + paddingLeftPx;
-                              let containerY = childBaseY + paddingTopPx;
+                                      if (configAlignment.horizontal === 'center') {
+                                        containerX = childBaseX + (regionWidthPx / 2) - (availableWidth / 2);
+                                      } else if (configAlignment.horizontal === 'right') {
+                                        containerX = childBaseX + regionWidthPx - paddingRightPx - availableWidth;
+                                      }
 
-                              if (configAlignment.horizontal === 'center') {
-                                containerX = childBaseX + (regionWidthPx / 2) - (availableWidth / 2);
-                              } else if (configAlignment.horizontal === 'right') {
-                                containerX = childBaseX + regionWidthPx - paddingRightPx - availableWidth;
-                              }
+                                      if (configAlignment.vertical === 'center') {
+                                        containerY = childBaseY + (regionHeightPx / 2) - (symbolSizePx / 2);
+                                      } else if (configAlignment.vertical === 'bottom') {
+                                        containerY = childBaseY + regionHeightPx - paddingBottomPx - symbolSizePx;
+                                      }
 
-                              if (configAlignment.vertical === 'center') {
-                                containerY = childBaseY + (regionHeightPx / 2) - (symbolSizePx / 2);
-                              } else if (configAlignment.vertical === 'bottom') {
-                                containerY = childBaseY + regionHeightPx - paddingBottomPx - symbolSizePx;
-                              }
+                                      return (
+                                        <g key="child-washing-symbols-container">
+                                          {symbols.map((symbol: string, symbolIndex: number) => {
+                                            const symbolX = containerX + symbolIndex * symbolSpacing + symbolSpacing / 2;
+                                            const symbolY = containerY + (symbolSizePx / 2);
 
-                              return (
-                                <g key="child-washing-symbols-container">
-                                  {symbols.map((symbol: string, symbolIndex: number) => {
-                                    const symbolX = containerX + symbolIndex * symbolSpacing + symbolSpacing / 2;
-                                    const symbolY = containerY + (symbolSizePx / 2);
+                                            // Render symbol using Wash Care Symbols M54 font with configured size
+                                            return (
+                                              <text
+                                                key={`child-symbol-${symbolIndex}`}
+                                                x={symbolX}
+                                                y={symbolY}
+                                                fill="black"
+                                                fontSize={symbolSizePx}
+                                                fontFamily="Wash Care Symbols M54"
+                                                textAnchor="middle"
+                                                dominantBaseline="central"
+                                              >
+                                                {symbol}
+                                              </text>
+                                            );
+                                          })}
+                                        </g>
+                                      );
+                                    })()
+                                  ) : (
+                                    // Render regular text lines
+                                    displayLines.map((line, lineIndex) => {
+                                      // Use display font size for line height if this is composition translation (same as region)
+                                      const effectiveLineHeight = isCompTrans && compTransDisplayFontSize
+                                        ? compTransDisplayFontSize * (content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2)
+                                        : lineHeight;
+                                      const textYPos = startY + (lineIndex + 1) * effectiveLineHeight;
 
-                                    // Render symbol using Wash Care Symbols M54 font with configured size
-                                    return (
-                                      <text
-                                        key={`child-symbol-${symbolIndex}`}
-                                        x={symbolX}
-                                        y={symbolY}
-                                        fill="black"
-                                        fontSize={symbolSizePx}
-                                        fontFamily="Wash Care Symbols M54"
-                                        textAnchor="middle"
-                                        dominantBaseline="central"
-                                      >
-                                        {symbol}
-                                      </text>
-                                    );
-                                  })}
+                                      return (
+                                        <text
+                                          key={`${childRegion.id}-preview-${contentIndex}-line-${lineIndex}`}
+                                          x={textX}
+                                          y={textYPos}
+                                          fill={fontColor}
+                                          fontSize={compTransDisplayFontSize || scaledFontSize}
+                                          fontFamily={fontFamily}
+                                          textAnchor={textAnchor}
+                                          dominantBaseline="alphabetic"
+                                          opacity="0.9"
+                                          style={{
+                                            pointerEvents: 'none'
+                                          }}
+                                        >
+                                          {line}
+                                        </text>
+                                      );
+                                    })
+                                  )}
                                 </g>
-                              );
-                            } else if (content.type === 'new-comp-trans' && displayText && /^[bGBJ5]+$/.test(displayText.replace(/\s/g, ''))) {
-                              // Check if comp trans content contains only washing care symbol characters
-                              // If so, render using Wash Care Symbols M54 font like the perfect region implementation
-                              const symbols = displayText.replace(/\s/g, '').split(''); // Remove spaces and split into individual symbols
-
-                              // Use comp trans configuration for sizing and positioning
-                              const configIconSize = content.newCompTransConfig?.typography?.fontSize || 8;
-                              const configPadding = content.newCompTransConfig?.padding || { top: 2, left: 2, bottom: 2, right: 2 };
-                              const configAlignment = content.newCompTransConfig?.alignment || { horizontal: 'center', vertical: 'center' };
-
-                              // Convert mm to pixels for rendering
-                              const mmToPx = 3.78; // 1mm = 3.78px at 96 DPI
-                              const symbolSizePx = configIconSize * mmToPx * zoom;
-                              const paddingTopPx = configPadding.top * mmToPx * zoom;
-                              const paddingLeftPx = configPadding.left * mmToPx * zoom;
-                              const paddingBottomPx = configPadding.bottom * mmToPx * zoom;
-                              const paddingRightPx = configPadding.right * mmToPx * zoom;
-
-                              // Calculate available space after padding
-                              const availableWidth = regionWidthPx - paddingLeftPx - paddingRightPx;
-                              const availableHeight = regionHeightPx - paddingTopPx - paddingBottomPx;
-                              const symbolSpacing = availableWidth / symbols.length;
-
-                              // Calculate container position based on alignment
-                              let containerX = childBaseX + paddingLeftPx;
-                              let containerY = childBaseY + paddingTopPx;
-
-                              if (configAlignment.horizontal === 'center') {
-                                containerX = childBaseX + (regionWidthPx / 2) - (availableWidth / 2);
-                              } else if (configAlignment.horizontal === 'right') {
-                                containerX = childBaseX + regionWidthPx - paddingRightPx - availableWidth;
-                              }
-
-                              if (configAlignment.vertical === 'center') {
-                                containerY = childBaseY + (regionHeightPx / 2) - (symbolSizePx / 2);
-                              } else if (configAlignment.vertical === 'bottom') {
-                                containerY = childBaseY + regionHeightPx - paddingBottomPx - symbolSizePx;
-                              }
-
-                              return (
-                                <g key="child-comp-trans-wash-symbols-container">
-                                  {symbols.map((symbol: string, symbolIndex: number) => {
-                                    const symbolX = containerX + symbolIndex * symbolSpacing + symbolSpacing / 2;
-                                    const symbolY = containerY + (symbolSizePx / 2);
-
-                                    // Render washing care symbol using Wash Care Symbols M54 font
-                                    return (
-                                      <text
-                                        key={`child-comp-trans-symbol-${symbolIndex}`}
-                                        x={symbolX}
-                                        y={symbolY}
-                                        fill="black"
-                                        fontSize={symbolSizePx}
-                                        fontFamily="Wash Care Symbols M54"
-                                        textAnchor="middle"
-                                        dominantBaseline="central"
-                                      >
-                                        {symbol}
-                                      </text>
-                                    );
-                                  })}
-                                </g>
-                              );
-                            } else {
-                              // Render regular text lines
-                              return displayLines.map((line, lineIndex) => (
-                                <text
-                                  key={`child-text-${childRegion.id}-${contentIndex}-${lineIndex}`}
-                                  x={textX}
-                                  y={textY + (lineIndex + 1) * lineHeight}
-                                  fill={fontColor}
-                                  fontSize={scaledFontSize}
-                                  fontFamily={fontFamily}
-                                  textAnchor={textAnchor}
-                                  dominantBaseline="alphabetic"
-                                  opacity="0.95"
-                                  style={{ pointerEvents: 'none' }}
-                                >
-                                  {line}
-                                </text>
-                              ));
-                            }
+                              </g>
+                            );
                           });
                         })()}
 

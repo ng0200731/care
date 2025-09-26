@@ -15,7 +15,8 @@
       "Bash(git commit:*)",
       "Bash(git push:*)",
       "Bash(git pull:*)",
-      "Bash(clip)"
+      "Bash(clip)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []
