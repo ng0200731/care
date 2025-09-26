@@ -10983,9 +10983,10 @@ function App() {
                         // 🎯 SELECTIVE CTP METHOD: Use different rendering based on mother type
                         // Mother 1 & 2: Use old method (text-based, copyable)
                         // Mother 3+: Use CTP method (image-based) for composition translation content
+                        // Exception: Always use CTP method for new-comp-trans to avoid broken words
                         const motherName = mother.name || '';
                         const motherNumber = parseInt(motherName.match(/Mother_(\d+)/)?.[1] || '1');
-                        const forceCanvasToImageMethod = motherNumber >= 3; // CTP method only for Mother 3+
+                        const forceCanvasToImageMethod = motherNumber >= 3 || content.type === 'new-comp-trans'; // Force CTP for new-comp-trans
 
                         if (forceCanvasToImageMethod) {
                           console.log(`🎯 Using CTP method for ${motherName} (Mother ${motherNumber}) - composition translation as image`);
