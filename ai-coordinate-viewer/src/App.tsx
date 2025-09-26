@@ -476,9 +476,11 @@ function App() {
     };
 
     const onMotherDeleted = async (motherId: string) => {
-      console.log(`🔗 Callback: Deleting mother from relationship system: ${motherId}`);
-      // Note: This callback is now part of a persistent manager, so we don't directly manipulate state here
-      // The actual deletion is handled by the trashMother function which calls cascadeDeleteChildren
+      console.log(`🔗 Callback: Request to delete mother from relationship system: ${motherId}`);
+      // CRITICAL: This callback should NOT perform actual deletion to avoid cross-family interference
+      // The trashMother function already handles proper deletion with isolation validation
+      // This callback is for the DynamicMotherRelationshipManager's internal tracking only
+      console.log(`🔍 ISOLATION: onMotherDeleted callback called but taking no action to prevent cross-family interference`);
     };
 
     const onContentUpdated = async (motherId: string, content: string) => {
@@ -511,11 +513,28 @@ function App() {
 
       // Make regionContents update function available to dialogs
       (window as any).updateRegionContents = (regionId: string, contents: any[]) => {
-        console.log('🔄 DEBUG: updateRegionContents called:', { regionId, contents });
+        console.log('🔍 CODE_WINDOW_01: updateRegionContents called');
+        console.log('🔍 CODE_WINDOW_02: Region ID:', regionId);
+        console.log('🔍 CODE_WINDOW_03: Contents length:', contents?.length || 0);
+
         setRegionContents(prevContents => {
+          console.log('🔍 CODE_WINDOW_04: Before update size:', prevContents.size);
+          console.log('🔍 CODE_WINDOW_05: Before update regions:', Array.from(prevContents.keys()));
+
           const newContents = new Map(prevContents);
           newContents.set(regionId, contents);
-          console.log('✅ DEBUG: regionContents updated for region:', regionId);
+
+          console.log('🔍 CODE_WINDOW_06: After update size:', newContents.size);
+          console.log('🔍 CODE_WINDOW_07: After update regions:', Array.from(newContents.keys()));
+
+          // Check for mother_1A regions (with safety check)
+          const mother1ARegions = Array.from(newContents.keys()).filter(key => key && typeof key === 'string' && key.includes('mother_1A'));
+          console.log('🔍 CODE_WINDOW_08: mother_1A regions found:', mother1ARegions);
+          mother1ARegions.forEach(regionKey => {
+            const regionContents = newContents.get(regionKey);
+            console.log(`🔍 CODE_WINDOW_09: ${regionKey} has ${regionContents?.length || 0} content items`);
+          });
+
           return newContents;
         });
       };
@@ -1094,42 +1113,57 @@ function App() {
       console.log('🔄 Updating existing comp trans content:', editingContent.id, 'with config:', config);
       console.log('📝 [v2.9.180] SPLIT 1 text being saved:', config.textContent.generatedText?.substring(0, 100) + '...');
       setRegionContents(prevContents => {
-        const newContents = new Map(); // Create completely new Map to force re-render
-        
-        // Copy all existing contents
-        Array.from(prevContents.entries()).forEach(([key, value]) => {
-          if (key === regionId) {
-            // Update the specific region with new content
-            const existingContents = value || [];
-            const updatedContents = existingContents.map((content: any) =>
-              content.id === editingContent.id
-                ? {
-                    ...content,
-                    type: 'new-comp-trans' as const,
-                    content: {
-                      ...content.content,
-                      text: config.textContent.generatedText || 'Composition Translation',
-                      padding: config.padding,
-                      alignment: config.alignment
-                    },
-                    typography: config.typography,
-                    layout: {
-                      ...content.layout,
-                      padding: config.padding,
-                      horizontalAlign: config.alignment.horizontal,
-                      verticalAlign: config.alignment.vertical
-                    },
-                    newCompTransConfig: config // Store complete configuration with SPLIT 1 text
-                  }
-                : content
-            );
-            newContents.set(key, updatedContents);
-            console.log(`🔄 [v2.9.180] Force updating region ${regionId} with new content:`, updatedContents[0]?.newCompTransConfig?.textContent?.generatedText?.substring(0, 50) + '...');
-          } else {
-            newContents.set(key, value);
-          }
+        console.log('🔍 CODE_M3_01: handleNewCompTransSave BEFORE update');
+        console.log('🔍 CODE_M3_02: Current regionContents size:', prevContents.size);
+        console.log('🔍 CODE_M3_03: All current regions:', Array.from(prevContents.keys()));
+        console.log('🔍 CODE_M3_04: Target regionId:', regionId);
+        console.log('🔍 CODE_M3_05: Editing content ID:', editingContent.id);
+
+        // SAFE UPDATE: Create new Map preserving all existing content
+        const newContents = new Map(prevContents); // Start with complete copy of existing data
+        console.log('🔍 CODE_M3_06: After new Map() size:', newContents.size);
+
+        // Get current contents for the specific region
+        const existingContents = newContents.get(regionId) || [];
+        console.log('🔍 CODE_M3_07: Existing contents in target region:', existingContents.length);
+
+        // Update only the specific content item
+        const updatedContents = existingContents.map((content: any) =>
+          content.id === editingContent.id
+            ? {
+                ...content,
+                type: 'new-comp-trans' as const,
+                content: {
+                  ...content.content,
+                  text: config.textContent.generatedText || 'Composition Translation',
+                  padding: config.padding,
+                  alignment: config.alignment
+                },
+                typography: config.typography,
+                layout: {
+                  ...content.layout,
+                  padding: config.padding,
+                  horizontalAlign: config.alignment.horizontal,
+                  verticalAlign: config.alignment.vertical
+                },
+                newCompTransConfig: config // Store complete configuration with SPLIT 1 text
+              }
+            : content
+        );
+
+        // Set only the updated region, leaving all other regions intact
+        newContents.set(regionId, updatedContents);
+        console.log('🔍 CODE_M3_08: After setting updated region, size:', newContents.size);
+        console.log('🔍 CODE_M3_09: Final regions after update:', Array.from(newContents.keys()));
+
+        // Check specifically for mother_1A content (with safety check)
+        const mother1ARegions = Array.from(newContents.keys()).filter(key => key && typeof key === 'string' && key.includes('mother_1A'));
+        console.log('🔍 CODE_M3_10: mother_1A regions found:', mother1ARegions);
+        mother1ARegions.forEach(regionKey => {
+          const contents = newContents.get(regionKey);
+          console.log(`🔍 CODE_M3_11: ${regionKey} has ${contents?.length || 0} content items`);
         });
-        
+
         return newContents;
       });
 
@@ -1273,7 +1307,14 @@ function App() {
 
       // Force canvas re-render
       setTimeout(() => {
-        setRegionContents(prevContents => new Map(prevContents));
+        console.log('🔍 CODE_M3_12: About to force canvas re-render');
+        setRegionContents(prevContents => {
+          console.log('🔍 CODE_M3_13: Canvas re-render - current size:', prevContents.size);
+          console.log('🔍 CODE_M3_14: Canvas re-render - regions:', Array.from(prevContents.keys()));
+          const mother1ARegions = Array.from(prevContents.keys()).filter(key => key && typeof key === 'string' && key.includes('mother_1A'));
+          console.log('🔍 CODE_M3_15: Canvas re-render - mother_1A regions:', mother1ARegions);
+          return new Map(prevContents);
+        });
         setNotification('🎨 Refreshing canvas...');
         setTimeout(() => setNotification(null), 100);
       }, 100);
@@ -1489,6 +1530,44 @@ function App() {
 
   // Line-text overflow connection functions
   const handleOverflowToggle = (contentId: string, regionId: string, enabled: boolean) => {
+    // CRITICAL: Extract mother family info and validate overflow chain isolation
+    const extractMotherInfo = (regionId: string) => {
+      const match = regionId.match(/^(mother_(\d+)([A-Z]*)).*/);
+      if (!match) return { motherId: '', family: '' };
+
+      const motherId = match[1]; // "mother_1" or "mother_1A"
+      const familyNumber = match[2]; // "1"
+      const family = `mother_${familyNumber}`; // Always "mother_1" for the family
+
+      return { motherId, family };
+    };
+
+    const currentInfo = extractMotherInfo(regionId);
+    if (currentInfo.family) {
+      // If enabling overflow, validate chain doesn't cross mother family boundaries
+      if (enabled) {
+        const contentType = getContentTypeFromId(contentId);
+        const existingChain = overflowChains.get(contentType) || [];
+
+        // Check if existing chain belongs to same mother family
+        for (const chainContentId of existingChain) {
+          const chainContent = Array.from(regionContents.values())
+            .flat()
+            .find((content: any) => content.id === chainContentId);
+
+          if (chainContent) {
+            const chainInfo = extractMotherInfo(chainContent.regionId);
+            if (chainInfo.family && chainInfo.family !== currentInfo.family) {
+              console.error(`❌ OVERFLOW ISOLATION: Cannot connect ${currentInfo.family} to existing chain in ${chainInfo.family}`);
+              setNotification(`❌ Overflow chains cannot cross mother family boundaries`);
+              setTimeout(() => setNotification(null), 3000);
+              return;
+            }
+          }
+        }
+      }
+    }
+
     // Update overflow settings
     const newOverflowSettings = new Map(overflowSettings);
     newOverflowSettings.set(contentId, enabled);
@@ -2338,6 +2417,39 @@ function App() {
 
     // If this content is not in the chain, ignore
     if (!chain.includes(contentId)) return;
+
+    // CRITICAL: Validate chain isolation - all members must belong to same mother family
+    const extractMotherInfo = (regionId: string) => {
+      const match = regionId.match(/^(mother_(\d+)([A-Z]*)).*/);
+      if (!match) return { motherId: '', family: '' };
+
+      const motherId = match[1]; // "mother_1" or "mother_1A"
+      const familyNumber = match[2]; // "1"
+      const family = `mother_${familyNumber}`; // Always "mother_1" for the family
+
+      return { motherId, family };
+    };
+
+    let chainFamily: string = '';
+    for (const chainContentId of chain) {
+      const chainContent = Array.from(regionContents.values())
+        .flat()
+        .find((content: any) => content.id === chainContentId);
+
+      if (chainContent) {
+        const chainInfo = extractMotherInfo(chainContent.regionId);
+        if (!chainFamily) {
+          chainFamily = chainInfo.family;
+        } else if (chainInfo.family && chainInfo.family !== chainFamily) {
+          console.error(`❌ RECALC ISOLATION: Chain crosses mother family boundaries - blocking redistribution`);
+          setNotification(`❌ Overflow chain integrity violation detected`);
+          setTimeout(() => setNotification(null), 3000);
+          return;
+        }
+      }
+    }
+
+    console.log(`🔐 RECALC ISOLATION: Validated chain for mother family ${chainFamily}`);
 
     // console.log(`🔄 FONT SIZE REDISTRIBUTION: Starting for ${contentType} (triggered by ${contentId}, initiator: ${masterContentId})`);
 
@@ -8827,13 +8939,84 @@ function App() {
     }
   };
 
+  // Helper function to validate mother isolation
+  const validateMotherIsolation = (data: UniversalContentData, editingContent: any): boolean => {
+    // Extract mother ID and family from region ID
+    // Examples: "mother_1_region_A" -> {motherId: "mother_1", family: "mother_1"}
+    //           "mother_1A_region_B" -> {motherId: "mother_1A", family: "mother_1"}
+    const extractMotherInfo = (regionId: string) => {
+      const match = regionId.match(/^(mother_(\d+)([A-Z]*)).*/);
+      if (!match) return { motherId: '', family: '' };
+
+      const motherId = match[1]; // "mother_1" or "mother_1A"
+      const familyNumber = match[2]; // "1"
+      const family = `mother_${familyNumber}`; // Always "mother_1" for the family
+
+      return { motherId, family };
+    };
+
+    // Get current mother context
+    const currentInfo = extractMotherInfo(data.regionId);
+    if (!currentInfo.motherId) {
+      console.log('🔍 ISOLATION: No mother context found, allowing operation');
+      return true;
+    }
+
+    // If editing existing content, ensure it belongs to the same mother family
+    if (editingContent) {
+      const editingInfo = extractMotherInfo(editingContent.regionId);
+      if (editingInfo.family && editingInfo.family !== currentInfo.family) {
+        console.error(`❌ ISOLATION VIOLATION: Trying to edit content from ${editingInfo.family} family in ${currentInfo.family} family`);
+        setNotification(`❌ Cannot modify content across different mother families (${editingInfo.family} → ${currentInfo.family})`);
+        setTimeout(() => setNotification(null), 3000);
+        return false;
+      }
+    }
+
+    // Check overflow chain isolation - only allow operations within same mother family
+    if (data.id && isOverflowEnabled(data.id)) {
+      const contentType = getContentTypeFromId(data.id);
+      const chain = overflowChains.get(contentType) || [];
+
+      // Validate all chain members belong to same mother family
+      for (const chainContentId of chain) {
+        const chainContent = Array.from(regionContents.values())
+          .flat()
+          .find((content: any) => content.id === chainContentId);
+
+        if (chainContent) {
+          const chainInfo = extractMotherInfo(chainContent.regionId);
+          if (chainInfo.family && chainInfo.family !== currentInfo.family) {
+            console.error(`❌ ISOLATION VIOLATION: Overflow chain crosses mother family boundaries (${chainInfo.family} vs ${currentInfo.family})`);
+            setNotification(`❌ Overflow chain cannot cross mother family boundaries`);
+            setTimeout(() => setNotification(null), 3000);
+            return false;
+          }
+        }
+      }
+    }
+
+    console.log(`✅ ISOLATION: Operation validated for ${currentInfo.family} family (${currentInfo.motherId})`);
+    return true;
+  };
+
   const handleUniversalContentSave = (data: UniversalContentData) => {
+    console.log('🔍 CODE_UNIVERSAL_01: handleUniversalContentSave called');
+    console.log('🔍 CODE_UNIVERSAL_02: Data type:', data.type);
+    console.log('🔍 CODE_UNIVERSAL_03: Region ID:', data.regionId);
+
     // DEBUG: Log what data is received from dialog
     console.log('🔍 APP SAVE RECEIVED:');
     console.log('   - Data Type:', data.type);
     console.log('   - Data Content:', data.content);
     console.log('   - Data Content Text:', data.content.text);
     console.log('   - Text Length:', data.content.text?.length || 0);
+
+    // CRITICAL: Validate mother isolation before any operations
+    if (!validateMotherIsolation(data, universalDialog.editingContent)) {
+      console.error('❌ Save operation blocked due to mother isolation violation');
+      return;
+    }
 
     // In Project Mode, ensure content occupies the whole region
     let contentData = data;

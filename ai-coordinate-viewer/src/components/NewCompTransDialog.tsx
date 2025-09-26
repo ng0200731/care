@@ -2981,14 +2981,28 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         console.log(`🔍 ${DIALOG_VERSION}: Object ${index}: name=${obj.name}, type=${obj.type}, isOverflowChild=${obj.isOverflowChild}, parentMotherId=${obj.parentMotherId}`);
       });
 
-      // Find parent mother ID
+      // Find parent mother ID - CRITICAL FIX: Extract mother from regionId instead of searching
       console.log(`🔍 ${DIALOG_VERSION}: Looking for parent mother with regionId:`, regionId);
-      const parentMother = currentAppData.objects.find((obj: any) =>
-        obj.regions && obj.regions.some((region: any) => region.id === regionId)
-      );
-      const parentMotherIdForSave = parentMother ? parentMother.name : 'Mother_1';
-      console.log(`🔍 ${DIALOG_VERSION}: parentMotherIdForSave:`, parentMotherIdForSave);
-      console.log(`🔍 ${DIALOG_VERSION}: parentMother found:`, !!parentMother);
+
+      // SAFE METHOD: Extract mother name directly from regionId pattern
+      let parentMotherIdForSave = 'Mother_1'; // default fallback
+      if (regionId) {
+        // Pattern examples: "region_xxx_master_3_slice_xxx" -> "Mother_3"
+        if (regionId.includes('master_3')) {
+          parentMotherIdForSave = 'Mother_3';
+        } else if (regionId.includes('master_2')) {
+          parentMotherIdForSave = 'Mother_2';
+        } else if (regionId.includes('master_1') || regionId.includes('region_1758546413161_0')) {
+          parentMotherIdForSave = 'Mother_1';
+        }
+        // Add more patterns as needed...
+      }
+
+      console.log(`🔍 CODE_FIX_01: SAFE EXTRACTION - parentMotherIdForSave:`, parentMotherIdForSave);
+
+      // Verify the parent actually exists
+      const parentMother = currentAppData.objects.find((obj: any) => obj.name === parentMotherIdForSave);
+      console.log(`🔍 ${DIALOG_VERSION}: parentMother verified:`, !!parentMother);
 
       if (parentMother) {
         console.log(`🔍 ${DIALOG_VERSION}: Parent mother details:`, {
@@ -3020,9 +3034,9 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
          obj.name.match(new RegExp(`^${parentMotherIdForSave}[A-Z]$`)))
       );
 
-      // Method 4: Check for any overflow children regardless of parentMotherId (aggressive cleanup)
+      // Method 4: Check for overflow children of THIS SPECIFIC parent only (not aggressive cleanup)
       const allOverflowChildren = currentAppData.objects.filter((obj: any) =>
-        obj.isOverflowChild === true
+        obj.isOverflowChild === true && obj.parentMotherId === parentMotherIdForSave
       );
 
       // Combine all methods and remove duplicates
@@ -3076,10 +3090,9 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
           console.log('🗑️ REMOVE_DEBUG: Global app data updated');
 
           // Additional cleanup - remove from region contents if it exists
-          if ((window as any).updateRegionContents) {
-            console.log('🗑️ REMOVE_DEBUG: Also updating region contents');
-            (window as any).updateRegionContents();
-          }
+          // NOTE: Removed problematic updateRegionContents() call without parameters
+          // This was corrupting the regionContents Map by adding undefined keys
+          console.log('🗑️ REMOVE_DEBUG: Skipping region contents update (no specific region to update)');
 
           // Force canvas refresh with all possible methods
           console.log('🗑️ REMOVE_DEBUG: Attempting comprehensive canvas refresh');

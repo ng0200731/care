@@ -39,16 +39,61 @@ export class DynamicMotherRelationshipManager {
   }
 
   /**
+   * Helper function to extract mother info from region/content ID
+   * Examples: "mother_1_region_A" -> {motherId: "mother_1", family: "mother_1"}
+   *           "mother_1A_region_B" -> {motherId: "mother_1A", family: "mother_1"}
+   */
+  private extractMotherInfo(id: string) {
+    const match = id.match(/^(mother_(\d+)([A-Z]*)).*/);
+    if (!match) return { motherId: '', family: '' };
+
+    const motherId = match[1]; // "mother_1" or "mother_1A"
+    const familyNumber = match[2]; // "1"
+    const family = `mother_${familyNumber}`; // Always "mother_1" for the family
+
+    return { motherId, family };
+  }
+
+  /**
+   * Validate mother isolation - ensure all operations stay within same mother family
+   */
+  private validateMotherIsolation(masterId: string, childIds: string[]): boolean {
+    const masterInfo = this.extractMotherInfo(masterId);
+    if (!masterInfo.family) {
+      console.log('🔍 DMRM ISOLATION: No mother context found, allowing operation');
+      return true;
+    }
+
+    // Validate all child IDs belong to same mother family (allows parent -> children operations)
+    for (const childId of childIds) {
+      const childInfo = this.extractMotherInfo(childId);
+      if (childInfo.family && childInfo.family !== masterInfo.family) {
+        console.error(`❌ DMRM ISOLATION VIOLATION: Child ${childId} (${childInfo.family}) not same family as master ${masterId} (${masterInfo.family})`);
+        return false;
+      }
+    }
+
+    console.log(`✅ DMRM ISOLATION: Validated operations for mother family ${masterInfo.family}`);
+    return true;
+  }
+
+  /**
    * Core Relationship Logic: Establish master-child relationship
    */
   establishRelationship(
-    masterId: string, 
-    childIds: string[], 
+    masterId: string,
+    childIds: string[],
     contentType: string,
     originalText: string,
     textDistribution: string[]
   ): void {
     console.log(`🔗 Establishing master-child relationship: ${masterId} -> [${childIds.join(', ')}]`);
+
+    // CRITICAL: Validate mother isolation before establishing relationship
+    if (!this.validateMotherIsolation(masterId, childIds)) {
+      console.error('❌ Relationship establishment blocked due to mother isolation violation');
+      return;
+    }
     
     const relationship: MotherRelationship = {
       masterId,
@@ -78,10 +123,16 @@ export class DynamicMotherRelationshipManager {
    */
   async cascadeDeleteChildren(masterId: string): Promise<void> {
     console.log(`🗑️ CASCADE DELETION: Starting for master ${masterId}`);
-    
+
     const relationship = this.relationships.get(masterId);
     if (!relationship) {
       console.log(`⚠️ No relationship found for master ${masterId}`);
+      return;
+    }
+
+    // CRITICAL: Validate mother isolation before cascade deletion
+    if (!this.validateMotherIsolation(masterId, relationship.childIds)) {
+      console.error('❌ Cascade deletion blocked due to mother isolation violation');
       return;
     }
 
