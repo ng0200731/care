@@ -11029,12 +11029,13 @@ function App() {
                                   content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2
                                 );
 
-                                // Render each line with EXACT positioning
+                                // Render each line with EXACT positioning (match working pattern from line 11182)
                                 const lineHeightPx = scaledFontSize * (content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2);
                                 wrappedResult.lines.forEach((line: string, lineIndex: number) => {
                                   const lineY = lineIndex * lineHeightPx;
                                   let lineX = 0;
                                   if (configAlignment.horizontal === 'center') {
+                                    // Use logical canvas width (before dpiScale), same as working implementation
                                     lineX = availableWidthPx / 2;
                                   } else if (configAlignment.horizontal === 'right') {
                                     lineX = availableWidthPx;
@@ -11047,9 +11048,13 @@ function App() {
                                 const imgWidthMM = availableWidth;
                                 const imgHeightMM = availableHeight;
 
-                                // Place canvas at content area start point (not textX which is center-aligned)
-                                const contentStartX = regionX + childRegion.x + configPadding.left;
-                                const contentStartY = regionY + childRegion.y + configPadding.top;
+                                // Place canvas at content area start point (use correct coordinate system like line 10617)
+                                const relativeX = childRegion.x - region.x;
+                                const relativeY = childRegion.y - region.y;
+                                const childX = regionX + relativeX;
+                                const childY = regionY + relativeY;
+                                const contentStartX = childX + configPadding.left;
+                                const contentStartY = childY + configPadding.top;
                                 pdf.addImage(imgData, 'PNG', contentStartX, contentStartY, imgWidthMM, imgHeightMM, undefined, 'FAST');
 
                                 // console.log('📋 Exact canvas-to-PDF rendering complete (pixel-perfect match)');
