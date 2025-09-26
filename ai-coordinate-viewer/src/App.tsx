@@ -15114,15 +15114,25 @@ function App() {
                         <g key={`${region.id}-text-group-${contentIndex}`}>
                           {/* Render text lines or washing care symbols without clipping */}
                           <g>
-                            {content.type === 'new-washing-care-symbol' ? (
+                            {content.type === 'new-washing-care-symbol' || (content.type === 'new-comp-trans' && displayText && /^[bGBJ5]+$/.test(displayText.replace(/\s/g, ''))) ? (
                               // Render washing care symbols using Wash Care Symbols M54 font with configuration
+                              // This includes both direct washing care symbols and comp trans content with only wash symbols
                               (() => {
-                                const symbols = content.content?.symbols || ['b', 'G', '5', 'B', 'J'];
+                                // Extract symbols based on content type
+                                const symbols = content.type === 'new-washing-care-symbol'
+                                  ? (content.content?.symbols || ['b', 'G', '5', 'B', 'J'])
+                                  : displayText.replace(/\s/g, '').split(''); // For comp trans, use displayText
 
-                                // Use configuration settings if available
-                                const configIconSize = content.content?.iconSize || 8; // Default 8mm
-                                const configPadding = content.content?.padding || { top: 2, left: 2, bottom: 2, right: 2 };
-                                const configAlignment = content.content?.alignment || { horizontal: 'center', vertical: 'center' };
+                                // Use configuration settings based on content type
+                                const configIconSize = content.type === 'new-washing-care-symbol'
+                                  ? (content.content?.iconSize || 8)
+                                  : (content.newCompTransConfig?.typography?.fontSize || 8);
+                                const configPadding = content.type === 'new-washing-care-symbol'
+                                  ? (content.content?.padding || { top: 2, left: 2, bottom: 2, right: 2 })
+                                  : (content.newCompTransConfig?.padding || { top: 2, left: 2, bottom: 2, right: 2 });
+                                const configAlignment = content.type === 'new-washing-care-symbol'
+                                  ? (content.content?.alignment || { horizontal: 'center', vertical: 'center' })
+                                  : (content.newCompTransConfig?.alignment || { horizontal: 'center', vertical: 'center' });
 
                                 // Convert mm to pixels for rendering
                                 const mmToPx = 3.78; // 1mm = 3.78px at 96 DPI
@@ -15934,7 +15944,7 @@ function App() {
                               textAnchor = 'end';
                             }
 
-                            // Render washing care symbols or regular text
+                            // Render washing care symbols, composition translation with symbols, or regular text
                             if (content.type === 'new-washing-care-symbol') {
                               // Render washing care symbols using Wash Care Symbols M54 font in child regions with configuration
                               const symbols = content.content?.symbols || ['b', 'G', '5', 'B', 'J'];
@@ -15983,6 +15993,69 @@ function App() {
                                     return (
                                       <text
                                         key={`child-symbol-${symbolIndex}`}
+                                        x={symbolX}
+                                        y={symbolY}
+                                        fill="black"
+                                        fontSize={symbolSizePx}
+                                        fontFamily="Wash Care Symbols M54"
+                                        textAnchor="middle"
+                                        dominantBaseline="central"
+                                      >
+                                        {symbol}
+                                      </text>
+                                    );
+                                  })}
+                                </g>
+                              );
+                            } else if (content.type === 'new-comp-trans' && displayText && /^[bGBJ5]+$/.test(displayText.replace(/\s/g, ''))) {
+                              // Check if comp trans content contains only washing care symbol characters
+                              // If so, render using Wash Care Symbols M54 font like the perfect region implementation
+                              const symbols = displayText.replace(/\s/g, '').split(''); // Remove spaces and split into individual symbols
+
+                              // Use comp trans configuration for sizing and positioning
+                              const configIconSize = content.newCompTransConfig?.typography?.fontSize || 8;
+                              const configPadding = content.newCompTransConfig?.padding || { top: 2, left: 2, bottom: 2, right: 2 };
+                              const configAlignment = content.newCompTransConfig?.alignment || { horizontal: 'center', vertical: 'center' };
+
+                              // Convert mm to pixels for rendering
+                              const mmToPx = 3.78; // 1mm = 3.78px at 96 DPI
+                              const symbolSizePx = configIconSize * mmToPx * zoom;
+                              const paddingTopPx = configPadding.top * mmToPx * zoom;
+                              const paddingLeftPx = configPadding.left * mmToPx * zoom;
+                              const paddingBottomPx = configPadding.bottom * mmToPx * zoom;
+                              const paddingRightPx = configPadding.right * mmToPx * zoom;
+
+                              // Calculate available space after padding
+                              const availableWidth = regionWidthPx - paddingLeftPx - paddingRightPx;
+                              const availableHeight = regionHeightPx - paddingTopPx - paddingBottomPx;
+                              const symbolSpacing = availableWidth / symbols.length;
+
+                              // Calculate container position based on alignment
+                              let containerX = childBaseX + paddingLeftPx;
+                              let containerY = childBaseY + paddingTopPx;
+
+                              if (configAlignment.horizontal === 'center') {
+                                containerX = childBaseX + (regionWidthPx / 2) - (availableWidth / 2);
+                              } else if (configAlignment.horizontal === 'right') {
+                                containerX = childBaseX + regionWidthPx - paddingRightPx - availableWidth;
+                              }
+
+                              if (configAlignment.vertical === 'center') {
+                                containerY = childBaseY + (regionHeightPx / 2) - (symbolSizePx / 2);
+                              } else if (configAlignment.vertical === 'bottom') {
+                                containerY = childBaseY + regionHeightPx - paddingBottomPx - symbolSizePx;
+                              }
+
+                              return (
+                                <g key="child-comp-trans-wash-symbols-container">
+                                  {symbols.map((symbol: string, symbolIndex: number) => {
+                                    const symbolX = containerX + symbolIndex * symbolSpacing + symbolSpacing / 2;
+                                    const symbolY = containerY + (symbolSizePx / 2);
+
+                                    // Render washing care symbol using Wash Care Symbols M54 font
+                                    return (
+                                      <text
+                                        key={`child-comp-trans-symbol-${symbolIndex}`}
                                         x={symbolX}
                                         y={symbolY}
                                         fill="black"
