@@ -10934,28 +10934,50 @@ function App() {
                           const symbolX = containerX + symbolIndex * symbolSpacing + symbolSpacing / 2;
                           const symbolY = containerY + (configIconSize / 2);
 
-                          // Try to use embedded font first, then canvas rendering, then vector shapes (child regions)
+                          // Use canvas rendering first for cross-computer compatibility (child regions)
                           let fontUsed = false;
                           let canvasUsed = false;
 
-                          try {
-                            // Try to use the embedded Wash Care Symbols M54 font with configured size
+                          // Force canvas rendering for better compatibility across computers
+                          const canvasImage = renderSymbolToCanvas(symbol, configIconSize * 4); // Higher resolution
+                          if (canvasImage) {
                             try {
-                              pdf.setFont('Wash Care Symbols M54', 'normal');
-                            } catch {
-                              pdf.setFont('WashCareSymbolsM54', 'normal');
+                              // Calculate image size in mm (smaller for child regions)
+                              const imageSize = configIconSize * 0.7;
+                              const imageX = symbolX - imageSize / 2;
+                              const imageY = symbolY - imageSize / 2;
+
+                              // Add the canvas-rendered symbol as image
+                              pdf.addImage(canvasImage, 'PNG', imageX, imageY, imageSize, imageSize);
+                              canvasUsed = true;
+                              console.log(`✅ Used canvas rendering for child symbol: ${symbol} (cross-computer compatible)`);
+                            } catch (error) {
+                              console.error('❌ Canvas image failed for child:', error);
+                              canvasUsed = false;
                             }
-                            pdf.setFontSize(configIconSize * 2.83); // Convert mm to points
-                            pdf.setTextColor(0, 0, 0);
-                            pdf.text(symbol, symbolX, symbolY, { align: 'center', baseline: 'middle' });
-                            fontUsed = true;
-                            // console.log(`✅ Used embedded font for symbol: ${symbol}`);
-                            // Reset font back to Arial/Helvetica for subsequent text rendering
-                            pdf.setFont('helvetica', 'normal');
-                          } catch (error) {
-                            // Font not available, try canvas rendering
-                            // console.log(`⚠️ Font not available for symbol: ${symbol}, error:`, error);
-                            fontUsed = false;
+                          }
+
+                          // Fallback to embedded font if canvas fails
+                          if (!canvasUsed) {
+                            try {
+                              // Try to use the embedded Wash Care Symbols M54 font with configured size
+                              try {
+                                pdf.setFont('Wash Care Symbols M54', 'normal');
+                              } catch {
+                                pdf.setFont('WashCareSymbolsM54', 'normal');
+                              }
+                              pdf.setFontSize(configIconSize * 2.83); // Convert mm to points
+                              pdf.setTextColor(0, 0, 0);
+                              pdf.text(symbol, symbolX, symbolY, { align: 'center', baseline: 'middle' });
+                              fontUsed = true;
+                              console.log(`✅ Used embedded font for child symbol: ${symbol}`);
+                              // Reset font back to Arial/Helvetica for subsequent text rendering
+                              pdf.setFont('helvetica', 'normal');
+                            } catch (error) {
+                              // Font not available
+                              console.log(`⚠️ Font not available for child symbol: ${symbol}, error:`, error);
+                              fontUsed = false;
+                            }
                           }
 
                           if (!fontUsed) {
@@ -11568,28 +11590,50 @@ function App() {
                       const symbolX = containerX + symbolIndex * symbolSpacing + symbolSpacing / 2;
                       const symbolY = containerY + (configIconSize / 2);
 
-                      // Try to use embedded font first, then canvas rendering, then vector shapes
+                      // Use canvas rendering first for cross-computer compatibility
                       let fontUsed = false;
                       let canvasUsed = false;
 
-                      try {
-                        // Try to use the embedded Wash Care Symbols M54 font with configured size
+                      // Force canvas rendering for better compatibility across computers
+                      const canvasImage = renderSymbolToCanvas(symbol, configIconSize * 4); // Higher resolution
+                      if (canvasImage) {
                         try {
-                          pdf.setFont('Wash Care Symbols M54', 'normal');
-                        } catch {
-                          pdf.setFont('WashCareSymbolsM54', 'normal');
+                          // Calculate image size in mm
+                          const imageSize = configIconSize * 0.8;
+                          const imageX = symbolX - imageSize / 2;
+                          const imageY = symbolY - imageSize / 2;
+
+                          // Add the canvas-rendered symbol as image
+                          pdf.addImage(canvasImage, 'PNG', imageX, imageY, imageSize, imageSize);
+                          canvasUsed = true;
+                          console.log(`✅ Used canvas rendering for symbol: ${symbol} (cross-computer compatible)`);
+                        } catch (error) {
+                          console.error('❌ Canvas image failed:', error);
+                          canvasUsed = false;
                         }
-                        pdf.setFontSize(configIconSize * 2.83); // Convert mm to points
-                        pdf.setTextColor(0, 0, 0);
-                        pdf.text(symbol, symbolX, symbolY, { align: 'center', baseline: 'middle' });
-                        fontUsed = true;
-                        // console.log(`✅ Used embedded font for symbol: ${symbol}`);
-                        // Reset font back to Arial/Helvetica for subsequent text rendering
-                        pdf.setFont('helvetica', 'normal');
-                      } catch (error) {
-                        // Font not available, try canvas rendering
-                        // console.log(`⚠️ Font not available for symbol: ${symbol}, error:`, error);
-                        fontUsed = false;
+                      }
+
+                      // Fallback to embedded font if canvas fails
+                      if (!canvasUsed) {
+                        try {
+                          // Try to use the embedded Wash Care Symbols M54 font with configured size
+                          try {
+                            pdf.setFont('Wash Care Symbols M54', 'normal');
+                          } catch {
+                            pdf.setFont('WashCareSymbolsM54', 'normal');
+                          }
+                          pdf.setFontSize(configIconSize * 2.83); // Convert mm to points
+                          pdf.setTextColor(0, 0, 0);
+                          pdf.text(symbol, symbolX, symbolY, { align: 'center', baseline: 'middle' });
+                          fontUsed = true;
+                          console.log(`✅ Used embedded font for symbol: ${symbol}`);
+                          // Reset font back to Arial/Helvetica for subsequent text rendering
+                          pdf.setFont('helvetica', 'normal');
+                        } catch (error) {
+                          // Font not available
+                          console.log(`⚠️ Font not available for symbol: ${symbol}, error:`, error);
+                          fontUsed = false;
+                        }
                       }
 
                       if (!fontUsed) {
