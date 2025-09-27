@@ -5208,96 +5208,13 @@ function App() {
         const isActualWashSymbols = isWashCareFont && isWashSymbolsOnly && textContent.length <= 10; // Short wash symbols
 
         if (isActualWashSymbols) {
-          console.log(`🧺 Converting wash care symbols: "${textContent}" from M54 font to SVG shapes`);
+          console.log(`🧺 Preserving wash care symbols: "${textContent}" with M54 font for Illustrator editing`);
 
-          const fontSize = parseFloat(textEl.getAttribute('font-size') || '12');
-
-          // Create group for wash symbol shapes
-          const groupEl = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-
-          // Convert each symbol to SVG shape
-          textContent.trim().split('').forEach((symbol, index) => {
-            if (symbol === ' ') return; // Skip spaces
-
-            const symbolX = parseFloat(x) + (index * fontSize * 1.2);
-            const symbolY = parseFloat(y);
-            const size = fontSize;
-
-            let shapeEl: SVGElement | null = null;
-
-            switch (symbol) {
-              case 'b': // Basin
-                const basin = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                const basinWidth = size * 0.6;
-                const basinHeight = size * 0.4;
-                const basinPath = `M ${symbolX - basinWidth/2} ${symbolY - basinHeight/2}
-                                  L ${symbolX + basinWidth/2} ${symbolY - basinHeight/2}
-                                  L ${symbolX + basinWidth/3} ${symbolY + basinHeight/2}
-                                  L ${symbolX - basinWidth/3} ${symbolY + basinHeight/2} Z`;
-                basin.setAttribute('d', basinPath);
-                basin.setAttribute('fill', 'none');
-                basin.setAttribute('stroke', 'black');
-                basin.setAttribute('stroke-width', '1');
-                shapeEl = basin;
-                break;
-
-              case 'G': // Square
-                const square = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-                const squareSize = size * 0.5;
-                square.setAttribute('x', (symbolX - squareSize/2).toString());
-                square.setAttribute('y', (symbolY - squareSize/2).toString());
-                square.setAttribute('width', squareSize.toString());
-                square.setAttribute('height', squareSize.toString());
-                square.setAttribute('fill', 'none');
-                square.setAttribute('stroke', 'black');
-                square.setAttribute('stroke-width', '1');
-                shapeEl = square;
-                break;
-
-              case '5': // Triangle (iron)
-                const triangle = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-                const triSize = size * 0.4;
-                const triPoints = `${symbolX},${symbolY - triSize/2} ${symbolX + triSize/2},${symbolY + triSize/2} ${symbolX - triSize/2},${symbolY + triSize/2}`;
-                triangle.setAttribute('points', triPoints);
-                triangle.setAttribute('fill', 'none');
-                triangle.setAttribute('stroke', 'black');
-                triangle.setAttribute('stroke-width', '1');
-                shapeEl = triangle;
-                break;
-
-              case 'B': // Triangle (bleach)
-                const bleach = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-                const bleachSize = size * 0.4;
-                const bleachPoints = `${symbolX},${symbolY - bleachSize/2} ${symbolX + bleachSize/2},${symbolY + bleachSize/2} ${symbolX - bleachSize/2},${symbolY + bleachSize/2}`;
-                bleach.setAttribute('points', bleachPoints);
-                bleach.setAttribute('fill', 'none');
-                bleach.setAttribute('stroke', 'black');
-                bleach.setAttribute('stroke-width', '1');
-                shapeEl = bleach;
-                break;
-
-              case 'J': // Circle
-                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                const circleRadius = size * 0.25;
-                circle.setAttribute('cx', symbolX.toString());
-                circle.setAttribute('cy', symbolY.toString());
-                circle.setAttribute('r', circleRadius.toString());
-                circle.setAttribute('fill', 'none');
-                circle.setAttribute('stroke', 'black');
-                circle.setAttribute('stroke-width', '1');
-                shapeEl = circle;
-                break;
-            }
-
-            if (shapeEl) {
-              groupEl.appendChild(shapeEl);
-            }
-          });
-
-          // Replace text with shapes
-          textEl.parentNode?.replaceChild(groupEl, textEl);
-          console.log(`✅ Converted to SVG shapes: "${textContent}"`);
-          return; // Skip further processing
+          // Keep the original font and text content - don't convert to shapes
+          // This preserves editability in Illustrator
+          textEl.setAttribute('font-family', 'Wash Care Symbols M54');
+          console.log(`✅ Preserved editable M54 font: "${textContent}"`);
+          return; // Skip further processing, keep as editable font text
         }
 
 
