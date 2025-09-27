@@ -127,6 +127,25 @@ function App() {
   const location = useLocation();
   const navigate = useNavigate();
 
+  // Load washing care symbols font for canvas view
+  React.useEffect(() => {
+    // Inject CSS for washing care symbols font
+    const styleId = 'wash-care-font-style';
+    if (!document.getElementById(styleId)) {
+      const style = document.createElement('style');
+      style.id = styleId;
+      style.textContent = `
+        @font-face {
+          font-family: 'Wash Care Symbols M54';
+          src: url('/fonts/Wash_Care_Symbols_M54.ttf') format('truetype');
+          font-display: swap;
+        }
+      `;
+      document.head.appendChild(style);
+      console.log('✅ Wash Care Symbols M54 font loaded for canvas');
+    }
+  }, []);
+
   // Child region text wrapping function - returns lines and overflow info
   const processChildRegionTextWrapping = (
     text: string,
@@ -5089,7 +5108,11 @@ function App() {
         const existingTextEl = document.querySelector('svg text[font-family]');
         if (existingTextEl) {
           const fontFamilyAttr = existingTextEl.getAttribute('font-family');
-          if (fontFamilyAttr && !fontFamilyAttr.includes('SimSun') && !fontFamilyAttr.includes('小塚ゴシック') && !fontFamilyAttr.includes('Adobe 명조')) {
+          if (fontFamilyAttr &&
+              !fontFamilyAttr.includes('SimSun') &&
+              !fontFamilyAttr.includes('小塚ゴシック') &&
+              !fontFamilyAttr.includes('Adobe 명조') &&
+              !fontFamilyAttr.includes('Wash Care Symbols M54')) { // Exclude wash care symbols
             return fontFamilyAttr.replace(/["']/g, '');
           }
         }
@@ -5178,6 +5201,106 @@ function App() {
           console.log(`🔍 CJK text found: "${textContent.substring(0, 20)}..." at x=${x} y=${y} willSegment=${hasMultipleLanguages}`);
         }
 
+        // Handle washing care symbols: Convert Wash Care Symbols M54 font to SVG shapes
+        const fontFamily = textEl.getAttribute('font-family') || '';
+        const isWashCareFont = fontFamily.includes('Wash Care Symbols M54');
+        const isWashSymbolsOnly = /^[bGBJ5\s]+$/.test(textContent.trim()); // Only wash symbol chars
+        const isActualWashSymbols = isWashCareFont && isWashSymbolsOnly && textContent.length <= 10; // Short wash symbols
+
+        if (isActualWashSymbols) {
+          console.log(`🧺 Converting wash care symbols: "${textContent}" from M54 font to SVG shapes`);
+
+          const fontSize = parseFloat(textEl.getAttribute('font-size') || '12');
+
+          // Create group for wash symbol shapes
+          const groupEl = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+
+          // Convert each symbol to SVG shape
+          textContent.trim().split('').forEach((symbol, index) => {
+            if (symbol === ' ') return; // Skip spaces
+
+            const symbolX = parseFloat(x) + (index * fontSize * 1.2);
+            const symbolY = parseFloat(y);
+            const size = fontSize;
+
+            let shapeEl: SVGElement | null = null;
+
+            switch (symbol) {
+              case 'b': // Basin
+                const basin = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                const basinWidth = size * 0.6;
+                const basinHeight = size * 0.4;
+                const basinPath = `M ${symbolX - basinWidth/2} ${symbolY - basinHeight/2}
+                                  L ${symbolX + basinWidth/2} ${symbolY - basinHeight/2}
+                                  L ${symbolX + basinWidth/3} ${symbolY + basinHeight/2}
+                                  L ${symbolX - basinWidth/3} ${symbolY + basinHeight/2} Z`;
+                basin.setAttribute('d', basinPath);
+                basin.setAttribute('fill', 'none');
+                basin.setAttribute('stroke', 'black');
+                basin.setAttribute('stroke-width', '1');
+                shapeEl = basin;
+                break;
+
+              case 'G': // Square
+                const square = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                const squareSize = size * 0.5;
+                square.setAttribute('x', (symbolX - squareSize/2).toString());
+                square.setAttribute('y', (symbolY - squareSize/2).toString());
+                square.setAttribute('width', squareSize.toString());
+                square.setAttribute('height', squareSize.toString());
+                square.setAttribute('fill', 'none');
+                square.setAttribute('stroke', 'black');
+                square.setAttribute('stroke-width', '1');
+                shapeEl = square;
+                break;
+
+              case '5': // Triangle (iron)
+                const triangle = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                const triSize = size * 0.4;
+                const triPoints = `${symbolX},${symbolY - triSize/2} ${symbolX + triSize/2},${symbolY + triSize/2} ${symbolX - triSize/2},${symbolY + triSize/2}`;
+                triangle.setAttribute('points', triPoints);
+                triangle.setAttribute('fill', 'none');
+                triangle.setAttribute('stroke', 'black');
+                triangle.setAttribute('stroke-width', '1');
+                shapeEl = triangle;
+                break;
+
+              case 'B': // Triangle (bleach)
+                const bleach = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                const bleachSize = size * 0.4;
+                const bleachPoints = `${symbolX},${symbolY - bleachSize/2} ${symbolX + bleachSize/2},${symbolY + bleachSize/2} ${symbolX - bleachSize/2},${symbolY + bleachSize/2}`;
+                bleach.setAttribute('points', bleachPoints);
+                bleach.setAttribute('fill', 'none');
+                bleach.setAttribute('stroke', 'black');
+                bleach.setAttribute('stroke-width', '1');
+                shapeEl = bleach;
+                break;
+
+              case 'J': // Circle
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                const circleRadius = size * 0.25;
+                circle.setAttribute('cx', symbolX.toString());
+                circle.setAttribute('cy', symbolY.toString());
+                circle.setAttribute('r', circleRadius.toString());
+                circle.setAttribute('fill', 'none');
+                circle.setAttribute('stroke', 'black');
+                circle.setAttribute('stroke-width', '1');
+                shapeEl = circle;
+                break;
+            }
+
+            if (shapeEl) {
+              groupEl.appendChild(shapeEl);
+            }
+          });
+
+          // Replace text with shapes
+          textEl.parentNode?.replaceChild(groupEl, textEl);
+          console.log(`✅ Converted to SVG shapes: "${textContent}"`);
+          return; // Skip further processing
+        }
+
+
         // Copy outline's mixed language handling
         if (hasMultipleLanguages) {
           const x = textEl.getAttribute('x') || '0';
@@ -5236,12 +5359,14 @@ function App() {
               console.log(`  📝 Segment ${index}: "${segment.text}" (${segment.language}) x=${currentX} y=${y}`);
             }
 
+            // Preserve original font family for non-CJK text, or use specific CJK fonts
+            const originalFontFamily = textEl.getAttribute('font-family') || canvasFontFamily;
             const fontFamily = segment.language === 'chinese' ? '宋体, SimSun' :
                              segment.language === 'japanese' ? '小塚ゴシック Pr6N R' :
                              segment.language === 'korean' ? 'Adobe 명조 Std M' :
                              segment.language === 'arabic' ? `${canvasFontFamily}` :
                              segment.language === 'canvas' ? 'Arial' :
-                             `${canvasFontFamily}`;
+                             originalFontFamily; // Use original font instead of canvasFontFamily
 
             span.setAttribute('font-family', fontFamily);
             span.setAttribute('fill', 'black');
@@ -5956,13 +6081,18 @@ function App() {
       const textElements = svgClone.querySelectorAll('text, tspan');
       console.log(`🔤 Found ${textElements.length} text elements to convert`);
 
-      // Inject CSS for dash character font override
+      // Inject CSS for dash character font override and washing care symbols
       const style = document.createElement('style');
       style.textContent = `
         @font-face {
           font-family: 'DashOverride';
           src: local('Arial'), local('Helvetica');
           unicode-range: U+002D; /* Only applies to hyphen-minus character */
+        }
+        @font-face {
+          font-family: 'Wash Care Symbols M54';
+          src: url('/fonts/Wash_Care_Symbols_M54.ttf') format('truetype');
+          font-display: swap;
         }
         .mixed-font-dash {
           font-family: 'DashOverride', 宋体, SimSun, Adobe 명조 Std M, Arial, sans-serif !important;
