@@ -2913,13 +2913,16 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
   // NEW: Button "2in1" - Universal handler combining Save and Generate logic
   const handle2in1 = async () => {
     try {
-      console.log('🚀 2in1: Starting...');
+      console.log('🚀🚀🚀 2in1: FUNCTION STARTED 🚀🚀🚀');
+      console.log('UNIQUE_2IN1_START:', new Date().toISOString());
 
       // STEP 1: Remove all child mothers FIRST
       console.log('🗑️ 2in1 - STEP 1: Remove all child mothers');
       const currentAppData = (window as any).currentAppData;
+      console.log('🗑️ 2in1: currentAppData exists:', !!currentAppData);
+      console.log('🗑️ 2in1: currentAppData.objects exists:', !!currentAppData?.objects);
 
-      // Find parent mother ID
+      // Find parent mother ID - THIS IS THE MOTHER THAT OWNS THE REGION WE'RE EDITING
       let parentMotherId = 'Mother_1'; // Default fallback
       let parentMother: any = null;
 
@@ -2930,32 +2933,55 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         if (parentMother) {
           parentMotherId = parentMother.name;
         }
-        console.log('🗑️ 2in1: Target parent mother:', parentMotherId);
+        console.log('🗑️ 2in1: Found mother with this region:', parentMotherId);
+        console.log('🗑️ 2in1: Is this mother a child?', parentMother?.isOverflowChild);
+        console.log('🗑️ 2in1: Parent mother ID field:', parentMother?.parentMotherId);
 
-        // Remove ONLY direct child mothers (no grandchildren, no child of child)
+        // CRITICAL FIX: If we're editing a CHILD mother, we need to find the ROOT PARENT
+        if (parentMother?.isOverflowChild && parentMother?.parentMotherId) {
+          const rootParentId = parentMother.parentMotherId;
+          console.log('⚠️ 2in1: We are editing a CHILD mother! Root parent is:', rootParentId);
+
+          // Find the root parent
+          const rootParent = currentAppData.objects.find((obj: any) => obj.name === rootParentId);
+          if (rootParent) {
+            parentMother = rootParent;
+            parentMotherId = rootParentId;
+            console.log('✅ 2in1: Switched to root parent:', parentMotherId);
+          } else {
+            console.error('❌ 2in1: Could not find root parent:', rootParentId);
+          }
+        }
+
+        console.log('🗑️ 2in1: Final target parent mother:', parentMotherId);
+
+        // AGGRESSIVE: Remove ALL child mothers (any pattern match)
         const allChildMothersToRemove: any[] = [];
 
-        // Method 1: Direct children ONLY - linked to THIS parent
+        console.log('🔍 2in1: Scanning all objects for child mothers...');
+        console.log('🔍 2in1: Total objects in app data:', currentAppData.objects.length);
+
+        // Method 1: Direct children - linked to THIS parent
         const directChildMothers = currentAppData.objects.filter((obj: any) =>
           obj.type && obj.type.includes('mother') &&
           obj.name !== parentMotherId &&
-          obj.parentMotherId === parentMotherId && // MUST be direct child of THIS parent
+          obj.parentMotherId === parentMotherId &&
           obj.isOverflowChild === true
         );
+        console.log('🔍 2in1: Method 1 (direct children) found:', directChildMothers.map((c: any) => c.name));
         allChildMothersToRemove.push(...directChildMothers);
 
-        // Method 2: Pattern-based for THIS parent only (Mother_1A, Mother_1B, etc.)
-        // Extract parent number from parentMotherId (e.g., "Mother_1" -> "1")
+        // Method 2: Pattern-based - ANY mother with letter suffix (Mother_1A, Mother_1B, Mother_1C, etc.)
         const parentNumberMatch = parentMotherId.match(/^Mother_(\d+)$/);
         if (parentNumberMatch) {
           const parentNumber = parentNumberMatch[1];
-          // Only match Mother_1A, Mother_1B... for parent Mother_1
-          // NOT Mother_1AA, Mother_1AB (those are grandchildren)
           const patternBasedMothers = currentAppData.objects.filter((obj: any) =>
+            obj.type && obj.type.includes('mother') &&
             obj.name &&
-            obj.name.match(new RegExp(`^Mother_${parentNumber}[A-Z]$`)) && // Exactly one letter suffix
+            obj.name.match(new RegExp(`^Mother_${parentNumber}[A-Z]+$`)) && // One or more letters
             obj.name !== parentMotherId
           );
+          console.log('🔍 2in1: Method 2 (pattern match) found:', patternBasedMothers.map((c: any) => c.name));
           patternBasedMothers.forEach((child: any) => {
             if (!allChildMothersToRemove.find((existing: any) => existing.name === child.name)) {
               allChildMothersToRemove.push(child);
@@ -2963,9 +2989,10 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
           });
         }
 
-        // Method 3: Check parent's childMotherIds array (direct children only)
+        // Method 3: Parent's childMotherIds array
         if (parentMother && (parentMother as any).childMotherIds) {
           const childIdsFromParent = (parentMother as any).childMotherIds;
+          console.log('🔍 2in1: Method 3 (parent tracking) found:', childIdsFromParent);
           const childrenFromParentList = currentAppData.objects.filter((obj: any) =>
             childIdsFromParent.includes(obj.name)
           );
@@ -2976,8 +3003,27 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
           });
         }
 
+        // Method 4: ANY mother with isOverflowChild flag
+        const overflowFlaggedMothers = currentAppData.objects.filter((obj: any) =>
+          obj.type && obj.type.includes('mother') &&
+          obj.isOverflowChild === true &&
+          obj.name !== parentMotherId
+        );
+        console.log('🔍 2in1: Method 4 (overflow flag) found:', overflowFlaggedMothers.map((c: any) => c.name));
+        overflowFlaggedMothers.forEach((child: any) => {
+          if (!allChildMothersToRemove.find((existing: any) => existing.name === child.name)) {
+            allChildMothersToRemove.push(child);
+          }
+        });
+
         console.log(`🗑️ 2in1: Found ${allChildMothersToRemove.length} child mothers to remove:`,
           allChildMothersToRemove.map((c: any) => c.name));
+
+        console.log('UNIQUE_2IN1_REMOVAL_DEBUG:', JSON.stringify({
+          parentMother: parentMotherId,
+          childrenFound: allChildMothersToRemove.map((c: any) => c.name),
+          childrenCount: allChildMothersToRemove.length
+        }));
 
         if (allChildMothersToRemove.length > 0) {
           // Remove child mothers
@@ -3005,31 +3051,119 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
           if ((window as any).updateAppData) {
             (window as any).updateAppData(cleanedAppData);
-            console.log('✅ 2in1: Child mothers removed');
+            console.log('✅ 2in1: Child mothers removed from data');
+            console.log('✅ 2in1: Removed mothers:', childMotherNamesToRemove);
+            console.log('✅ 2in1: Remaining object count:', cleanedObjects.length);
           }
 
           if ((window as any).refreshCanvas) {
             (window as any).refreshCanvas();
+            console.log('✅ 2in1: Canvas refreshed');
           }
 
-          await new Promise(resolve => setTimeout(resolve, 500));
+          // CHECK-BASED: Verify removal was successful
+          let removalVerified = false;
+          let verifyCount = 0;
 
-          // VERIFICATION: Confirm all child mothers are gone
-          const verifyData = (window as any).currentAppData;
-          if (verifyData && verifyData.objects) {
-            const remainingMothers = verifyData.objects
+          while (!removalVerified && verifyCount < 20) {
+            const verifyData = (window as any).currentAppData;
+            if (verifyData && verifyData.objects) {
+              const stillExisting = verifyData.objects.filter((obj: any) =>
+                childMotherNamesToRemove.includes(obj.name)
+              );
+
+              if (stillExisting.length === 0) {
+                console.log(`✅ 2in1: Removal verified - all ${childMotherNamesToRemove.length} children gone (check ${verifyCount + 1})`);
+                removalVerified = true;
+                break;
+              } else {
+                console.log(`⏳ 2in1: Still found ${stillExisting.length} children (check ${verifyCount + 1}):`, stillExisting.map((c: any) => c.name));
+              }
+            }
+
+            verifyCount++;
+            await new Promise(resolve => setTimeout(resolve, 200));
+          }
+
+          if (!removalVerified) {
+            console.error(`❌ 2in1: CRITICAL - Removal verification failed after ${verifyCount} checks`);
+            const finalCheck = (window as any).currentAppData;
+            if (finalCheck) {
+              const stillThere = finalCheck.objects.filter((obj: any) => childMotherNamesToRemove.includes(obj.name));
+              console.error(`❌ 2in1: These children still exist:`, stillThere.map((c: any) => c.name));
+            }
+            alert(`ERROR: Failed to remove child mothers. Please try again.`);
+            return; // BLOCK: Do not proceed if removal failed
+          }
+
+          // CRITICAL: Force multiple canvas refresh methods after successful removal
+          console.log('🎨 2in1: Forcing comprehensive canvas refresh after removal...');
+
+          // Method 1: Standard refresh
+          if ((window as any).refreshCanvas) {
+            (window as any).refreshCanvas();
+            console.log('🎨 2in1: Method 1 - refreshCanvas() called');
+          }
+
+          // Method 2: Force app data update again
+          if ((window as any).updateAppData) {
+            const finalData = (window as any).currentAppData;
+            (window as any).updateAppData(finalData);
+            console.log('🎨 2in1: Method 2 - updateAppData() called');
+          }
+
+          // Method 3: Force render trigger
+          if ((window as any).forceUpdate) {
+            (window as any).forceUpdate();
+            console.log('🎨 2in1: Method 3 - forceUpdate() called');
+          }
+
+          // Method 4: Window resize event
+          window.dispatchEvent(new Event('resize'));
+          console.log('🎨 2in1: Method 4 - resize event dispatched');
+
+          // Wait for canvas to update
+          await new Promise(resolve => setTimeout(resolve, 300));
+
+          // FINAL VERIFICATION: Absolutely ensure NO child mothers exist before proceeding
+          console.log('🔍 2in1: FINAL CHECK - Ensuring no child mothers exist...');
+          const finalVerifyData = (window as any).currentAppData;
+          if (finalVerifyData && finalVerifyData.objects) {
+            // Check for ANY child mothers with _A, _B, _C pattern
+            const anyChildMothers = finalVerifyData.objects.filter((obj: any) =>
+              obj.type?.includes('mother') &&
+              (obj.isOverflowChild === true || obj.name?.match(/_[A-Z]+$/))
+            );
+
+            if (anyChildMothers.length > 0) {
+              console.error(`❌ 2in1: BLOCKING - Found ${anyChildMothers.length} child mothers still exist!`);
+              console.error(`❌ 2in1: Child mothers found:`, anyChildMothers.map((c: any) => c.name));
+              alert(`ERROR: Child mothers still exist: ${anyChildMothers.map((c: any) => c.name).join(', ')}\n\nCannot proceed. Please try again.`);
+              return; // BLOCK: Absolutely do not proceed
+            }
+
+            const remainingMothers = finalVerifyData.objects
               .filter((obj: any) => obj.type?.includes('mother'))
               .map((obj: any) => ({ name: obj.name, isChild: obj.isOverflowChild, parent: obj.parentMotherId }));
 
             console.log('🔍 2in1 VERIFICATION: All remaining mothers after cleanup:', remainingMothers);
 
+            console.log('UNIQUE_2IN1_AFTER_REMOVAL:', JSON.stringify({
+              allRemainingMothers: remainingMothers.map((m: any) => m.name),
+              totalRemaining: remainingMothers.length
+            }));
+
             // Check specifically for child mothers that should be gone
-            const stillExistingChildren = verifyData.objects.filter((obj: any) =>
+            const stillExistingChildren = finalVerifyData.objects.filter((obj: any) =>
               childMotherNamesToRemove.includes(obj.name)
             );
 
             if (stillExistingChildren.length > 0) {
               console.error('❌ 2in1 VERIFICATION FAILED: These child mothers still exist:', stillExistingChildren.map((c: any) => c.name));
+              console.log('UNIQUE_2IN1_REMOVAL_FAILED:', JSON.stringify({
+                shouldBeRemoved: childMotherNamesToRemove,
+                stillExist: stillExistingChildren.map((c: any) => c.name)
+              }));
               alert(`ERROR: Child mothers not removed: ${stillExistingChildren.map((c: any) => c.name).join(', ')}`);
               return;
             } else {
@@ -3041,7 +3175,30 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         }
       }
 
+      // ABSOLUTE FINAL CHECK: Ensure no child mothers before proceeding to STEP 2
+      console.log('🛡️ 2in1: ABSOLUTE FINAL CHECK before STEP 2...');
+      const absoluteFinalCheck = (window as any).currentAppData;
+      if (absoluteFinalCheck && absoluteFinalCheck.objects) {
+        const anyRemainingChildren = absoluteFinalCheck.objects.filter((obj: any) =>
+          obj.type?.includes('mother') &&
+          (obj.isOverflowChild === true ||
+           obj.name?.match(/Mother_\d+[A-Z]/) ||
+           obj.parentMotherId)
+        );
+
+        if (anyRemainingChildren.length > 0) {
+          console.error('❌ 2in1: CRITICAL BLOCK - Child mothers found before STEP 2!');
+          console.error('❌ 2in1: Found:', anyRemainingChildren.map((c: any) => c.name));
+          alert(`CRITICAL ERROR: Child mothers detected before STEP 2!\n${anyRemainingChildren.map((c: any) => c.name).join(', ')}\n\nAborting.`);
+          return;
+        }
+
+        console.log('✅ 2in1: ABSOLUTE FINAL CHECK passed - no child mothers exist');
+        console.log('✅ 2in1: Clean to proceed to STEP 2');
+      }
+
       // STEP 2: Get user input text and run overflow detection
+      console.log('📝 2in1 - STEP 2: Get user input text and run overflow detection');
       console.log('📝 2in1: config.textContent.generatedText:', config.textContent.generatedText?.substring(0, 100));
       console.log('📝 2in1: config.textContent.originalText:', config.textContent.originalText?.substring(0, 100));
 
@@ -3120,7 +3277,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       console.log('⚠️ 2in1: Split1 text length:', nSplitResult.textSplits[0]?.length || 0);
       console.log('⚠️ 2in1: Split1 preview:', nSplitResult.textSplits[0]?.substring(0, 100));
 
-      // CRITICAL: Use onSave to properly update both global data AND React state
+      // CRITICAL: Use BOTH onSave AND direct data update to ensure text is saved
       // Set skip flag to prevent overflow trigger
       (window as any).__skip2in1OverflowTrigger = true;
 
@@ -3136,6 +3293,33 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
       console.log('✅ 2in1: Calling onSave with split1 text');
       onSave(split1Config);
+
+      // DIRECT DATA UPDATE: Ensure text is actually saved to parent region
+      const directUpdateData = (window as any).currentAppData;
+      if (directUpdateData && directUpdateData.objects) {
+        const directParent = directUpdateData.objects.find((obj: any) =>
+          obj.regions && obj.regions.some((region: any) => region.id === regionId)
+        );
+
+        if (directParent) {
+          const directRegion = directParent.regions.find((r: any) => r.id === regionId);
+          if (directRegion) {
+            const directContent = directRegion.contents?.find((c: any) => c.type === 'new-comp-trans');
+            if (directContent) {
+              // Directly update the text in global data
+              directContent.newCompTransConfig.textContent.originalText = nSplitResult.textSplits[0];
+              directContent.newCompTransConfig.textContent.generatedText = nSplitResult.textSplits[0];
+
+              // Force update
+              if ((window as any).updateAppData) {
+                (window as any).updateAppData(directUpdateData);
+              }
+
+              console.log('✅ 2in1: Direct data update completed');
+            }
+          }
+        }
+      }
 
       // Wait for save to propagate
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -3249,7 +3433,30 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
               createdChildMotherIds.push(childMotherId);
               (window as any).lastCreatedChildId = childMotherId;
 
-              await new Promise(resolve => setTimeout(resolve, 1000));
+              // CHECK-BASED: Wait until child is actually ready in app data
+              console.log(`🔍 2in1: Checking if ${childMotherId} is ready...`);
+              let checkCount = 0;
+              let childIsReady = false;
+
+              while (!childIsReady && checkCount < 50) { // Max 50 checks = 10 seconds
+                const checkData = (window as any).currentAppData;
+                if (checkData && checkData.objects) {
+                  const childMother = checkData.objects.find((obj: any) => obj.name === childMotherId);
+
+                  if (childMother && childMother.regions && childMother.regions.length > 0 && childMother.regions[0].id) {
+                    console.log(`✅ 2in1: ${childMotherId} is ready! (check ${checkCount + 1})`);
+                    childIsReady = true;
+                    break;
+                  }
+                }
+
+                checkCount++;
+                await new Promise(resolve => setTimeout(resolve, 200)); // Small polling interval
+              }
+
+              if (!childIsReady) {
+                console.error(`❌ 2in1: ${childMotherId} not ready after ${checkCount} checks`);
+              }
             } else {
               console.error(`❌ 2in1: Failed to create child mother ${i}`);
               alert(`Error: Failed to create child mother ${i}`);
@@ -3280,60 +3487,52 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         console.log(`📤 2in1: Assigning split ${splitIndex + 1} to ${childMotherId} (${textForChild.length} chars)`);
 
         if (onCreateNewMother && childMotherId && textForChild) {
-          // Wait for child mother to be ready
-          let retryCount = 0;
-          const maxRetries = 5;
-          let childReady = false;
+          // CHECK-BASED: Verify child is ready before assigning text
+          console.log(`🔍 2in1: Verifying ${childMotherId} before text assignment...`);
 
-          while (!childReady && retryCount < maxRetries) {
-            const checkData = (window as any).currentAppData;
-            if (checkData && checkData.objects) {
-              const childMother = checkData.objects.find((obj: any) => obj.name === childMotherId);
-              if (childMother && childMother.regions && childMother.regions.length > 0) {
-                console.log(`✅ 2in1: Child ${childMotherId} ready (attempt ${retryCount + 1})`);
-                childReady = true;
-              } else {
-                retryCount++;
-                console.log(`⏳ 2in1: Waiting for ${childMotherId} (${retryCount}/${maxRetries})...`);
-                if (retryCount < maxRetries) {
-                  await new Promise(resolve => setTimeout(resolve, 300));
-                }
-              }
-            } else {
-              retryCount++;
-              if (retryCount < maxRetries) {
-                await new Promise(resolve => setTimeout(resolve, 300));
-              }
-            }
-          }
+          // Quick check - child should already be ready from creation phase
+          const checkData = (window as any).currentAppData;
+          const childMother = checkData?.objects?.find((obj: any) => obj.name === childMotherId);
 
-          if (!childReady) {
-            console.error(`❌ 2in1: Child ${childMotherId} not ready after ${maxRetries} attempts`);
+          if (!childMother || !childMother.regions || childMother.regions.length === 0) {
+            console.error(`❌ 2in1: Child ${childMotherId} not ready for text assignment`);
             alert(`Error: Child ${childMotherId} not ready for content`);
             continue;
           }
+
+          console.log(`✅ 2in1: ${childMotherId} verified, assigning text...`);
 
           // Assign text to child
           onCreateNewMother(childMotherId, textForChild);
           console.log(`✅ 2in1: Text assigned to ${childMotherId}`);
 
-          // Verify text assignment
-          await new Promise(resolve => setTimeout(resolve, 500));
+          // CHECK-BASED: Verify text was actually assigned
+          let textVerified = false;
+          let verifyCount = 0;
 
-          const verifyData = (window as any).currentAppData;
-          if (verifyData && verifyData.objects) {
-            const verifyChild = verifyData.objects.find((obj: any) => obj.name === childMotherId);
-            if (verifyChild && verifyChild.regions && verifyChild.regions[0]) {
-              const region = verifyChild.regions[0];
-              const ctContent = region.contents?.find((c: any) => c.type === 'new-comp-trans');
-              if (ctContent) {
-                const assignedText = ctContent.newCompTransConfig?.textContent?.generatedText;
-                console.log(`✅ 2in1: Verified ${childMotherId} has text (${assignedText?.length || 0} chars)`);
+          while (!textVerified && verifyCount < 25) { // Max 25 checks = 5 seconds
+            const verifyData = (window as any).currentAppData;
+            if (verifyData && verifyData.objects) {
+              const verifyChild = verifyData.objects.find((obj: any) => obj.name === childMotherId);
+              if (verifyChild && verifyChild.regions && verifyChild.regions[0]) {
+                const region = verifyChild.regions[0];
+                const ctContent = region.contents?.find((c: any) => c.type === 'new-comp-trans');
+                if (ctContent && ctContent.newCompTransConfig?.textContent?.generatedText) {
+                  const assignedText = ctContent.newCompTransConfig.textContent.generatedText;
+                  console.log(`✅ 2in1: Verified ${childMotherId} has text (${assignedText.length} chars) - check ${verifyCount + 1}`);
+                  textVerified = true;
+                  break;
+                }
               }
             }
+
+            verifyCount++;
+            await new Promise(resolve => setTimeout(resolve, 200)); // Small polling interval
           }
 
-          await new Promise(resolve => setTimeout(resolve, 800));
+          if (!textVerified) {
+            console.warn(`⚠️ 2in1: Could not verify text in ${childMotherId} after ${verifyCount} checks`);
+          }
         } else {
           console.error(`❌ 2in1: Cannot assign text to ${childMotherId}`);
           alert(`Error: Cannot assign text to ${childMotherId}`);
@@ -3346,6 +3545,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       // FINAL VERIFICATION: Show complete state
       const finalData = (window as any).currentAppData;
       if (finalData && finalData.objects) {
+        console.log('🏁 2in1: FINAL CHECK - What mothers exist on canvas?');
         const allFinalMothers = finalData.objects
           .filter((obj: any) => obj.type?.includes('mother'))
           .map((obj: any) => {
@@ -3362,6 +3562,37 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
           });
 
         console.log('🏁 2in1 FINAL STATE: All mothers with their text:', allFinalMothers);
+        console.log('🏁 2in1: Total mothers count:', allFinalMothers.length);
+        allFinalMothers.forEach((mother: any) => {
+          console.log(`🏁 2in1: # ${mother.name} (child: ${mother.isChild}, parent: ${mother.parentId}, text: ${mother.textLength} chars)`);
+        });
+
+        console.log('UNIQUE_2IN1_FINAL_RESULT:', JSON.stringify({
+          totalMothers: allFinalMothers.length,
+          motherNames: allFinalMothers.map((m: any) => m.name),
+          childMothers: allFinalMothers.filter((m: any) => m.isChild).map((m: any) => m.name)
+        }));
+
+        // CRITICAL: Force complete canvas refresh to remove ghost mothers
+        console.log('🎨 2in1: Forcing FINAL canvas refresh to remove ghost visuals...');
+
+        // Method 1: Force app data update
+        if ((window as any).updateAppData) {
+          (window as any).updateAppData(finalData);
+          console.log('🎨 2in1: Final updateAppData() called');
+        }
+
+        // Method 2: Multiple refresh calls
+        if ((window as any).refreshCanvas) {
+          (window as any).refreshCanvas();
+          await new Promise(resolve => setTimeout(resolve, 100));
+          (window as any).refreshCanvas();
+          console.log('🎨 2in1: Final refreshCanvas() called 2x');
+        }
+
+        // Method 3: Force window resize
+        window.dispatchEvent(new Event('resize'));
+        await new Promise(resolve => setTimeout(resolve, 100));
 
         // Verify parent has split1
         const finalParent = finalData.objects.find((obj: any) =>
