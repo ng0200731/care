@@ -471,8 +471,14 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
   // Enhanced N-split overflow detection and text splitting
   const detectOverflowAndSplitN = () => {
+    // Check if we have a temporary config override from 2in1 button
+    const effectiveConfig = (window as any).__temp2in1Config || config;
+
+    console.log(`🔍 N-SPLIT: effectiveConfig.textContent.originalText length:`, effectiveConfig.textContent.originalText?.length || 0);
+    console.log(`🔍 N-SPLIT: effectiveConfig.textContent.generatedText length:`, effectiveConfig.textContent.generatedText?.length || 0);
+
     // Use original text if available, fallback to generated text, then to auto-generated content
-    const text = config.textContent.originalText || config.textContent.generatedText || generateTextContent();
+    const text = effectiveConfig.textContent.originalText || effectiveConfig.textContent.generatedText || generateTextContent();
     console.log(`🔍 N-SPLIT: Detecting overflow for text:`, text?.substring(0, 50) || 'NO TEXT');
     console.log(`🔍 N-SPLIT: Text length:`, text?.length || 0);
     console.log(`🔍 N-SPLIT: Region dimensions:`, { regionWidth, regionHeight });
@@ -490,20 +496,20 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     // Calculate available space in pixels
     const regionWidthPx = regionWidth * 3.779527559; // Convert mm to px (96 DPI)
     const regionHeightPx = regionHeight * 3.779527559;
-    const paddingLeftPx = config.padding.left * 3.779527559;
-    const paddingRightPx = config.padding.right * 3.779527559;
-    const paddingTopPx = config.padding.top * 3.779527559;
-    const paddingBottomPx = config.padding.bottom * 3.779527559;
+    const paddingLeftPx = effectiveConfig.padding.left * 3.779527559;
+    const paddingRightPx = effectiveConfig.padding.right * 3.779527559;
+    const paddingTopPx = effectiveConfig.padding.top * 3.779527559;
+    const paddingBottomPx = effectiveConfig.padding.bottom * 3.779527559;
 
     const availableWidthPx = Math.max(0, regionWidthPx - paddingLeftPx - paddingRightPx);
     const availableHeightPx = Math.max(0, regionHeightPx - paddingTopPx - paddingBottomPx);
 
     // Convert font size to pixels
-    let fontSizePx = config.typography.fontSize;
-    if (config.typography.fontSizeUnit === 'mm') {
-      fontSizePx = config.typography.fontSize * 3.779527559;
-    } else if (config.typography.fontSizeUnit === 'pt') {
-      fontSizePx = (config.typography.fontSize * 4/3);
+    let fontSizePx = effectiveConfig.typography.fontSize;
+    if (effectiveConfig.typography.fontSizeUnit === 'mm') {
+      fontSizePx = effectiveConfig.typography.fontSize * 3.779527559;
+    } else if (effectiveConfig.typography.fontSizeUnit === 'pt') {
+      fontSizePx = (effectiveConfig.typography.fontSize * 4/3);
     }
 
     const zoom = 1.0;
@@ -515,7 +521,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       const context = canvas.getContext('2d');
       if (!context) return text.length * 2;
 
-      context.font = `${scaledFontSize}px ${config.typography.fontFamily}`;
+      context.font = `${scaledFontSize}px ${effectiveConfig.typography.fontFamily}`;
       const textWidthPx = context.measureText(text).width;
       return textWidthPx / 3.779527559;
     };
@@ -2904,6 +2910,493 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     }
   };
 
+  // NEW: Button "2in1" - Universal handler combining Save and Generate logic
+  const handle2in1 = async () => {
+    try {
+      console.log('🚀 2in1: Starting...');
+
+      // STEP 1: Remove all child mothers FIRST
+      console.log('🗑️ 2in1 - STEP 1: Remove all child mothers');
+      const currentAppData = (window as any).currentAppData;
+
+      // Find parent mother ID
+      let parentMotherId = 'Mother_1'; // Default fallback
+      let parentMother: any = null;
+
+      if (currentAppData && currentAppData.objects) {
+        parentMother = currentAppData.objects.find((obj: any) =>
+          obj.regions && obj.regions.some((region: any) => region.id === regionId)
+        );
+        if (parentMother) {
+          parentMotherId = parentMother.name;
+        }
+        console.log('🗑️ 2in1: Target parent mother:', parentMotherId);
+
+        // Remove ONLY direct child mothers (no grandchildren, no child of child)
+        const allChildMothersToRemove: any[] = [];
+
+        // Method 1: Direct children ONLY - linked to THIS parent
+        const directChildMothers = currentAppData.objects.filter((obj: any) =>
+          obj.type && obj.type.includes('mother') &&
+          obj.name !== parentMotherId &&
+          obj.parentMotherId === parentMotherId && // MUST be direct child of THIS parent
+          obj.isOverflowChild === true
+        );
+        allChildMothersToRemove.push(...directChildMothers);
+
+        // Method 2: Pattern-based for THIS parent only (Mother_1A, Mother_1B, etc.)
+        // Extract parent number from parentMotherId (e.g., "Mother_1" -> "1")
+        const parentNumberMatch = parentMotherId.match(/^Mother_(\d+)$/);
+        if (parentNumberMatch) {
+          const parentNumber = parentNumberMatch[1];
+          // Only match Mother_1A, Mother_1B... for parent Mother_1
+          // NOT Mother_1AA, Mother_1AB (those are grandchildren)
+          const patternBasedMothers = currentAppData.objects.filter((obj: any) =>
+            obj.name &&
+            obj.name.match(new RegExp(`^Mother_${parentNumber}[A-Z]$`)) && // Exactly one letter suffix
+            obj.name !== parentMotherId
+          );
+          patternBasedMothers.forEach((child: any) => {
+            if (!allChildMothersToRemove.find((existing: any) => existing.name === child.name)) {
+              allChildMothersToRemove.push(child);
+            }
+          });
+        }
+
+        // Method 3: Check parent's childMotherIds array (direct children only)
+        if (parentMother && (parentMother as any).childMotherIds) {
+          const childIdsFromParent = (parentMother as any).childMotherIds;
+          const childrenFromParentList = currentAppData.objects.filter((obj: any) =>
+            childIdsFromParent.includes(obj.name)
+          );
+          childrenFromParentList.forEach((child: any) => {
+            if (!allChildMothersToRemove.find((existing: any) => existing.name === child.name)) {
+              allChildMothersToRemove.push(child);
+            }
+          });
+        }
+
+        console.log(`🗑️ 2in1: Found ${allChildMothersToRemove.length} child mothers to remove:`,
+          allChildMothersToRemove.map((c: any) => c.name));
+
+        if (allChildMothersToRemove.length > 0) {
+          // Remove child mothers
+          const childMotherNamesToRemove = allChildMothersToRemove.map((c: any) => c.name);
+          const cleanedObjects = currentAppData.objects.filter((obj: any) =>
+            !childMotherNamesToRemove.includes(obj.name)
+          );
+
+          // Clear parent relationship tracking
+          if (parentMother) {
+            if (parentMother.childMotherIds) {
+              parentMother.childMotherIds = [];
+            }
+            delete parentMother.hasChildren;
+            delete parentMother.childCount;
+            console.log('🗑️ 2in1: Cleared parent relationship tracking');
+          }
+
+          // Update global app data
+          const cleanedAppData = {
+            ...currentAppData,
+            objects: cleanedObjects,
+            totalObjects: cleanedObjects.length
+          };
+
+          if ((window as any).updateAppData) {
+            (window as any).updateAppData(cleanedAppData);
+            console.log('✅ 2in1: Child mothers removed');
+          }
+
+          if ((window as any).refreshCanvas) {
+            (window as any).refreshCanvas();
+          }
+
+          await new Promise(resolve => setTimeout(resolve, 500));
+
+          // VERIFICATION: Confirm all child mothers are gone
+          const verifyData = (window as any).currentAppData;
+          if (verifyData && verifyData.objects) {
+            const remainingMothers = verifyData.objects
+              .filter((obj: any) => obj.type?.includes('mother'))
+              .map((obj: any) => ({ name: obj.name, isChild: obj.isOverflowChild, parent: obj.parentMotherId }));
+
+            console.log('🔍 2in1 VERIFICATION: All remaining mothers after cleanup:', remainingMothers);
+
+            // Check specifically for child mothers that should be gone
+            const stillExistingChildren = verifyData.objects.filter((obj: any) =>
+              childMotherNamesToRemove.includes(obj.name)
+            );
+
+            if (stillExistingChildren.length > 0) {
+              console.error('❌ 2in1 VERIFICATION FAILED: These child mothers still exist:', stillExistingChildren.map((c: any) => c.name));
+              alert(`ERROR: Child mothers not removed: ${stillExistingChildren.map((c: any) => c.name).join(', ')}`);
+              return;
+            } else {
+              console.log('✅ 2in1 VERIFICATION: All child mothers successfully removed');
+            }
+          }
+        } else {
+          console.log('ℹ️ 2in1: No child mothers found - clean slate');
+        }
+      }
+
+      // STEP 2: Get user input text and run overflow detection
+      console.log('📝 2in1: config.textContent.generatedText:', config.textContent.generatedText?.substring(0, 100));
+      console.log('📝 2in1: config.textContent.originalText:', config.textContent.originalText?.substring(0, 100));
+
+      const userInputText = config.textContent.generatedText || config.textContent.originalText || generateTextContent();
+      console.log('📝 2in1: User input text selected:', userInputText.substring(0, 100));
+      console.log('📝 2in1: User input text length:', userInputText.length);
+
+      // Temporarily store user text for detectOverflowAndSplitN to use
+      (window as any).__temp2in1Config = {
+        ...config,
+        textContent: {
+          ...config.textContent,
+          originalText: userInputText,
+          generatedText: userInputText
+        }
+      };
+
+      const nSplitResult = detectOverflowAndSplitN();
+      delete (window as any).__temp2in1Config;
+
+      console.log('📊 2in1: totalSplits =', nSplitResult.totalSplits, ', hasOverflow =', nSplitResult.hasOverflow);
+
+      // STEP 3: Check if overflow exists
+      if (!nSplitResult.hasOverflow || nSplitResult.totalSplits === 1) {
+        // NO OVERFLOW: Save text directly to region
+        console.log('✅ 2in1: No overflow - saving text directly');
+
+        // Get FRESH reference after removal
+        const freshAppData = (window as any).currentAppData;
+        if (freshAppData && freshAppData.objects) {
+          const freshParent = freshAppData.objects.find((obj: any) =>
+            obj.regions && obj.regions.some((region: any) => region.id === regionId)
+          );
+
+          if (freshParent) {
+            console.log('✅ 2in1: Found parent:', freshParent.name);
+            const region = freshParent.regions.find((r: any) => r.id === regionId);
+            if (region) {
+              // Update or create content
+              let ctContent = region.contents?.find((c: any) => c.type === 'new-comp-trans');
+              if (!ctContent) {
+                // Create new content if doesn't exist
+                if (!region.contents) region.contents = [];
+                ctContent = {
+                  id: `content_${Date.now()}`,
+                  type: 'new-comp-trans',
+                  newCompTransConfig: config
+                };
+                region.contents.push(ctContent);
+              }
+
+              // Update text
+              ctContent.newCompTransConfig.textContent.originalText = userInputText;
+              ctContent.newCompTransConfig.textContent.generatedText = userInputText;
+
+              // Update app data
+              (window as any).updateAppData(freshAppData);
+
+              // Refresh canvas
+              if ((window as any).refreshCanvas) {
+                (window as any).refreshCanvas();
+              }
+
+              console.log('✅ 2in1: Text saved to parent');
+            }
+          }
+        }
+
+        onCancel();
+        return;
+      }
+
+      // HAS OVERFLOW: Save split1 to parent using onSave to update both global and React state
+      console.log('⚠️ 2in1: Has overflow - saving split1 and creating child mothers');
+      console.log('⚠️ 2in1: Total splits:', nSplitResult.totalSplits);
+      console.log('⚠️ 2in1: Split1 text length:', nSplitResult.textSplits[0]?.length || 0);
+      console.log('⚠️ 2in1: Split1 preview:', nSplitResult.textSplits[0]?.substring(0, 100));
+
+      // CRITICAL: Use onSave to properly update both global data AND React state
+      // Set skip flag to prevent overflow trigger
+      (window as any).__skip2in1OverflowTrigger = true;
+
+      // Save split1 using the proper save mechanism
+      const split1Config = {
+        ...config,
+        textContent: {
+          ...config.textContent,
+          originalText: nSplitResult.textSplits[0],
+          generatedText: nSplitResult.textSplits[0]
+        }
+      };
+
+      console.log('✅ 2in1: Calling onSave with split1 text');
+      onSave(split1Config);
+
+      // Wait for save to propagate
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      // Clear skip flag
+      delete (window as any).__skip2in1OverflowTrigger;
+
+      // VERIFICATION: Check if parent has split1
+      const verifyAfterSave = (window as any).currentAppData;
+      if (verifyAfterSave && verifyAfterSave.objects) {
+        const verifyParent = verifyAfterSave.objects.find((obj: any) =>
+          obj.regions && obj.regions.some((region: any) => region.id === regionId)
+        );
+
+        if (verifyParent) {
+          const verifyRegion = verifyParent.regions.find((r: any) => r.id === regionId);
+          const verifyContent = verifyRegion?.contents?.find((c: any) => c.type === 'new-comp-trans');
+          const verifyText = verifyContent?.newCompTransConfig?.textContent?.generatedText;
+
+          console.log('🔍 2in1 VERIFY AFTER SAVE:', {
+            parentName: verifyParent.name,
+            savedTextLength: verifyText?.length || 0,
+            savedTextPreview: verifyText?.substring(0, 100),
+            expectedLength: nSplitResult.textSplits[0].length,
+            matches: verifyText === nSplitResult.textSplits[0]
+          });
+
+          if (!verifyText || verifyText.length === 0) {
+            console.error('❌ 2in1 CRITICAL: Parent text is EMPTY after save!');
+            alert('ERROR: Failed to save split1 text to parent');
+            return;
+          }
+
+          if (verifyText !== nSplitResult.textSplits[0]) {
+            console.error('❌ 2in1 CRITICAL: Parent text does not match split1!');
+            console.error('Expected:', nSplitResult.textSplits[0].substring(0, 100));
+            console.error('Got:', verifyText?.substring(0, 100));
+            alert('ERROR: Parent text mismatch after save');
+            return;
+          }
+
+          console.log('✅ 2in1: Parent text verified successfully');
+        } else {
+          console.error('❌ 2in1: Could not find parent for verification');
+          alert('ERROR: Could not verify parent after save');
+          return;
+        }
+      }
+
+      // STEP 5: Create child mothers
+      console.log(`🏗️ 2in1: Creating ${nSplitResult.totalSplits - 1} child mothers...`);
+
+      // VERIFICATION: Confirm clean state before child creation
+      const preCreateData = (window as any).currentAppData;
+      if (preCreateData && preCreateData.objects) {
+        const allMothers = preCreateData.objects
+          .filter((obj: any) => obj.type?.includes('mother'))
+          .map((obj: any) => ({ name: obj.name, isChild: obj.isOverflowChild, hasText: !!obj.regions?.[0]?.contents?.[0]?.newCompTransConfig?.textContent?.generatedText }));
+
+        console.log('🔍 2in1 PRE-CREATE VERIFICATION: All mothers before child creation:', allMothers);
+
+        const parentForVerify = preCreateData.objects.find((obj: any) =>
+          obj.regions && obj.regions.some((region: any) => region.id === regionId)
+        );
+
+        if (parentForVerify) {
+          const parentRegion = parentForVerify.regions.find((r: any) => r.id === regionId);
+          const parentContent = parentRegion?.contents?.find((c: any) => c.type === 'new-comp-trans');
+          const parentText = parentContent?.newCompTransConfig?.textContent?.generatedText;
+
+          console.log('🔍 2in1 PRE-CREATE PARENT TEXT:', {
+            parent: parentForVerify.name,
+            textLength: parentText?.length || 0,
+            textPreview: parentText?.substring(0, 100),
+            hasChildren: parentForVerify.childMotherIds?.length || 0
+          });
+        }
+      }
+
+      // Find parent mother for child creation
+      const globalData = (window as any).currentAppData;
+      let parentMotherIdForCreation = 'Mother_1';
+      if (globalData && globalData.objects) {
+        for (const obj of globalData.objects) {
+          if (obj.type?.includes('mother') && obj.regions) {
+            for (const region of obj.regions) {
+              if (region.id === regionId) {
+                parentMotherIdForCreation = obj.name;
+                break;
+              }
+            }
+            if (parentMotherIdForCreation !== 'Mother_1') break;
+          }
+        }
+      }
+
+      const createdChildMotherIds: string[] = [];
+
+      // Create child mothers sequentially
+      for (let i = 1; i < nSplitResult.totalSplits; i++) {
+        console.log(`🏗️ 2in1: Creating child mother ${i}/${nSplitResult.totalSplits - 1}`);
+
+        let childMotherId: string | null = null;
+
+        if (createChildMother) {
+          try {
+            childMotherId = createChildMother(parentMotherIdForCreation);
+
+            if (childMotherId) {
+              console.log(`✅ 2in1: Child mother created: ${childMotherId}`);
+              createdChildMotherIds.push(childMotherId);
+              (window as any).lastCreatedChildId = childMotherId;
+
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            } else {
+              console.error(`❌ 2in1: Failed to create child mother ${i}`);
+              alert(`Error: Failed to create child mother ${i}`);
+              return;
+            }
+          } catch (error) {
+            console.error(`❌ 2in1: Exception creating child mother ${i}:`, error);
+            alert(`Error: Failed to create child mother ${i}: ${error}`);
+            return;
+          }
+        } else {
+          console.error('❌ 2in1: createChildMother function not available');
+          alert('Error: createChildMother function not available');
+          return;
+        }
+      }
+
+      console.log(`✅ 2in1: Created ${createdChildMotherIds.length} child mothers:`, createdChildMotherIds);
+
+      // STEP 7: Distribute text to child mothers
+      console.log(`📤 2in1 - STEP 7: Distributing text to ${createdChildMotherIds.length} child mothers`);
+
+      for (let i = 0; i < createdChildMotherIds.length; i++) {
+        const childMotherId = createdChildMotherIds[i];
+        const splitIndex = i + 1; // Split 0 = parent, Split 1+ = children
+        const textForChild = nSplitResult.textSplits[splitIndex] || '';
+
+        console.log(`📤 2in1: Assigning split ${splitIndex + 1} to ${childMotherId} (${textForChild.length} chars)`);
+
+        if (onCreateNewMother && childMotherId && textForChild) {
+          // Wait for child mother to be ready
+          let retryCount = 0;
+          const maxRetries = 5;
+          let childReady = false;
+
+          while (!childReady && retryCount < maxRetries) {
+            const checkData = (window as any).currentAppData;
+            if (checkData && checkData.objects) {
+              const childMother = checkData.objects.find((obj: any) => obj.name === childMotherId);
+              if (childMother && childMother.regions && childMother.regions.length > 0) {
+                console.log(`✅ 2in1: Child ${childMotherId} ready (attempt ${retryCount + 1})`);
+                childReady = true;
+              } else {
+                retryCount++;
+                console.log(`⏳ 2in1: Waiting for ${childMotherId} (${retryCount}/${maxRetries})...`);
+                if (retryCount < maxRetries) {
+                  await new Promise(resolve => setTimeout(resolve, 300));
+                }
+              }
+            } else {
+              retryCount++;
+              if (retryCount < maxRetries) {
+                await new Promise(resolve => setTimeout(resolve, 300));
+              }
+            }
+          }
+
+          if (!childReady) {
+            console.error(`❌ 2in1: Child ${childMotherId} not ready after ${maxRetries} attempts`);
+            alert(`Error: Child ${childMotherId} not ready for content`);
+            continue;
+          }
+
+          // Assign text to child
+          onCreateNewMother(childMotherId, textForChild);
+          console.log(`✅ 2in1: Text assigned to ${childMotherId}`);
+
+          // Verify text assignment
+          await new Promise(resolve => setTimeout(resolve, 500));
+
+          const verifyData = (window as any).currentAppData;
+          if (verifyData && verifyData.objects) {
+            const verifyChild = verifyData.objects.find((obj: any) => obj.name === childMotherId);
+            if (verifyChild && verifyChild.regions && verifyChild.regions[0]) {
+              const region = verifyChild.regions[0];
+              const ctContent = region.contents?.find((c: any) => c.type === 'new-comp-trans');
+              if (ctContent) {
+                const assignedText = ctContent.newCompTransConfig?.textContent?.generatedText;
+                console.log(`✅ 2in1: Verified ${childMotherId} has text (${assignedText?.length || 0} chars)`);
+              }
+            }
+          }
+
+          await new Promise(resolve => setTimeout(resolve, 800));
+        } else {
+          console.error(`❌ 2in1: Cannot assign text to ${childMotherId}`);
+          alert(`Error: Cannot assign text to ${childMotherId}`);
+          return;
+        }
+      }
+
+      console.log('🎉 2in1: Complete! Parent + children created with text distributed');
+
+      // FINAL VERIFICATION: Show complete state
+      const finalData = (window as any).currentAppData;
+      if (finalData && finalData.objects) {
+        const allFinalMothers = finalData.objects
+          .filter((obj: any) => obj.type?.includes('mother'))
+          .map((obj: any) => {
+            const region = obj.regions?.[0];
+            const content = region?.contents?.find((c: any) => c.type === 'new-comp-trans');
+            const text = content?.newCompTransConfig?.textContent?.generatedText;
+            return {
+              name: obj.name,
+              isChild: obj.isOverflowChild,
+              parentId: obj.parentMotherId,
+              textLength: text?.length || 0,
+              textPreview: text?.substring(0, 60)
+            };
+          });
+
+        console.log('🏁 2in1 FINAL STATE: All mothers with their text:', allFinalMothers);
+
+        // Verify parent has split1
+        const finalParent = finalData.objects.find((obj: any) =>
+          obj.regions && obj.regions.some((region: any) => region.id === regionId)
+        );
+
+        if (finalParent) {
+          const finalParentRegion = finalParent.regions.find((r: any) => r.id === regionId);
+          const finalParentContent = finalParentRegion?.contents?.find((c: any) => c.type === 'new-comp-trans');
+          const finalParentText = finalParentContent?.newCompTransConfig?.textContent?.generatedText;
+
+          console.log('🏁 2in1 FINAL PARENT:', {
+            name: finalParent.name,
+            textLength: finalParentText?.length || 0,
+            textPreview: finalParentText?.substring(0, 100),
+            expectedSplit1Length: nSplitResult.textSplits[0]?.length || 0,
+            textMatches: finalParentText === nSplitResult.textSplits[0]
+          });
+
+          if (finalParentText !== nSplitResult.textSplits[0]) {
+            console.error('❌ 2in1 VERIFICATION FAILED: Parent text does not match split1!');
+            console.error('Expected:', nSplitResult.textSplits[0]?.substring(0, 100));
+            console.error('Got:', finalParentText?.substring(0, 100));
+          }
+        }
+      }
+
+      setTimeout(() => onCancel(), 1000);
+
+    } catch (error) {
+      console.error('❌ 2in1: Error:', error);
+      alert(`2in1 Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
   const handleSave = async () => {
     console.log(`🔧 ${DIALOG_VERSION}: Starting handleSave function`);
     console.log(`🔧 ${DIALOG_VERSION}: Current config text:`, config.textContent.generatedText?.substring(0, 50) || 'NO TEXT');
@@ -4404,6 +4897,27 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
               title="Generate: Execute text splitting and create/regenerate child mothers with overflow content"
             >
               Generate
+            </button>
+
+            {/* 2in1 button - Universal handler for both overflow and non-overflow scenarios */}
+            <button
+              onClick={handle2in1}
+              disabled={!canSave()}
+              style={{
+                padding: '12px 24px',
+                border: '3px solid #9c27b0',
+                borderRadius: '8px',
+                backgroundColor: canSave() ? '#9c27b0' : '#ccc',
+                color: canSave() ? 'white' : '#666',
+                fontSize: '18px',
+                fontWeight: '800',
+                cursor: canSave() ? 'pointer' : 'not-allowed',
+                boxShadow: canSave() ? '0 3px 6px rgba(156, 39, 176, 0.4)' : 'none',
+                textShadow: canSave() ? '0 1px 2px rgba(0,0,0,0.3)' : 'none'
+              }}
+              title="2in1: Universal handler - Uses N-split logic for all cases (N≥1). Always cleans and regenerates."
+            >
+              2in1
             </button>
 
             {/* Debug Log Buttons */}

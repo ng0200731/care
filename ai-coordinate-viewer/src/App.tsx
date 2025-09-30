@@ -9203,9 +9203,15 @@ function App() {
 
         // CRITICAL: Trigger overflow redistribution when initiator content changes
         // Pass the new text directly to avoid state timing issues
-        setTimeout(() => {
-          recalculateOverflowChainWithText(universalDialog.editingContent.id, contentData.content.text);
-        }, 100);
+        // SKIP if 2in1 button set the flag
+        const skip2in1Trigger = (window as any).__skip2in1OverflowTrigger;
+        if (!skip2in1Trigger) {
+          setTimeout(() => {
+            recalculateOverflowChainWithText(universalDialog.editingContent.id, contentData.content.text);
+          }, 100);
+        } else {
+          console.log('🔒 Skipping overflow recalculation - 2in1 button in control');
+        }
       }
     }
 
@@ -9454,11 +9460,12 @@ function App() {
 
     console.log(`🔢 N-SPLIT DEBUG: Generated child mother ID: ${childMotherId}`);
 
-    // Copy all regions from parent mother
+    // Copy all regions from parent mother - DEEP CLONE to avoid reference issues
     const originalRegions = (parentMother as any).regions || [];
     const copiedRegions = originalRegions.map((region: any) => ({
       ...region,
-      id: `${region.id}_copy_${childMotherId}` // Unique ID for copied region
+      id: `${region.id}_copy_${childMotherId}`, // Unique ID for copied region
+      contents: region.contents ? JSON.parse(JSON.stringify(region.contents)) : [] // Deep clone contents
     }));
 
     // Calculate position for new mother

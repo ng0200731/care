@@ -638,7 +638,11 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
 
     // Handle overflow for text-based content types (line-text, paragraphs, new-comp-trans)
     const textContentTypes = ['line-text', 'pure-english-paragraph', 'translation-paragraph', 'new-comp-trans'];
-    if (textContentTypes.includes(contentType.id) && onOverflowToggle) {
+
+    // Skip overflow trigger if 2in1 button set the flag
+    const skip2in1Trigger = (window as any).__skip2in1OverflowTrigger;
+
+    if (textContentTypes.includes(contentType.id) && onOverflowToggle && !skip2in1Trigger) {
       if (editingContent) {
         // For editing content, apply overflow state immediately
         onOverflowToggle(editingContent.id, regionId, localOverflowEnabled);
