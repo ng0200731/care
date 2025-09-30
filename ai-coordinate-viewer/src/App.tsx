@@ -5175,6 +5175,32 @@ function App() {
         return segments;
       };
 
+      // Build a lookup map for region padding data (for Arabic RTL positioning)
+      const regionPaddingMap = new Map();
+      if (currentData && currentData.objects) {
+        currentData.objects.forEach((mother: any) => {
+        if (mother.regions) {
+          mother.regions.forEach((region: any) => {
+            if (region.contents) {
+              region.contents.forEach((content: any) => {
+                if (content.type === 'new-comp-trans') {
+                  const config = content.newCompTransConfig;
+                  regionPaddingMap.set(region.id, {
+                    regionWidth: region.width,
+                    paddingRight: config?.margins?.right || 0,
+                    paddingLeft: config?.margins?.left || 0,
+                    regionX: region.x,
+                    motherX: mother.x
+                  });
+                  console.log(`📊 Region ${region.id}: width=${region.width}mm, paddingRight=${config?.margins?.right || 0}mm`);
+                }
+              });
+            }
+          });
+        }
+        });
+      }
+
       // 2. Copy outline's text processing with Arabic RTL/LTR handling
       const textElements = svgClone.querySelectorAll('text, tspan');
       console.log(`🔤 Found ${textElements.length} text elements - copying outline processing`);
@@ -5267,14 +5293,6 @@ function App() {
           segments.forEach((segment, index) => {
             const span = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
             span.textContent = segment.text;
-            span.setAttribute('x', currentX.toString());
-            span.setAttribute('y', y);
-            span.setAttribute('font-size', fontSize);
-
-            // DEBUG: Log each segment positioning
-            if (hasChinese || hasJapanese || hasKorean) {
-              console.log(`  📝 Segment ${index}: "${segment.text}" (${segment.language}) x=${currentX} y=${y}`);
-            }
 
             // Preserve original font family for non-CJK text, or use specific CJK fonts
             const originalFontFamily = textEl.getAttribute('font-family') || canvasFontFamily;
@@ -5285,39 +5303,48 @@ function App() {
                              segment.language === 'canvas' ? 'Arial' :
                              originalFontFamily; // Use original font instead of canvasFontFamily
 
+            // Calculate segment width FIRST for Arabic positioning
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            let segmentWidth = 0;
+
+            if (ctx) {
+              ctx.font = `${fontSize}px ${fontFamily}`;
+              segmentWidth = ctx.measureText(segment.text).width;
+            } else {
+              segmentWidth = segment.text.length * parseFloat(fontSize) * 0.6;
+            }
+
+            // For Arabic, keep x position as-is (canvas already positioned it correctly)
+            span.setAttribute('x', currentX.toString());
+            span.setAttribute('y', y);
+            span.setAttribute('font-size', fontSize);
+
+            // DEBUG: Log each segment positioning
+            if (hasChinese || hasJapanese || hasKorean || segment.language === 'arabic') {
+              console.log(`  📝 Segment ${index}: "${segment.text}" (${segment.language}) x=${currentX} y=${y}`);
+            }
+
             span.setAttribute('font-family', fontFamily);
             span.setAttribute('fill', 'black');
             span.setAttribute('stroke', 'none');
 
-            // Copy outline's Arabic RTL handling
+            // Enhanced Arabic RTL handling - keep as LTR since canvas already positioned correctly
             if (segment.language === 'arabic') {
-              span.setAttribute('direction', 'rtl');
-              span.setAttribute('unicode-bidi', 'bidi-override');
+              // Don't set direction/unicode-bidi - let it render LTR at the correct position
+              // The canvas already calculated the correct x position respecting padding
+              console.log(`🔤 Arabic segment: keeping canvas position x=${currentX}`);
             }
 
             textEl.appendChild(span);
 
-            // Copy outline's width calculation
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            if (ctx) {
-              ctx.font = `${fontSize}px ${fontFamily}`;
-              const segmentWidth = ctx.measureText(segment.text).width;
-              const oldX = currentX;
-              currentX += segmentWidth;
+            // Update currentX for next segment
+            const oldX = currentX;
+            currentX += segmentWidth;
 
-              // DEBUG: Log positioning updates
-              if (hasChinese || hasJapanese || hasKorean) {
-                console.log(`    ➡️ Width: ${segmentWidth.toFixed(1)}px, currentX: ${oldX.toFixed(1)} → ${currentX.toFixed(1)}`);
-              }
-            } else {
-              const fallbackWidth = segment.text.length * parseFloat(fontSize) * 0.6;
-              const oldX = currentX;
-              currentX += fallbackWidth;
-
-              if (hasChinese || hasJapanese || hasKorean) {
-                console.log(`    ➡️ Fallback width: ${fallbackWidth.toFixed(1)}px, currentX: ${oldX.toFixed(1)} → ${currentX.toFixed(1)}`);
-              }
+            // DEBUG: Log positioning updates
+            if (hasChinese || hasJapanese || hasKorean || segment.language === 'arabic') {
+              console.log(`    ➡️ Width: ${segmentWidth.toFixed(1)}px, currentX: ${oldX.toFixed(1)} → ${currentX.toFixed(1)}`);
             }
           });
         } else {
@@ -5326,9 +5353,61 @@ function App() {
           textEl.setAttribute('font-family', fontFamily);
 
           if (hasArabic) {
-            textEl.setAttribute('direction', 'rtl');
-            textEl.setAttribute('unicode-bidi', 'bidi-override');
-            textEl.setAttribute('font-family', `${canvasFontFamily}, Arial, sans-serif`);
+            // CALCULATION: Use PDF's exact formula: textX = regionX + region.width - paddingRight
+            const currentTextX = parseFloat(textEl.getAttribute('x') || '0');
+            const fontSize = parseFloat(textEl.getAttribute('font-size') || '12');
+
+            // Find which region this text belongs to by matching x coordinate
+            let matchedRegion: any = null;
+            const tolerance = 5; // px tolerance for matching
+
+            for (const entry of Array.from(regionPaddingMap.entries())) {
+              const [regionId, regionData] = entry;
+              // Calculate expected region boundaries in pixels
+              const regionStartX = (regionData.motherX + regionData.regionX) * (svgRect.width / canvasWidthMM) * exactFactor;
+              const regionEndX = regionStartX + (regionData.regionWidth * (svgRect.width / canvasWidthMM) * exactFactor);
+
+              if (currentTextX >= regionStartX - tolerance && currentTextX <= regionEndX + tolerance) {
+                matchedRegion = regionData;
+                console.log(`📍 Matched Arabic text to region: x=${currentTextX.toFixed(1)}, region: ${regionStartX.toFixed(1)}-${regionEndX.toFixed(1)}`);
+                break;
+              }
+            }
+
+            if (matchedRegion) {
+              // Calculate text width
+              const canvas = document.createElement('canvas');
+              const ctx = canvas.getContext('2d');
+              let textWidthPx = 0;
+
+              if (ctx) {
+                ctx.font = `${fontSize}px ${canvasFontFamily}`;
+                textWidthPx = ctx.measureText(textContent).width;
+              } else {
+                textWidthPx = textContent.length * fontSize * 0.6;
+              }
+
+              // PDF formula: textX = regionX + region.width - paddingRight
+              // Convert to pixels
+              const regionXPx = (matchedRegion.motherX + matchedRegion.regionX) * (svgRect.width / canvasWidthMM) * exactFactor;
+              const regionWidthPx = matchedRegion.regionWidth * (svgRect.width / canvasWidthMM) * exactFactor;
+              const paddingRightPx = matchedRegion.paddingRight * (svgRect.width / canvasWidthMM) * exactFactor;
+
+              // Calculate correct x for RTL (right edge of text area)
+              const correctTextX = regionXPx + regionWidthPx - paddingRightPx;
+
+              textEl.setAttribute('x', correctTextX.toString());
+              textEl.setAttribute('text-anchor', 'end');
+              textEl.setAttribute('direction', 'rtl');
+              textEl.setAttribute('unicode-bidi', 'bidi-override');
+              textEl.setAttribute('font-family', `${canvasFontFamily}, Arial, sans-serif`);
+
+              console.log(`🔤 Arabic RTL: x=${currentTextX.toFixed(1)} → ${correctTextX.toFixed(1)} (region width=${matchedRegion.regionWidth}mm, paddingRight=${matchedRegion.paddingRight}mm)`);
+            } else {
+              // Fallback: keep original position
+              textEl.setAttribute('font-family', `${canvasFontFamily}, Arial, sans-serif`);
+              console.log(`⚠️ Arabic text: no region match, keeping x=${currentTextX}`);
+            }
           }
 
           textEl.setAttribute('fill', 'black');
