@@ -824,65 +824,51 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
   // Overflow option sync removed - automatic handling enabled
 
-  // Auto-generate text content when compositions or languages change
+  // Auto-generate text content ONLY when compositions or languages change
+  // NOT when user types in textarea!
   useEffect(() => {
-    // 🔧 FIX: Don't auto-generate if dialog just opened
+    // Skip if dialog just opened
     if (justOpened) {
-      console.log('🔧 FIX: Dialog just opened - skipping auto-generation');
       return;
     }
 
-    // Auto-generate in two cases:
-    // 1. User hasn't manually edited AND there's no existing text
-    // 2. User has valid material compositions (even if they typed a value before)
+    // Skip if user is manually editing
+    if (isTextManuallyEdited) {
+      return;
+    }
+
+    // Only auto-generate if there's no text at all
     const hasExistingText = (config.textContent.originalText && config.textContent.originalText.trim().length > 0) ||
                            (config.textContent.generatedText && config.textContent.generatedText.trim().length > 0);
+
+    if (hasExistingText) {
+      return; // User has text, don't overwrite!
+    }
 
     // Check if we have valid material compositions to generate from
     const hasValidCompositions = config.materialCompositions.length > 0 &&
                                   config.materialCompositions.some(comp => comp.material && comp.percentage > 0);
 
-    // Check if current text looks like a simple placeholder value (like "1", "100%", etc.)
-    const currentText = config.textContent.generatedText || config.textContent.originalText || '';
-    const isSimplePlaceholder = currentText.trim().length < 10 && /^[\d\s%]*$/.test(currentText.trim());
-
-    // Auto-generate if:
-    // - (Not manually edited AND no existing text) OR
-    // - (Has valid compositions AND current text is just a placeholder)
-    const shouldAutoGenerate = (!isTextManuallyEdited && !hasExistingText) ||
-                                (hasValidCompositions && isSimplePlaceholder);
-
-    if (shouldAutoGenerate) {
-      const generatedText = generateTextContent();
-
-      // Only update if we actually generated something
-      if (generatedText && generatedText.trim().length > 0) {
-        setConfig(prev => ({
-          ...prev,
-          textContent: {
-            ...prev.textContent,
-            generatedText,
-            originalText: generatedText // Store as original when auto-generated
-          }
-        }));
-
-        // Reset manual edit flag since we're auto-generating
-        setIsTextManuallyEdited(false);
-
-        // Debug: Log the current config when text is generated
-        console.log('🔍 DEBUG: Auto-generated text:', {
-          reason: shouldAutoGenerate ? (isSimplePlaceholder ? 'simple placeholder' : 'no existing text') : 'unknown',
-          lineBreakSettings: config.lineBreakSettings,
-          generatedText: generatedText.substring(0, 100) + '...'
-        });
-      }
-    } else {
-      if (hasExistingText) {
-        const textToShow = config.textContent.originalText || config.textContent.generatedText;
-        console.log('🔍 DEBUG: Preserving existing text content:', textToShow?.substring(0, 50) + '...');
-      }
+    if (!hasValidCompositions) {
+      return; // No materials, can't generate
     }
-  }, [config.materialCompositions, config.selectedLanguages, config.textContent.separator, isTextManuallyEdited, config.textContent.generatedText, config.textContent.originalText, justOpened]);
+
+    // All checks passed - generate text
+    const generatedText = generateTextContent();
+
+    if (generatedText && generatedText.trim().length > 0) {
+      setConfig(prev => ({
+        ...prev,
+        textContent: {
+          ...prev.textContent,
+          generatedText,
+          originalText: generatedText
+        }
+      }));
+
+      console.log('✅ Auto-generated text from materials');
+    }
+  }, [config.materialCompositions, config.selectedLanguages]);
 
   // Check for overflow whenever content or settings change
   useEffect(() => {
@@ -3324,21 +3310,15 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       // Get text from dialog - use what user typed/pasted
       let userInputText = config.textContent.generatedText || config.textContent.originalText || '';
 
-      // 🔧 FIX: Check if text is empty or a simple placeholder value (like "1", "100%", etc.)
-      // Only auto-generate if text is truly a placeholder, NOT if user pasted real content
-      const isEmptyOrPlaceholder = !userInputText.trim() ||
-                                    (userInputText.trim().length < 10 && /^[\d\s%]*$/.test(userInputText.trim()));
-
-      if (isEmptyOrPlaceholder) {
-        console.log('🔧 2in1 FIX: Text is empty or placeholder "' + userInputText + '" - auto-generating from materials');
+      // 🔧 FIX: If text is empty, auto-generate. Otherwise, use user's input AS-IS!
+      if (!userInputText.trim()) {
+        console.log('📝 2in1: Text is empty - auto-generating from materials');
         userInputText = generateTextContent();
-        console.log('🔧 2in1 FIX: Generated text length:', userInputText.length);
-        console.log('🔧 2in1 FIX: Generated text preview:', userInputText.substring(0, 100) + '...');
+        console.log('📝 2in1: Generated text length:', userInputText.length);
       } else {
-        console.log('✅ 2in1: Using user-provided text (not a placeholder)');
+        console.log('✅ 2in1: Using user input AS-IS:', userInputText.substring(0, 50) + '...');
       }
 
-      console.log('📝 2in1: Final user input text:', userInputText.substring(0, 100) + '...');
       console.log('📝 2in1: Final text length:', userInputText.length);
 
       // Temporarily store user text for detectOverflowAndSplitN to use
@@ -5064,28 +5044,17 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
                   value={config.textContent.originalText || config.textContent.generatedText}
                   onChange={(e) => {
                     console.log(`🔧 ${DIALOG_VERSION}: User inputted text:`, e.target.value);
-                    console.log(`🔧 ${DIALOG_VERSION}: Text length:`, e.target.value.length);
 
-                    // 🔧 FIX: Check if user typed a simple placeholder value
-                    const inputValue = e.target.value.trim();
-                    const isSimplePlaceholder = inputValue.length < 10 && /^[\d\s%]*$/.test(inputValue);
-
-                    // Only set manual edit flag if it's NOT a simple placeholder
-                    // This allows auto-generation to trigger when user types "1", "100%", etc.
-                    if (!isSimplePlaceholder) {
-                      setIsTextManuallyEdited(true);
-                    } else {
-                      console.log(`🔧 FIX: Detected simple placeholder "${inputValue}" - allowing auto-generation`);
-                      setIsTextManuallyEdited(false);
-                    }
+                    // User is typing - mark as manually edited
+                    setIsTextManuallyEdited(true);
 
                     setConfig(prev => ({
                       ...prev,
                       textContent: {
                         ...prev.textContent,
                         generatedText: e.target.value,
-                        originalText: e.target.value, // Store as original text too
-                        userInputValue: e.target.value // 🔧 FIX: Save user's input!
+                        originalText: e.target.value,
+                        userInputValue: e.target.value // Save user's input
                       }
                     }));
                   }}
