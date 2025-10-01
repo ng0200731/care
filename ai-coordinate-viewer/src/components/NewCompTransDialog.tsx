@@ -2959,11 +2959,584 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     }
   };
 
+  // Helper function: Save to slice (no overflow case)
+  const sliceOnSave = (saveConfig: NewCompTransConfig, sliceId: string) => {
+    console.log('💾 sliceOnSave: Saving to slice:', sliceId);
+    console.log('💾 sliceOnSave: Config:', saveConfig);
+
+    try {
+      // For slices, we use the standard onSave but with the slice ID
+      // The parent system should handle saving to the correct slice location
+      console.log('💾 sliceOnSave: Using standard onSave with slice ID');
+
+      onSave(saveConfig);
+
+      console.log('✅ sliceOnSave: Save completed successfully');
+      return true;
+    } catch (error) {
+      console.error('❌ sliceOnSave: Error during save:', error);
+      return false;
+    }
+  };
+
   // NEW: Button "2in1" - Universal handler combining Save and Generate logic
   const handle2in1 = async () => {
     try {
       console.log('🚀🚀🚀 2in1: FUNCTION STARTED 🚀🚀🚀');
       console.log('UNIQUE_2IN1_START:', new Date().toISOString());
+
+      // STEP 0: Detect if this is from Region or Slice
+      console.log('🔍 2in1: Detecting source type - Region or Slice?');
+      console.log('🔍 2in1: regionId:', regionId);
+
+      let isFromSlice = false;
+      let isFromRegion = false;
+      let sourceType = 'UNKNOWN';
+
+      // Method 1: Check regionId pattern
+      // Slices usually have patterns like: "slice_xxx" or contain "slice" keyword
+      // Regions usually have patterns like: "region_xxx" or contain "region" keyword
+      if (regionId) {
+        const lowerRegionId = regionId.toLowerCase();
+
+        if (lowerRegionId.includes('slice')) {
+          isFromSlice = true;
+          sourceType = 'SLICE';
+          console.log('✅ 2in1: Detected SLICE from regionId pattern:', regionId);
+        } else if (lowerRegionId.includes('region')) {
+          isFromRegion = true;
+          sourceType = 'REGION';
+          console.log('✅ 2in1: Detected REGION from regionId pattern:', regionId);
+        }
+      }
+
+      // Method 2: Check parent mother structure in global data
+      if (sourceType === 'UNKNOWN') {
+        const currentAppData = (window as any).currentAppData;
+        if (currentAppData && currentAppData.objects) {
+          // Find the mother that contains this region/slice
+          for (const obj of currentAppData.objects) {
+            if (obj.regions) {
+              for (const region of obj.regions) {
+                if (region.id === regionId) {
+                  // Check if this region has slice indicators
+                  if (region.isSlice || region.sliceIndex !== undefined || region.type?.includes('slice')) {
+                    isFromSlice = true;
+                    sourceType = 'SLICE';
+                    console.log('✅ 2in1: Detected SLICE from region properties:', region);
+                  } else {
+                    isFromRegion = true;
+                    sourceType = 'REGION';
+                    console.log('✅ 2in1: Detected REGION from region properties:', region);
+                  }
+                  break;
+                }
+              }
+              if (sourceType !== 'UNKNOWN') break;
+            }
+          }
+        }
+      }
+
+      // Method 3: Fallback - assume REGION if still unknown
+      if (sourceType === 'UNKNOWN') {
+        console.warn('⚠️ 2in1: Could not determine source type - defaulting to REGION');
+        isFromRegion = true;
+        sourceType = 'REGION';
+      }
+
+      // Show popup message to user
+      const sourceMessage = isFromSlice
+        ? `🔹 This is from a SLICE\n\nSlice ID: ${regionId}\n\nNote: Slice-specific overflow handling will be applied.`
+        : `📦 This is from a REGION\n\nRegion ID: ${regionId}\n\nNote: Region-specific overflow handling will be applied.`;
+
+      alert(sourceMessage);
+
+      console.log('🎯 2in1: Source Type Detected:', {
+        sourceType,
+        isFromSlice,
+        isFromRegion,
+        regionId
+      });
+
+      // ==========================================
+      // 🔷 SLICE OVERFLOW LOGIC
+      // ==========================================
+      if (isFromSlice) {
+        console.log('🔷 2in1: Starting SLICE overflow handling');
+        console.log('🔷 2in1: Slice ID:', regionId);
+
+        // STEP 1: Find slice and get dimensions
+        console.log('🔷 2in1 - STEP 1: Find slice and get dimensions');
+
+        const sliceAppData = (window as any).currentAppData;
+        if (!sliceAppData || !sliceAppData.objects) {
+          console.error('❌ 2in1 SLICE: No app data available');
+          alert('Error: Cannot access application data');
+          return;
+        }
+
+        // Get slice dimensions directly from props!
+        // The dialog already receives the correct dimensions for the slice
+        const sliceWidth = regionWidth;
+        const sliceHeight = regionHeight;
+
+        console.log('✅ 2in1 SLICE: Using slice dimensions from props');
+        console.log('   Slice ID:', regionId);
+        console.log('   Dimensions:', { width: sliceWidth, height: sliceHeight });
+
+        // Find parent mother (the mother that would contain this slice's parent region)
+        const parentRegionId = regionId.split('_slice_')[0];
+        let sliceParentMother: any = null;
+
+        for (const obj of sliceAppData.objects) {
+          if (obj.regions) {
+            // Look for the parent region (without _slice_ suffix)
+            const foundRegion = obj.regions.find((r: any) => r.id === parentRegionId);
+            if (foundRegion) {
+              sliceParentMother = obj;
+              console.log('✅ 2in1 SLICE: Found parent mother:', obj.name);
+              break;
+            }
+          }
+        }
+
+        if (!sliceParentMother) {
+          console.error('❌ 2in1 SLICE: Could not find parent mother');
+          console.error('🔍 2in1 SLICE: Looking for parent region:', parentRegionId);
+          console.error('🔍 2in1 SLICE: Available objects:', sliceAppData.objects.length);
+
+          sliceAppData.objects.forEach((obj: any, idx: number) => {
+            if (obj.regions) {
+              console.error(`  Object ${idx} (${obj.name}):`, obj.regions.map((r: any) => r.id));
+            }
+          });
+
+          alert('Error: Could not find parent mother for slice\n\nCheck console for details.');
+          return;
+        }
+
+        console.log('📏 2in1 SLICE: Dimensions:', { width: sliceWidth, height: sliceHeight });
+
+        if (!sliceWidth || !sliceHeight) {
+          console.error('❌ 2in1 SLICE: Invalid slice dimensions');
+          alert(`Error: Could not determine slice dimensions\nWidth: ${sliceWidth}, Height: ${sliceHeight}`);
+          return;
+        }
+
+        // STEP 2: Remove existing slice child mothers
+        console.log('🗑️ 2in1 SLICE - STEP 2: Remove existing slice child mothers');
+
+        const sliceParentMotherId = sliceParentMother.name;
+        console.log('🗑️ 2in1 SLICE: Parent mother:', sliceParentMotherId);
+
+        // Find all child mothers of this parent
+        const sliceChildMothers = sliceAppData.objects.filter((obj: any) =>
+          obj.type?.includes('mother') &&
+          obj.name !== sliceParentMotherId &&
+          (obj.parentMotherId === sliceParentMotherId ||
+           obj.isOverflowChild === true ||
+           obj.name?.match(new RegExp(`^${sliceParentMotherId}[A-Z]+$`)))
+        );
+
+        console.log(`🗑️ 2in1 SLICE: Found ${sliceChildMothers.length} child mothers to remove:`,
+          sliceChildMothers.map((c: any) => c.name));
+
+        if (sliceChildMothers.length > 0) {
+          const childMotherNames = sliceChildMothers.map((c: any) => c.name);
+          const cleanedObjects = sliceAppData.objects.filter((obj: any) =>
+            !childMotherNames.includes(obj.name)
+          );
+
+          // Clear parent tracking
+          if (sliceParentMother.childMotherIds) {
+            sliceParentMother.childMotherIds = [];
+          }
+
+          sliceAppData.objects = cleanedObjects;
+          sliceAppData.totalObjects = cleanedObjects.length;
+
+          if ((window as any).updateAppData) {
+            (window as any).updateAppData(sliceAppData);
+            console.log('✅ 2in1 SLICE: Child mothers removed');
+          }
+
+          if ((window as any).refreshCanvas) {
+            (window as any).refreshCanvas();
+          }
+
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+
+        // STEP 3: Clean slice text (handled by sliceOnSave later)
+        console.log('🧹 2in1 SLICE - STEP 3: Slice text will be cleaned during save');
+        // Note: We don't clean here because slice might be virtual/computed
+        // The sliceOnSave function will handle cleaning and updating
+
+        // STEP 4: Get user input text
+        console.log('📝 2in1 SLICE - STEP 4: Get user input text');
+
+        let sliceUserInputText = config.textContent.generatedText || config.textContent.originalText || '';
+
+        if (!sliceUserInputText.trim()) {
+          console.log('📝 2in1 SLICE: Text is empty - auto-generating from materials');
+          sliceUserInputText = generateTextContent();
+        } else {
+          console.log('✅ 2in1 SLICE: Using user input text');
+        }
+
+        console.log('📝 2in1 SLICE: Text length:', sliceUserInputText.length);
+
+        // STEP 5: Calculate slice overflow with all 12 factors
+        console.log('📊 2in1 SLICE - STEP 5: Calculate overflow with all 12 factors');
+
+        // Create temporary config for overflow detection
+        const sliceTempConfig = {
+          ...config,
+          textContent: {
+            ...config.textContent,
+            originalText: sliceUserInputText,
+            generatedText: sliceUserInputText
+          }
+        };
+
+        (window as any).__temp2in1Config = sliceTempConfig;
+
+        // Use detectOverflowAndSplitN but with SLICE dimensions
+        // We need to temporarily override regionWidth and regionHeight
+        const originalRegionWidth = regionWidth;
+        const originalRegionHeight = regionHeight;
+
+        // Temporarily set to slice dimensions for overflow calculation
+        const sliceRegionWidth = sliceWidth;
+        const sliceRegionHeight = sliceHeight;
+
+        console.log('📊 2in1 SLICE: Using dimensions for overflow calculation:', {
+          width: sliceRegionWidth,
+          height: sliceRegionHeight
+        });
+
+        // Calculate overflow using slice dimensions
+        // Note: We need to temporarily override the component props for slice calculation
+        const sliceNSplitResult = (() => {
+          // Temporarily store original values
+          const origWidth = regionWidth;
+          const origHeight = regionHeight;
+
+          // Temporarily override with slice dimensions
+          const tempRegionWidth = sliceWidth;
+          const tempRegionHeight = sliceHeight;
+
+          // Call overflow detection with slice dimensions
+          // The function will use the config from __temp2in1Config and slice dimensions
+          const effectiveConfig = (window as any).__temp2in1Config || config;
+
+          // Inline overflow detection logic for slice
+          const text = effectiveConfig.textContent.originalText || effectiveConfig.textContent.generatedText || generateTextContent();
+
+          if (!text || !tempRegionWidth || !tempRegionHeight) {
+            return {
+              hasOverflow: false,
+              textSplits: [text || ''],
+              totalSplits: 1,
+              splitDetails: [{ text: text || '', lines: 0 }]
+            };
+          }
+
+          // Calculate using SLICE dimensions
+          const regionWidthPx = tempRegionWidth * 3.779527559;
+          const regionHeightPx = tempRegionHeight * 3.779527559;
+          const paddingLeftPx = effectiveConfig.padding.left * 3.779527559;
+          const paddingRightPx = effectiveConfig.padding.right * 3.779527559;
+          const paddingTopPx = effectiveConfig.padding.top * 3.779527559;
+          const paddingBottomPx = effectiveConfig.padding.bottom * 3.779527559;
+
+          const availableWidthPx = Math.max(0, regionWidthPx - paddingLeftPx - paddingRightPx);
+          const availableHeightPx = Math.max(0, regionHeightPx - paddingTopPx - paddingBottomPx);
+
+          let fontSizePx = effectiveConfig.typography.fontSize;
+          if (effectiveConfig.typography.fontSizeUnit === 'mm') {
+            fontSizePx = effectiveConfig.typography.fontSize * 3.779527559;
+          } else if (effectiveConfig.typography.fontSizeUnit === 'pt') {
+            fontSizePx = (effectiveConfig.typography.fontSize * 4/3);
+          }
+
+          const zoom = 1.0;
+          const scaledFontSize = Math.max(6, fontSizePx * zoom);
+
+          const estimateTextWidth = (text: string): number => {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            if (!context) return text.length * 2;
+
+            context.font = `${scaledFontSize}px ${effectiveConfig.typography.fontFamily}`;
+            const textWidthPx = context.measureText(text).width;
+            return textWidthPx / 3.779527559;
+          };
+
+          const availableWidthMm = availableWidthPx / 3.779527559;
+          const userSafetyBuffer = 1.5;
+          const effectiveAvailableWidth = availableWidthMm - userSafetyBuffer;
+
+          const scaledFontSizeMm = scaledFontSize / 3.779527559;
+          const lineHeightMm = scaledFontSizeMm * (effectiveConfig.lineBreakSettings?.lineSpacing || 1.2);
+          const availableHeightMm = availableHeightPx / 3.779527559;
+          const maxLinesPerMother = Math.floor(availableHeightMm / lineHeightMm);
+
+          const wrapTextToLines = (text: string): string[] => {
+            const lineBreakSymbol = effectiveConfig.lineBreakSettings?.lineBreakSymbol || '\n';
+            const manualLines = text.split(lineBreakSymbol);
+            const wrappedLines: string[] = [];
+
+            manualLines.forEach(line => {
+              const trimmedLine = line.trim();
+              if (!trimmedLine) {
+                wrappedLines.push('');
+                return;
+              }
+
+              const words = trimmedLine.split(' ');
+              let currentLine = '';
+
+              words.forEach((word) => {
+                const testLine = currentLine ? `${currentLine} ${word}` : word;
+                const testWidth = estimateTextWidth(testLine);
+
+                if (testWidth <= effectiveAvailableWidth) {
+                  currentLine = testLine;
+                } else {
+                  if (currentLine) {
+                    wrappedLines.push(currentLine);
+                    currentLine = word;
+                  } else {
+                    wrappedLines.push(word);
+                  }
+                }
+              });
+
+              if (currentLine) {
+                wrappedLines.push(currentLine);
+              }
+            });
+
+            return wrappedLines;
+          };
+
+          const allLines = wrapTextToLines(text);
+
+          if (allLines.length <= maxLinesPerMother) {
+            return {
+              hasOverflow: false,
+              textSplits: [text],
+              totalSplits: 1,
+              splitDetails: [{ text: text, lines: allLines.length }]
+            };
+          }
+
+          const totalMothersNeeded = Math.ceil(allLines.length / maxLinesPerMother);
+          const textSplits: string[] = [];
+          const splitDetails: { text: string; lines: number }[] = [];
+
+          let currentLineIndex = 0;
+          let motherIndex = 0;
+
+          while (currentLineIndex < allLines.length && motherIndex < totalMothersNeeded) {
+            const isLastMother = motherIndex === totalMothersNeeded - 1;
+            const remainingLines = allLines.length - currentLineIndex;
+
+            let linesToTake: number;
+            if (isLastMother) {
+              linesToTake = remainingLines;
+            } else {
+              linesToTake = Math.min(maxLinesPerMother, remainingLines);
+            }
+
+            const motherLines = allLines.slice(currentLineIndex, currentLineIndex + linesToTake);
+            const motherText = motherLines.join(effectiveConfig.lineBreakSettings?.lineBreakSymbol || '\n');
+
+            textSplits.push(motherText);
+            splitDetails.push({ text: motherText, lines: motherLines.length });
+
+            currentLineIndex += linesToTake;
+            motherIndex++;
+          }
+
+          return {
+            hasOverflow: true,
+            textSplits,
+            totalSplits: totalMothersNeeded,
+            splitDetails
+          };
+        })();
+
+        delete (window as any).__temp2in1Config;
+
+        console.log('📊 2in1 SLICE: Overflow result:', {
+          totalSplits: sliceNSplitResult.totalSplits,
+          hasOverflow: sliceNSplitResult.hasOverflow
+        });
+
+        // STEP 6: No overflow case
+        if (!sliceNSplitResult.hasOverflow || sliceNSplitResult.totalSplits === 1) {
+          console.log('✅ 2in1 SLICE: No overflow - saving to slice');
+
+          const sliceSaveConfig = {
+            ...config,
+            textContent: {
+              ...config.textContent,
+              originalText: sliceUserInputText,
+              generatedText: sliceUserInputText,
+              userInputValue: config.textContent.userInputValue || sliceUserInputText
+            }
+          };
+
+          const saveSuccess = sliceOnSave(sliceSaveConfig, regionId);
+
+          if (saveSuccess) {
+            console.log('🎉 2in1 SLICE: Text saved successfully');
+            setTimeout(() => onCancel(), 500);
+          } else {
+            alert('Error: Failed to save text to slice');
+          }
+
+          return;
+        }
+
+        // STEP 7: Has overflow - create child mothers
+        console.log(`⚠️ 2in1 SLICE: Has overflow - creating ${sliceNSplitResult.totalSplits - 1} child mothers`);
+
+        // Save split1 to slice
+        const sliceSplit1Config = {
+          ...config,
+          textContent: {
+            ...config.textContent,
+            originalText: sliceNSplitResult.textSplits[0],
+            generatedText: sliceNSplitResult.textSplits[0],
+            userInputValue: config.textContent.userInputValue || sliceUserInputText
+          }
+        };
+
+        sliceOnSave(sliceSplit1Config, regionId);
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Create child mothers for overflow (split2, split3, etc.)
+        const sliceCreatedChildIds: string[] = [];
+
+        for (let i = 1; i < sliceNSplitResult.totalSplits; i++) {
+          console.log(`🏗️ 2in1 SLICE: Creating child mother ${i}/${sliceNSplitResult.totalSplits - 1}`);
+
+          let sliceChildMotherId: string | null = null;
+
+          if (createChildMother) {
+            try {
+              sliceChildMotherId = createChildMother(sliceParentMotherId);
+
+              if (sliceChildMotherId) {
+                console.log(`✅ 2in1 SLICE: Child mother created: ${sliceChildMotherId}`);
+                sliceCreatedChildIds.push(sliceChildMotherId);
+
+                // Wait for child to be ready
+                let childReady = false;
+                let checkCount = 0;
+
+                while (!childReady && checkCount < 50) {
+                  const checkData = (window as any).currentAppData;
+                  if (checkData && checkData.objects) {
+                    const childMother = checkData.objects.find((obj: any) => obj.name === sliceChildMotherId);
+
+                    if (childMother && childMother.regions && childMother.regions.length > 0) {
+                      console.log(`✅ 2in1 SLICE: ${sliceChildMotherId} is ready`);
+                      childReady = true;
+                      break;
+                    }
+                  }
+
+                  checkCount++;
+                  await new Promise(resolve => setTimeout(resolve, 200));
+                }
+
+                if (!childReady) {
+                  console.error(`❌ 2in1 SLICE: ${sliceChildMotherId} not ready after ${checkCount} checks`);
+                }
+              }
+            } catch (error) {
+              console.error(`❌ 2in1 SLICE: Error creating child mother ${i}:`, error);
+              alert(`Error: Failed to create child mother ${i}`);
+              return;
+            }
+          }
+        }
+
+        console.log(`✅ 2in1 SLICE: Created ${sliceCreatedChildIds.length} child mothers`);
+
+        // STEP 8: Distribute overflow text to child mothers
+        console.log(`📤 2in1 SLICE - STEP 8: Distributing text to ${sliceCreatedChildIds.length} child mothers`);
+
+        for (let i = 0; i < sliceCreatedChildIds.length; i++) {
+          const childMotherId = sliceCreatedChildIds[i];
+          const splitIndex = i + 1; // Split 0 = parent, Split 1+ = children
+          const textForChild = sliceNSplitResult.textSplits[splitIndex] || '';
+
+          console.log(`📤 2in1 SLICE: Assigning split ${splitIndex + 1} to ${childMotherId} (${textForChild.length} chars)`);
+
+          if (onCreateNewMother && childMotherId && textForChild) {
+            // Verify child is ready
+            const checkData = (window as any).currentAppData;
+            const childMother = checkData?.objects?.find((obj: any) => obj.name === childMotherId);
+
+            if (!childMother || !childMother.regions || childMother.regions.length === 0) {
+              console.error(`❌ 2in1 SLICE: Child ${childMotherId} not ready for text`);
+              alert(`Error: Child ${childMotherId} not ready`);
+              continue;
+            }
+
+            // Assign text to child mother R1
+            onCreateNewMother(childMotherId, textForChild);
+            console.log(`✅ 2in1 SLICE: Text assigned to ${childMotherId}`);
+
+            // Verify text assignment
+            let textVerified = false;
+            let verifyCount = 0;
+
+            while (!textVerified && verifyCount < 25) {
+              const verifyData = (window as any).currentAppData;
+              if (verifyData && verifyData.objects) {
+                const verifyChild = verifyData.objects.find((obj: any) => obj.name === childMotherId);
+                if (verifyChild && verifyChild.regions && verifyChild.regions[0]) {
+                  const region = verifyChild.regions[0];
+                  const ctContent = region.contents?.find((c: any) => c.type === 'new-comp-trans');
+                  if (ctContent && ctContent.newCompTransConfig?.textContent?.generatedText) {
+                    console.log(`✅ 2in1 SLICE: Verified ${childMotherId} has text`);
+                    textVerified = true;
+                    break;
+                  }
+                }
+              }
+
+              verifyCount++;
+              await new Promise(resolve => setTimeout(resolve, 200));
+            }
+
+            if (!textVerified) {
+              console.warn(`⚠️ 2in1 SLICE: Could not verify text in ${childMotherId} after ${verifyCount} checks`);
+            }
+          }
+        }
+
+        console.log('🎉 2in1 SLICE: Complete! Slice + children created with text distributed');
+
+        // Final canvas refresh
+        if ((window as any).refreshCanvas) {
+          (window as any).refreshCanvas();
+        }
+
+        setTimeout(() => onCancel(), 1000);
+        return;
+      }
+
+      // ==========================================
+      // 📦 REGION OVERFLOW LOGIC (UNCHANGED)
+      // ==========================================
 
       // STEP 1: Remove all child mothers FIRST
       console.log('🗑️ 2in1 - STEP 1: Remove all child mothers');
@@ -5259,47 +5832,6 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
               Cancel
             </button>
 
-            {/* Save button - Save text and auto-remove child mothers if no overflow */}
-            <button
-              onClick={handleSave}
-              disabled={!canSave()}
-              style={{
-                padding: '10px 20px',
-                border: '2px solid #28a745',
-                borderRadius: '6px',
-                backgroundColor: canSave() ? '#28a745' : '#ccc',
-                color: canSave() ? 'white' : '#666',
-                fontSize: '14px',
-                fontWeight: '600',
-                cursor: canSave() ? 'pointer' : 'not-allowed',
-                marginRight: '8px'
-              }}
-              title="Save: Save text content and automatically remove child mothers if no overflow"
-            >
-              Save
-            </button>
-
-            {/* Generate button - Renamed from FF, removes and regenerates all child mothers */}
-            <button
-              onClick={handleFF}
-              disabled={!canSave()}
-              style={{
-                padding: '12px 24px',
-                border: '3px solid #ff6600',
-                borderRadius: '8px',
-                backgroundColor: canSave() ? '#ff6600' : '#ccc',
-                color: canSave() ? 'white' : '#666',
-                fontSize: '18px',
-                fontWeight: '800',
-                cursor: canSave() ? 'pointer' : 'not-allowed',
-                boxShadow: canSave() ? '0 3px 6px rgba(255, 102, 0, 0.4)' : 'none',
-                textShadow: canSave() ? '0 1px 2px rgba(0,0,0,0.3)' : 'none'
-              }}
-              title="Generate: Execute text splitting and create/regenerate child mothers with overflow content"
-            >
-              Generate
-            </button>
-
             {/* 2in1 button - Universal handler for both overflow and non-overflow scenarios */}
             <button
               onClick={handle2in1}
@@ -5320,41 +5852,6 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
             >
               2in1
             </button>
-
-            {/* Debug Log Buttons */}
-            <div style={{ marginTop: '10px', display: 'flex', gap: '8px' }}>
-              <button
-                onClick={() => { clearNSplitLogs(); }}
-                style={{
-                  padding: '4px 8px',
-                  fontSize: '12px',
-                  backgroundColor: '#FF6B6B',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer'
-                }}
-                title="Clear N-Split debug logs"
-              >
-                Clear Logs
-              </button>
-
-              <button
-                onClick={() => { exportNSplitLogs(); }}
-                style={{
-                  padding: '4px 8px',
-                  fontSize: '12px',
-                  backgroundColor: '#4ECDC4',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer'
-                }}
-                title="Export N-Split debug logs to console and clipboard"
-              >
-                Export Logs
-              </button>
-            </div>
           </div>
         </div>
     </MovableDialog>
