@@ -147,9 +147,13 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
     if (editingContent && editingContent.newCompTransConfig) {
       const existingText = editingContent.newCompTransConfig.textContent?.generatedText;
-      console.log('🔬 DEBUG_FIX: Loading existing config with text:', existingText?.substring(0, 50));
-      console.log('🔬 DEBUG_FIX: Existing text full length:', existingText?.length || 0);
-      console.log('🔬 DEBUG_FIX: Existing text is empty?', !existingText || existingText.trim() === '');
+      console.log('🔬 DEBUG_FIX: Loading existing config');
+      console.log('🔬 DEBUG_FIX: OLD text found:', existingText?.substring(0, 50));
+      console.log('🔬 DEBUG_FIX: OLD text length:', existingText?.length || 0);
+
+      // 🔧 FIX: When editing, ALWAYS CLEAR THE OLD TEXT!
+      // User wants to start fresh, not edit old split1 garbage!
+      console.log('🧹 FIX: CLEARING old text - user will start fresh');
 
       // Enhanced validation of existing config structure
       const loadedConfig = {
@@ -158,10 +162,11 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         materialCompositions: editingContent.newCompTransConfig.materialCompositions || [
           { id: '1', percentage: 100, material: 'COTTON' }
         ],
-        textContent: editingContent.newCompTransConfig.textContent || {
-          separator: ' - ',
-          generatedText: '',
-          originalText: ''
+        // 🔧 FIX: CLEAR old text - set to empty!
+        textContent: {
+          separator: editingContent.newCompTransConfig.textContent?.separator || ' - ',
+          generatedText: '',  // ALWAYS START EMPTY!
+          originalText: ''    // ALWAYS START EMPTY!
         },
         lineBreakSettings: editingContent.newCompTransConfig.lineBreakSettings || {
           lineBreakSymbol: '\n',
@@ -171,9 +176,9 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         // overflowOption removed - automatic handling
       };
 
-      console.log('🔬 DEBUG_FIX: Final loaded config text:', loadedConfig.textContent.generatedText);
-      console.log('🔬 DEBUG_FIX: Final loaded config material compositions:', loadedConfig.materialCompositions);
-      console.log('🔬 DEBUG_FIX: Final loaded config selected languages:', loadedConfig.selectedLanguages);
+      console.log('✅ FIX: Text CLEARED - starting fresh');
+      console.log('✅ FIX: Material compositions kept:', loadedConfig.materialCompositions);
+      console.log('✅ FIX: Selected languages kept:', loadedConfig.selectedLanguages);
 
       return loadedConfig;
     }
@@ -471,8 +476,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
   // Enhanced N-split overflow detection and text splitting
   const detectOverflowAndSplitN = () => {
-    // Check if we have a temporary config override from 2in1 button
-    const effectiveConfig = (window as any).__temp2in1Config || config;
+    // Check if we have a temporary config override from 2in1 button or Save button
+    const effectiveConfig = (window as any).__temp2in1Config || (window as any).__tempConfigForSave || config;
 
     console.log(`🔍 N-SPLIT: effectiveConfig.textContent.originalText length:`, effectiveConfig.textContent.originalText?.length || 0);
     console.log(`🔍 N-SPLIT: effectiveConfig.textContent.generatedText length:`, effectiveConfig.textContent.generatedText?.length || 0);
@@ -534,7 +539,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     const effectiveAvailableWidth = availableWidthMm - userSafetyBuffer;
 
     const scaledFontSizeMm = scaledFontSize / 3.779527559;
-    const lineHeightMm = scaledFontSizeMm * (config.lineBreakSettings?.lineSpacing || 1.2);
+    // 🔧 FIX: Use effectiveConfig instead of config for lineSpacing
+    const lineHeightMm = scaledFontSizeMm * (effectiveConfig.lineBreakSettings?.lineSpacing || 1.2);
     const availableHeightMm = availableHeightPx / 3.779527559;
 
     // CRITICAL: Follow Text Overflow Analysis Settings exactly
@@ -563,7 +569,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
     // Word wrapping logic
     const wrapTextToLines = (text: string): string[] => {
-      const lineBreakSymbol = config.lineBreakSettings?.lineBreakSymbol || '\n';
+      // 🔧 FIX: Use effectiveConfig instead of config
+      const lineBreakSymbol = effectiveConfig.lineBreakSettings?.lineBreakSymbol || '\n';
       const manualLines = text.split(lineBreakSymbol);
       const wrappedLines: string[] = [];
 
@@ -760,21 +767,38 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       const initialConfig = getInitialConfig();
       setConfig(initialConfig);
 
-      // If we're editing existing content with text, mark as manually edited to prevent auto-generation
-      if (editingContent && editingContent.newCompTransConfig?.textContent?.generatedText) {
-        console.log('🔬 DEBUG_FIX: Setting isTextManuallyEdited=true for existing content');
-        setIsTextManuallyEdited(true);
+      // 🔧 FIX: Text is now ALWAYS cleared in getInitialConfig()
+      // So we ALWAYS start with isTextManuallyEdited = false
+      // This allows auto-generation to work immediately
+      console.log('✅ FIX: Text cleared on open - allowing auto-generation');
+      setIsTextManuallyEdited(false);
 
-        // If originalText doesn't exist but generatedText does, assume generatedText is the original
-        const currentConfig = initialConfig;
-        if (!currentConfig.textContent.originalText && currentConfig.textContent.generatedText) {
-          currentConfig.textContent.originalText = currentConfig.textContent.generatedText;
-          console.log('🔬 DEBUG_FIX: Set originalText from generatedText for backward compatibility');
+      // Check for existing child mothers that need cleanup
+      const currentAppData = (window as any).currentAppData;
+      if (currentAppData && currentAppData.objects) {
+        console.log('🔍 CLEANUP_CHECK: Checking for orphaned child mothers');
+
+        // Extract parent mother ID from regionId
+        let parentMotherId = 'Mother_1';
+        if (currentAppData.objects) {
+          const parentMother = currentAppData.objects.find((obj: any) =>
+            obj.regions && obj.regions.some((region: any) => region.id === regionId)
+          );
+          if (parentMother) {
+            parentMotherId = parentMother.name;
+          }
         }
-        setConfig(currentConfig);
-      } else {
-        console.log('🔬 DEBUG_FIX: Setting isTextManuallyEdited=false for new content');
-        setIsTextManuallyEdited(false);
+
+        // Check for existing child mothers
+        const existingChildMothers = currentAppData.objects.filter((obj: any) =>
+          obj.isOverflowChild && obj.parentMotherId === parentMotherId
+        );
+
+        if (existingChildMothers.length > 0) {
+          console.warn(`⚠️ CLEANUP_CHECK: Found ${existingChildMothers.length} child mothers`);
+          console.warn('⚠️ CLEANUP_CHECK: These will be removed when user clicks 2in1');
+          console.warn('⚠️ CLEANUP_CHECK: Child mothers:', existingChildMothers.map((c: any) => c.name));
+        }
       }
 
       // Debug: Check if callback is available (reduced logging)
@@ -789,35 +813,57 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
   // Overflow option sync removed - automatic handling enabled
 
-  // Auto-generate text content when compositions or languages change (only if not manually edited)
+  // Auto-generate text content when compositions or languages change
   useEffect(() => {
-    // Only auto-generate if the user hasn't manually edited the text AND there's no existing text content
+    // Auto-generate in two cases:
+    // 1. User hasn't manually edited AND there's no existing text
+    // 2. User has valid material compositions (even if they typed a value before)
     const hasExistingText = (config.textContent.originalText && config.textContent.originalText.trim().length > 0) ||
                            (config.textContent.generatedText && config.textContent.generatedText.trim().length > 0);
 
-    if (!isTextManuallyEdited && !hasExistingText) {
-      const generatedText = generateTextContent();
-      setConfig(prev => ({
-        ...prev,
-        textContent: {
-          ...prev.textContent,
-          generatedText,
-          originalText: generatedText // Store as original when auto-generated
-        }
-      }));
+    // Check if we have valid material compositions to generate from
+    const hasValidCompositions = config.materialCompositions.length > 0 &&
+                                  config.materialCompositions.some(comp => comp.material && comp.percentage > 0);
 
-      // Debug: Log the current config when text is generated
-      console.log('🔍 DEBUG: Auto-generated text (not manually edited, no existing text):', {
-        lineBreakSettings: config.lineBreakSettings,
-        textContent: config.textContent,
-        generatedText: generatedText
-      });
+    // Check if current text looks like a simple placeholder value (like "1", "100%", etc.)
+    const currentText = config.textContent.generatedText || config.textContent.originalText || '';
+    const isSimplePlaceholder = currentText.trim().length < 10 && /^[\d\s%]*$/.test(currentText.trim());
+
+    // Auto-generate if:
+    // - (Not manually edited AND no existing text) OR
+    // - (Has valid compositions AND current text is just a placeholder)
+    const shouldAutoGenerate = (!isTextManuallyEdited && !hasExistingText) ||
+                                (hasValidCompositions && isSimplePlaceholder);
+
+    if (shouldAutoGenerate) {
+      const generatedText = generateTextContent();
+
+      // Only update if we actually generated something
+      if (generatedText && generatedText.trim().length > 0) {
+        setConfig(prev => ({
+          ...prev,
+          textContent: {
+            ...prev.textContent,
+            generatedText,
+            originalText: generatedText // Store as original when auto-generated
+          }
+        }));
+
+        // Reset manual edit flag since we're auto-generating
+        setIsTextManuallyEdited(false);
+
+        // Debug: Log the current config when text is generated
+        console.log('🔍 DEBUG: Auto-generated text:', {
+          reason: shouldAutoGenerate ? (isSimplePlaceholder ? 'simple placeholder' : 'no existing text') : 'unknown',
+          lineBreakSettings: config.lineBreakSettings,
+          generatedText: generatedText.substring(0, 100) + '...'
+        });
+      }
     } else {
       if (hasExistingText) {
         const textToShow = config.textContent.originalText || config.textContent.generatedText;
         console.log('🔍 DEBUG: Preserving existing text content:', textToShow?.substring(0, 50) + '...');
       }
-      // console.log('🔍 DEBUG: Skipping auto-generation - text was manually edited or existing text found');
     }
   }, [config.materialCompositions, config.selectedLanguages, config.textContent.separator, isTextManuallyEdited, config.textContent.generatedText, config.textContent.originalText]);
 
@@ -3197,14 +3243,86 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         console.log('✅ 2in1: Clean to proceed to STEP 2');
       }
 
+      // STEP 1.5: CLEAN parent mother's SAVED text content ONLY (NOT the dialog textarea)
+      // The user might have pasted NEW text in the textarea - we want to keep that!
+      // We only clean the SAVED text in the global data (old split1 from previous run)
+      console.log('🧹 2in1 - STEP 1.5: Cleaning parent mother SAVED text content');
+
+      // DON'T touch the dialog config - user might have pasted new text!
+      // We'll use whatever is in config.textContent for STEP 2
+      console.log('📝 2in1: Keeping dialog text as-is:', config.textContent.generatedText?.substring(0, 100) + '...');
+      console.log('📝 2in1: Dialog text length:', config.textContent.generatedText?.length || 0);
+
+      // SECOND: Also clean the global data
+      const cleanAppData = (window as any).currentAppData;
+      if (cleanAppData && cleanAppData.objects && parentMother) {
+        console.log('🧹 2in1: Looking for parent mother:', parentMotherId);
+        const freshParent = cleanAppData.objects.find((obj: any) => obj.name === parentMotherId);
+
+        if (freshParent && freshParent.regions) {
+          console.log('🧹 2in1: Found parent mother, checking regions...');
+          const targetRegion = freshParent.regions.find((r: any) => r.id === regionId);
+
+          if (targetRegion) {
+            console.log('🧹 2in1: Found target region:', regionId);
+
+            // Find and clear the comp-trans content
+            if (targetRegion.contents) {
+              const ctContent = targetRegion.contents.find((c: any) => c.type === 'new-comp-trans');
+              if (ctContent && ctContent.newCompTransConfig) {
+                const oldText = ctContent.newCompTransConfig.textContent?.generatedText || '';
+                console.log('🧹 2in1: Found old text in global data:', oldText.substring(0, 100) + '...');
+                console.log('🧹 2in1: Old text length:', oldText.length);
+
+                // Clear the old text - set to empty string
+                ctContent.newCompTransConfig.textContent.generatedText = '';
+                ctContent.newCompTransConfig.textContent.originalText = '';
+
+                console.log('✅ 2in1: Global data text CLEANED (set to empty)');
+
+                // Update the global data
+                (window as any).currentAppData = cleanAppData;
+                if ((window as any).updateAppData) {
+                  (window as any).updateAppData(cleanAppData);
+                }
+              } else {
+                console.log('ℹ️ 2in1: No comp-trans content found in region');
+              }
+            }
+          } else {
+            console.warn('⚠️ 2in1: Target region not found:', regionId);
+          }
+        } else {
+          console.warn('⚠️ 2in1: Parent mother not found or has no regions');
+        }
+      }
+
       // STEP 2: Get user input text and run overflow detection
       console.log('📝 2in1 - STEP 2: Get user input text and run overflow detection');
+
+      // Use the dialog config directly - it has whatever the user typed/pasted
       console.log('📝 2in1: config.textContent.generatedText:', config.textContent.generatedText?.substring(0, 100));
       console.log('📝 2in1: config.textContent.originalText:', config.textContent.originalText?.substring(0, 100));
 
-      const userInputText = config.textContent.generatedText || config.textContent.originalText || generateTextContent();
-      console.log('📝 2in1: User input text selected:', userInputText.substring(0, 100));
-      console.log('📝 2in1: User input text length:', userInputText.length);
+      // Get text from dialog - use what user typed/pasted
+      let userInputText = config.textContent.generatedText || config.textContent.originalText || '';
+
+      // 🔧 FIX: Check if text is empty or a simple placeholder value (like "1", "100%", etc.)
+      // Only auto-generate if text is truly a placeholder, NOT if user pasted real content
+      const isEmptyOrPlaceholder = !userInputText.trim() ||
+                                    (userInputText.trim().length < 10 && /^[\d\s%]*$/.test(userInputText.trim()));
+
+      if (isEmptyOrPlaceholder) {
+        console.log('🔧 2in1 FIX: Text is empty or placeholder "' + userInputText + '" - auto-generating from materials');
+        userInputText = generateTextContent();
+        console.log('🔧 2in1 FIX: Generated text length:', userInputText.length);
+        console.log('🔧 2in1 FIX: Generated text preview:', userInputText.substring(0, 100) + '...');
+      } else {
+        console.log('✅ 2in1: Using user-provided text (not a placeholder)');
+      }
+
+      console.log('📝 2in1: Final user input text:', userInputText.substring(0, 100) + '...');
+      console.log('📝 2in1: Final text length:', userInputText.length);
 
       // Temporarily store user text for detectOverflowAndSplitN to use
       (window as any).__temp2in1Config = {
@@ -3226,7 +3344,21 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         // NO OVERFLOW: Save text directly to region
         console.log('✅ 2in1: No overflow - saving text directly');
 
-        // Get FRESH reference after removal
+        // 🔧 FIX: Use onSave instead of direct data manipulation!
+        // This ensures React state is updated properly
+        const saveConfig = {
+          ...config,
+          textContent: {
+            ...config.textContent,
+            originalText: userInputText,
+            generatedText: userInputText
+          }
+        };
+
+        console.log('✅ 2in1: Calling onSave to update React state');
+        onSave(saveConfig);
+
+        // Also update global data for canvas
         const freshAppData = (window as any).currentAppData;
         if (freshAppData && freshAppData.objects) {
           const freshParent = freshAppData.objects.find((obj: any) =>
@@ -3245,14 +3377,13 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
                 ctContent = {
                   id: `content_${Date.now()}`,
                   type: 'new-comp-trans',
-                  newCompTransConfig: config
+                  newCompTransConfig: saveConfig
                 };
                 region.contents.push(ctContent);
+              } else {
+                // Update existing content
+                ctContent.newCompTransConfig = saveConfig;
               }
-
-              // Update text
-              ctContent.newCompTransConfig.textContent.originalText = userInputText;
-              ctContent.newCompTransConfig.textContent.generatedText = userInputText;
 
               // Update app data
               (window as any).updateAppData(freshAppData);
@@ -3633,8 +3764,45 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     console.log(`🔧 ${DIALOG_VERSION}: Current config text:`, config.textContent.generatedText?.substring(0, 50) || 'NO TEXT');
     console.log(`🔧 ${DIALOG_VERSION}: Current config text length:`, config.textContent.generatedText?.length || 0);
 
+    // 🔧 FIX: Check if current text is a simple placeholder - if so, auto-generate first
+    let currentText = config.textContent.generatedText || config.textContent.originalText || '';
+    const isSimplePlaceholder = currentText.trim().length < 10 && /^[\d\s%]*$/.test(currentText.trim());
+
+    if (isSimplePlaceholder) {
+      console.log('🔧 SAVE FIX: Current text is placeholder "' + currentText + '" - auto-generating from materials');
+      const generatedText = generateTextContent();
+      console.log('🔧 SAVE FIX: Generated text length:', generatedText.length);
+
+      // Update config with generated text before overflow detection
+      setConfig(prev => ({
+        ...prev,
+        textContent: {
+          ...prev.textContent,
+          generatedText,
+          originalText: generatedText
+        }
+      }));
+
+      // Important: We need to use the generated text for overflow detection
+      // Create a temporary config with the generated text
+      const tempConfig = {
+        ...config,
+        textContent: {
+          ...config.textContent,
+          generatedText,
+          originalText: generatedText
+        }
+      };
+
+      // Store temp config for detectOverflowAndSplit to use
+      (window as any).__tempConfigForSave = tempConfig;
+    }
+
     // Always check for overflow to provide user feedback
     const overflowResult = detectOverflowAndSplit();
+
+    // Clear temp config
+    delete (window as any).__tempConfigForSave;
     console.log(`🔧 ${DIALOG_VERSION}: Overflow result:`, {
       hasOverflow: overflowResult.hasOverflow,
       originalTextLength: overflowResult.originalText?.length || 0,
@@ -4878,7 +5046,20 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
                   onChange={(e) => {
                     console.log(`🔧 ${DIALOG_VERSION}: User inputted text:`, e.target.value);
                     console.log(`🔧 ${DIALOG_VERSION}: Text length:`, e.target.value.length);
-                    setIsTextManuallyEdited(true);
+
+                    // 🔧 FIX: Check if user typed a simple placeholder value
+                    const inputValue = e.target.value.trim();
+                    const isSimplePlaceholder = inputValue.length < 10 && /^[\d\s%]*$/.test(inputValue);
+
+                    // Only set manual edit flag if it's NOT a simple placeholder
+                    // This allows auto-generation to trigger when user types "1", "100%", etc.
+                    if (!isSimplePlaceholder) {
+                      setIsTextManuallyEdited(true);
+                    } else {
+                      console.log(`🔧 FIX: Detected simple placeholder "${inputValue}" - allowing auto-generation`);
+                      setIsTextManuallyEdited(false);
+                    }
+
                     setConfig(prev => ({
                       ...prev,
                       textContent: {
