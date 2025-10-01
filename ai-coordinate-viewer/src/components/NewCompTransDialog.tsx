@@ -104,6 +104,7 @@ export interface NewCompTransConfig {
     separator: string;
     generatedText: string;
     originalText?: string; // Store the original raw text before any processing
+    userInputValue?: string; // 🔧 FIX: Store user's last input value for settings
   };
   lineBreakSettings: {
     lineBreakSymbol: string;
@@ -148,12 +149,13 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     if (editingContent && editingContent.newCompTransConfig) {
       const existingText = editingContent.newCompTransConfig.textContent?.generatedText;
       console.log('🔬 DEBUG_FIX: Loading existing config');
-      console.log('🔬 DEBUG_FIX: OLD text found:', existingText?.substring(0, 50));
-      console.log('🔬 DEBUG_FIX: OLD text length:', existingText?.length || 0);
+      console.log('🔬 DEBUG_FIX: Saved text found:', existingText?.substring(0, 50));
+      console.log('🔬 DEBUG_FIX: Saved text length:', existingText?.length || 0);
 
-      // 🔧 FIX: When editing, ALWAYS CLEAR THE OLD TEXT!
-      // User wants to start fresh, not edit old split1 garbage!
-      console.log('🧹 FIX: CLEARING old text - user will start fresh');
+      // 🔧 FIX: Load user's ORIGINAL INPUT VALUE if saved
+      // Check if there's a saved userInputValue field
+      const userInputValue = editingContent.newCompTransConfig.textContent?.userInputValue;
+      console.log('🔬 DEBUG_FIX: User input value found:', userInputValue?.substring(0, 50) || 'NONE');
 
       // Enhanced validation of existing config structure
       const loadedConfig = {
@@ -162,11 +164,12 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         materialCompositions: editingContent.newCompTransConfig.materialCompositions || [
           { id: '1', percentage: 100, material: 'COTTON' }
         ],
-        // 🔧 FIX: CLEAR old text - set to empty!
+        // 🔧 FIX: Load user's original input value!
         textContent: {
           separator: editingContent.newCompTransConfig.textContent?.separator || ' - ',
-          generatedText: '',  // ALWAYS START EMPTY!
-          originalText: ''    // ALWAYS START EMPTY!
+          generatedText: userInputValue || '',  // Show user's input!
+          originalText: userInputValue || '',    // Show user's input!
+          userInputValue: userInputValue || ''   // Keep track of user input
         },
         lineBreakSettings: editingContent.newCompTransConfig.lineBreakSettings || {
           lineBreakSymbol: '\n',
@@ -176,7 +179,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         // overflowOption removed - automatic handling
       };
 
-      console.log('✅ FIX: Text CLEARED - starting fresh');
+      console.log('✅ FIX: User input value loaded:', userInputValue?.substring(0, 50) || 'EMPTY');
       console.log('✅ FIX: Material compositions kept:', loadedConfig.materialCompositions);
       console.log('✅ FIX: Selected languages kept:', loadedConfig.selectedLanguages);
 
@@ -759,6 +762,9 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     }
   };
 
+  // Track if dialog just opened to prevent immediate auto-generation
+  const [justOpened, setJustOpened] = useState(false);
+
   useEffect(() => {
     if (isOpen) {
       console.log(`🔧 ${DIALOG_VERSION}: NewCompTransDialog opened`);
@@ -772,6 +778,11 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       // This allows auto-generation to work immediately
       console.log('✅ FIX: Text cleared on open - allowing auto-generation');
       setIsTextManuallyEdited(false);
+
+      // 🔧 FIX: Set flag to prevent auto-generation on first open
+      setJustOpened(true);
+      // Reset flag after a short delay
+      setTimeout(() => setJustOpened(false), 100);
 
       // Check for existing child mothers that need cleanup
       const currentAppData = (window as any).currentAppData;
@@ -815,6 +826,12 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
   // Auto-generate text content when compositions or languages change
   useEffect(() => {
+    // 🔧 FIX: Don't auto-generate if dialog just opened
+    if (justOpened) {
+      console.log('🔧 FIX: Dialog just opened - skipping auto-generation');
+      return;
+    }
+
     // Auto-generate in two cases:
     // 1. User hasn't manually edited AND there's no existing text
     // 2. User has valid material compositions (even if they typed a value before)
@@ -865,7 +882,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         console.log('🔍 DEBUG: Preserving existing text content:', textToShow?.substring(0, 50) + '...');
       }
     }
-  }, [config.materialCompositions, config.selectedLanguages, config.textContent.separator, isTextManuallyEdited, config.textContent.generatedText, config.textContent.originalText]);
+  }, [config.materialCompositions, config.selectedLanguages, config.textContent.separator, isTextManuallyEdited, config.textContent.generatedText, config.textContent.originalText, justOpened]);
 
   // Check for overflow whenever content or settings change
   useEffect(() => {
@@ -3351,7 +3368,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
           textContent: {
             ...config.textContent,
             originalText: userInputText,
-            generatedText: userInputText
+            generatedText: userInputText,
+            userInputValue: config.textContent.userInputValue || userInputText // 🔧 FIX: Save user's input!
           }
         };
 
@@ -3418,7 +3436,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         textContent: {
           ...config.textContent,
           originalText: nSplitResult.textSplits[0],
-          generatedText: nSplitResult.textSplits[0]
+          generatedText: nSplitResult.textSplits[0],
+          userInputValue: config.textContent.userInputValue || userInputText // 🔧 FIX: Save user's input!
         }
       };
 
@@ -5065,7 +5084,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
                       textContent: {
                         ...prev.textContent,
                         generatedText: e.target.value,
-                        originalText: e.target.value // Store as original text too
+                        originalText: e.target.value, // Store as original text too
+                        userInputValue: e.target.value // 🔧 FIX: Save user's input!
                       }
                     }));
                   }}
