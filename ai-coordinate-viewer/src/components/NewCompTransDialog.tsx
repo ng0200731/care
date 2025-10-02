@@ -3045,13 +3045,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         sourceType = 'REGION';
       }
 
-      // Show popup message to user
-      const sourceMessage = isFromSlice
-        ? `🔹 This is from a SLICE\n\nSlice ID: ${regionId}\n\nNote: Slice-specific overflow handling will be applied.`
-        : `📦 This is from a REGION\n\nRegion ID: ${regionId}\n\nNote: Region-specific overflow handling will be applied.`;
-
-      alert(sourceMessage);
-
+      // Log source type detection (popup removed per user request)
       console.log('🎯 2in1: Source Type Detected:', {
         sourceType,
         isFromSlice,
@@ -3394,7 +3388,7 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
           if (saveSuccess) {
             console.log('🎉 2in1 SLICE: Text saved successfully');
-            setTimeout(() => onCancel(), 500);
+            onCancel();
           } else {
             alert('Error: Failed to save text to slice');
           }
@@ -3530,7 +3524,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
           (window as any).refreshCanvas();
         }
 
-        setTimeout(() => onCancel(), 1000);
+        // Close dialog immediately
+        onCancel();
         return;
       }
 
@@ -4323,7 +4318,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
         }
       }
 
-      setTimeout(() => onCancel(), 1000);
+      // Close dialog immediately
+      onCancel();
 
     } catch (error) {
       console.error('❌ 2in1: Error:', error);
