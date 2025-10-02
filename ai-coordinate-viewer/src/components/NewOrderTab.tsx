@@ -22,6 +22,8 @@ interface OrderFormData {
 
   // Project Information
   projectId: string;
+  projectSlug: string;
+  layoutId: string; // NEW: Selected layout card from project
   masterId: string;
 
   // Order Data
@@ -38,6 +40,16 @@ interface MasterFile {
   customerId: string;
 }
 
+interface LayoutCard {
+  id: string;
+  name: string;
+  width: number;
+  height: number;
+  masterFileId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 const NewOrderTab: React.FC = () => {
   const { getAllProjects, createProject, createOrder } = useOrderVariable();
 
@@ -49,6 +61,8 @@ const NewOrderTab: React.FC = () => {
     email: '',
     address: '',
     projectId: '',
+    projectSlug: '',
+    layoutId: '',
     masterId: '',
     orderNumber: '',
     variableValues: {},
@@ -57,10 +71,12 @@ const NewOrderTab: React.FC = () => {
 
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [layoutCards, setLayoutCards] = useState<LayoutCard[]>([]);
   const [masterFiles, setMasterFiles] = useState<MasterFile[]>([]);
 
   const [loadingCustomers, setLoadingCustomers] = useState(false);
   const [loadingProjects, setLoadingProjects] = useState(false);
+  const [loadingLayouts, setLoadingLayouts] = useState(false);
   const [loadingMasterFiles, setLoadingMasterFiles] = useState(false);
 
   // Load customers on mount
@@ -125,6 +141,48 @@ const NewOrderTab: React.FC = () => {
     loadCustomerData();
   }, [formData.customerId]);
 
+  // Load layout cards for selected project
+  useEffect(() => {
+    const loadProjectLayouts = () => {
+      if (!formData.projectId || !formData.projectSlug) {
+        setLayoutCards([]);
+        return;
+      }
+
+      setLoadingLayouts(true);
+      try {
+        // Load layouts from localStorage
+        const storageKey = `project_${formData.projectSlug}_layouts`;
+        const savedLayouts = localStorage.getItem(storageKey);
+
+        if (savedLayouts) {
+          const parsedLayouts = JSON.parse(savedLayouts);
+          const layouts = parsedLayouts.map((layout: any, index: number) => ({
+            id: layout.id || `layout_${index}`,
+            name: layout.name || `Layout ${index + 1}`,
+            width: layout.canvasData?.width || 200,
+            height: layout.canvasData?.height || 189,
+            masterFileId: layout.canvasData?.masterFileId,
+            createdAt: layout.createdAt || new Date().toISOString(),
+            updatedAt: layout.updatedAt || layout.createdAt || new Date().toISOString()
+          }));
+          setLayoutCards(layouts);
+          console.log(`✅ Loaded ${layouts.length} layout cards for project ${formData.projectSlug}`);
+        } else {
+          setLayoutCards([]);
+          console.log(`📝 No saved layouts found for project ${formData.projectSlug}`);
+        }
+      } catch (error) {
+        console.error('❌ Error loading project layouts:', error);
+        setLayoutCards([]);
+      } finally {
+        setLoadingLayouts(false);
+      }
+    };
+
+    loadProjectLayouts();
+  }, [formData.projectId, formData.projectSlug]);
+
   // Handle customer selection
   const handleCustomerSelect = (customerId: string) => {
     const selectedCustomer = customers.find(c => c.id === customerId);
@@ -138,7 +196,9 @@ const NewOrderTab: React.FC = () => {
         phone: selectedCustomer.tel,
         email: selectedCustomer.email,
         address: '', // Customer service doesn't have address field, leave empty
-        projectId: '', // Reset project and master file when customer changes
+        projectId: '', // Reset project, layout and master file when customer changes
+        projectSlug: '',
+        layoutId: '',
         masterId: ''
       });
     } else {
@@ -152,6 +212,31 @@ const NewOrderTab: React.FC = () => {
         email: '',
         address: '',
         projectId: '',
+        projectSlug: '',
+        layoutId: '',
+        masterId: ''
+      });
+    }
+  };
+
+  // Handle project selection
+  const handleProjectSelect = (projectId: string) => {
+    const selectedProject = projects.find(p => p.id === projectId);
+
+    if (selectedProject) {
+      setFormData({
+        ...formData,
+        projectId: selectedProject.id,
+        projectSlug: selectedProject.slug,
+        layoutId: '', // Reset layout when project changes
+        masterId: ''
+      });
+    } else {
+      setFormData({
+        ...formData,
+        projectId: '',
+        projectSlug: '',
+        layoutId: '',
         masterId: ''
       });
     }
@@ -468,7 +553,7 @@ const NewOrderTab: React.FC = () => {
         ) : (
           <div style={{
             display: 'grid',
-            gridTemplateColumns: '1fr 1fr 1fr',
+            gridTemplateColumns: '1fr 1fr 1fr 1fr',
             gap: '16px'
           }}>
             <div>
@@ -483,7 +568,7 @@ const NewOrderTab: React.FC = () => {
               </label>
               <select
                 value={formData.projectId}
-                onChange={(e) => setFormData({ ...formData, projectId: e.target.value })}
+                onChange={(e) => handleProjectSelect(e.target.value)}
                 disabled={loadingProjects || projects.length === 0}
                 style={{
                   width: '100%',
@@ -521,6 +606,61 @@ const NewOrderTab: React.FC = () => {
                   fontStyle: 'italic'
                 }}>
                   ✓ {projects.length} project(s) found
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label style={{
+                display: 'block',
+                fontSize: '14px',
+                fontWeight: '500',
+                color: '#4a5568',
+                marginBottom: '6px'
+              }}>
+                Layout Card <span style={{ color: '#3b82f6' }}>*</span>
+              </label>
+              <select
+                value={formData.layoutId}
+                onChange={(e) => setFormData({ ...formData, layoutId: e.target.value })}
+                disabled={loadingLayouts || layoutCards.length === 0 || !formData.projectId}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  border: '2px solid #e2e8f0',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  outline: 'none',
+                  backgroundColor: (loadingLayouts || layoutCards.length === 0 || !formData.projectId) ? '#f7fafc' : 'white',
+                  cursor: (loadingLayouts || layoutCards.length === 0 || !formData.projectId) ? 'not-allowed' : 'pointer'
+                }}
+                onFocus={(e) => {
+                  if (!loadingLayouts && layoutCards.length > 0 && formData.projectId) {
+                    e.currentTarget.style.borderColor = '#3b82f6';
+                  }
+                }}
+                onBlur={(e) => e.currentTarget.style.borderColor = '#e2e8f0'}
+              >
+                <option value="">
+                  {!formData.projectId ? 'Select project first' :
+                   loadingLayouts ? 'Loading layouts...' :
+                   layoutCards.length === 0 ? 'No layouts found for this project' :
+                   'Select Layout Card...'}
+                </option>
+                {layoutCards.map(layout => (
+                  <option key={layout.id} value={layout.id}>
+                    {layout.name} ({layout.width}×{layout.height}mm)
+                  </option>
+                ))}
+              </select>
+              {!loadingLayouts && layoutCards.length > 0 && formData.projectId && (
+                <p style={{
+                  fontSize: '12px',
+                  color: '#10b981',
+                  margin: '4px 0 0 0',
+                  fontStyle: 'italic'
+                }}>
+                  ✓ {layoutCards.length} layout card(s) found
                 </p>
               )}
             </div>
