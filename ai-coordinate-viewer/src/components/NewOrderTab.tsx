@@ -8,6 +8,8 @@
 import React, { useState, useEffect } from 'react';
 import { useOrderVariable } from '../contexts/OrderVariableContext';
 import { customerService, Customer } from '../services/customerService';
+import { projectService, Project } from '../services/projectService';
+import { masterFileService } from '../services/masterFileService';
 
 interface OrderFormData {
   // Customer Management
@@ -30,6 +32,12 @@ interface OrderFormData {
   status: 'draft' | 'send' | 'confirmed' | 'in_production' | 'completed';
 }
 
+interface MasterFile {
+  id: string;
+  name: string;
+  customerId: string;
+}
+
 const NewOrderTab: React.FC = () => {
   const { getAllProjects, createProject, createOrder } = useOrderVariable();
 
@@ -47,9 +55,13 @@ const NewOrderTab: React.FC = () => {
     status: 'draft'
   });
 
-  const [projects] = useState(getAllProjects());
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [masterFiles, setMasterFiles] = useState<MasterFile[]>([]);
+
   const [loadingCustomers, setLoadingCustomers] = useState(false);
+  const [loadingProjects, setLoadingProjects] = useState(false);
+  const [loadingMasterFiles, setLoadingMasterFiles] = useState(false);
 
   // Load customers on mount
   useEffect(() => {
@@ -68,6 +80,51 @@ const NewOrderTab: React.FC = () => {
     loadCustomers();
   }, []);
 
+  // Load projects and master files for selected customer
+  useEffect(() => {
+    const loadCustomerData = async () => {
+      if (!formData.customerId || formData.customerId === 'new') {
+        setProjects([]);
+        setMasterFiles([]);
+        return;
+      }
+
+      // Load projects for this customer
+      setLoadingProjects(true);
+      try {
+        const allProjects = await projectService.getAllProjects();
+        const customerProjects = allProjects.filter(p => p.customerId === formData.customerId);
+        setProjects(customerProjects);
+      } catch (error) {
+        console.error('Failed to load projects:', error);
+      } finally {
+        setLoadingProjects(false);
+      }
+
+      // Load master files for this customer
+      setLoadingMasterFiles(true);
+      try {
+        const response = await masterFileService.getAllMasterFiles();
+        if (response.success && response.data) {
+          const customerMasterFiles = response.data
+            .filter(mf => mf.customerId === formData.customerId)
+            .map(mf => ({
+              id: mf.id,
+              name: mf.name,
+              customerId: mf.customerId
+            }));
+          setMasterFiles(customerMasterFiles);
+        }
+      } catch (error) {
+        console.error('Failed to load master files:', error);
+      } finally {
+        setLoadingMasterFiles(false);
+      }
+    };
+
+    loadCustomerData();
+  }, [formData.customerId]);
+
   // Handle customer selection
   const handleCustomerSelect = (customerId: string) => {
     const selectedCustomer = customers.find(c => c.id === customerId);
@@ -80,7 +137,9 @@ const NewOrderTab: React.FC = () => {
         contact: selectedCustomer.person,
         phone: selectedCustomer.tel,
         email: selectedCustomer.email,
-        address: '' // Customer service doesn't have address field, leave empty
+        address: '', // Customer service doesn't have address field, leave empty
+        projectId: '', // Reset project and master file when customer changes
+        masterId: ''
       });
     } else {
       // Clear customer data if "New Customer" is selected
@@ -91,7 +150,9 @@ const NewOrderTab: React.FC = () => {
         contact: '',
         phone: '',
         email: '',
-        address: ''
+        address: '',
+        projectId: '',
+        masterId: ''
       });
     }
   };
@@ -387,101 +448,164 @@ const NewOrderTab: React.FC = () => {
           📋 PROJECT INFORMATION
         </h3>
 
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr 1fr',
-          gap: '16px'
-        }}>
-          <div>
-            <label style={{
-              display: 'block',
+        {!formData.customerId || formData.customerId === 'new' ? (
+          <div style={{
+            padding: '20px',
+            backgroundColor: '#fff7ed',
+            border: '2px dashed #fb923c',
+            borderRadius: '6px',
+            textAlign: 'center'
+          }}>
+            <p style={{
               fontSize: '14px',
-              fontWeight: '500',
-              color: '#4a5568',
-              marginBottom: '6px'
+              color: '#c2410c',
+              margin: 0,
+              fontWeight: '500'
             }}>
-              Project Name
-            </label>
-            <select
-              value={formData.projectId}
-              onChange={(e) => setFormData({ ...formData, projectId: e.target.value })}
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                border: '2px solid #e2e8f0',
-                borderRadius: '6px',
+              ⚠️ Please select a customer first to view related projects and master files
+            </p>
+          </div>
+        ) : (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr 1fr',
+            gap: '16px'
+          }}>
+            <div>
+              <label style={{
+                display: 'block',
                 fontSize: '14px',
-                outline: 'none',
-                backgroundColor: 'white'
-              }}
-              onFocus={(e) => e.currentTarget.style.borderColor = '#3b82f6'}
-              onBlur={(e) => e.currentTarget.style.borderColor = '#e2e8f0'}
-            >
-              <option value="">Select Project...</option>
-              {projects.map(project => (
-                <option key={project.projectId} value={project.projectId}>
-                  {project.projectName}
+                fontWeight: '500',
+                color: '#4a5568',
+                marginBottom: '6px'
+              }}>
+                Project Name <span style={{ color: '#3b82f6' }}>*</span>
+              </label>
+              <select
+                value={formData.projectId}
+                onChange={(e) => setFormData({ ...formData, projectId: e.target.value })}
+                disabled={loadingProjects || projects.length === 0}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  border: '2px solid #e2e8f0',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  outline: 'none',
+                  backgroundColor: (loadingProjects || projects.length === 0) ? '#f7fafc' : 'white',
+                  cursor: (loadingProjects || projects.length === 0) ? 'not-allowed' : 'pointer'
+                }}
+                onFocus={(e) => {
+                  if (!loadingProjects && projects.length > 0) {
+                    e.currentTarget.style.borderColor = '#3b82f6';
+                  }
+                }}
+                onBlur={(e) => e.currentTarget.style.borderColor = '#e2e8f0'}
+              >
+                <option value="">
+                  {loadingProjects ? 'Loading projects...' :
+                   projects.length === 0 ? 'No projects found for this customer' :
+                   'Select Project...'}
                 </option>
-              ))}
-            </select>
-          </div>
+                {projects.map(project => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+              {!loadingProjects && projects.length > 0 && (
+                <p style={{
+                  fontSize: '12px',
+                  color: '#10b981',
+                  margin: '4px 0 0 0',
+                  fontStyle: 'italic'
+                }}>
+                  ✓ {projects.length} project(s) found
+                </p>
+              )}
+            </div>
 
-          <div>
-            <label style={{
-              display: 'block',
-              fontSize: '14px',
-              fontWeight: '500',
-              color: '#4a5568',
-              marginBottom: '6px'
-            }}>
-              Master File
-            </label>
-            <select
-              value={formData.masterId}
-              onChange={(e) => setFormData({ ...formData, masterId: e.target.value })}
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                border: '2px solid #e2e8f0',
-                borderRadius: '6px',
+            <div>
+              <label style={{
+                display: 'block',
                 fontSize: '14px',
-                outline: 'none',
-                backgroundColor: 'white'
-              }}
-              onFocus={(e) => e.currentTarget.style.borderColor = '#3b82f6'}
-              onBlur={(e) => e.currentTarget.style.borderColor = '#e2e8f0'}
-            >
-              <option value="">Select Master File...</option>
-              {/* TODO: Load master files based on selected project */}
-            </select>
-          </div>
+                fontWeight: '500',
+                color: '#4a5568',
+                marginBottom: '6px'
+              }}>
+                Master File <span style={{ color: '#3b82f6' }}>*</span>
+              </label>
+              <select
+                value={formData.masterId}
+                onChange={(e) => setFormData({ ...formData, masterId: e.target.value })}
+                disabled={loadingMasterFiles || masterFiles.length === 0}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  border: '2px solid #e2e8f0',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  outline: 'none',
+                  backgroundColor: (loadingMasterFiles || masterFiles.length === 0) ? '#f7fafc' : 'white',
+                  cursor: (loadingMasterFiles || masterFiles.length === 0) ? 'not-allowed' : 'pointer'
+                }}
+                onFocus={(e) => {
+                  if (!loadingMasterFiles && masterFiles.length > 0) {
+                    e.currentTarget.style.borderColor = '#3b82f6';
+                  }
+                }}
+                onBlur={(e) => e.currentTarget.style.borderColor = '#e2e8f0'}
+              >
+                <option value="">
+                  {loadingMasterFiles ? 'Loading master files...' :
+                   masterFiles.length === 0 ? 'No master files found for this customer' :
+                   'Select Master File...'}
+                </option>
+                {masterFiles.map(masterFile => (
+                  <option key={masterFile.id} value={masterFile.id}>
+                    {masterFile.name}
+                  </option>
+                ))}
+              </select>
+              {!loadingMasterFiles && masterFiles.length > 0 && (
+                <p style={{
+                  fontSize: '12px',
+                  color: '#10b981',
+                  margin: '4px 0 0 0',
+                  fontStyle: 'italic'
+                }}>
+                  ✓ {masterFiles.length} master file(s) found
+                </p>
+              )}
+            </div>
 
-          <div>
-            <label style={{
-              display: 'block',
-              fontSize: '14px',
-              fontWeight: '500',
-              color: '#4a5568',
-              marginBottom: '6px'
-            }}>
-              Date
-            </label>
-            <input
-              type="text"
-              value={new Date().toLocaleDateString()}
-              readOnly
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                border: '2px solid #e2e8f0',
-                borderRadius: '6px',
+            <div>
+              <label style={{
+                display: 'block',
                 fontSize: '14px',
-                backgroundColor: '#f7fafc',
-                color: '#718096'
-              }}
-            />
+                fontWeight: '500',
+                color: '#4a5568',
+                marginBottom: '6px'
+              }}>
+                Date
+              </label>
+              <input
+                type="text"
+                value={new Date().toLocaleDateString()}
+                readOnly
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  border: '2px solid #e2e8f0',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  backgroundColor: '#f7fafc',
+                  color: '#718096'
+                }}
+              />
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* c) ORDER DATA */}
