@@ -79,6 +79,115 @@ const NewOrderTab: React.FC = () => {
   const [loadingLayouts, setLoadingLayouts] = useState(false);
   const [loadingMasterFiles, setLoadingMasterFiles] = useState(false);
 
+  // Variable mode state
+  const [isVariableEnabled, setIsVariableEnabled] = useState(false);
+
+  // Variable components from layout
+  interface VariableComponent {
+    id: string;
+    type: 'comp-trans' | 'multi-line';
+    name: string; // Component label/name for display
+    config: any; // Original component config
+  }
+  const [variableComponents, setVariableComponents] = useState<VariableComponent[]>([]);
+
+  // Variable values for each component
+  interface ComponentVariableData {
+    [componentId: string]: {
+      type: 'comp-trans' | 'multi-line';
+      data: any; // Composition data or text content
+    };
+  }
+  const [componentVariables, setComponentVariables] = useState<ComponentVariableData>({});
+
+  // Extract variable-enabled components from selected layout
+  useEffect(() => {
+    const extractVariableComponents = () => {
+      if (!formData.layoutId || !formData.projectSlug) {
+        setVariableComponents([]);
+        setComponentVariables({});
+        return;
+      }
+
+      try {
+        // Load the full layout data
+        const storageKey = `project_${formData.projectSlug}_layouts`;
+        const savedLayouts = localStorage.getItem(storageKey);
+
+        if (savedLayouts) {
+          const parsedLayouts = JSON.parse(savedLayouts);
+          const selectedLayout = parsedLayouts.find((layout: any) => layout.id === formData.layoutId);
+
+          if (selectedLayout && selectedLayout.canvasData?.regions) {
+            const components: VariableComponent[] = [];
+
+            // Scan all regions and their contents for variable-enabled components
+            selectedLayout.canvasData.regions.forEach((region: any) => {
+              if (region.contents && Array.isArray(region.contents)) {
+                region.contents.forEach((content: any, contentIndex: number) => {
+                  // Check for New Comp Trans with variable enabled
+                  if (content.type === 'new-comp-trans' &&
+                      content.newCompTransConfig?.isVariableEnabled) {
+                    components.push({
+                      id: `${region.id}_content_${contentIndex}`,
+                      type: 'comp-trans',
+                      name: `Composition Translation (${region.id})`,
+                      config: content.newCompTransConfig
+                    });
+                  }
+
+                  // Check for New Multi-Line with variable enabled
+                  if (content.type === 'new-multi-line' &&
+                      content.newMultiLineConfig?.isVariableEnabled) {
+                    components.push({
+                      id: `${region.id}_content_${contentIndex}`,
+                      type: 'multi-line',
+                      name: `Multi-line Text (${region.id})`,
+                      config: content.newMultiLineConfig
+                    });
+                  }
+                });
+              }
+            });
+
+            setVariableComponents(components);
+            console.log(`✅ Found ${components.length} variable-enabled components in layout:`, components);
+
+            // Initialize component variables
+            const initialData: ComponentVariableData = {};
+            components.forEach(comp => {
+              if (comp.type === 'comp-trans') {
+                // Initialize with default composition structure
+                initialData[comp.id] = {
+                  type: 'comp-trans',
+                  data: {
+                    compositions: [
+                      { material: '', percentage: '' }
+                    ]
+                  }
+                };
+              } else if (comp.type === 'multi-line') {
+                // Initialize with empty text
+                initialData[comp.id] = {
+                  type: 'multi-line',
+                  data: {
+                    textContent: ''
+                  }
+                };
+              }
+            });
+            setComponentVariables(initialData);
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error extracting variable components from layout:', error);
+        setVariableComponents([]);
+      }
+    };
+
+    extractVariableComponents();
+  }, [formData.layoutId, formData.projectSlug]);
+
   // Load customers on mount
   useEffect(() => {
     const loadCustomers = async () => {
@@ -256,6 +365,12 @@ const NewOrderTab: React.FC = () => {
       layoutId: '' // Reset layout when master file changes
     });
   };
+
+  // Material options for composition dropdown
+  const materialOptions = [
+    'Cotton', 'Polyester', 'Wool', 'Silk', 'Linen', 'Nylon',
+    'Acrylic', 'Rayon', 'Spandex', 'Elastane', 'Viscose', 'Modal'
+  ];
 
   const handleSaveDraft = () => {
     // TODO: Implement save draft logic
@@ -771,17 +886,43 @@ const NewOrderTab: React.FC = () => {
         marginBottom: '24px',
         boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
       }}>
-        <h3 style={{
-          margin: '0 0 20px 0',
-          fontSize: '18px',
-          fontWeight: '600',
-          color: '#1a202c',
+        <div style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '8px'
+          justifyContent: 'space-between',
+          marginBottom: '20px'
         }}>
-          📝 ORDER DATA
-        </h3>
+          <h3 style={{
+            margin: 0,
+            fontSize: '18px',
+            fontWeight: '600',
+            color: '#1a202c',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            📝 ORDER DATA
+          </h3>
+          <button
+            type="button"
+            onClick={() => setIsVariableEnabled(!isVariableEnabled)}
+            disabled={!formData.layoutId}
+            style={{
+              padding: '6px 16px',
+              fontSize: '12px',
+              fontWeight: '600',
+              border: `2px solid ${isVariableEnabled ? '#28a745' : '#6c757d'}`,
+              borderRadius: '6px',
+              backgroundColor: isVariableEnabled ? '#28a745' : '#6c757d',
+              color: 'white',
+              cursor: formData.layoutId ? 'pointer' : 'not-allowed',
+              opacity: formData.layoutId ? 1 : 0.5,
+              transition: 'all 0.2s'
+            }}
+          >
+            Variable: {isVariableEnabled ? 'ON' : 'OFF'}
+          </button>
+        </div>
 
         <div style={{ marginBottom: '20px' }}>
           <label style={{
@@ -812,54 +953,364 @@ const NewOrderTab: React.FC = () => {
           />
         </div>
 
-        <div style={{
-          padding: '16px',
-          backgroundColor: '#f7fafc',
-          borderRadius: '6px',
-          border: '1px dashed #cbd5e0'
-        }}>
-          <p style={{
-            margin: '0 0 12px 0',
-            fontSize: '14px',
-            fontWeight: '500',
-            color: '#4a5568'
+        {/* Variable Components Section */}
+        {!formData.layoutId ? (
+          <div style={{
+            padding: '20px',
+            backgroundColor: '#fff7ed',
+            border: '2px dashed #fb923c',
+            borderRadius: '6px',
+            textAlign: 'center'
           }}>
-            Variable Fields (for selected master):
-          </p>
-          <p style={{
-            margin: 0,
-            fontSize: '14px',
-            color: '#718096',
-            fontStyle: 'italic'
-          }}>
-            Select a project and master file to define variable fields
-          </p>
-
-          {/* TODO: Dynamic variable input fields based on selected master */}
-
-          <button
-            style={{
-              marginTop: '12px',
-              padding: '8px 16px',
+            <p style={{
               fontSize: '14px',
-              fontWeight: '500',
-              color: '#3b82f6',
-              backgroundColor: 'transparent',
-              border: '2px dashed #3b82f6',
+              color: '#c2410c',
+              margin: 0,
+              fontWeight: '500'
+            }}>
+              ⚠️ Please select a layout card to view and edit variable fields
+            </p>
+          </div>
+        ) : variableComponents.length === 0 ? (
+          <div style={{
+            padding: '20px',
+            backgroundColor: '#f7fafc',
+            border: '2px dashed #cbd5e0',
+            borderRadius: '6px',
+            textAlign: 'center'
+          }}>
+            <p style={{
+              fontSize: '14px',
+              color: '#64748b',
+              margin: 0,
+              fontWeight: '500'
+            }}>
+              📝 No variable-enabled components found in this layout
+            </p>
+            <p style={{
+              fontSize: '13px',
+              color: '#94a3b8',
+              margin: '8px 0 0 0',
+              fontStyle: 'italic'
+            }}>
+              Enable "Variable" toggle in Composition Translation or Multi-line Text settings
+            </p>
+          </div>
+        ) : (
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '20px'
+          }}>
+            {/* Header */}
+            <div style={{
+              padding: '12px 16px',
+              backgroundColor: isVariableEnabled ? '#e0f2fe' : '#f1f5f9',
               borderRadius: '6px',
-              cursor: 'pointer',
-              transition: 'all 0.2s'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#eff6ff';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'transparent';
-            }}
-          >
-            + Add Variable Field
-          </button>
-        </div>
+              border: `2px solid ${isVariableEnabled ? '#3b82f6' : '#cbd5e0'}`
+            }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}>
+                <p style={{
+                  margin: 0,
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  color: isVariableEnabled ? '#1e40af' : '#475569'
+                }}>
+                  📋 Variable Components ({variableComponents.length} found from "{layoutCards.find(l => l.id === formData.layoutId)?.name || 'layout'}")
+                </p>
+                {isVariableEnabled && (
+                  <span style={{
+                    fontSize: '11px',
+                    color: '#10b981',
+                    fontWeight: '600',
+                    padding: '2px 8px',
+                    backgroundColor: '#d1fae5',
+                    borderRadius: '4px'
+                  }}>
+                    ✓ ENABLED
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Variable Components */}
+            {variableComponents.map((component, componentIndex) => (
+              <div
+                key={component.id}
+                style={{
+                  padding: '20px',
+                  backgroundColor: 'white',
+                  borderRadius: '8px',
+                  border: '2px solid #e2e8f0',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                }}
+              >
+                {/* Component Header */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: '16px',
+                  paddingBottom: '12px',
+                  borderBottom: '1px solid #e2e8f0'
+                }}>
+                  <h4 style={{
+                    margin: 0,
+                    fontSize: '15px',
+                    fontWeight: '600',
+                    color: '#1a202c',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    {component.type === 'comp-trans' ? '🧵' : '📝'} {component.name}
+                  </h4>
+                  <span style={{
+                    fontSize: '11px',
+                    padding: '3px 8px',
+                    backgroundColor: component.type === 'comp-trans' ? '#fef3c7' : '#dbeafe',
+                    color: component.type === 'comp-trans' ? '#92400e' : '#1e40af',
+                    borderRadius: '4px',
+                    fontWeight: '600'
+                  }}>
+                    {component.type === 'comp-trans' ? 'Composition' : 'Multi-line'}
+                  </span>
+                </div>
+
+                {/* Component-specific inputs */}
+                {component.type === 'comp-trans' ? (
+                  // Composition Translation Inputs
+                  <div>
+                    <p style={{
+                      margin: '0 0 12px 0',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      color: '#4a5568'
+                    }}>
+                      Material Composition:
+                    </p>
+                    {(componentVariables[component.id]?.data?.compositions || [{ material: '', percentage: '' }]).map((comp: any, compIndex: number) => (
+                      <div
+                        key={compIndex}
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: '2fr 1fr auto',
+                          gap: '12px',
+                          marginBottom: '12px',
+                          alignItems: 'end'
+                        }}
+                      >
+                        <div>
+                          <label style={{
+                            display: 'block',
+                            fontSize: '12px',
+                            fontWeight: '500',
+                            color: '#64748b',
+                            marginBottom: '4px'
+                          }}>
+                            Material {compIndex + 1}
+                          </label>
+                          <select
+                            value={comp.material}
+                            onChange={(e) => {
+                              const newCompositions = [...(componentVariables[component.id]?.data?.compositions || [])];
+                              newCompositions[compIndex] = { ...newCompositions[compIndex], material: e.target.value };
+                              setComponentVariables({
+                                ...componentVariables,
+                                [component.id]: {
+                                  type: 'comp-trans',
+                                  data: { compositions: newCompositions }
+                                }
+                              });
+                            }}
+                            disabled={!isVariableEnabled}
+                            style={{
+                              width: '100%',
+                              padding: '8px 12px',
+                              border: '2px solid #e2e8f0',
+                              borderRadius: '6px',
+                              fontSize: '14px',
+                              backgroundColor: isVariableEnabled ? 'white' : '#f7fafc',
+                              cursor: isVariableEnabled ? 'pointer' : 'not-allowed'
+                            }}
+                          >
+                            <option value="">Select material...</option>
+                            {materialOptions.map(mat => (
+                              <option key={mat} value={mat}>{mat}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label style={{
+                            display: 'block',
+                            fontSize: '12px',
+                            fontWeight: '500',
+                            color: '#64748b',
+                            marginBottom: '4px'
+                          }}>
+                            Percentage %
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={comp.percentage}
+                            onChange={(e) => {
+                              const newCompositions = [...(componentVariables[component.id]?.data?.compositions || [])];
+                              newCompositions[compIndex] = { ...newCompositions[compIndex], percentage: e.target.value };
+                              setComponentVariables({
+                                ...componentVariables,
+                                [component.id]: {
+                                  type: 'comp-trans',
+                                  data: { compositions: newCompositions }
+                                }
+                              });
+                            }}
+                            disabled={!isVariableEnabled}
+                            placeholder="100"
+                            style={{
+                              width: '100%',
+                              padding: '8px 12px',
+                              border: '2px solid #e2e8f0',
+                              borderRadius: '6px',
+                              fontSize: '14px',
+                              backgroundColor: isVariableEnabled ? 'white' : '#f7fafc',
+                              cursor: isVariableEnabled ? 'text' : 'not-allowed'
+                            }}
+                          />
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            const newCompositions = (componentVariables[component.id]?.data?.compositions || []).filter((_: any, i: number) => i !== compIndex);
+                            setComponentVariables({
+                              ...componentVariables,
+                              [component.id]: {
+                                type: 'comp-trans',
+                                data: { compositions: newCompositions.length > 0 ? newCompositions : [{ material: '', percentage: '' }] }
+                              }
+                            });
+                          }}
+                          disabled={!isVariableEnabled || (componentVariables[component.id]?.data?.compositions || []).length <= 1}
+                          style={{
+                            padding: '8px 12px',
+                            fontSize: '14px',
+                            fontWeight: '500',
+                            color: '#ef4444',
+                            backgroundColor: 'white',
+                            border: '2px solid #ef4444',
+                            borderRadius: '6px',
+                            cursor: (isVariableEnabled && (componentVariables[component.id]?.data?.compositions || []).length > 1) ? 'pointer' : 'not-allowed',
+                            opacity: (isVariableEnabled && (componentVariables[component.id]?.data?.compositions || []).length > 1) ? 1 : 0.4
+                          }}
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    ))}
+
+                    <button
+                      onClick={() => {
+                        const newCompositions = [...(componentVariables[component.id]?.data?.compositions || []), { material: '', percentage: '' }];
+                        setComponentVariables({
+                          ...componentVariables,
+                          [component.id]: {
+                            type: 'comp-trans',
+                            data: { compositions: newCompositions }
+                          }
+                        });
+                      }}
+                      disabled={!isVariableEnabled}
+                      style={{
+                        padding: '8px 16px',
+                        fontSize: '14px',
+                        fontWeight: '500',
+                        color: isVariableEnabled ? '#3b82f6' : '#94a3b8',
+                        backgroundColor: 'transparent',
+                        border: `2px dashed ${isVariableEnabled ? '#3b82f6' : '#cbd5e0'}`,
+                        borderRadius: '6px',
+                        cursor: isVariableEnabled ? 'pointer' : 'not-allowed',
+                        marginTop: '8px',
+                        transition: 'all 0.2s'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (isVariableEnabled) {
+                          e.currentTarget.style.backgroundColor = '#eff6ff';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                      }}
+                    >
+                      + Add Material
+                    </button>
+                  </div>
+                ) : (
+                  // Multi-line Text Input
+                  <div>
+                    <label style={{
+                      display: 'block',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      color: '#4a5568',
+                      marginBottom: '8px'
+                    }}>
+                      Text Content:
+                    </label>
+                    <textarea
+                      value={componentVariables[component.id]?.data?.textContent || ''}
+                      onChange={(e) => {
+                        setComponentVariables({
+                          ...componentVariables,
+                          [component.id]: {
+                            type: 'multi-line',
+                            data: { textContent: e.target.value }
+                          }
+                        });
+                      }}
+                      disabled={!isVariableEnabled}
+                      placeholder="Enter multi-line text content..."
+                      rows={4}
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        border: '2px solid #e2e8f0',
+                        borderRadius: '6px',
+                        fontSize: '14px',
+                        fontFamily: 'inherit',
+                        resize: 'vertical',
+                        backgroundColor: isVariableEnabled ? 'white' : '#f7fafc',
+                        cursor: isVariableEnabled ? 'text' : 'not-allowed'
+                      }}
+                      onFocus={(e) => {
+                        if (isVariableEnabled) {
+                          e.currentTarget.style.borderColor = '#3b82f6';
+                        }
+                      }}
+                      onBlur={(e) => e.currentTarget.style.borderColor = '#e2e8f0'}
+                    />
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {/* Tip */}
+            <p style={{
+              margin: 0,
+              fontSize: '12px',
+              color: '#3b82f6',
+              fontStyle: 'italic',
+              textAlign: 'center'
+            }}>
+              💡 Tip: Toggle "Variable: ON" to enable editing these fields
+            </p>
+          </div>
+        )}
       </div>
 
       {/* d) SUBMIT OPTIONS */}

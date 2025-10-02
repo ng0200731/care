@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Console Logger</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+        }
+        #logBox {
+            width: 100%;
+            height: 500px;
+            border: 2px solid red;
+            padding: 10px;
+            font-size: 12px;
+            background: #f0f0f0;
+            overflow: auto;
+        }
+        button {
+            padding: 15px 30px;
+            font-size: 18px;
+            margin: 10px;
+            cursor: pointer;
+        }
+        #copyBtn {
+            background: green;
+            color: white;
+            border: none;
+        }
+        #clearBtn {
+            background: orange;
+            color: white;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Console Logger - Copy all console logs</h1>
+    <button id="copyBtn">COPY ALL LOGS</button>
+    <button id="clearBtn">CLEAR LOGS</button>
+    <div id="logBox"></div>
+
+    <script>
+        const logBox = document.getElementById('logBox');
+        const logs = [];
+
+        // Capture all console.log
+        const originalLog = console.log;
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            const logText = args.map(arg => {
+                if (typeof arg === 'object') {
+                    return JSON.stringify(arg, null, 2);
+                }
+                return String(arg);
+            }).join(' ');
+
+            logs.push(logText);
+            const logEntry = document.createElement('div');
+            logEntry.textContent = logText;
+            logEntry.style.borderBottom = '1px solid #ccc';
+            logEntry.style.padding = '5px';
+            logBox.appendChild(logEntry);
+            logBox.scrollTop = logBox.scrollHeight;
+        };
+
+        document.getElementById('copyBtn').addEventListener('click', () => {
+            const allLogs = logs.join('\n');
+            navigator.clipboard.writeText(allLogs).then(() => {
+                alert('All logs copied to clipboard! (' + logs.length + ' lines)');
+            });
+        });
+
+        document.getElementById('clearBtn').addEventListener('click', () => {
+            logs.length = 0;
+            logBox.innerHTML = '';
+        });
+
+        console.log('=== CONSOLE LOGGER READY ===');
+        console.log('Instructions:');
+        console.log('1. Keep this window open');
+        console.log('2. Go to your React app (localhost:3002)');
+        console.log('3. Click the 2in1 button');
+        console.log('4. Come back here and click COPY ALL LOGS button');
+    </script>
+</body>
+</html>

@@ -35,6 +35,7 @@ export interface NewMultiLineConfig {
     lineWidth: number;
   };
   processedLines?: string[]; // Exact lines from preview for canvas to use
+  isVariableEnabled?: boolean; // Variable toggle state
 }
 
 const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
@@ -107,9 +108,10 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
   // State for "For all size" padding sync
   const [syncAllPadding, setSyncAllPadding] = useState(false);
 
-  // State for Variable toggle
-  const [isVariableEnabled, setIsVariableEnabled] = useState(false);
-  const [selectedOrderId, setSelectedOrderId] = useState<string>('');
+  // State for Variable toggle - initialize from saved config when editing
+  const [isVariableEnabled, setIsVariableEnabled] = useState(
+    editingContent?.newMultiLineConfig?.isVariableEnabled || false
+  );
 
   // TODO: Import useOrderVariable hook when ready
   // const { getAllProjects, replaceVariables } = useOrderVariable();
@@ -117,6 +119,7 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
   // Update config when editing content changes
   useEffect(() => {
     setConfig(getInitialConfig());
+    setIsVariableEnabled(editingContent?.newMultiLineConfig?.isVariableEnabled || false);
   }, [editingContent]);
 
   // Handle synchronized padding changes
@@ -443,16 +446,18 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
     // Generate the exact wrapped lines that the preview shows
     const wrappedLines = processTextForPreview(config.textContent);
 
-    // Add the processed lines to the config so canvas can use them directly
+    // Add the processed lines and variable toggle state to the config so canvas can use them directly
     const configWithProcessedLines = {
       ...config,
-      processedLines: wrappedLines // Store exact preview lines for canvas
+      processedLines: wrappedLines, // Store exact preview lines for canvas
+      isVariableEnabled: isVariableEnabled // Save variable toggle state
     };
 
     console.log('💾 Saving multi-line config with processed lines:', {
       originalText: config.textContent,
       processedLines: wrappedLines,
-      totalLines: wrappedLines.length
+      totalLines: wrappedLines.length,
+      isVariableEnabled: isVariableEnabled
     });
 
     onSave(configWithProcessedLines);
@@ -895,59 +900,6 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
             </button>
           </div>
 
-          {/* Order Selection - shown when Variable is ON */}
-          {isVariableEnabled && (
-            <div style={{
-              marginBottom: '16px',
-              padding: '12px',
-              backgroundColor: '#eff6ff',
-              border: '2px solid #3b82f6',
-              borderRadius: '6px'
-            }}>
-              <label style={{
-                fontSize: '13px',
-                fontWeight: '600',
-                color: '#1e40af',
-                display: 'block',
-                marginBottom: '8px'
-              }}>
-                📋 Select Order (Variable Mode)
-              </label>
-              <select
-                value={selectedOrderId}
-                onChange={(e) => setSelectedOrderId(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  border: '2px solid #3b82f6',
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  backgroundColor: 'white',
-                  outline: 'none'
-                }}
-              >
-                <option value="">Select an order...</option>
-                {/* TODO: Load orders from context */}
-                <option value="order_001">Order #001 (TCL-2025)</option>
-                <option value="order_002">Order #002 (TCL-2025)</option>
-              </select>
-              <p style={{
-                fontSize: '12px',
-                color: '#1e40af',
-                margin: '8px 0 0 0',
-                fontStyle: 'italic'
-              }}>
-                💡 Use <code style={{
-                  backgroundColor: '#dbeafe',
-                  padding: '2px 6px',
-                  borderRadius: '3px',
-                  fontFamily: 'monospace'
-                }}>
-                  {'{{variableName}}'}
-                </code> in text to insert order variables
-              </p>
-            </div>
-          )}
 
           <div>
             <label style={{ fontSize: '14px', color: '#4a5568', display: 'block', marginBottom: '4px' }}>

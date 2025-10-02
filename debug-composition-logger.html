@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Composition Logger</title>
+    <style>
+        body {
+            font-family: 'Consolas', 'Monaco', monospace;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #d4d4d4;
+        }
+
+        .popup {
+            position: fixed;
+            top: 50px;
+            right: 50px;
+            width: 600px;
+            max-height: 80vh;
+            background: #252526;
+            border: 2px solid #007acc;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+            z-index: 999999;
+        }
+
+        .popup-header {
+            background: #007acc;
+            color: white;
+            padding: 12px 16px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 6px 6px 0 0;
+        }
+
+        .popup-body {
+            padding: 16px;
+            overflow-y: auto;
+            flex: 1;
+            max-height: calc(80vh - 120px);
+        }
+
+        .popup-footer {
+            padding: 12px 16px;
+            border-top: 1px solid #3e3e42;
+            display: flex;
+            gap: 8px;
+        }
+
+        .log-entry {
+            margin-bottom: 16px;
+            padding: 12px;
+            background: #1e1e1e;
+            border-left: 4px solid #007acc;
+            border-radius: 4px;
+        }
+
+        .log-entry.parent {
+            border-left-color: #4ec9b0;
+        }
+
+        .log-entry.child {
+            border-left-color: #ce9178;
+        }
+
+        .log-timestamp {
+            color: #858585;
+            font-size: 11px;
+            margin-bottom: 6px;
+        }
+
+        .log-title {
+            color: #4ec9b0;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .log-content {
+            color: #d4d4d4;
+            white-space: pre-wrap;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .button-primary {
+            background: #007acc;
+            color: white;
+        }
+
+        .button-primary:hover {
+            background: #005a9e;
+        }
+
+        .button-secondary {
+            background: #3e3e42;
+            color: #d4d4d4;
+        }
+
+        .button-secondary:hover {
+            background: #505050;
+        }
+
+        .button-danger {
+            background: #f48771;
+            color: white;
+        }
+
+        .button-danger:hover {
+            background: #d16b5a;
+        }
+
+        .close-btn {
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .close-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #858585;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-active {
+            background: #4ec9b0;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body>
+    <div class="popup" id="debugPopup">
+        <div class="popup-header">
+            <div>
+                <span class="status-indicator status-active"></span>
+                Debug Composition Logger
+            </div>
+            <button class="close-btn" onclick="closePopup()">×</button>
+        </div>
+        <div class="popup-body" id="logContainer">
+            <div class="empty-state">
+                Waiting for 2in1 button click...<br>
+                <small>Logs will appear here automatically</small>
+            </div>
+        </div>
+        <div class="popup-footer">
+            <button class="button button-primary" onclick="copyAllLogs()">📋 Copy All Logs</button>
+            <button class="button button-secondary" onclick="clearLogs()">🧹 Clear</button>
+            <button class="button button-danger" onclick="closePopup()">Close</button>
+        </div>
+    </div>
+
+    <script>
+        const logs = [];
+        const logContainer = document.getElementById('logContainer');
+
+        // Intercept console.log
+        const originalLog = console.log;
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+
+            const message = args.map(arg =>
+                typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+            ).join(' ');
+
+            // Capture specific debug logs
+            if (message.includes('🔍 PARENT_COMPOSITION_SETTINGS:') ||
+                message.includes('🔍 CHILD_COMPOSITION_SETTINGS:') ||
+                message.includes('ZZZZZ_PADDING') ||
+                message.includes('2in1:') ||
+                message.includes('🚀🚀🚀 2in1:')) {
+
+                const logEntry = {
+                    timestamp: new Date().toISOString(),
+                    message: message,
+                    type: message.includes('PARENT') ? 'parent' :
+                          message.includes('CHILD') ? 'child' : 'general',
+                    data: args.length > 1 ? args[1] : null
+                };
+
+                logs.push(logEntry);
+                addLogToUI(logEntry);
+            }
+        };
+
+        function addLogToUI(logEntry) {
+            // Remove empty state
+            if (logContainer.querySelector('.empty-state')) {
+                logContainer.innerHTML = '';
+            }
+
+            const logDiv = document.createElement('div');
+            logDiv.className = `log-entry ${logEntry.type}`;
+
+            const timestamp = new Date(logEntry.timestamp).toLocaleTimeString();
+
+            let title = 'Log Entry';
+            if (logEntry.message.includes('PARENT_COMPOSITION_SETTINGS')) {
+                title = '👨 PARENT COMPOSITION SETTINGS';
+            } else if (logEntry.message.includes('CHILD_COMPOSITION_SETTINGS')) {
+                title = '👶 CHILD COMPOSITION SETTINGS';
+            } else if (logEntry.message.includes('ZZZZZ_PADDING')) {
+                title = '📏 PADDING DEBUG';
+            } else if (logEntry.message.includes('2in1:')) {
+                title = '🔧 2IN1 FLOW';
+            }
+
+            logDiv.innerHTML = `
+                <div class="log-timestamp">${timestamp}</div>
+                <div class="log-title">${title}</div>
+                <div class="log-content">${escapeHtml(logEntry.message)}</div>
+            `;
+
+            logContainer.appendChild(logDiv);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function copyAllLogs() {
+            const logText = logs.map(log => {
+                const time = new Date(log.timestamp).toLocaleTimeString();
+                return `[${time}] ${log.message}`;
+            }).join('\n\n');
+
+            navigator.clipboard.writeText(logText).then(() => {
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = '✅ Copied!';
+                btn.style.background = '#4ec9b0';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.style.background = '#007acc';
+                }, 2000);
+            });
+        }
+
+        function clearLogs() {
+            logs.length = 0;
+            logContainer.innerHTML = '<div class="empty-state">Logs cleared. Waiting for new logs...</div>';
+        }
+
+        function closePopup() {
+            document.getElementById('debugPopup').style.display = 'none';
+        }
+
+        // Export logs function for external access
+        window.getDebugLogs = function() {
+            return logs;
+        };
+
+        window.showDebugPopup = function() {
+            document.getElementById('debugPopup').style.display = 'flex';
+        };
+
+        // Auto-capture specific patterns
+        console.log('🎯 Debug Composition Logger Active - Ready to capture logs');
+    </script>
+</body>
+</html>

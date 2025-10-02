@@ -111,6 +111,7 @@ export interface NewCompTransConfig {
     lineSpacing: number;
     lineWidth: number;
   };
+  isVariableEnabled?: boolean; // Variable toggle state
   // overflowOption removed - now handled automatically
 }
 
@@ -236,7 +237,10 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
   const [debugStep, setDebugStep] = useState(0);
   const [split1Text, setSplit1Text] = useState('');
   const [split2Text, setSplit2Text] = useState('');
-  const [isVariableEnabled, setIsVariableEnabled] = useState(false);
+  // State for Variable toggle - initialize from saved config when editing
+  const [isVariableEnabled, setIsVariableEnabled] = useState(
+    editingContent?.newCompTransConfig?.isVariableEnabled || false
+  );
 
   // Helper function to generate a unique signature for a composition
   const generateCompositionSignature = (compositions: MaterialComposition[]): string => {
@@ -709,6 +713,9 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
       const initialConfig = getInitialConfig();
       setConfig(initialConfig);
+
+      // Initialize isVariableEnabled from saved config
+      setIsVariableEnabled(editingContent?.newCompTransConfig?.isVariableEnabled || false);
 
       // 🔧 FIX: Text is now ALWAYS cleared in getInitialConfig()
       // So we ALWAYS start with isTextManuallyEdited = false
@@ -3249,7 +3256,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
               originalText: sliceUserInputText,
               generatedText: sliceUserInputText,
               userInputValue: config.textContent.userInputValue || sliceUserInputText
-            }
+            },
+            isVariableEnabled: isVariableEnabled // Save variable toggle state
           };
 
           const saveSuccess = sliceOnSave(sliceSaveConfig, regionId);
@@ -3271,7 +3279,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
             originalText: sliceNSplitResult.textSplits[0],
             generatedText: sliceNSplitResult.textSplits[0],
             userInputValue: config.textContent.userInputValue || sliceUserInputText
-          }
+          },
+          isVariableEnabled: isVariableEnabled // Save variable toggle state
         };
 
         sliceOnSave(sliceSplit1Config, regionId);
@@ -3669,7 +3678,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
             originalText: userInputText,
             generatedText: userInputText,
             userInputValue: config.textContent.userInputValue || userInputText // 🔧 FIX: Save user's input!
-          }
+          },
+          isVariableEnabled: isVariableEnabled // Save variable toggle state
         };
 
         console.log('✅ 2in1: Calling onSave to update React state');
@@ -3737,7 +3747,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
           originalText: nSplitResult.textSplits[0],
           generatedText: nSplitResult.textSplits[0],
           userInputValue: config.textContent.userInputValue || userInputText // 🔧 FIX: Save user's input!
-        }
+        },
+        isVariableEnabled: isVariableEnabled // Save variable toggle state
       };
 
       console.log('✅ 2in1: Calling onSave with split1 text');
@@ -4156,13 +4167,14 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       // Save SPLIT 1 text to the current region (overflowResult.originalText already contains the correct SPLIT 1)
       const split1Text = overflowResult.originalText; // This already contains SPLIT 1 from detectOverflowAndSplit()
       console.log('📝 Saving SPLIT 1 text to parent region:', { split1Length: split1Text.length, overflowLength: overflowResult.overflowText.length });
-      
+
       onSave({
         ...config,
         textContent: {
           ...config.textContent,
           generatedText: split1Text // Save SPLIT 1 text only
-        }
+        },
+        isVariableEnabled: isVariableEnabled // Save variable toggle state
       });
 
       // Use the proper callback to create new mother for overflow
@@ -4373,7 +4385,10 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     }
 
     console.log(`✅ ${DIALOG_VERSION}: Saving content to parent` + (hasExistingChildren ? ' (child mothers removed)' : ''));
-    onSave(config);
+    onSave({
+      ...config,
+      isVariableEnabled: isVariableEnabled // Save variable toggle state
+    });
   };
 
   // One-click runner: executes the same 4 manual debug steps sequentially without extra clicks
