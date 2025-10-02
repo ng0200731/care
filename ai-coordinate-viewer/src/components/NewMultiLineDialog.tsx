@@ -103,9 +103,16 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
   };
 
   const [config, setConfig] = useState<NewMultiLineConfig>(getInitialConfig());
-  
+
   // State for "For all size" padding sync
   const [syncAllPadding, setSyncAllPadding] = useState(false);
+
+  // State for Variable toggle
+  const [isVariableEnabled, setIsVariableEnabled] = useState(false);
+  const [selectedOrderId, setSelectedOrderId] = useState<string>('');
+
+  // TODO: Import useOrderVariable hook when ready
+  // const { getAllProjects, replaceVariables } = useOrderVariable();
 
   // Update config when editing content changes
   useEffect(() => {
@@ -765,103 +772,16 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
           </div>
         </div>
 
-        {/* Text Content */}
-        <div style={{ marginBottom: '24px' }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: '12px'
-          }}>
-            <h3 style={{
-              margin: 0,
-              fontSize: '16px',
-              fontWeight: '600',
-              color: '#2d3748'
-            }}>
-              Text Content
-            </h3>
-            <button
-              type="button"
-              onClick={() => {
-                // Order Variable functionality - placeholder for now
-                console.log('Order Variable clicked for Text Content');
-              }}
-              style={{
-                padding: '6px 12px',
-                border: '1px solid #007bff',
-                borderRadius: '4px',
-                backgroundColor: '#007bff',
-                color: 'white',
-                fontSize: '11px',
-                cursor: 'pointer',
-                fontWeight: '500'
-              }}
-            >
-              🔄 Order Variable
-            </button>
-          </div>
-          <div>
-            <label style={{ fontSize: '14px', color: '#4a5568', display: 'block', marginBottom: '4px' }}>
-              Text Value (use {config.lineBreak.symbol} for line breaks)
-              <span style={{ fontSize: '12px', color: '#718096', fontStyle: 'italic' }}>
-                {' '}• Words will never be cut - whole words move to next line
-              </span>
-            </label>
-            <textarea
-              value={config.textContent}
-              onChange={(e) => setConfig(prev => ({ ...prev, textContent: e.target.value }))}
-              placeholder={`Enter multi-line text...${config.lineBreak.symbol}Use ${config.lineBreak.symbol} for line breaks${config.lineBreak.symbol}Example: This is a long sentence that will wrap at word boundaries when it reaches the padding dotted line`}
-              rows={4}
-              style={{
-                width: '100%',
-                padding: '12px',
-                border: '2px solid #e2e8f0',
-                borderRadius: '6px',
-                fontSize: '14px',
-                fontFamily: config.typography.fontFamily,
-                resize: 'vertical'
-              }}
-            />
-          </div>
-        </div>
-
         {/* Line Break Controls */}
         <div style={{ marginBottom: '24px' }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: '12px'
+          <h3 style={{
+            margin: '0 0 12px 0',
+            fontSize: '16px',
+            fontWeight: '600',
+            color: '#2d3748'
           }}>
-            <h3 style={{
-              margin: 0,
-              fontSize: '16px',
-              fontWeight: '600',
-              color: '#2d3748'
-            }}>
-              Line Break Settings
-            </h3>
-            <button
-              type="button"
-              onClick={() => {
-                // Order Variable functionality for multiple line settings - placeholder for now
-                console.log('Order Variable clicked for Line Break Settings');
-              }}
-              style={{
-                padding: '6px 12px',
-                border: '1px solid #007bff',
-                borderRadius: '4px',
-                backgroundColor: '#007bff',
-                color: 'white',
-                fontSize: '11px',
-                cursor: 'pointer',
-                fontWeight: '500'
-              }}
-            >
-              🔄 Order Variable
-            </button>
-          </div>
+            Line Break Settings
+          </h3>
           <div style={{
             display: 'grid',
             gridTemplateColumns: '2fr 1fr 1fr',
@@ -937,6 +857,120 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
                 }}
               />
             </div>
+          </div>
+        </div>
+
+        {/* Text Content */}
+        <div style={{ marginBottom: '24px' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            marginBottom: '12px'
+          }}>
+            <h3 style={{
+              margin: 0,
+              fontSize: '16px',
+              fontWeight: '600',
+              color: '#2d3748'
+            }}>
+              Text Content
+            </h3>
+            <button
+              type="button"
+              onClick={() => setIsVariableEnabled(!isVariableEnabled)}
+              style={{
+                padding: '4px 12px',
+                fontSize: '11px',
+                fontWeight: '500',
+                border: `1px solid ${isVariableEnabled ? '#28a745' : '#6c757d'}`,
+                borderRadius: '4px',
+                backgroundColor: isVariableEnabled ? '#28a745' : '#6c757d',
+                color: 'white',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+            >
+              Variable: {isVariableEnabled ? 'ON' : 'OFF'}
+            </button>
+          </div>
+
+          {/* Order Selection - shown when Variable is ON */}
+          {isVariableEnabled && (
+            <div style={{
+              marginBottom: '16px',
+              padding: '12px',
+              backgroundColor: '#eff6ff',
+              border: '2px solid #3b82f6',
+              borderRadius: '6px'
+            }}>
+              <label style={{
+                fontSize: '13px',
+                fontWeight: '600',
+                color: '#1e40af',
+                display: 'block',
+                marginBottom: '8px'
+              }}>
+                📋 Select Order (Variable Mode)
+              </label>
+              <select
+                value={selectedOrderId}
+                onChange={(e) => setSelectedOrderId(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: '2px solid #3b82f6',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  backgroundColor: 'white',
+                  outline: 'none'
+                }}
+              >
+                <option value="">Select an order...</option>
+                {/* TODO: Load orders from context */}
+                <option value="order_001">Order #001 (TCL-2025)</option>
+                <option value="order_002">Order #002 (TCL-2025)</option>
+              </select>
+              <p style={{
+                fontSize: '12px',
+                color: '#1e40af',
+                margin: '8px 0 0 0',
+                fontStyle: 'italic'
+              }}>
+                💡 Use <code style={{
+                  backgroundColor: '#dbeafe',
+                  padding: '2px 6px',
+                  borderRadius: '3px',
+                  fontFamily: 'monospace'
+                }}>
+                  {'{{variableName}}'}
+                </code> in text to insert order variables
+              </p>
+            </div>
+          )}
+
+          <div>
+            <label style={{ fontSize: '14px', color: '#4a5568', display: 'block', marginBottom: '4px' }}>
+              Text Value (use {config.lineBreak.symbol} for line breaks)
+              <span style={{ fontSize: '12px', color: '#718096', fontStyle: 'italic' }}>
+                {' '}• Words will never be cut - whole words move to next line
+              </span>
+            </label>
+            <textarea
+              value={config.textContent}
+              onChange={(e) => setConfig(prev => ({ ...prev, textContent: e.target.value }))}
+              placeholder={`Enter multi-line text...${config.lineBreak.symbol}Use ${config.lineBreak.symbol} for line breaks${config.lineBreak.symbol}Example: This is a long sentence that will wrap at word boundaries when it reaches the padding dotted line`}
+              rows={4}
+              style={{
+                width: '100%',
+                padding: '12px',
+                border: '2px solid #e2e8f0',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontFamily: config.typography.fontFamily,
+                resize: 'vertical'
+              }}
+            />
           </div>
         </div>
 

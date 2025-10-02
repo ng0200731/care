@@ -20,6 +20,8 @@ import CreateMethod from './pages/CreateMethod';
 import MasterFilesManagement from './pages/MasterFilesManagement';
 import Settings from './pages/Settings';
 
+import { OrderVariableProvider } from './contexts/OrderVariableContext';
+
 import reportWebVitals from './reportWebVitals';
 
 const root = ReactDOM.createRoot(
@@ -28,7 +30,8 @@ const root = ReactDOM.createRoot(
 
 root.render(
   <React.StrictMode>
-    <Router>
+    <OrderVariableProvider>
+      <Router>
       <Routes>
         {/* Main application with layout */}
         <Route path="/" element={
@@ -113,6 +116,7 @@ root.render(
         } />
       </Routes>
     </Router>
+    </OrderVariableProvider>
   </React.StrictMode>
 );
 
