@@ -9502,77 +9502,31 @@ function App() {
 
     // Copy all regions from parent mother - DEEP CLONE to avoid reference issues
     const originalRegions = (parentMother as any).regions || [];
-
-    // Get padding from parent mother's first content (mothers don't store padding, content does!)
-    let parentPadding = (parentMother as any).padding; // Try mother first (might be undefined)
-    console.log('ZZZZZ_PARENT_PADDING_START', parentPadding);
-
-    if (!parentPadding) {
-      // Find first content with padding in any region
-      console.log('ZZZZZ_SEARCHING_REGIONS', originalRegions.length);
-      for (const region of originalRegions) {
-        if (region.contents && region.contents.length > 0) {
-          const firstContent = region.contents[0];
-          console.log('ZZZZZ_CHECK_CONTENT', firstContent.type, {
-            newCompTransConfig: firstContent.newCompTransConfig?.padding,
-            newMultiLineConfig: firstContent.newMultiLineConfig?.padding,
-            layout: firstContent.layout?.padding,
-            direct: firstContent.padding
-          });
-          parentPadding = firstContent.newCompTransConfig?.padding ||
-                         firstContent.newMultiLineConfig?.padding ||
-                         firstContent.newLineTextConfig?.padding ||
-                         firstContent.newWashingCareSymbolConfig?.padding ||
-                         firstContent.layout?.padding ||
-                         firstContent.padding;
-          if (parentPadding) {
-            console.log('ZZZZZ_FOUND_PADDING', parentPadding);
-            break;
-          }
-        }
-      }
-    }
-
-    if (!parentPadding) {
-      console.log('ZZZZZ_NO_PADDING_FOUND_USE_DEFAULT');
-      parentPadding = { top: 2, right: 2, bottom: 2, left: 2 };
-    } else {
-      console.log('ZZZZZ_FINAL_PADDING', parentPadding);
-    }
-
+    const parentPadding = (parentMother as any).padding;
     const copiedRegions = originalRegions.map((region: any) => {
       const clonedContents = region.contents ? JSON.parse(JSON.stringify(region.contents)) : [];
 
-      // Update padding in ALL content configs to match parent mother padding
-      const updatedContents = clonedContents.map((content: any, idx: number) => {
-        if (parentPadding) {
-          const paddingCopy = {
-            top: parentPadding.top,
-            right: parentPadding.right,
-            bottom: parentPadding.bottom,
-            left: parentPadding.left
-          };
-
-          console.log(`ZZZZZ_APPLY_PADDING_${idx}`, content.type, paddingCopy);
-
-          const updated = {
+      // Update padding in each content's newCompTransConfig to match parent
+      const updatedContents = clonedContents.map((content: any) => {
+        if (content.newCompTransConfig && parentPadding) {
+          return {
             ...content,
-            padding: paddingCopy,
-            // Update all possible config types
-            newCompTransConfig: content.newCompTransConfig ? { ...content.newCompTransConfig, padding: paddingCopy } : content.newCompTransConfig,
-            newLineTextConfig: content.newLineTextConfig ? { ...content.newLineTextConfig, padding: paddingCopy } : content.newLineTextConfig,
-            newMultiLineConfig: content.newMultiLineConfig ? { ...content.newMultiLineConfig, padding: paddingCopy } : content.newMultiLineConfig,
-            newWashingCareSymbolConfig: content.newWashingCareSymbolConfig ? { ...content.newWashingCareSymbolConfig, padding: paddingCopy } : content.newWashingCareSymbolConfig,
-            layout: content.layout ? { ...content.layout, padding: paddingCopy } : content.layout
+            padding: {
+              top: parentPadding.top,
+              right: parentPadding.right,
+              bottom: parentPadding.bottom,
+              left: parentPadding.left
+            },
+            newCompTransConfig: {
+              ...content.newCompTransConfig,
+              padding: {
+                top: parentPadding.top,
+                right: parentPadding.right,
+                bottom: parentPadding.bottom,
+                left: parentPadding.left
+              }
+            }
           };
-
-          console.log('ZZZZZ_UPDATED_CONTENT', {
-            type: updated.type,
-            directPadding: updated.padding,
-            configPadding: updated.newCompTransConfig?.padding || updated.newMultiLineConfig?.padding || updated.newLineTextConfig?.padding
-          });
-
-          return updated;
         }
         return content;
       });
@@ -9713,84 +9667,55 @@ function App() {
       return;
     }
 
-    // PRIORITY 1: Check if 2in1 stored the current config in window
-    let originalContent: any = null;
+    // Find parent's region content to copy configuration - CHECK BOTH SOURCES WITH RETRY
+    const parentRegions = (parentMother as any).regions || [];
     let sourceRegionId = '';
+    let originalContent: any = null;
 
-    const stored2in1Config = (window as any).__current2in1Config;
-    if (stored2in1Config) {
-      console.log('✅ Using stored 2in1 config instead of reading from parent');
-      console.log('✅ Stored config padding:', stored2in1Config.padding);
+    // Add retry logic for finding parent content (handles timing issues)
+    let parentContentFound = false;
+    let parentRetryCount = 0;
+    const maxParentRetries = 3;
 
-      // Create a fake originalContent from the stored config
-      originalContent = {
-        type: 'new-comp-trans',
-        padding: stored2in1Config.padding,
-        newCompTransConfig: stored2in1Config,
-        content: {
-          text: stored2in1Config.textContent?.generatedText || ''
+    while (!parentContentFound && parentRetryCount < maxParentRetries) {
+      for (const region of parentRegions) {
+        // First check React state
+        const reactContents = regionContents.get(region.id) || [];
+        const reactContent = reactContents.find((c: any) => c.type === 'new-comp-trans');
+
+        if (reactContent) {
+          sourceRegionId = region.id;
+          originalContent = reactContent;
+          console.log(`✅ Found CT comp trans in React state for region: ${region.id} (attempt ${parentRetryCount + 1})`);
+          parentContentFound = true;
+          break;
         }
-      };
 
-      // Find source region
-      const parentRegions = (parentMother as any).regions || [];
-      if (parentRegions.length > 0) {
-        sourceRegionId = parentRegions[0].id;
+        // If not found in React state, check global data
+        const globalContents = region.contents || [];
+        const globalContent = globalContents.find((c: any) => c.type === 'new-comp-trans');
+
+        if (globalContent) {
+          sourceRegionId = region.id;
+          originalContent = globalContent;
+          console.log(`✅ Found CT comp trans in global data for region: ${region.id} (attempt ${parentRetryCount + 1})`);
+          parentContentFound = true;
+          break;
+        }
       }
-    }
 
-    // PRIORITY 2: If no stored config, find parent's region content (handles legacy flows)
-    if (!originalContent) {
-      console.log('⚠️ No stored 2in1 config found, reading from parent content...');
-
-      const parentRegions = (parentMother as any).regions || [];
-
-      // Add retry logic for finding parent content (handles timing issues)
-      let parentContentFound = false;
-      let parentRetryCount = 0;
-      const maxParentRetries = 3;
-
-      while (!parentContentFound && parentRetryCount < maxParentRetries) {
-        for (const region of parentRegions) {
-          // First check React state
-          const reactContents = regionContents.get(region.id) || [];
-          const reactContent = reactContents.find((c: any) => c.type === 'new-comp-trans');
-
-          if (reactContent) {
-            sourceRegionId = region.id;
-            originalContent = reactContent;
-            console.log(`✅ Found CT comp trans in React state for region: ${region.id} (attempt ${parentRetryCount + 1})`);
-            parentContentFound = true;
-            break;
-          }
-
-          // If not found in React state, check global data
-          const globalContents = region.contents || [];
-          const globalContent = globalContents.find((c: any) => c.type === 'new-comp-trans');
-
-          if (globalContent) {
-            sourceRegionId = region.id;
-            originalContent = globalContent;
-            console.log(`✅ Found CT comp trans in global data for region: ${region.id} (attempt ${parentRetryCount + 1})`);
-            parentContentFound = true;
-            break;
-          }
-        }
-
-        if (!parentContentFound) {
-          parentRetryCount++;
-          console.log(`⏳ Parent content not found, retrying (${parentRetryCount}/${maxParentRetries})...`);
-          if (parentRetryCount < maxParentRetries) {
-            // Brief wait to allow React state/global data to synchronize
-            await new Promise(resolve => setTimeout(resolve, 300));
-          }
+      if (!parentContentFound) {
+        parentRetryCount++;
+        console.log(`⏳ Parent content not found, retrying (${parentRetryCount}/${maxParentRetries})...`);
+        if (parentRetryCount < maxParentRetries) {
+          // Brief wait to allow React state/global data to synchronize
+          await new Promise(resolve => setTimeout(resolve, 300));
         }
       }
     }
 
     if (!sourceRegionId || !originalContent) {
-      const parentRegions = (parentMother as any).regions || [];
-      console.error(`❌ No source region with CT comp trans found in parent`);
+      console.error(`❌ No source region with CT comp trans found in parent after ${maxParentRetries} attempts`);
       console.error(`❌ Searched ${parentRegions.length} parent regions in both React state and global data`);
       console.error(`❌ Parent mother: ${parentMotherId}, Child mother: ${childMotherId}`);
 
@@ -9819,37 +9744,13 @@ function App() {
 
     console.log(`[v${packageJson.version}] 🧬 Creating child content with text...`);
 
-    // Get parent mother's padding configuration - try multiple sources
-    // Priority: content.padding > content.newCompTransConfig.padding > content.layout.padding > default
-    const parentPadding =
-      originalContent.padding ||
-      originalContent.newCompTransConfig?.padding ||
-      originalContent.layout?.padding ||
-      (parentMother as any).padding || {
-        top: 2,
-        right: 2,
-        bottom: 2,
-        left: 2
-      };
-
-    console.log('ZZZZZ_PADDING_SOURCE', {
-      motherPadding: (parentMother as any).padding,
-      contentConfigPadding: originalContent.newCompTransConfig?.padding,
-      contentDirectPadding: originalContent.padding,
-      contentLayoutPadding: originalContent.layout?.padding,
-      finalPadding: parentPadding
-    });
-
-    console.log('🔍 FULL_PARENT_CONTENT:', JSON.stringify(originalContent, null, 2));
-
-    // 🔍 DEBUG: Log parent composition settings being copied
-    console.log('🔍 PARENT_COMPOSITION_SETTINGS:', {
-      selectedLanguages: originalContent.newCompTransConfig?.selectedLanguages,
-      materialCompositions: originalContent.newCompTransConfig?.materialCompositions,
-      alignment: originalContent.newCompTransConfig?.alignment,
-      typography: originalContent.newCompTransConfig?.typography,
-      lineBreakSettings: originalContent.newCompTransConfig?.lineBreakSettings
-    });
+    // Get parent mother's padding configuration
+    const parentPadding = (parentMother as any).padding || originalContent.newCompTransConfig?.padding || {
+      top: 2,
+      right: 2,
+      bottom: 2,
+      left: 2
+    };
 
     // Create new content with same composition but new text
     const childContent = {
@@ -9889,25 +9790,11 @@ function App() {
         }
       }
     };
-
-    // 🔍 DEBUG: Log child composition settings after creation
-    console.log('🔍 CHILD_COMPOSITION_SETTINGS:', {
-      selectedLanguages: childContent.newCompTransConfig?.selectedLanguages,
-      materialCompositions: childContent.newCompTransConfig?.materialCompositions,
-      alignment: childContent.newCompTransConfig?.alignment,
-      typography: childContent.newCompTransConfig?.typography,
-      lineBreakSettings: childContent.newCompTransConfig?.lineBreakSettings
-    });
     
     // Add to child region in GLOBAL DATA (same as parent) instead of React state
     console.log(`🔍 Adding content to child region: ${firstRegion.id} (child: ${childMotherId})`);
     console.log(`🔍 Storing child content in GLOBAL DATA to match parent storage system`);
-    console.log('ZZZZZ_CHILD_PADDING_SAVE', {
-      directPadding: childContent.padding,
-      layoutPadding: childContent.layout?.padding,
-      configPadding: childContent.newCompTransConfig?.padding
-    });
-
+    
     // Add content to the child region in global data structure
     if (!firstRegion.contents) {
       firstRegion.contents = [];
@@ -12816,68 +12703,6 @@ function App() {
             title="Export as 1:1 SVG - Exact canvas size with Mother_1 exactly 40x90mm"
           >
             📐 1:1 SVG
-          </button>
-
-          {/* Debug Logger Button */}
-          <button
-            onClick={() => {
-              // Start capturing logs
-              if (!(window as any).debugLogs) {
-                (window as any).debugLogs = [];
-              }
-
-              // Clear previous logs
-              (window as any).debugLogs = [];
-
-              alert('✅ Debug Logger Ready!\n\n1. Click OK\n2. Click 2in1 button\n3. A Copy button will appear\n\nLogs will be captured automatically.');
-
-              // Override console.log to capture
-              const originalLog = console.log;
-              (window as any).originalConsoleLog = originalLog;
-
-              console.log = function(...args: any[]) {
-                originalLog.apply(console, args);
-
-                const message = args.map(arg =>
-                  typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-                ).join(' ');
-
-                // Capture specific logs
-                if (message.includes('🔍 PARENT_COMPOSITION_SETTINGS:') ||
-                    message.includes('🔍 CHILD_COMPOSITION_SETTINGS:') ||
-                    message.includes('ZZZZZ_PADDING') ||
-                    message.includes('2in1:') ||
-                    message.includes('🚀🚀🚀 2in1:')) {
-                  (window as any).debugLogs.push(message);
-                }
-              };
-
-              console.log('🎯 Debug logging started - click 2in1 button now');
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'linear-gradient(135deg, #ff6b35 0%, #f7931e 100%)';
-              e.currentTarget.style.transform = 'scale(1.05)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'linear-gradient(135deg, #ff7f50 0%, #ff6b35 100%)';
-              e.currentTarget.style.transform = 'scale(1)';
-            }}
-            style={{
-              background: 'linear-gradient(135deg, #ff7f50 0%, #ff6b35 100%)',
-              border: '2px solid #ff6b35',
-              color: 'white',
-              fontSize: '14px',
-              padding: '12px 20px',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontWeight: 'bold',
-              transition: 'all 0.2s ease',
-              boxShadow: '0 3px 6px rgba(255, 107, 53, 0.3)',
-              marginLeft: '10px'
-            }}
-            title="Start capturing composition settings debug logs"
-          >
-            🐛 Debug Logger
           </button>
 
         </div>
@@ -16057,52 +15882,7 @@ function App() {
 
                         {/* Child Region Text Content - Use same advanced rendering as main regions */}
                         {showPreview && (() => {
-                          // Create debug popup once
-                          if (!(window as any).debugPopupInjected) {
-                            (window as any).debugPopupInjected = true;
-                            (window as any).debugLogs = [];
-
-                            // Override console.log to capture logs
-                            const originalLog = console.log;
-                            console.log = function(...args: any[]) {
-                              originalLog.apply(console, args);
-                              const logText = args.map((arg: any) => {
-                                if (typeof arg === 'object') {
-                                  try { return JSON.stringify(arg); } catch(e) { return String(arg); }
-                                }
-                                return String(arg);
-                              }).join(' ');
-                              (window as any).debugLogs.push(logText);
-                            };
-
-                            // Create floating button
-                            const btn = document.createElement('button');
-                            btn.textContent = 'COPY ALL CONSOLE LOGS';
-                            btn.style.position = 'fixed';
-                            btn.style.top = '10px';
-                            btn.style.right = '10px';
-                            btn.style.zIndex = '9999999';
-                            btn.style.padding = '15px 30px';
-                            btn.style.fontSize = '16px';
-                            btn.style.background = 'red';
-                            btn.style.color = 'white';
-                            btn.style.border = '3px solid black';
-                            btn.style.cursor = 'pointer';
-                            btn.style.fontWeight = 'bold';
-
-                            btn.addEventListener('click', () => {
-                              const allLogs = (window as any).debugLogs.join('\n');
-                              navigator.clipboard.writeText(allLogs).then(() => {
-                                alert('Copied ' + (window as any).debugLogs.length + ' log lines to clipboard!');
-                              });
-                            });
-
-                            document.body.appendChild(btn);
-                            console.log('🔴🔴🔴 DEBUG BUTTON CREATED - Click red button to copy all logs');
-                          }
-
                           const sliceContents = regionContents.get(childRegion.id) || [];
-                          console.log('🎯🎯🎯 CHILD REGION RENDERING START:', childRegion.id, 'contents:', sliceContents.length);
                           if (sliceContents.length === 0) return null;
 
                           // console.log('🎨 CHILD REGION RENDERING:', {
@@ -16168,22 +15948,7 @@ function App() {
                             let fontColor = effectiveTypography?.fontColor || '#000000';
                             let textAlign = effectiveLayout?.horizontalAlign || 'left';
                             let verticalAlign = effectiveLayout?.verticalAlign || 'top';
-                            // Inherit padding from parent mother object if not specified in content
-                            let padding = effectiveLayout?.padding || (obj as any).padding || { top: 2, right: 2, bottom: 2, left: 2 };
-                            console.log('ZZZZZ_RENDER_PADDING_INITIAL', {
-                              contentType: content.type,
-                              effectiveLayoutPadding: effectiveLayout?.padding,
-                              objPadding: (obj as any).padding,
-                              finalPadding: padding
-                            });
-
-                            // SHOW ALERT WITH PADDING INFO
-                            if (contentIndex === 0 && !(window as any).debugAlertShown) {
-                              (window as any).debugAlertShown = true;
-                              const msg = `PADDING CHECK:\nType: ${content.type}\nPadding used: ${JSON.stringify(padding)}\nConfig padding: ${JSON.stringify(content.newCompTransConfig?.padding)}\nLayout padding: ${JSON.stringify(content.layout?.padding)}`;
-                              alert(msg);
-                              console.log('🚨🚨🚨 ALERT SHOWN:', msg);
-                            }
+                            let padding = effectiveLayout?.padding || { top: 2, right: 2, bottom: 2, left: 2 };
 
                             // Handle new content types with their specific configs (same as main regions)
                             if (content.type === 'new-line-text' && content.newLineTextConfig) {
@@ -16193,8 +15958,7 @@ function App() {
                               fontSizeUnit = config.typography.fontSizeUnit;
                               textAlign = config.alignment.horizontal;
                               verticalAlign = config.alignment.vertical;
-                              // Inherit padding from parent mother if not in config
-                              padding = config.padding || (obj as any).padding || { top: 2, right: 2, bottom: 2, left: 2 };
+                              padding = config.padding;
                               // console.log('🎨 child new-line-text using advanced text fitting for:', displayText);
                             } else if (content.type === 'new-multi-line' && content.newMultiLineConfig) {
                               const config = content.newMultiLineConfig;
@@ -16203,8 +15967,7 @@ function App() {
                               fontSizeUnit = config.typography.fontSizeUnit;
                               textAlign = config.alignment.horizontal;
                               verticalAlign = config.alignment.vertical;
-                              // Inherit padding from parent mother if not in config
-                              padding = config.padding || (obj as any).padding || { top: 2, right: 2, bottom: 2, left: 2 };
+                              padding = config.padding;
                               // console.log('🎨 child new-multi-line using processed lines from preview');
                             } else if (content.type === 'new-washing-care-symbol' && content.newWashingCareSymbolConfig) {
                               const config = content.newWashingCareSymbolConfig;
@@ -16213,25 +15976,18 @@ function App() {
                               fontSizeUnit = config.typography.fontSizeUnit;
                               textAlign = config.alignment.horizontal;
                               verticalAlign = config.alignment.vertical;
-                              // Inherit padding from parent mother if not in config
-                              padding = config.padding || (obj as any).padding || { top: 2, right: 2, bottom: 2, left: 2 };
+                              padding = config.padding;
                               // console.log('🧺 child new-washing-care-symbol using configuration:', config);
                             } else if (content.type === 'new-comp-trans' && content.newCompTransConfig) {
                               const config = content.newCompTransConfig;
-                              if (config && config.typography && config.alignment) {
+                              if (config && config.typography && config.alignment && config.padding) {
                                 fontSize = config.typography.fontSize;
                                 fontFamily = config.typography.fontFamily;
                                 fontSizeUnit = config.typography.fontSizeUnit;
                                 textAlign = config.alignment.horizontal;
                                 verticalAlign = config.alignment.vertical;
-                                // Inherit padding from parent mother if not in config
-                                padding = config.padding || (obj as any).padding || { top: 2, right: 2, bottom: 2, left: 2 };
-                                console.log('ZZZZZ_RENDER_PADDING_COMP_TRANS', {
-                                  configPadding: config.padding,
-                                  objPadding: (obj as any).padding,
-                                  finalPadding: padding,
-                                  contentId: content.id
-                                });
+                                padding = config.padding;
+                                // console.log('🌐 child new-comp-trans using configuration:', config);
                               }
                             }
 
@@ -16306,11 +16062,6 @@ function App() {
                               // console.log('🧪 Child Canvas: Applying Canvas-First Sync logic-slice to composition translation');
 
                               // Calculate available space for text in child region (EXACT COPY from new-multi-line logic)
-                              console.log('ZZZZZ_RENDER_USING_PADDING', {
-                                padding: padding,
-                                childRegionId: childRegion.id,
-                                contentId: content.id
-                              });
                               const childRegionWidthPx = childRegion.width * scale;
                               const childRegionHeightPx = childRegion.height * scale;
                               const childPaddingLeftPx = padding.left * scale;
