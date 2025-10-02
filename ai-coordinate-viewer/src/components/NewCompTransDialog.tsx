@@ -5025,6 +5025,128 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
           </div>
         </div>
 
+        {/* Line Break Settings Section */}
+        <div style={{ marginBottom: '24px' }}>
+          <div style={{
+            padding: '12px',
+            border: '1px solid #ddd',
+            borderRadius: '8px',
+            backgroundColor: '#f8f9fa'
+          }}>
+            <div style={{
+              fontSize: '12px',
+              fontWeight: '600',
+              color: '#333',
+              marginBottom: '12px'
+            }}>
+              Line Break Settings:
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+              {/* Line Break Symbol */}
+              <div>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '4px',
+                  fontSize: '11px',
+                  fontWeight: '500'
+                }}>
+                  Line Break Symbol:
+                </label>
+                <select
+                  value={config.lineBreakSettings?.lineBreakSymbol || '\n'}
+                  onChange={(e) => setConfig(prev => ({
+                    ...prev,
+                    lineBreakSettings: {
+                      ...(prev.lineBreakSettings || {}),
+                      lineBreakSymbol: e.target.value
+                    }
+                  }))}
+                  style={{
+                    width: '100%',
+                    padding: '6px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    fontSize: '12px'
+                  }}
+                >
+                  {lineBreakSymbols.map(symbol => (
+                    <option key={symbol.value} value={symbol.value}>
+                      {symbol.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Line Spacing */}
+              <div>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '4px',
+                  fontSize: '11px',
+                  fontWeight: '500'
+                }}>
+                  Line Spacing:
+                </label>
+                <input
+                  type="number"
+                  value={config.lineBreakSettings?.lineSpacing || 1.2}
+                  onChange={(e) => setConfig(prev => ({
+                    ...prev,
+                    lineBreakSettings: {
+                      ...(prev.lineBreakSettings || {}),
+                      lineSpacing: parseFloat(e.target.value) || 1.0
+                    }
+                  }))}
+                  style={{
+                    width: '100%',
+                    padding: '6px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    fontSize: '12px'
+                  }}
+                  min="0.5"
+                  max="3.0"
+                  step="0.1"
+                />
+              </div>
+
+              {/* Line Width */}
+              <div>
+                <label style={{
+                  display: 'block',
+                  marginBottom: '4px',
+                  fontSize: '11px',
+                  fontWeight: '500'
+                }}>
+                  Line Width (%):
+                </label>
+                <input
+                  type="number"
+                  value={config.lineBreakSettings?.lineWidth || 100}
+                  onChange={(e) => setConfig(prev => ({
+                    ...prev,
+                    lineBreakSettings: {
+                      ...(prev.lineBreakSettings || {}),
+                      lineWidth: parseInt(e.target.value) || 100
+                    }
+                  }))}
+                  style={{
+                    width: '100%',
+                    padding: '6px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    fontSize: '12px'
+                  }}
+                  min="10"
+                  max="100"
+                  step="5"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Row 2: Language Selection from Composition Table */}
         <div style={{ marginBottom: '24px' }}>
           <h3 style={{
@@ -5353,152 +5475,6 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
             ))}
           </div>
 
-          {/* Line Break Settings Section */}
-          <div style={{
-            marginTop: '16px',
-            padding: '12px',
-            border: '1px solid #ddd',
-            borderRadius: '8px',
-            backgroundColor: '#f8f9fa'
-          }}>
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '12px'
-            }}>
-              <div style={{
-                fontSize: '12px',
-                fontWeight: '600',
-                color: '#333'
-              }}>
-                Line Break Settings:
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  // Order Variable functionality for multiple line settings - placeholder for now
-                  console.log('Order Variable clicked for Line Break Settings');
-                }}
-                style={{
-                  padding: '6px 12px',
-                  border: '1px solid #007bff',
-                  borderRadius: '4px',
-                  backgroundColor: '#007bff',
-                  color: 'white',
-                  fontSize: '11px',
-                  cursor: 'pointer',
-                  fontWeight: '500'
-                }}
-              >
-                🔄 Order Variable
-              </button>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
-              {/* Line Break Symbol */}
-              <div>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '4px',
-                  fontSize: '11px',
-                  fontWeight: '500'
-                }}>
-                  Line Break Symbol:
-                </label>
-                <select
-                  value={config.lineBreakSettings?.lineBreakSymbol || '\n'}
-                  onChange={(e) => setConfig(prev => ({
-                    ...prev,
-                    lineBreakSettings: {
-                      ...(prev.lineBreakSettings || {}),
-                      lineBreakSymbol: e.target.value
-                    }
-                  }))}
-                  style={{
-                    width: '100%',
-                    padding: '6px',
-                    border: '1px solid #ddd',
-                    borderRadius: '4px',
-                    fontSize: '12px'
-                  }}
-                >
-                  {lineBreakSymbols.map(symbol => (
-                    <option key={symbol.value} value={symbol.value}>
-                      {symbol.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Line Spacing */}
-              <div>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '4px',
-                  fontSize: '11px',
-                  fontWeight: '500'
-                }}>
-                  Line Spacing:
-                </label>
-                <input
-                  type="number"
-                  value={config.lineBreakSettings?.lineSpacing || 1.2}
-                  onChange={(e) => setConfig(prev => ({
-                    ...prev,
-                    lineBreakSettings: {
-                      ...(prev.lineBreakSettings || {}),
-                      lineSpacing: parseFloat(e.target.value) || 1.0
-                    }
-                  }))}
-                  style={{
-                    width: '100%',
-                    padding: '6px',
-                    border: '1px solid #ddd',
-                    borderRadius: '4px',
-                    fontSize: '12px'
-                  }}
-                  min="0.5"
-                  max="3.0"
-                  step="0.1"
-                />
-              </div>
-
-              {/* Line Width */}
-              <div>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '4px',
-                  fontSize: '11px',
-                  fontWeight: '500'
-                }}>
-                  Line Width (%):
-                </label>
-                <input
-                  type="number"
-                  value={config.lineBreakSettings?.lineWidth || 100}
-                  onChange={(e) => setConfig(prev => ({
-                    ...prev,
-                    lineBreakSettings: {
-                      ...(prev.lineBreakSettings || {}),
-                      lineWidth: parseInt(e.target.value) || 100
-                    }
-                  }))}
-                  style={{
-                    width: '100%',
-                    padding: '6px',
-                    border: '1px solid #ddd',
-                    borderRadius: '4px',
-                    fontSize: '12px'
-                  }}
-                  min="10"
-                  max="100"
-                  step="5"
-                />
-              </div>
-            </div>
-          </div>
-
           {/* Text Content Section */}
           <div style={{
             marginTop: '16px',
@@ -5508,37 +5484,12 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
             backgroundColor: '#f8f9fa'
           }}>
             <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
+              fontSize: '12px',
+              fontWeight: '600',
+              color: '#333',
               marginBottom: '12px'
             }}>
-              <div style={{
-                fontSize: '12px',
-                fontWeight: '600',
-                color: '#333'
-              }}>
-                Text Content:
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  // Order Variable functionality - placeholder for now
-                  console.log('Order Variable clicked');
-                }}
-                style={{
-                  padding: '6px 12px',
-                  border: '1px solid #007bff',
-                  borderRadius: '4px',
-                  backgroundColor: '#007bff',
-                  color: 'white',
-                  fontSize: '11px',
-                  cursor: 'pointer',
-                  fontWeight: '500'
-                }}
-              >
-                🔄 Order Variable
-              </button>
+              Text Content:
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 3fr', gap: '16px' }}>
