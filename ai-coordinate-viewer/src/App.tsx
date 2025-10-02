@@ -621,6 +621,7 @@ function App() {
     regionWidth: number;
     regionHeight: number;
     editingContent?: any;
+    regionContents?: any[];
   } | null>(null);
 
   // New Washing Care Symbol Dialog state
@@ -6926,28 +6927,49 @@ function App() {
 
         // CRITICAL: Get EXACT font size from canvas (not computed style which may be scaled)
         let exactFontSize: number;
+        let fontSizeUnit = 'px'; // Default unit
         const fontSizeAttr = svgTextEl.getAttribute('font-size');
         const styleAttr = svgTextEl.getAttribute('style');
 
         if (fontSizeAttr) {
-          // Use explicit font-size attribute
-          exactFontSize = parseFloat(fontSizeAttr);
+          // Use explicit font-size attribute and check for unit
+          const sizeMatch = fontSizeAttr.match(/([0-9.]+)(px|pt|mm)?/);
+          if (sizeMatch) {
+            exactFontSize = parseFloat(sizeMatch[1]);
+            fontSizeUnit = sizeMatch[2] || 'px'; // Extract unit or default to px
+          } else {
+            exactFontSize = parseFloat(fontSizeAttr);
+          }
         } else if (styleAttr && styleAttr.includes('font-size')) {
-          // Extract from style attribute
-          const fontSizeMatch = styleAttr.match(/font-size:\s*([0-9.]+)px/);
+          // Extract from style attribute with unit
+          const fontSizeMatch = styleAttr.match(/font-size:\s*([0-9.]+)(px|pt|mm)?/);
           if (fontSizeMatch) {
             exactFontSize = parseFloat(fontSizeMatch[1]);
+            fontSizeUnit = fontSizeMatch[2] || 'px';
           } else {
             // Fallback to computed style
             exactFontSize = parseFloat(computedStyle.fontSize);
           }
         } else {
-          // Fallback to computed style
+          // Fallback to computed style (always in px)
           exactFontSize = parseFloat(computedStyle.fontSize);
         }
 
-        // Convert font size from px to mm with exact precision
-        const fontSizeMM = exactFontSize * 0.264583;
+        // Convert font size to mm based on unit
+        let fontSizeMM: number;
+        if (fontSizeUnit === 'pt') {
+          // 1pt = 0.352778mm (1pt = 1/72 inch, 1 inch = 25.4mm)
+          fontSizeMM = exactFontSize * 0.352778;
+          console.log(`📏 Font size conversion: ${exactFontSize}pt → ${fontSizeMM.toFixed(2)}mm`);
+        } else if (fontSizeUnit === 'mm') {
+          // Already in mm
+          fontSizeMM = exactFontSize;
+          console.log(`📏 Font size already in mm: ${exactFontSize}mm`);
+        } else {
+          // px: 1px = 0.264583mm (at 96 DPI)
+          fontSizeMM = exactFontSize * 0.264583;
+          console.log(`📏 Font size conversion: ${exactFontSize}px → ${fontSizeMM.toFixed(2)}mm`);
+        }
 
         // CRITICAL: Get EXACT font family from canvas
         let exactFontFamily: string;
@@ -8866,12 +8888,16 @@ function App() {
         expectedWidth: '35mm (if this shows 33mm, the region data is wrong)'
       });
 
+      // Get existing contents in this region to check for New CT
+      const existingContents = regionContents.get(regionId) || [];
+
       // Open configuration dialog
       setNewMultiLineDialog({
         isOpen: true,
         regionId: regionId,
         regionWidth: region.width,
-        regionHeight: region.height
+        regionHeight: region.height,
+        regionContents: existingContents
       });
       return;
     }
@@ -9832,24 +9858,6 @@ function App() {
         left: 2
       };
 
-    console.log('ZZZZZ_PADDING_SOURCE', {
-      motherPadding: (parentMother as any).padding,
-      contentConfigPadding: originalContent.newCompTransConfig?.padding,
-      contentDirectPadding: originalContent.padding,
-      contentLayoutPadding: originalContent.layout?.padding,
-      finalPadding: parentPadding
-    });
-
-    console.log('🔍 FULL_PARENT_CONTENT:', JSON.stringify(originalContent, null, 2));
-
-    // 🔍 DEBUG: Log parent composition settings being copied
-    console.log('🔍 PARENT_COMPOSITION_SETTINGS:', {
-      selectedLanguages: originalContent.newCompTransConfig?.selectedLanguages,
-      materialCompositions: originalContent.newCompTransConfig?.materialCompositions,
-      alignment: originalContent.newCompTransConfig?.alignment,
-      typography: originalContent.newCompTransConfig?.typography,
-      lineBreakSettings: originalContent.newCompTransConfig?.lineBreakSettings
-    });
 
     // Create new content with same composition but new text
     const childContent = {
@@ -9890,23 +9898,7 @@ function App() {
       }
     };
 
-    // 🔍 DEBUG: Log child composition settings after creation
-    console.log('🔍 CHILD_COMPOSITION_SETTINGS:', {
-      selectedLanguages: childContent.newCompTransConfig?.selectedLanguages,
-      materialCompositions: childContent.newCompTransConfig?.materialCompositions,
-      alignment: childContent.newCompTransConfig?.alignment,
-      typography: childContent.newCompTransConfig?.typography,
-      lineBreakSettings: childContent.newCompTransConfig?.lineBreakSettings
-    });
-    
     // Add to child region in GLOBAL DATA (same as parent) instead of React state
-    console.log(`🔍 Adding content to child region: ${firstRegion.id} (child: ${childMotherId})`);
-    console.log(`🔍 Storing child content in GLOBAL DATA to match parent storage system`);
-    console.log('ZZZZZ_CHILD_PADDING_SAVE', {
-      directPadding: childContent.padding,
-      layoutPadding: childContent.layout?.padding,
-      configPadding: childContent.newCompTransConfig?.padding
-    });
 
     // Add content to the child region in global data structure
     if (!firstRegion.contents) {
@@ -11242,17 +11234,23 @@ function App() {
                           }
                           } // End of fallback vector shapes (child regions)
                         });
-                      } else if (content.type === 'new-comp-trans') {
-                        // Render composition translation text in PDF for child regions using configuration
-                        const config = content.newCompTransConfig;
+                      } else if (content.type === 'new-comp-trans' || content.type === 'new-multi-line') {
+                        // Render composition translation / multi-line text in PDF for child regions using configuration
+                        const config = content.type === 'new-comp-trans' ? content.newCompTransConfig : content.newMultiLineConfig;
                         if (!config || !config.padding || !config.alignment || !config.typography) {
-                          console.warn('🌐 child new-comp-trans missing configuration, skipping PDF render');
+                          console.warn(`🌐 child ${content.type} missing configuration, skipping PDF render`);
                           return;
                         }
 
                         const configPadding = config.padding;
                         const configAlignment = config.alignment;
                         const configTypography = config.typography;
+
+                        console.log(`🔍 PDF ${content.type} alignment:`, {
+                          horizontal: configAlignment.horizontal,
+                          vertical: configAlignment.vertical,
+                          contentType: content.type
+                        });
 
                         // Calculate available space after padding
                         const availableWidth = childRegion.width - configPadding.left - configPadding.right;
@@ -11286,7 +11284,9 @@ function App() {
                         pdf.setFontSize(fontSize * 2.83); // Convert mm to points for jsPDF
                         pdf.setTextColor(0, 0, 0);
 
-                        const textContent = content.newCompTransConfig?.textContent?.generatedText || 'Composition Translation';
+                        const textContent = content.type === 'new-comp-trans'
+                          ? (content.newCompTransConfig?.textContent?.generatedText || 'Composition Translation')
+                          : (content.content?.text || 'Multiple Line');
 
                         // Use EXACT same text wrapping logic as canvas rendering
                         // Match canvas calculation: availableWidthPx = Math.max(0, regionWidthPx - paddingLeftPx - paddingRightPx)
@@ -11305,10 +11305,10 @@ function App() {
                         // 🎯 SELECTIVE CTP METHOD: Use different rendering based on mother type
                         // Mother 1 & 2: Use old method (text-based, copyable)
                         // Mother 3+: Use CTP method (image-based) for composition translation content
-                        // Exception: Always use CTP method for new-comp-trans to avoid broken words
+                        // Exception: Always use CTP method for new-comp-trans and new-multi-line to preserve exact font sizing
                         const motherName = mother.name || '';
                         const motherNumber = parseInt(motherName.match(/Mother_(\d+)/)?.[1] || '1');
-                        const forceCanvasToImageMethod = motherNumber >= 3 || content.type === 'new-comp-trans'; // Force CTP for new-comp-trans
+                        const forceCanvasToImageMethod = motherNumber >= 3 || content.type === 'new-comp-trans' || content.type === 'new-multi-line'; // Force CTP for new-comp-trans and new-multi-line
 
                         if (forceCanvasToImageMethod) {
                           console.log(`🎯 Using CTP method for ${motherName} (Mother ${motherNumber}) - composition translation as image`);
@@ -11347,14 +11347,24 @@ function App() {
                                   availableHeightPx,
                                   scaledFontSize,
                                   configTypography.fontFamily,
-                                  content.newCompTransConfig?.lineBreakSettings?.lineBreakSymbol || '\n',
-                                  content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2
+                                  config.lineBreakSettings?.lineBreakSymbol || config.lineBreak?.symbol || '\n',
+                                  config.lineBreakSettings?.lineSpacing || config.lineBreak?.lineSpacing || 1.2
                                 );
 
-                                // Render each line with EXACT positioning (match working pattern from line 11182)
-                                const lineHeightPx = scaledFontSize * (content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2);
+                                // Render each line with EXACT positioning including vertical alignment
+                                const lineHeightPx = scaledFontSize * (config.lineBreakSettings?.lineSpacing || config.lineBreak?.lineSpacing || 1.2);
+                                const totalTextHeight = wrappedResult.lines.length * lineHeightPx;
+
+                                // Calculate vertical starting position based on alignment
+                                let startY = 0; // Default: top
+                                if (configAlignment.vertical === 'center') {
+                                  startY = (availableHeightPx - totalTextHeight) / 2;
+                                } else if (configAlignment.vertical === 'bottom') {
+                                  startY = availableHeightPx - totalTextHeight;
+                                }
+
                                 wrappedResult.lines.forEach((line: string, lineIndex: number) => {
-                                  const lineY = lineIndex * lineHeightPx;
+                                  const lineY = startY + (lineIndex * lineHeightPx);
                                   let lineX = 0;
                                   if (configAlignment.horizontal === 'center') {
                                     // Use logical canvas width (before dpiScale), same as working implementation
@@ -11405,11 +11415,11 @@ function App() {
                             availableHeightPx,
                             scaledFontSize,
                             configTypography.fontFamily,
-                            content.newCompTransConfig?.lineBreakSettings?.lineBreakSymbol || '\n',
-                            content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2
+                            config.lineBreakSettings?.lineBreakSymbol || config.lineBreak?.symbol || '\n',
+                            config.lineBreakSettings?.lineSpacing || config.lineBreak?.lineSpacing || 1.2
                           );
 
-                          const lineHeightMM = fontSize * (content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2);
+                          const lineHeightMM = fontSize * (config.lineBreakSettings?.lineSpacing || config.lineBreak?.lineSpacing || 1.2);
                           const alignOption = configAlignment.horizontal === 'center' ? 'center' :
                                              configAlignment.horizontal === 'right' ? 'right' : 'left';
 
@@ -11427,11 +11437,11 @@ function App() {
                             availableHeightPx,
                             scaledFontSize,
                             configTypography.fontFamily,
-                            content.newCompTransConfig?.lineBreakSettings?.lineBreakSymbol || '\n',
-                            content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2
+                            config.lineBreakSettings?.lineBreakSymbol || config.lineBreak?.symbol || '\n',
+                            config.lineBreakSettings?.lineSpacing || config.lineBreak?.lineSpacing || 1.2
                           );
 
-                          const lineHeightMM = fontSize * (content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2);
+                          const lineHeightMM = fontSize * (config.lineBreakSettings?.lineSpacing || config.lineBreak?.lineSpacing || 1.2);
                           const alignOption = configAlignment.horizontal === 'center' ? 'center' :
                                              configAlignment.horizontal === 'right' ? 'right' : 'left';
 
@@ -11898,11 +11908,11 @@ function App() {
                         }
                       } // End of fallback vector shapes
                     });
-                  } else if (content.type === 'new-comp-trans') {
-                    // Render composition translation text in PDF using configuration
-                    const config = content.newCompTransConfig;
+                  } else if (content.type === 'new-comp-trans' || content.type === 'new-multi-line') {
+                    // Render composition translation / multi-line text in PDF using configuration
+                    const config = content.type === 'new-comp-trans' ? content.newCompTransConfig : content.newMultiLineConfig;
 
-                    logExport(`🌐 MAIN REGION NEW-COMP-TRANS DEBUG:`, {
+                    logExport(`🌐 MAIN REGION ${content.type.toUpperCase()} DEBUG:`, {
                       hasConfig: !!config,
                       configStructure: config ? JSON.stringify(config, null, 2) : 'NO CONFIG',
                       hasPadding: !!(config?.padding),
@@ -11957,10 +11967,13 @@ function App() {
                     pdf.setFontSize(fontSize * 2.83); // Convert mm to points for jsPDF
                     pdf.setTextColor(0, 0, 0);
 
-                    const textContent = content.newCompTransConfig?.textContent?.generatedText || 'Composition Translation';
+                    const textContent = content.type === 'new-comp-trans'
+                      ? (content.newCompTransConfig?.textContent?.generatedText || 'Composition Translation')
+                      : (content.content?.text || 'Multiple Line');
 
                     // UNICODE DETECTION: Check if text contains Unicode characters that need canvas rendering
-                    const hasUnicodeChars = /[^\x00-\x7F]/.test(textContent); // Detects non-ASCII characters
+                    // OR force canvas rendering for new-multi-line to preserve exact font sizing
+                    const hasUnicodeChars = /[^\x00-\x7F]/.test(textContent) || content.type === 'new-multi-line'; // Detects non-ASCII characters OR new-multi-line
 
                     logExport(`🌐 Unicode detection:`, {
                       hasUnicodeChars: hasUnicodeChars,
@@ -12005,11 +12018,11 @@ function App() {
                           availableHeightPx,
                           scaledFontSize,
                           configTypography.fontFamily,
-                          content.newCompTransConfig?.lineBreakSettings?.lineBreakSymbol || '\n',
-                          content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2
+                          config.lineBreakSettings?.lineBreakSymbol || config.lineBreak?.symbol || '\n',
+                          config.lineBreakSettings?.lineSpacing || config.lineBreak?.lineSpacing || 1.2
                         );
 
-                        const lineHeightMM = fontSize * (content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2);
+                        const lineHeightMM = fontSize * (config.lineBreakSettings?.lineSpacing || config.lineBreak?.lineSpacing || 1.2);
                         const alignOption = configAlignment.horizontal === 'center' ? 'center' :
                                            configAlignment.horizontal === 'right' ? 'right' : 'left';
 
@@ -12044,14 +12057,24 @@ function App() {
                         availableHeightPx,
                         scaledFontSize,
                         configTypography.fontFamily,
-                        content.newCompTransConfig?.lineBreakSettings?.lineBreakSymbol || '\n',
-                        content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2
+                        config.lineBreakSettings?.lineBreakSymbol || config.lineBreak?.symbol || '\n',
+                        config.lineBreakSettings?.lineSpacing || config.lineBreak?.lineSpacing || 1.2
                       );
 
-                      // Render each line with EXACT positioning to match screen
-                      const lineHeightPx = scaledFontSize * (content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2);
+                      // Render each line with EXACT positioning to match screen including vertical alignment
+                      const lineHeightPx = scaledFontSize * (config.lineBreakSettings?.lineSpacing || config.lineBreak?.lineSpacing || 1.2);
+                      const totalTextHeight = wrappedResult.lines.length * lineHeightPx;
+
+                      // Calculate vertical starting position based on alignment
+                      let startY = 0; // Default: top
+                      if (configAlignment.vertical === 'center') {
+                        startY = (availableHeightPx - totalTextHeight) / 2;
+                      } else if (configAlignment.vertical === 'bottom') {
+                        startY = availableHeightPx - totalTextHeight;
+                      }
+
                       wrappedResult.lines.forEach((line: string, lineIndex: number) => {
-                        const lineY = lineIndex * lineHeightPx; // Start from 0, not +1
+                        const lineY = startY + (lineIndex * lineHeightPx);
                         let lineX = 0;
                         if (configAlignment.horizontal === 'center') {
                           lineX = availableWidthPx / 2;
@@ -12818,67 +12841,6 @@ function App() {
             📐 1:1 SVG
           </button>
 
-          {/* Debug Logger Button */}
-          <button
-            onClick={() => {
-              // Start capturing logs
-              if (!(window as any).debugLogs) {
-                (window as any).debugLogs = [];
-              }
-
-              // Clear previous logs
-              (window as any).debugLogs = [];
-
-              alert('✅ Debug Logger Ready!\n\n1. Click OK\n2. Click 2in1 button\n3. A Copy button will appear\n\nLogs will be captured automatically.');
-
-              // Override console.log to capture
-              const originalLog = console.log;
-              (window as any).originalConsoleLog = originalLog;
-
-              console.log = function(...args: any[]) {
-                originalLog.apply(console, args);
-
-                const message = args.map(arg =>
-                  typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-                ).join(' ');
-
-                // Capture specific logs
-                if (message.includes('🔍 PARENT_COMPOSITION_SETTINGS:') ||
-                    message.includes('🔍 CHILD_COMPOSITION_SETTINGS:') ||
-                    message.includes('ZZZZZ_PADDING') ||
-                    message.includes('2in1:') ||
-                    message.includes('🚀🚀🚀 2in1:')) {
-                  (window as any).debugLogs.push(message);
-                }
-              };
-
-              console.log('🎯 Debug logging started - click 2in1 button now');
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'linear-gradient(135deg, #ff6b35 0%, #f7931e 100%)';
-              e.currentTarget.style.transform = 'scale(1.05)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'linear-gradient(135deg, #ff7f50 0%, #ff6b35 100%)';
-              e.currentTarget.style.transform = 'scale(1)';
-            }}
-            style={{
-              background: 'linear-gradient(135deg, #ff7f50 0%, #ff6b35 100%)',
-              border: '2px solid #ff6b35',
-              color: 'white',
-              fontSize: '14px',
-              padding: '12px 20px',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontWeight: 'bold',
-              transition: 'all 0.2s ease',
-              boxShadow: '0 3px 6px rgba(255, 107, 53, 0.3)',
-              marginLeft: '10px'
-            }}
-            title="Start capturing composition settings debug logs"
-          >
-            🐛 Debug Logger
-          </button>
 
         </div>
 
@@ -20798,6 +20760,7 @@ function App() {
           regionWidth={newMultiLineDialog.regionWidth}
           regionHeight={newMultiLineDialog.regionHeight}
           editingContent={newMultiLineDialog.editingContent}
+          regionContents={newMultiLineDialog.regionContents}
           onSave={handleNewMultiLineSave}
           onCancel={handleNewMultiLineCancel}
         />

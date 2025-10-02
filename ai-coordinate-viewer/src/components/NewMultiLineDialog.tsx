@@ -9,6 +9,7 @@ interface NewMultiLineDialogProps {
   onSave: (config: NewMultiLineConfig) => void;
   onCancel: () => void;
   editingContent?: any;
+  regionContents?: any[]; // Array of contents in the same region
 }
 
 export interface NewMultiLineConfig {
@@ -43,7 +44,8 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
   regionHeight,
   onSave,
   onCancel,
-  editingContent
+  editingContent,
+  regionContents = []
 }) => {
   // Initialize config based on editing content or defaults
   const getInitialConfig = (): NewMultiLineConfig => {
@@ -70,10 +72,25 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
         }
       };
     } else {
+      // Check if there's a New CT content in the same region
+      const newCtContent = regionContents.find((c: any) => c.type === 'new-comp-trans');
+      let defaultFontSize = 14;
+      let defaultFontSizeUnit: 'px' | 'pt' | 'mm' = 'px';
+
+      if (newCtContent?.newCompTransConfig?.typography) {
+        const ctFontSize = newCtContent.newCompTransConfig.typography.fontSize;
+        const ctFontSizeUnit = newCtContent.newCompTransConfig.typography.fontSizeUnit || 'px';
+
+        // Always copy New CT font size to New Multi-Line
+        defaultFontSize = ctFontSize;
+        defaultFontSizeUnit = ctFontSizeUnit;
+        console.log(`✅ New Multi-Line: Using New CT font size (${ctFontSize}${ctFontSizeUnit})`);
+      }
+
       // Default values for new content
       return {
         padding: { left: 2, top: 2, right: 2, bottom: 2 },
-        typography: { fontFamily: 'Arial', fontSize: 14, fontSizeUnit: 'px' },
+        typography: { fontFamily: 'Arial', fontSize: defaultFontSize, fontSizeUnit: defaultFontSizeUnit },
         alignment: { horizontal: 'center', vertical: 'center' },
         textContent: 'multiple line',
         lineBreak: {

@@ -4007,65 +4007,6 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       delete (window as any).__current2in1Config;
       console.log('🧹 2in1: Cleaned up stored config');
 
-      // Show copy logs button if debug mode is active
-      if ((window as any).debugLogs && (window as any).debugLogs.length > 0) {
-        console.log(`📋 ${(window as any).debugLogs.length} debug logs captured - Copy button will appear`);
-
-        // Create copy button
-        setTimeout(() => {
-          const existingBtn = document.getElementById('debug-copy-btn');
-          if (!existingBtn) {
-            const btn = document.createElement('button');
-            btn.id = 'debug-copy-btn';
-            btn.textContent = `📋 Copy ${(window as any).debugLogs.length} Debug Logs`;
-            btn.style.cssText = `
-              position: fixed;
-              top: 20px;
-              right: 20px;
-              z-index: 999999;
-              padding: 15px 25px;
-              background: linear-gradient(135deg, #4CAF50, #45a049);
-              color: white;
-              border: 3px solid #fff;
-              border-radius: 8px;
-              font-size: 16px;
-              font-weight: bold;
-              cursor: pointer;
-              box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
-              animation: pulse 2s infinite;
-            `;
-
-            btn.onclick = () => {
-              const logs = (window as any).debugLogs || [];
-              const logText = logs.join('\n\n==========\n\n');
-              navigator.clipboard.writeText(logText).then(() => {
-                btn.textContent = '✅ Copied!';
-                btn.style.background = '#2196F3';
-                setTimeout(() => {
-                  btn.remove();
-                  // Restore console.log
-                  if ((window as any).originalConsoleLog) {
-                    console.log = (window as any).originalConsoleLog;
-                  }
-                }, 2000);
-              });
-            };
-
-            document.body.appendChild(btn);
-
-            // Add pulse animation
-            const style = document.createElement('style');
-            style.textContent = `
-              @keyframes pulse {
-                0%, 100% { transform: scale(1); }
-                50% { transform: scale(1.05); }
-              }
-            `;
-            document.head.appendChild(style);
-          }
-        }, 500);
-      }
-
       // FINAL VERIFICATION: Show complete state
       const finalData = (window as any).currentAppData;
       if (finalData && finalData.objects) {
