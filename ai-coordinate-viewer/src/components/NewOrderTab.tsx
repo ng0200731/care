@@ -141,10 +141,10 @@ const NewOrderTab: React.FC = () => {
     loadCustomerData();
   }, [formData.customerId]);
 
-  // Load layout cards for selected project
+  // Load layout cards for selected project AND master file
   useEffect(() => {
     const loadProjectLayouts = () => {
-      if (!formData.projectId || !formData.projectSlug) {
+      if (!formData.projectId || !formData.projectSlug || !formData.masterId) {
         setLayoutCards([]);
         return;
       }
@@ -157,7 +157,13 @@ const NewOrderTab: React.FC = () => {
 
         if (savedLayouts) {
           const parsedLayouts = JSON.parse(savedLayouts);
-          const layouts = parsedLayouts.map((layout: any, index: number) => ({
+
+          // Filter layouts to only show those created with the selected master file
+          const filteredLayouts = parsedLayouts.filter((layout: any) =>
+            layout.canvasData?.masterFileId === formData.masterId
+          );
+
+          const layouts = filteredLayouts.map((layout: any, index: number) => ({
             id: layout.id || `layout_${index}`,
             name: layout.name || `Layout ${index + 1}`,
             width: layout.canvasData?.width || 200,
@@ -167,7 +173,7 @@ const NewOrderTab: React.FC = () => {
             updatedAt: layout.updatedAt || layout.createdAt || new Date().toISOString()
           }));
           setLayoutCards(layouts);
-          console.log(`✅ Loaded ${layouts.length} layout cards for project ${formData.projectSlug}`);
+          console.log(`✅ Loaded ${layouts.length} layout cards for project ${formData.projectSlug} with master file ${formData.masterId}`);
         } else {
           setLayoutCards([]);
           console.log(`📝 No saved layouts found for project ${formData.projectSlug}`);
@@ -181,7 +187,7 @@ const NewOrderTab: React.FC = () => {
     };
 
     loadProjectLayouts();
-  }, [formData.projectId, formData.projectSlug]);
+  }, [formData.projectId, formData.projectSlug, formData.masterId]);
 
   // Handle customer selection
   const handleCustomerSelect = (customerId: string) => {
@@ -228,18 +234,27 @@ const NewOrderTab: React.FC = () => {
         ...formData,
         projectId: selectedProject.id,
         projectSlug: selectedProject.slug,
-        layoutId: '', // Reset layout when project changes
-        masterId: ''
+        masterId: '', // Reset master file when project changes
+        layoutId: '' // Reset layout when project changes
       });
     } else {
       setFormData({
         ...formData,
         projectId: '',
         projectSlug: '',
-        layoutId: '',
-        masterId: ''
+        masterId: '',
+        layoutId: ''
       });
     }
+  };
+
+  // Handle master file selection
+  const handleMasterFileSelect = (masterId: string) => {
+    setFormData({
+      ...formData,
+      masterId: masterId,
+      layoutId: '' // Reset layout when master file changes
+    });
   };
 
   const handleSaveDraft = () => {
@@ -618,66 +633,11 @@ const NewOrderTab: React.FC = () => {
                 color: '#4a5568',
                 marginBottom: '6px'
               }}>
-                Layout Card <span style={{ color: '#3b82f6' }}>*</span>
-              </label>
-              <select
-                value={formData.layoutId}
-                onChange={(e) => setFormData({ ...formData, layoutId: e.target.value })}
-                disabled={loadingLayouts || layoutCards.length === 0 || !formData.projectId}
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  border: '2px solid #e2e8f0',
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  outline: 'none',
-                  backgroundColor: (loadingLayouts || layoutCards.length === 0 || !formData.projectId) ? '#f7fafc' : 'white',
-                  cursor: (loadingLayouts || layoutCards.length === 0 || !formData.projectId) ? 'not-allowed' : 'pointer'
-                }}
-                onFocus={(e) => {
-                  if (!loadingLayouts && layoutCards.length > 0 && formData.projectId) {
-                    e.currentTarget.style.borderColor = '#3b82f6';
-                  }
-                }}
-                onBlur={(e) => e.currentTarget.style.borderColor = '#e2e8f0'}
-              >
-                <option value="">
-                  {!formData.projectId ? 'Select project first' :
-                   loadingLayouts ? 'Loading layouts...' :
-                   layoutCards.length === 0 ? 'No layouts found for this project' :
-                   'Select Layout Card...'}
-                </option>
-                {layoutCards.map(layout => (
-                  <option key={layout.id} value={layout.id}>
-                    {layout.name} ({layout.width}×{layout.height}mm)
-                  </option>
-                ))}
-              </select>
-              {!loadingLayouts && layoutCards.length > 0 && formData.projectId && (
-                <p style={{
-                  fontSize: '12px',
-                  color: '#10b981',
-                  margin: '4px 0 0 0',
-                  fontStyle: 'italic'
-                }}>
-                  ✓ {layoutCards.length} layout card(s) found
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label style={{
-                display: 'block',
-                fontSize: '14px',
-                fontWeight: '500',
-                color: '#4a5568',
-                marginBottom: '6px'
-              }}>
                 Master File <span style={{ color: '#3b82f6' }}>*</span>
               </label>
               <select
                 value={formData.masterId}
-                onChange={(e) => setFormData({ ...formData, masterId: e.target.value })}
+                onChange={(e) => handleMasterFileSelect(e.target.value)}
                 disabled={loadingMasterFiles || masterFiles.length === 0}
                 style={{
                   width: '100%',
@@ -715,6 +675,61 @@ const NewOrderTab: React.FC = () => {
                   fontStyle: 'italic'
                 }}>
                   ✓ {masterFiles.length} master file(s) found
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label style={{
+                display: 'block',
+                fontSize: '14px',
+                fontWeight: '500',
+                color: '#4a5568',
+                marginBottom: '6px'
+              }}>
+                Layout Card <span style={{ color: '#3b82f6' }}>*</span>
+              </label>
+              <select
+                value={formData.layoutId}
+                onChange={(e) => setFormData({ ...formData, layoutId: e.target.value })}
+                disabled={loadingLayouts || layoutCards.length === 0 || !formData.masterId}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  border: '2px solid #e2e8f0',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  outline: 'none',
+                  backgroundColor: (loadingLayouts || layoutCards.length === 0 || !formData.masterId) ? '#f7fafc' : 'white',
+                  cursor: (loadingLayouts || layoutCards.length === 0 || !formData.masterId) ? 'not-allowed' : 'pointer'
+                }}
+                onFocus={(e) => {
+                  if (!loadingLayouts && layoutCards.length > 0 && formData.masterId) {
+                    e.currentTarget.style.borderColor = '#3b82f6';
+                  }
+                }}
+                onBlur={(e) => e.currentTarget.style.borderColor = '#e2e8f0'}
+              >
+                <option value="">
+                  {!formData.masterId ? 'Select master file first' :
+                   loadingLayouts ? 'Loading layouts...' :
+                   layoutCards.length === 0 ? 'No layouts found for this master file' :
+                   'Select Layout Card...'}
+                </option>
+                {layoutCards.map(layout => (
+                  <option key={layout.id} value={layout.id}>
+                    {layout.name} ({layout.width}×{layout.height}mm)
+                  </option>
+                ))}
+              </select>
+              {!loadingLayouts && layoutCards.length > 0 && formData.masterId && (
+                <p style={{
+                  fontSize: '12px',
+                  color: '#10b981',
+                  margin: '4px 0 0 0',
+                  fontStyle: 'italic'
+                }}>
+                  ✓ {layoutCards.length} layout card(s) found
                 </p>
               )}
             </div>
