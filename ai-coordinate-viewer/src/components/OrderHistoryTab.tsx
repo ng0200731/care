@@ -7,6 +7,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useOrderVariable } from '../contexts/OrderVariableContext';
+import { useNavigate } from 'react-router-dom';
+import jsPDF from 'jspdf';
 
 type OrderStatus = 'all' | 'draft' | 'complete' | 'send' | 'confirmed' | 'in_production' | 'completed';
 
@@ -29,8 +31,15 @@ interface OrderHistoryTabProps {
 }
 
 const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOrder }) => {
+  const navigate = useNavigate();
   const [filterStatus, setFilterStatus] = useState<OrderStatus>('all');
   const [orders, setOrders] = useState<Order[]>([]);
+
+  // Preview modal state
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string>('');
+  const [previewOrder, setPreviewOrder] = useState<Order | null>(null);
 
   // Load orders from localStorage
   const loadOrders = () => {
@@ -174,6 +183,169 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
       status: order.status,
       variables
     };
+  };
+
+  // Convert composition array to generatedText format (same format as NewCompTransDialog)
+  const formatCompositionText = (compositions: any[]): string => {
+    if (!compositions || compositions.length === 0) return '';
+
+    const lines = compositions
+      .filter(comp => comp.material && comp.percentage)
+      .map(comp => `${comp.percentage}% ${comp.material}`);
+
+    return lines.join('\n\n');
+  };
+
+  // Apply order variable data to layout content
+  const applyVariableDataToLayout = (layoutData: any, variableData: any) => {
+    console.log('🔄 Applying variable data to layout...');
+
+    // Deep clone to avoid mutating original
+    const updatedLayout = JSON.parse(JSON.stringify(layoutData));
+
+    if (!updatedLayout.canvasData?.objects) {
+      console.warn('⚠️ No objects in layout canvasData');
+      return updatedLayout;
+    }
+
+    // Iterate through all objects (mothers) and their regions
+    updatedLayout.canvasData.objects.forEach((obj: any) => {
+      if (obj.regions && Array.isArray(obj.regions)) {
+        obj.regions.forEach((region: any) => {
+          if (region.contents && Array.isArray(region.contents)) {
+            region.contents.forEach((content: any, contentIndex: number) => {
+              // Generate component ID to match saved data
+              const componentId = `${region.id}_content_${contentIndex}`;
+              const varData = variableData[componentId];
+
+              if (varData) {
+                console.log(`✅ Applying data to ${componentId}:`, varData);
+
+                if (varData.type === 'comp-trans' && content.type === 'new-comp-trans') {
+                  // Convert composition array to generatedText
+                  const generatedText = formatCompositionText(varData.data.compositions);
+
+                  // Apply to newCompTransConfig
+                  if (!content.newCompTransConfig) {
+                    content.newCompTransConfig = {};
+                  }
+                  if (!content.newCompTransConfig.textContent) {
+                    content.newCompTransConfig.textContent = {};
+                  }
+
+                  content.newCompTransConfig.textContent.generatedText = generatedText;
+                  content.newCompTransConfig.textContent.originalText = generatedText;
+
+                  console.log(`  📝 Comp-trans text: ${generatedText}`);
+                } else if (varData.type === 'multi-line' && content.type === 'new-multi-line') {
+                  // Apply multi-line text
+                  if (!content.newMultiLineConfig) {
+                    content.newMultiLineConfig = {};
+                  }
+                  if (!content.content) {
+                    content.content = {};
+                  }
+
+                  content.content.text = varData.data.textContent;
+                  content.newMultiLineConfig.textContent = varData.data.textContent;
+
+                  console.log(`  📝 Multi-line text: ${varData.data.textContent}`);
+                }
+              }
+            });
+          }
+        });
+      }
+    });
+
+    console.log('✅ Variable data applied to layout');
+    return updatedLayout;
+  };
+
+  // Preview artwork - save order data to sessionStorage and navigate to canvas
+  const order2preview = async (order: Order) => {
+    try {
+      console.log('🎨 Generating preview for order:', order);
+
+      // Load layout from localStorage to get master file info
+      const storageKey = `project_${order.projectSlug}_layouts`;
+      const savedLayouts = localStorage.getItem(storageKey);
+
+      if (!savedLayouts) {
+        alert('Layout not found for this order');
+        return;
+      }
+
+      const parsedLayouts = JSON.parse(savedLayouts);
+      const layout = parsedLayouts.find((l: any) => l.id === order.layoutId);
+
+      if (!layout) {
+        alert('Layout not found');
+        return;
+      }
+
+      console.log('✅ Loaded layout:', layout.name);
+
+      // Save order variable data to sessionStorage for App.tsx to access
+      sessionStorage.setItem('__order_preview_data__', JSON.stringify({
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        variableData: order.variableData,
+        projectSlug: order.projectSlug,
+        layoutId: order.layoutId
+      }));
+
+      console.log('💾 Saved order data to sessionStorage for preview');
+      console.log('🎯 Navigating to canvas for preview...');
+
+      // Navigate to canvas page with orderPreview=true flag
+      // App.tsx will detect this and apply the order data after layout loads
+      const masterFileId = layout.canvasData?.masterFileId || '';
+      const projectName = order.projectSlug;
+
+      navigate(
+        `/create_zero?context=projects&projectSlug=${order.projectSlug}&masterFileId=${masterFileId}&projectName=${encodeURIComponent(projectName)}&layoutId=${order.layoutId}&orderPreview=true`
+      );
+
+    } catch (error) {
+      console.error('❌ Error generating preview:', error);
+      alert('Error generating preview. Please try again.');
+    }
+  };
+
+  // Download PDF
+  const downloadPDF = async () => {
+    if (!previewImage || !previewOrder) return;
+
+    try {
+      // Load layout to get dimensions
+      const storageKey = `project_${previewOrder.projectSlug}_layouts`;
+      const savedLayouts = localStorage.getItem(storageKey);
+      const parsedLayouts = JSON.parse(savedLayouts || '[]');
+      const layout = parsedLayouts.find((l: any) => l.id === previewOrder.layoutId);
+
+      const width = layout?.canvasData?.width || 200;
+      const height = layout?.canvasData?.height || 189;
+
+      // Create PDF with canvas dimensions (convert mm to points: 1mm = 2.83465 points)
+      const pdf = new jsPDF({
+        orientation: width > height ? 'landscape' : 'portrait',
+        unit: 'mm',
+        format: [width, height]
+      });
+
+      // Add image to PDF
+      pdf.addImage(previewImage, 'PNG', 0, 0, width, height);
+
+      // Download
+      const orderNumber = previewOrder.orderNumber || previewOrder.id.split('_')[1];
+      pdf.save(`Order_${orderNumber}_artwork.pdf`);
+
+      console.log('✅ PDF downloaded successfully');
+    } catch (error) {
+      console.error('❌ Error generating PDF:', error);
+      alert('Error generating PDF. Please try again.');
+    }
   };
 
   return (
@@ -489,6 +661,33 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
                 🖨️ Print
               </button>
 
+              {displayOrder.status === 'complete' && (
+                <button
+                  onClick={() => order2preview(order)}
+                  style={{
+                    padding: '8px 16px',
+                    fontSize: '13px',
+                    fontWeight: '500',
+                    color: 'white',
+                    backgroundColor: '#8b5cf6',
+                    border: '2px solid #8b5cf6',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#7c3aed';
+                    e.currentTarget.style.borderColor = '#7c3aed';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = '#8b5cf6';
+                    e.currentTarget.style.borderColor = '#8b5cf6';
+                  }}
+                >
+                  📄 Preview Artwork
+                </button>
+              )}
+
               {displayOrder.status === 'draft' && (
                 <>
                   <button
@@ -622,6 +821,181 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
           🖨️ Print All
         </button>
       </div>
+
+      {/* Preview Artwork Modal */}
+      {showPreviewModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '32px',
+            maxWidth: '90vw',
+            maxHeight: '90vh',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            overflow: 'auto'
+          }}>
+            {previewLoading ? (
+              // Loading state
+              <div style={{
+                textAlign: 'center',
+                padding: '40px'
+              }}>
+                <div style={{
+                  width: '60px',
+                  height: '60px',
+                  border: '6px solid #f3f3f3',
+                  borderTop: '6px solid #8b5cf6',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                  margin: '0 auto 20px'
+                }}></div>
+                <h3 style={{
+                  margin: '0 0 8px 0',
+                  fontSize: '18px',
+                  fontWeight: '600',
+                  color: '#1a202c'
+                }}>
+                  🎨 Generating PDF Preview...
+                </h3>
+                <p style={{
+                  margin: 0,
+                  fontSize: '14px',
+                  color: '#64748b'
+                }}>
+                  Please wait while we render your artwork
+                </p>
+                <style>{`
+                  @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                  }
+                `}</style>
+              </div>
+            ) : (
+              // Preview loaded
+              <>
+                <h2 style={{
+                  margin: '0 0 20px 0',
+                  fontSize: '24px',
+                  fontWeight: '600',
+                  color: '#1a202c'
+                }}>
+                  📄 Artwork Preview
+                </h2>
+
+                {previewOrder && (
+                  <p style={{
+                    margin: '0 0 24px 0',
+                    fontSize: '14px',
+                    color: '#64748b',
+                    textAlign: 'center'
+                  }}>
+                    Order #{previewOrder.orderNumber || previewOrder.id.split('_')[1]}
+                  </p>
+                )}
+
+                {/* Canvas Preview Image */}
+                <div style={{
+                  maxWidth: '100%',
+                  maxHeight: 'calc(90vh - 250px)',
+                  overflow: 'auto',
+                  marginBottom: '24px',
+                  border: '2px solid #e2e8f0',
+                  borderRadius: '8px',
+                  padding: '16px',
+                  backgroundColor: '#f8f9fa'
+                }}>
+                  <img
+                    src={previewImage}
+                    alt="Artwork Preview"
+                    style={{
+                      maxWidth: '100%',
+                      height: 'auto',
+                      display: 'block',
+                      margin: '0 auto'
+                    }}
+                  />
+                </div>
+
+                {/* Action Buttons */}
+                <div style={{
+                  display: 'flex',
+                  gap: '12px',
+                  justifyContent: 'center'
+                }}>
+                  <button
+                    onClick={downloadPDF}
+                    style={{
+                      padding: '12px 24px',
+                      fontSize: '16px',
+                      fontWeight: '600',
+                      color: 'white',
+                      backgroundColor: '#10b981',
+                      border: '2px solid #10b981',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#059669';
+                      e.currentTarget.style.borderColor = '#059669';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = '#10b981';
+                      e.currentTarget.style.borderColor = '#10b981';
+                    }}
+                  >
+                    ✅ Download PDF
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setShowPreviewModal(false);
+                      setPreviewImage('');
+                      setPreviewOrder(null);
+                    }}
+                    style={{
+                      padding: '12px 24px',
+                      fontSize: '16px',
+                      fontWeight: '600',
+                      color: '#64748b',
+                      backgroundColor: 'white',
+                      border: '2px solid #cbd5e0',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#f8fafc';
+                      e.currentTarget.style.borderColor = '#94a3b8';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'white';
+                      e.currentTarget.style.borderColor = '#cbd5e0';
+                    }}
+                  >
+                    ❌ Close
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

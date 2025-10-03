@@ -410,6 +410,7 @@ function App() {
   const projectSlug = urlParams.get('projectSlug');
   const projectName = urlParams.get('projectName');
   const masterFileId = urlParams.get('masterFileId');
+  const orderPreview = urlParams.get('orderPreview') === 'true';
 
   // Mode Detection
   const isMasterFileMode = !context || context !== 'projects';
@@ -8164,6 +8165,88 @@ function App() {
     await performSave(layoutName.trim());
   };
 
+  // Apply order variable data to layout data (pure function - no state updates)
+  const applyOrderDataToLayoutData = (layoutData: any, variableData: any) => {
+    console.log('🎨 Applying order variable data to layout...', variableData);
+
+    // Create a deep copy to avoid mutation
+    const updatedData = JSON.parse(JSON.stringify(layoutData));
+
+    // Apply variable data to each component
+    Object.entries(variableData).forEach(([componentId, componentData]: [string, any]) => {
+      console.log(`📝 Processing component: ${componentId}`, componentData);
+
+      // Parse componentId to get regionId and contentIndex
+      // Format: {regionId}_content_{contentIndex}
+      const match = componentId.match(/^(.+)_content_(\d+)$/);
+      if (!match) {
+        console.warn(`⚠️ Invalid component ID format: ${componentId}`);
+        return;
+      }
+
+      const regionId = match[1];
+      const contentIndex = parseInt(match[2], 10);
+
+      // Find the mother object and region
+      for (const obj of updatedData.objects) {
+        if (obj.type?.includes('mother')) {
+          const regions = (obj as any).regions || [];
+          const targetRegion = regions.find((r: any) => r.id === regionId);
+
+          if (targetRegion) {
+            const contents = targetRegion.contents || [];
+            const targetContent = contents[contentIndex];
+
+            if (targetContent) {
+              console.log(`✅ Found target content in ${regionId}[${contentIndex}]:`, targetContent);
+
+              // Apply data based on component type
+              if (componentData.type === 'multi-line' && targetContent.type === 'new-multi-line') {
+                // Apply multi-line text
+                console.log(`📝 Applying multi-line text: "${componentData.data.textContent}"`);
+
+                targetContent.content = targetContent.content || {};
+                targetContent.content.text = componentData.data.textContent;
+
+                targetContent.newMultiLineConfig = targetContent.newMultiLineConfig || {};
+                targetContent.newMultiLineConfig.textContent = componentData.data.textContent;
+
+              } else if (componentData.type === 'comp-trans' && targetContent.type === 'new-comp-trans') {
+                // Apply composition translation data
+                console.log(`📝 Applying composition translation:`, componentData.data.compositions);
+
+                // Format composition text (same format as in NewCompTransDialog)
+                const compositions = componentData.data.compositions || [];
+                const generatedText = compositions
+                  .filter((comp: any) => comp.material && comp.percentage)
+                  .map((comp: any) => `${comp.percentage}% ${comp.material}`)
+                  .join('\n\n');
+
+                console.log(`📝 Generated composition text: "${generatedText}"`);
+
+                // Update the content configuration
+                targetContent.newCompTransConfig = targetContent.newCompTransConfig || {};
+                targetContent.newCompTransConfig.textContent = targetContent.newCompTransConfig.textContent || {};
+                targetContent.newCompTransConfig.textContent.generatedText = generatedText;
+                targetContent.newCompTransConfig.textContent.originalText = generatedText;
+
+                targetContent.content = targetContent.content || {};
+                targetContent.content.text = generatedText;
+              }
+            } else {
+              console.warn(`⚠️ Content not found at index ${contentIndex} in region ${regionId}`);
+            }
+
+            break; // Found the region, stop searching
+          }
+        }
+      }
+    });
+
+    console.log('✅ Order data applied to layout');
+    return updatedData;
+  };
+
   // Function to load project state (for Project Mode)
   const loadProjectState = async (projectState: any, masterFileId: string) => {
     try {
@@ -8188,13 +8271,37 @@ function App() {
       setIsEditMode(true);
       setEditingMasterFileId(masterFileId);
 
+      // Check if this is an order preview - apply order data BEFORE setting state
+      const urlParams = new URLSearchParams(window.location.search);
+      const orderPreview = urlParams.get('orderPreview') === 'true';
+      let orderData: any = null;
+
+      if (orderPreview) {
+        const orderDataStr = sessionStorage.getItem('__order_preview_data__');
+        if (orderDataStr) {
+          try {
+            orderData = JSON.parse(orderDataStr);
+            console.log('🎨 Order Preview Mode - will apply order data to layout');
+          } catch (err) {
+            console.error('❌ Error parsing order preview data:', err);
+          }
+        }
+      }
+
       // Restore canvas data
       if (projectState.canvasData) {
         // Add layout name to canvas data for header display
-        const canvasDataWithLayoutName = {
+        let canvasDataWithLayoutName = {
           ...projectState.canvasData,
           layoutName: projectState.name || 'Unnamed Layout'
         };
+
+        // If this is order preview mode, apply order data NOW before setting state
+        if (orderData && orderData.variableData) {
+          console.log('🎨 Applying order data to canvas before state update...');
+          canvasDataWithLayoutName = applyOrderDataToLayoutData(canvasDataWithLayoutName, orderData.variableData);
+        }
+
         setData(canvasDataWithLayoutName);
         setWebCreationData(canvasDataWithLayoutName);
         console.log('✅ Canvas data restored with layout name:', canvasDataWithLayoutName);
@@ -8206,6 +8313,43 @@ function App() {
         Object.entries(projectState.regionContents).forEach(([key, value]) => {
           restoredContents.set(key, Array.isArray(value) ? value : []);
         });
+
+        // If this is order preview mode, apply order data to region contents too
+        if (orderData && orderData.variableData) {
+          Object.entries(orderData.variableData).forEach(([componentId, componentData]: [string, any]) => {
+            const match = componentId.match(/^(.+)_content_(\d+)$/);
+            if (match) {
+              const regionId = match[1];
+              const contentIndex = parseInt(match[2], 10);
+              const regionContentArray = restoredContents.get(regionId);
+
+              if (regionContentArray && regionContentArray[contentIndex]) {
+                const content = regionContentArray[contentIndex];
+
+                if (componentData.type === 'multi-line' && content.type === 'new-multi-line') {
+                  content.content = content.content || {};
+                  content.content.text = componentData.data.textContent;
+                  content.newMultiLineConfig = content.newMultiLineConfig || {};
+                  content.newMultiLineConfig.textContent = componentData.data.textContent;
+                } else if (componentData.type === 'comp-trans' && content.type === 'new-comp-trans') {
+                  const compositions = componentData.data.compositions || [];
+                  const generatedText = compositions
+                    .filter((comp: any) => comp.material && comp.percentage)
+                    .map((comp: any) => `${comp.percentage}% ${comp.material}`)
+                    .join('\n\n');
+
+                  content.newCompTransConfig = content.newCompTransConfig || {};
+                  content.newCompTransConfig.textContent = content.newCompTransConfig.textContent || {};
+                  content.newCompTransConfig.textContent.generatedText = generatedText;
+                  content.newCompTransConfig.textContent.originalText = generatedText;
+                  content.content = content.content || {};
+                  content.content.text = generatedText;
+                }
+              }
+            }
+          });
+        }
+
         setRegionContents(restoredContents);
         console.log('✅ Region contents restored:', restoredContents.size, 'regions with content');
       }
@@ -8292,13 +8436,18 @@ function App() {
       setSonMetadata(new Map());
 
       // Get project info for display
-      const urlParams = new URLSearchParams(window.location.search);
       const projectName = urlParams.get('projectName') || 'Project';
 
       console.log(`✅ Project Loaded Successfully! Name: ${projectName}, Saved: ${projectState.savedAt}`);
 
-      setNotification(`✅ Project loaded: ${projectName}`);
-      setTimeout(() => setNotification(null), 3000);
+      // Show notification based on mode
+      if (orderPreview && orderData) {
+        setNotification(`🎨 Previewing Order #${orderData.orderNumber || orderData.orderId}`);
+        setTimeout(() => setNotification(null), 5000);
+      } else {
+        setNotification(`✅ Project loaded: ${projectName}`);
+        setTimeout(() => setNotification(null), 3000);
+      }
 
     } catch (error) {
       console.error('❌ Error loading project state:', error);
