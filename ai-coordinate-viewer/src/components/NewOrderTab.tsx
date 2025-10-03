@@ -122,7 +122,19 @@ const NewOrderTab: React.FC = () => {
             const components: VariableComponent[] = [];
 
             // Scan all objects and their regions for variable-enabled components
+            // Only check parent mothers, skip child/copied mothers
             selectedLayout.canvasData.objects.forEach((obj: any, objIndex: number) => {
+              // Skip child mothers - they inherit from parent and can't have independent variables
+              const isChildMother = obj.type === 'mother' && (
+                /Mother_\d+[A-Z]/.test(obj.name) || // Matches Mother_2A, Mother_2B, etc.
+                obj.copiedFrom ||
+                obj.isChild
+              );
+
+              if (isChildMother) {
+                return; // Skip this object
+              }
+
               if (obj.regions && Array.isArray(obj.regions)) {
                 obj.regions.forEach((region: any) => {
                   if (region.contents && Array.isArray(region.contents)) {
@@ -268,7 +280,19 @@ const NewOrderTab: React.FC = () => {
 
         if (layout && layout.canvasData?.objects) {
           // Check if any object's regions have variable-enabled components
+          // Only check parent mothers, skip child/copied mothers
           return layout.canvasData.objects.some((obj: any) => {
+            // Skip child mothers - they inherit from parent and can't have independent variables
+            const isChildMother = obj.type === 'mother' && (
+              /Mother_\d+[A-Z]/.test(obj.name) || // Matches Mother_2A, Mother_2B, etc.
+              obj.copiedFrom ||
+              obj.isChild
+            );
+
+            if (isChildMother) {
+              return false; // Skip child mothers
+            }
+
             if (obj.regions && Array.isArray(obj.regions)) {
               return obj.regions.some((region: any) => {
                 if (region.contents && Array.isArray(region.contents)) {

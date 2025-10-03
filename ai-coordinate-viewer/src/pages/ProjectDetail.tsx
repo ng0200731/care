@@ -150,7 +150,21 @@ const ProjectDetail: React.FC = () => {
 
         if (layout && layout.canvasData?.objects) {
           // Check if any object's regions have variable-enabled components
+          // Only check parent mothers, skip child/copied mothers
           const hasVariables = layout.canvasData.objects.some((obj: any) => {
+            // Skip child mothers - they inherit from parent and can't have independent variables
+            // Child mothers typically have names ending with letters like "Mother_2A", "Mother_2B", etc.
+            // or have a "copiedFrom" or similar property
+            const isChildMother = obj.type === 'mother' && (
+              /Mother_\d+[A-Z]/.test(obj.name) || // Matches Mother_2A, Mother_2B, etc.
+              obj.copiedFrom ||
+              obj.isChild
+            );
+
+            if (isChildMother) {
+              return false; // Skip child mothers
+            }
+
             if (obj.regions && Array.isArray(obj.regions)) {
               return obj.regions.some((region: any) => {
                 if (region.contents && Array.isArray(region.contents)) {
