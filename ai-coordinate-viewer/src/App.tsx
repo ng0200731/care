@@ -8165,6 +8165,45 @@ function App() {
     await performSave(layoutName.trim());
   };
 
+  // Material translations for 18 languages (ES, FR, EN, PT, DU, IT, GR, JA, DE, DA, SL, CH, KO, ID, AR, GA, CA, BS)
+  const materialTranslations: { [key: string]: string[] } = {
+    'Cotton': ['algodón', 'coton', 'cotton', 'algodão', 'katoen', 'cotone', 'ΒΑΜΒΑΚΙ', 'コットン', 'baumwolle', 'bomuld', 'bombaž', '棉', '면', 'katun', 'قطن', 'algodón', 'cotó', 'kotoia'],
+    'Polyester': ['poliéster', 'polyester', 'polyester', 'poliéster', 'polyester', 'poliestere', 'ΠΟΛΥΕΣΤΕΡΑΣ', 'ポリエステル', 'polyester', 'polyester', 'poliester', '聚酯纤维', '폴리에스터', 'poliester', 'بوليستير', 'poliéster', 'polièster', 'poliesterra'],
+    'Elastane': ['elastano', 'élasthanne', 'elastane', 'elastano', 'elastaan', 'elastan', 'ΕΛΑΣΤΑΝΗ', 'エラスタン', 'elastan', 'elastan', 'elastan', '氨纶', '엘라스탄', 'elastan', 'إيلاستان', 'elastano', 'elastà', 'elastanoa'],
+    'Viscose': ['viscosa', 'viscose', 'viscose', 'viscose', 'viscose', 'viscosa', 'ΒΙΣΚΟΖΗ', 'ビスコース', 'viskose', 'viskose', 'viskoza', '粘胶纤维', '비스코스', 'viskosa', 'فيسكوز', 'viscosa', 'viscosa', 'biskosea'],
+    'Wool': ['lana', 'laine', 'wool', 'lã', 'wol', 'lana', 'ΜΑΛΛΙ', 'ウール', 'wolle', 'uld', 'volna', '羊毛', '울', 'wol', 'صوف', 'la', 'llana', 'artilea'],
+    'Nylon': ['nailon', 'nylon', 'nylon', 'nylon', 'nylon', 'nailon', 'ΝΑΪΛΟΝ', 'ナイロン', 'nylon', 'nylon', 'najlon', '锦纶', '나일론', 'nilon', 'نايلون', 'nailon', 'niló', 'nylona'],
+  };
+
+  // Generate multi-language text from composition data
+  const generateMultiLanguageComposition = (compositions: any[], separator: string = ' / ') => {
+    const lines: string[] = [];
+
+    compositions.forEach((comp: any) => {
+      if (comp.material && comp.percentage) {
+        // Get translations for this material (case-insensitive lookup)
+        const materialKey = Object.keys(materialTranslations).find(
+          key => key.toLowerCase() === comp.material.toLowerCase()
+        );
+
+        const translations = materialKey ? materialTranslations[materialKey] : null;
+
+        if (translations && translations.length === 18) {
+          // Join all 18 languages with separator
+          const multiLangText = translations.join(separator);
+          const line = `${comp.percentage}% ${multiLangText}`;
+          lines.push(line);
+        } else {
+          // Fallback: use original material name if no translation found
+          const line = `${comp.percentage}% ${comp.material}`;
+          lines.push(line);
+        }
+      }
+    });
+
+    return lines.join('\n\n');
+  };
+
   // Apply order variable data to layout data (pure function - no state updates)
   const applyOrderDataToLayoutData = (layoutData: any, variableData: any) => {
     console.log('🎨 Applying order variable data to layout...', variableData);
@@ -8187,18 +8226,21 @@ function App() {
       const regionId = match[1];
       const contentIndex = parseInt(match[2], 10);
 
-      // Find the mother object and region
+      // Find the mother object that contains this region
+      let mainMotherName: string | null = null;
+
       for (const obj of updatedData.objects) {
         if (obj.type?.includes('mother')) {
           const regions = (obj as any).regions || [];
           const targetRegion = regions.find((r: any) => r.id === regionId);
 
           if (targetRegion) {
+            mainMotherName = obj.name;
             const contents = targetRegion.contents || [];
             const targetContent = contents[contentIndex];
 
             if (targetContent) {
-              console.log(`✅ Found target content in ${regionId}[${contentIndex}]:`, targetContent);
+              console.log(`✅ Found target content in ${obj.name} > ${regionId}[${contentIndex}]`);
 
               // Apply data based on component type
               if (componentData.type === 'multi-line' && targetContent.type === 'new-multi-line') {
@@ -8215,23 +8257,25 @@ function App() {
                 // Apply composition translation data
                 console.log(`📝 Applying composition translation:`, componentData.data.compositions);
 
-                // Format composition text (same format as in NewCompTransDialog)
+                // Generate FULL 18-language text
                 const compositions = componentData.data.compositions || [];
-                const generatedText = compositions
-                  .filter((comp: any) => comp.material && comp.percentage)
-                  .map((comp: any) => `${comp.percentage}% ${comp.material}`)
-                  .join('\n\n');
+                const multiLanguageText = generateMultiLanguageComposition(compositions, ' / ');
 
-                console.log(`📝 Generated composition text: "${generatedText}"`);
+                console.log(`🌍 Generated 18-language text (${multiLanguageText.length} chars)`);
 
                 // Update the content configuration
                 targetContent.newCompTransConfig = targetContent.newCompTransConfig || {};
+                targetContent.newCompTransConfig.materialCompositions = compositions;
+                targetContent.newCompTransConfig.selectedLanguages = ['ES', 'FR', 'EN', 'PT', 'DU', 'IT', 'GR', 'JA', 'DE', 'DA', 'SL', 'CH', 'KO', 'ID', 'AR', 'GA', 'CA', 'BS']; // All 18 languages
                 targetContent.newCompTransConfig.textContent = targetContent.newCompTransConfig.textContent || {};
-                targetContent.newCompTransConfig.textContent.generatedText = generatedText;
-                targetContent.newCompTransConfig.textContent.originalText = generatedText;
+                targetContent.newCompTransConfig.textContent.separator = ' / ';
+                targetContent.newCompTransConfig.textContent.generatedText = multiLanguageText;
+                targetContent.newCompTransConfig.textContent.originalText = multiLanguageText;
 
                 targetContent.content = targetContent.content || {};
-                targetContent.content.text = generatedText;
+                targetContent.content.text = multiLanguageText;
+
+                console.log(`✅ Applied 18-language composition to ${obj.name} - Text will overflow to child mothers automatically`);
               }
             } else {
               console.warn(`⚠️ Content not found at index ${contentIndex} in region ${regionId}`);
@@ -8241,9 +8285,11 @@ function App() {
           }
         }
       }
+
+      // Note: We only apply to the FIRST mother - overflow will automatically distribute to language mothers
     });
 
-    console.log('✅ Order data applied to layout');
+    console.log('✅ Order data applied - 18-language text will overflow automatically to all mothers');
     return updatedData;
   };
 
@@ -8314,36 +8360,52 @@ function App() {
           restoredContents.set(key, Array.isArray(value) ? value : []);
         });
 
-        // If this is order preview mode, apply order data to region contents too
+        // If this is order preview mode, apply order data to region contents
         if (orderData && orderData.variableData) {
+          console.log('🎨 Applying order data to regionContents Map (FIRST mother only - overflow will handle rest)...');
+
           Object.entries(orderData.variableData).forEach(([componentId, componentData]: [string, any]) => {
             const match = componentId.match(/^(.+)_content_(\d+)$/);
             if (match) {
               const regionId = match[1];
               const contentIndex = parseInt(match[2], 10);
+
+              console.log(`🔍 Processing componentId: ${componentId}`);
+
+              // Apply ONLY to the FIRST region (main mother) - overflow will distribute to others
               const regionContentArray = restoredContents.get(regionId);
 
               if (regionContentArray && regionContentArray[contentIndex]) {
                 const content = regionContentArray[contentIndex];
 
+                // Only apply if the content type matches
                 if (componentData.type === 'multi-line' && content.type === 'new-multi-line') {
                   content.content = content.content || {};
                   content.content.text = componentData.data.textContent;
                   content.newMultiLineConfig = content.newMultiLineConfig || {};
                   content.newMultiLineConfig.textContent = componentData.data.textContent;
+                  console.log(`  ✅ Applied multi-line to region ${regionId}`);
+
                 } else if (componentData.type === 'comp-trans' && content.type === 'new-comp-trans') {
                   const compositions = componentData.data.compositions || [];
-                  const generatedText = compositions
-                    .filter((comp: any) => comp.material && comp.percentage)
-                    .map((comp: any) => `${comp.percentage}% ${comp.material}`)
-                    .join('\n\n');
 
+                  // Generate FULL 18-language text
+                  const multiLanguageText = generateMultiLanguageComposition(compositions, ' / ');
+
+                  console.log(`  🌍 Generated 18-language text (${multiLanguageText.length} chars) for region ${regionId}`);
+
+                  // Apply the full composition structure with 18-language text
                   content.newCompTransConfig = content.newCompTransConfig || {};
+                  content.newCompTransConfig.materialCompositions = compositions;
+                  content.newCompTransConfig.selectedLanguages = ['ES', 'FR', 'EN', 'PT', 'DU', 'IT', 'GR', 'JA', 'DE', 'DA', 'SL', 'CH', 'KO', 'ID', 'AR', 'GA', 'CA', 'BS']; // All 18 languages
                   content.newCompTransConfig.textContent = content.newCompTransConfig.textContent || {};
-                  content.newCompTransConfig.textContent.generatedText = generatedText;
-                  content.newCompTransConfig.textContent.originalText = generatedText;
+                  content.newCompTransConfig.textContent.separator = ' / ';
+                  content.newCompTransConfig.textContent.generatedText = multiLanguageText;
+                  content.newCompTransConfig.textContent.originalText = multiLanguageText;
                   content.content = content.content || {};
-                  content.content.text = generatedText;
+                  content.content.text = multiLanguageText;
+
+                  console.log(`  ✅ Applied 18-language composition to region ${regionId} - Overflow will distribute to other mothers`);
                 }
               }
             }
