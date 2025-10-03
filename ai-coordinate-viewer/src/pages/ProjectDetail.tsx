@@ -134,9 +134,9 @@ const ProjectDetail: React.FC = () => {
     }));
   };
 
-  // Helper function to check if a layout has variable-enabled components
-  const layoutHasVariables = (pageId: string): boolean => {
-    if (!slug) return false;
+  // Helper function to count variable-enabled components in a layout
+  const getLayoutVariableCount = (pageId: string): number => {
+    if (!slug) return 0;
 
     try {
       const storageKey = `project_${slug}_layouts`;
@@ -146,45 +146,46 @@ const ProjectDetail: React.FC = () => {
         const parsedLayouts = JSON.parse(savedLayouts);
         const layout = parsedLayouts.find((l: any) => l.id === pageId);
 
-        console.log(`🔍 Checking variables for layout ${pageId}:`, layout?.name);
+        console.log(`🔍 Counting variables for layout ${pageId}:`, layout?.name);
 
-        // Check BOTH locations (for backward compatibility with old data)
-        let hasVariables = false;
+        let variableCount = 0;
+        const countedRegions = new Set<string>(); // Track regions to avoid double-counting
 
-        // Location 1: canvasData.objects[].regions[].contents[] (NEW location - both comp-trans and multi-line)
+        // Location 1: canvasData.objects[].regions[].contents[] (NEW location)
         if (layout && layout.canvasData?.objects) {
-          hasVariables = layout.canvasData.objects.some((obj: any) => {
+          layout.canvasData.objects.forEach((obj: any) => {
             const isChildMother = obj.type === 'mother' && (
               /Mother_\d+[A-Z]/.test(obj.name) ||
               obj.copiedFrom ||
               obj.isChild
             );
 
-            if (isChildMother) return false;
+            if (isChildMother) return;
 
             if (obj.regions && Array.isArray(obj.regions)) {
-              return obj.regions.some((region: any) => {
+              obj.regions.forEach((region: any) => {
                 if (region.contents && Array.isArray(region.contents)) {
-                  return region.contents.some((content: any) => {
+                  region.contents.forEach((content: any) => {
                     const isCompTransVariable = content.type === 'new-comp-trans' && content.newCompTransConfig?.isVariableEnabled;
                     const isMultiLineVariable = content.type === 'new-multi-line' && content.newMultiLineConfig?.isVariableEnabled;
 
                     if (isCompTransVariable || isMultiLineVariable) {
                       console.log(`  ✅ Found variable in region.contents (${region.id}):`, content.type);
+                      variableCount++;
                     }
-
-                    return isCompTransVariable || isMultiLineVariable;
                   });
+                  // Mark this region as counted
+                  if (region.contents.length > 0) {
+                    countedRegions.add(region.id);
+                  }
                 }
-                return false;
               });
             }
-            return false;
           });
         }
 
         // Location 2: layout.regionContents[] (OLD location - for backward compatibility)
-        if (!hasVariables && layout?.regionContents) {
+        if (layout?.regionContents) {
           const parentRegionIds: string[] = [];
           if (layout.canvasData?.objects) {
             layout.canvasData.objects.forEach((obj: any) => {
@@ -202,31 +203,37 @@ const ProjectDetail: React.FC = () => {
             });
           }
 
-          hasVariables = parentRegionIds.some(regionId => {
+          parentRegionIds.forEach(regionId => {
+            // Skip if already counted from Location 1
+            if (countedRegions.has(regionId)) return;
+
             const contents = layout.regionContents[regionId];
             if (contents && Array.isArray(contents)) {
-              return contents.some((content: any) => {
+              contents.forEach((content: any) => {
                 const isCompTransVariable = content.type === 'new-comp-trans' && content.newCompTransConfig?.isVariableEnabled;
                 const isMultiLineVariable = content.type === 'new-multi-line' && content.newMultiLineConfig?.isVariableEnabled;
 
                 if (isCompTransVariable || isMultiLineVariable) {
                   console.log(`  ✅ Found variable in regionContents (${regionId}):`, content.type);
+                  variableCount++;
                 }
-
-                return isCompTransVariable || isMultiLineVariable;
               });
             }
-            return false;
           });
         }
 
-        console.log(`  📊 Result: ${hasVariables ? 'HAS VARIABLES' : 'NO VARIABLES'}`);
-        return hasVariables;
+        console.log(`  📊 Result: ${variableCount} variable component(s)`);
+        return variableCount;
       }
     } catch (error) {
-      console.error('Error checking layout variables:', error);
+      console.error('Error counting layout variables:', error);
     }
-    return false;
+    return 0;
+  };
+
+  // Helper function to check if a layout has variable-enabled components
+  const layoutHasVariables = (pageId: string): boolean => {
+    return getLayoutVariableCount(pageId) > 0;
   };
 
   const getStatusColor = (status: string) => {
@@ -541,7 +548,7 @@ const ProjectDetail: React.FC = () => {
                   color: 'white',
                   cursor: 'default'
                 }}>
-                  Variable: {layoutHasVariables(page.id) ? 'ON' : 'OFF'}
+                  Variable: {layoutHasVariables(page.id) ? `ON (${getLayoutVariableCount(page.id)})` : 'OFF'}
                 </div>
               </div>
               <div style={{ fontSize: '14px', color: '#666', marginBottom: '12px' }}>
