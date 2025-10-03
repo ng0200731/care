@@ -8195,6 +8195,12 @@ function App() {
     'Viscose': ['viscosa', 'viscose', 'viscose', 'viscose', 'viscose', 'viscosa', 'ΒΙΣΚΟΖΗ', 'ビスコース', 'viskose', 'viskose', 'viskoza', '粘胶纤维', '비스코스', 'viskosa', 'فيسكوز', 'viscosa', 'viscosa', 'biskosea'],
     'Wool': ['lana', 'laine', 'wool', 'lã', 'wol', 'lana', 'ΜΑΛΛΙ', 'ウール', 'wolle', 'uld', 'volna', '羊毛', '울', 'wol', 'صوف', 'la', 'llana', 'artilea'],
     'Nylon': ['nailon', 'nylon', 'nylon', 'nylon', 'nylon', 'nailon', 'ΝΑΪΛΟΝ', 'ナイロン', 'nylon', 'nylon', 'najlon', '锦纶', '나일론', 'nilon', 'نايلون', 'nailon', 'niló', 'nylona'],
+    'Silk': ['seda', 'soie', 'silk', 'seda', 'zijde', 'seta', 'ΜΕΤΑΞΙ', 'シルク', 'seide', 'silke', 'svila', '丝绸', '실크', 'sutra', 'حرير', 'seda', 'seda', 'zeta'],
+    'Linen': ['lino', 'lin', 'linen', 'linho', 'linnen', 'lino', 'ΛΙΝΟ', 'リネン', 'leinen', 'hør', 'lan', '亚麻', '린넨', 'linen', 'كتان', 'lino', 'lli', 'lihoa'],
+    'Acrylic': ['acrílico', 'acrylique', 'acrylic', 'acrílico', 'acryl', 'acrilico', 'ΑΚΡΥΛΙΚΟ', 'アクリル', 'acryl', 'akryl', 'akril', '腈纶', '아크릴', 'akrilik', 'أكريليك', 'acrílico', 'acrílic', 'akrilikoa'],
+    'Rayon': ['rayón', 'rayonne', 'rayon', 'raiom', 'rayon', 'raion', 'ΡΕΓΙΟΝ', 'レーヨン', 'rayon', 'rayon', 'rajon', '人造丝', '레이온', 'rayon', 'رايون', 'rayón', 'raió', 'rayoia'],
+    'Spandex': ['spandex', 'spandex', 'spandex', 'spandex', 'spandex', 'spandex', 'ΣΠΑΝΤΕΞ', 'スパンデックス', 'spandex', 'spandex', 'spandeks', '氨纶', '스판덱스', 'spandeks', 'سباندكس', 'spandex', 'spandex', 'espandex'],
+    'Modal': ['modal', 'modal', 'modal', 'modal', 'modal', 'modal', 'ΜΟΝΤΑΛ', 'モダール', 'modal', 'modal', 'modal', '莫代尔', '모달', 'modal', 'مودال', 'modal', 'modal', 'modala'],
   };
 
   // Generate multi-language text from composition data
@@ -8617,6 +8623,187 @@ function App() {
                   }
                 }
               });
+
+              // STEP: Detect overflow and create child mothers (following 2in1 logic exactly)
+              if (componentData.type === 'comp-trans' && multiLanguageText && projectState.canvasData) {
+                console.log('🔍 Preview: Checking for overflow on 18-language text...');
+
+                // Find parent mother object from canvas
+                const parentMotherObj = projectState.canvasData.objects.find((obj: any) =>
+                  obj.type?.includes('mother') &&
+                  obj.regions?.some((r: any) => r.id === actualRegionId)
+                );
+
+                if (parentMotherObj) {
+                  const parentRegion = parentMotherObj.regions.find((r: any) => r.id === actualRegionId);
+                  const mainRegionContentArray = restoredContents.get(actualRegionId);
+                  const mainContent = mainRegionContentArray?.[contentIndex];
+
+                  if (parentRegion && mainContent?.newCompTransConfig) {
+                    const config = mainContent.newCompTransConfig;
+
+                    // Calculate N-split (EXACT copy from 2in1's detectOverflowAndSplitN)
+                    const regionWidthPx = parentRegion.width * 3.779527559;
+                    const regionHeightPx = parentRegion.height * 3.779527559;
+                    const paddingLeftPx = config.padding.left * 3.779527559;
+                    const paddingRightPx = config.padding.right * 3.779527559;
+                    const paddingTopPx = config.padding.top * 3.779527559;
+                    const paddingBottomPx = config.padding.bottom * 3.779527559;
+                    const availableWidthPx = Math.max(0, regionWidthPx - paddingLeftPx - paddingRightPx);
+                    const availableHeightPx = Math.max(0, regionHeightPx - paddingTopPx - paddingBottomPx);
+
+                    let fontSizePx = config.typography.fontSize;
+                    if (config.typography.fontSizeUnit === 'mm') {
+                      fontSizePx = config.typography.fontSize * 3.779527559;
+                    } else if (config.typography.fontSizeUnit === 'pt') {
+                      fontSizePx = (config.typography.fontSize * 4/3);
+                    }
+
+                    const scaledFontSize = Math.max(6, fontSizePx * 1.0);
+                    const availableWidthMm = availableWidthPx / 3.779527559;
+                    const userSafetyBuffer = 1.5;
+                    const effectiveAvailableWidth = availableWidthMm - userSafetyBuffer;
+                    const scaledFontSizeMm = scaledFontSize / 3.779527559;
+                    const lineHeightMm = scaledFontSizeMm * (config.lineBreakSettings?.lineSpacing || 1.2);
+                    const availableHeightMm = availableHeightPx / 3.779527559;
+                    const maxLinesPerMother = Math.floor(availableHeightMm / lineHeightMm);
+
+                    // Text measurement function
+                    const estimateTextWidth = (text: string): number => {
+                      const canvas = document.createElement('canvas');
+                      const context = canvas.getContext('2d');
+                      if (!context) return text.length * 2;
+                      context.font = `${scaledFontSize}px ${config.typography.fontFamily}`;
+                      const textWidthPx = context.measureText(text).width;
+                      return textWidthPx / 3.779527559;
+                    };
+
+                    // Word wrapping (EXACT copy from 2in1)
+                    const wrapTextToLines = (text: string): string[] => {
+                      const lineBreakSymbol = config.lineBreakSettings?.lineBreakSymbol || '\n';
+                      const manualLines = text.split(lineBreakSymbol);
+                      const wrappedLines: string[] = [];
+
+                      manualLines.forEach(line => {
+                        const trimmedLine = line.trim();
+                        if (!trimmedLine) {
+                          wrappedLines.push('');
+                          return;
+                        }
+
+                        const words = trimmedLine.split(' ');
+                        let currentLine = '';
+
+                        words.forEach((word) => {
+                          const testLine = currentLine ? `${currentLine} ${word}` : word;
+                          const testWidth = estimateTextWidth(testLine);
+
+                          if (testWidth <= effectiveAvailableWidth) {
+                            currentLine = testLine;
+                          } else {
+                            if (currentLine) {
+                              wrappedLines.push(currentLine);
+                              currentLine = word;
+                            } else {
+                              wrappedLines.push(word);
+                            }
+                          }
+                        });
+
+                        if (currentLine) {
+                          wrappedLines.push(currentLine);
+                        }
+                      });
+
+                      return wrappedLines;
+                    };
+
+                    const allLines = wrapTextToLines(multiLanguageText);
+                    const totalMothersNeeded = Math.ceil(allLines.length / maxLinesPerMother);
+
+                    console.log(`📊 Preview N-split: ${allLines.length} lines, max ${maxLinesPerMother} per mother → ${totalMothersNeeded} mothers needed`);
+
+                    // Create child mothers if overflow detected (EXACT copy from 2in1)
+                    if (totalMothersNeeded > 1 && maxLinesPerMother > 0) {
+                      console.log(`🏗️ Preview: Creating ${totalMothersNeeded - 1} child mothers for overflow...`);
+
+                      // Split text into mothers
+                      const textSplits: string[] = [];
+                      let currentLineIndex = 0;
+                      for (let motherIndex = 0; motherIndex < totalMothersNeeded; motherIndex++) {
+                        const isLastMother = motherIndex === totalMothersNeeded - 1;
+                        const remainingLines = allLines.length - currentLineIndex;
+                        const linesToTake = isLastMother ? remainingLines : Math.min(maxLinesPerMother, remainingLines);
+                        const motherLines = allLines.slice(currentLineIndex, currentLineIndex + linesToTake);
+                        const motherText = motherLines.join(config.lineBreakSettings?.lineBreakSymbol || '\n');
+                        textSplits.push(motherText);
+                        currentLineIndex += linesToTake;
+                      }
+
+                      console.log(`🎯🎯🎯 PREVIEW_NSPLIT: Total splits = ${textSplits.length}`);
+                      textSplits.forEach((split, idx) => {
+                        console.log(`🎯🎯🎯 PREVIEW_NSPLIT_${idx + 1}: "${split.substring(0, 100)}..."`);
+                      });
+
+                      // Store original config in window for child creation (like 2in1)
+                      // DEEP COPY to prevent mutation when parent is updated
+                      if (mainContent) {
+                        (window as any).__current2in1Config = JSON.parse(JSON.stringify({
+                          ...mainContent.newCompTransConfig,
+                          textContent: {
+                            ...mainContent.newCompTransConfig.textContent,
+                            originalText: multiLanguageText, // Store FULL text
+                            generatedText: multiLanguageText
+                          }
+                        }));
+                        console.log('✅ Preview: Stored original config (deep copy) in window for child creation');
+                      }
+
+                      // Update parent with split1 text
+                      if (mainContent && textSplits[0]) {
+                        mainContent.newCompTransConfig.textContent.generatedText = textSplits[0];
+                        mainContent.newCompTransConfig.textContent.originalText = textSplits[0];
+                        mainContent.content.text = textSplits[0];
+                        console.log(`🎯🎯🎯 PREVIEW_PARENT_UPDATED: "${textSplits[0].substring(0, 100)}..."`);
+                      }
+
+                      // Create child mothers (EXACT loop from 2in1) - wrapped in async IIFE
+                      (async () => {
+                        const createdChildMotherIds: string[] = [];
+                        for (let i = 1; i < totalMothersNeeded; i++) {
+                          console.log(`🎯🎯🎯 PREVIEW_CREATE_CHILD_${i}: Starting...`);
+
+                          const childMotherId = createChildMotherStructure(parentMotherObj.name);
+
+                          if (childMotherId) {
+                            createdChildMotherIds.push(childMotherId);
+                            console.log(`🎯🎯🎯 PREVIEW_CHILD_CREATED: ${childMotherId}`);
+
+                            // Wait for state update (like 2in1)
+                            await new Promise(resolve => setTimeout(resolve, 500));
+
+                            // Add text to child mother
+                            const textForChild = textSplits[i] || '';
+                            if (textForChild) {
+                              console.log(`🎯🎯🎯 PREVIEW_ASSIGN_TO_${childMotherId}: "${textForChild.substring(0, 100)}..."`);
+                              handleCreateNewMotherForOverflow(childMotherId, textForChild);
+                            }
+                          } else {
+                            console.error(`🎯🎯🎯 PREVIEW_CREATE_FAILED: Child ${i}`);
+                          }
+                        }
+
+                        console.log(`🎯🎯🎯 PREVIEW_COMPLETE: Created ${createdChildMotherIds.length} children:`, createdChildMotherIds);
+
+                        // Clear stored config after child creation
+                        delete (window as any).__current2in1Config;
+                      })();
+                    } else {
+                      console.log('✅ Preview: No overflow - text fits in parent mother');
+                    }
+                  }
+                }
+              }
             }
           });
         }
@@ -15815,9 +16002,6 @@ function App() {
                         // Always use split1 result (first split of the text)
                         displayLines = regionProcessedResult.lines;
                         hasOverflow = regionProcessedResult.hasOverflow;
-
-                        // Consistent logic: Determine additional mothers needed
-                        const additionalMothersNeeded = hasOverflow ? 1 : 0; // Could be extended for N-split later
 
                         // console.log('✅ Canvas: Applied Canvas-First Sync logic-slice to composition translation:', {
                         //   regionId: region.id,
