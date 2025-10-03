@@ -436,6 +436,9 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
         if (event.data.type === 'PDF_GENERATED') {
           console.log('✅ PDF generated successfully from iframe');
 
+          // Clear timeout
+          clearTimeout(timeout);
+
           // Clean up
           window.removeEventListener('message', messageHandler);
           document.body.removeChild(iframe);
@@ -446,6 +449,9 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
 
         } else if (event.data.type === 'PDF_ERROR') {
           console.error('❌ PDF generation error from iframe:', event.data.error);
+
+          // Clear timeout
+          clearTimeout(timeout);
 
           // Clean up
           window.removeEventListener('message', messageHandler);
@@ -467,13 +473,28 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
         }
         setIsGeneratingPDF(false);
         alert('❌ PDF generation timeout. Please try again.');
-      }, 30000); // 30 second timeout
+      }, 60000); // 60 second timeout (10s wait + child creation + PDF generation)
+
+      // Add load event listener
+      iframe.onload = () => {
+        console.log('✅ Iframe loaded successfully');
+      };
+
+      iframe.onerror = () => {
+        console.error('❌ Iframe failed to load');
+        clearTimeout(timeout);
+        window.removeEventListener('message', messageHandler);
+        document.body.removeChild(iframe);
+        setIsGeneratingPDF(false);
+        alert('❌ Failed to load canvas. Please try again.');
+      };
 
       // Load canvas in iframe
       iframe.src = canvasUrl;
       document.body.appendChild(iframe);
 
       console.log('⏳ Waiting for canvas to render and generate PDF...');
+      console.log('⏱️ Timeout set to 60 seconds');
 
     } catch (error) {
       console.error('❌ Error generating PDF:', error);

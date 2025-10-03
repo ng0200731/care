@@ -4503,7 +4503,7 @@ function App() {
     if (autoGeneratePDF && data && regionContents && regionContents.size > 0) {
       console.log('🖨️ Auto-generating PDF for order preview...');
 
-      // Wait for overflow and rendering to complete (5 seconds)
+      // Wait for overflow and rendering to complete (10 seconds)
       const timer = setTimeout(async () => {
         console.log('🎨 Canvas rendered - generating PDF with Print as PDF method...');
 
@@ -4511,7 +4511,7 @@ function App() {
         // (postMessage will be sent from inside generatePDFAllMothers after PDF saves)
         await generatePDFAllMothers();
 
-      }, 5000); // Wait 5 seconds for overflow to complete
+      }, 10000); // Wait 10 seconds for child mother creation and overflow to complete
 
       return () => clearTimeout(timer);
     }
