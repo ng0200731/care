@@ -8257,18 +8257,29 @@ function App() {
                 // Apply composition translation data
                 console.log(`📝 Applying composition translation:`, componentData.data.compositions);
 
-                // Generate FULL 18-language text
                 const compositions = componentData.data.compositions || [];
-                const multiLanguageText = generateMultiLanguageComposition(compositions, ' / ');
+
+                // Convert percentage strings to numbers (fix "09091%" bug)
+                const normalizedCompositions = compositions.map((comp: any) => ({
+                  ...comp,
+                  percentage: typeof comp.percentage === 'string' ? parseInt(comp.percentage, 10) : comp.percentage
+                }));
+
+                // Get the original separator from existing config (or use default " - ")
+                const originalSeparator = targetContent.newCompTransConfig?.textContent?.separator || ' - ';
+
+                // Generate FULL 18-language text using original separator
+                const multiLanguageText = generateMultiLanguageComposition(normalizedCompositions, originalSeparator);
 
                 console.log(`🌍 Generated 18-language text (${multiLanguageText.length} chars)`);
+                console.log(`🔧 Using separator: "${originalSeparator}"`);
 
                 // Update the content configuration
                 targetContent.newCompTransConfig = targetContent.newCompTransConfig || {};
-                targetContent.newCompTransConfig.materialCompositions = compositions;
+                targetContent.newCompTransConfig.materialCompositions = normalizedCompositions; // Use normalized percentages
                 targetContent.newCompTransConfig.selectedLanguages = ['ES', 'FR', 'EN', 'PT', 'DU', 'IT', 'GR', 'JA', 'DE', 'DA', 'SL', 'CH', 'KO', 'ID', 'AR', 'GA', 'CA', 'BS']; // All 18 languages
                 targetContent.newCompTransConfig.textContent = targetContent.newCompTransConfig.textContent || {};
-                targetContent.newCompTransConfig.textContent.separator = ' / ';
+                targetContent.newCompTransConfig.textContent.separator = originalSeparator;
                 targetContent.newCompTransConfig.textContent.generatedText = multiLanguageText;
                 targetContent.newCompTransConfig.textContent.originalText = multiLanguageText;
 
@@ -8372,42 +8383,64 @@ function App() {
 
               console.log(`🔍 Processing componentId: ${componentId}`);
 
-              // Apply ONLY to the FIRST region (main mother) - overflow will distribute to others
-              const regionContentArray = restoredContents.get(regionId);
+              // Apply to ALL regions with comp-trans content (all language mothers)
+              let originalSeparator = ' - '; // Default
+              let normalizedCompositions: any[] = [];
+              let multiLanguageText = '';
 
-              if (regionContentArray && regionContentArray[contentIndex]) {
-                const content = regionContentArray[contentIndex];
+              // First: Get data from the main mother's region
+              const mainRegionContentArray = restoredContents.get(regionId);
+              if (mainRegionContentArray && mainRegionContentArray[contentIndex]) {
+                const mainContent = mainRegionContentArray[contentIndex];
 
-                // Only apply if the content type matches
-                if (componentData.type === 'multi-line' && content.type === 'new-multi-line') {
-                  content.content = content.content || {};
-                  content.content.text = componentData.data.textContent;
-                  content.newMultiLineConfig = content.newMultiLineConfig || {};
-                  content.newMultiLineConfig.textContent = componentData.data.textContent;
-                  console.log(`  ✅ Applied multi-line to region ${regionId}`);
-
-                } else if (componentData.type === 'comp-trans' && content.type === 'new-comp-trans') {
+                if (componentData.type === 'comp-trans' && mainContent.type === 'new-comp-trans') {
                   const compositions = componentData.data.compositions || [];
 
+                  // Convert percentage strings to numbers
+                  normalizedCompositions = compositions.map((comp: any) => ({
+                    ...comp,
+                    percentage: typeof comp.percentage === 'string' ? parseInt(comp.percentage, 10) : comp.percentage
+                  }));
+
+                  // Get the original separator
+                  originalSeparator = mainContent.newCompTransConfig?.textContent?.separator || ' - ';
+
                   // Generate FULL 18-language text
-                  const multiLanguageText = generateMultiLanguageComposition(compositions, ' / ');
+                  multiLanguageText = generateMultiLanguageComposition(normalizedCompositions, originalSeparator);
 
-                  console.log(`  🌍 Generated 18-language text (${multiLanguageText.length} chars) for region ${regionId}`);
-
-                  // Apply the full composition structure with 18-language text
-                  content.newCompTransConfig = content.newCompTransConfig || {};
-                  content.newCompTransConfig.materialCompositions = compositions;
-                  content.newCompTransConfig.selectedLanguages = ['ES', 'FR', 'EN', 'PT', 'DU', 'IT', 'GR', 'JA', 'DE', 'DA', 'SL', 'CH', 'KO', 'ID', 'AR', 'GA', 'CA', 'BS']; // All 18 languages
-                  content.newCompTransConfig.textContent = content.newCompTransConfig.textContent || {};
-                  content.newCompTransConfig.textContent.separator = ' / ';
-                  content.newCompTransConfig.textContent.generatedText = multiLanguageText;
-                  content.newCompTransConfig.textContent.originalText = multiLanguageText;
-                  content.content = content.content || {};
-                  content.content.text = multiLanguageText;
-
-                  console.log(`  ✅ Applied 18-language composition to region ${regionId} - Overflow will distribute to other mothers`);
+                  console.log(`  🌍 Generated 18-language text (${multiLanguageText.length} chars)`);
+                  console.log(`  🔧 Using separator: "${originalSeparator}"`);
                 }
               }
+
+              // Second: Apply to ALL regions (including child mothers)
+              restoredContents.forEach((regionContentArray, currentRegionId) => {
+                if (regionContentArray && regionContentArray[contentIndex]) {
+                  const content = regionContentArray[contentIndex];
+
+                  if (componentData.type === 'multi-line' && content.type === 'new-multi-line') {
+                    content.content = content.content || {};
+                    content.content.text = componentData.data.textContent;
+                    content.newMultiLineConfig = content.newMultiLineConfig || {};
+                    content.newMultiLineConfig.textContent = componentData.data.textContent;
+                    console.log(`  ✅ Applied multi-line to region ${currentRegionId}`);
+
+                  } else if (componentData.type === 'comp-trans' && content.type === 'new-comp-trans') {
+                    // Apply the SAME composition data to ALL regions
+                    content.newCompTransConfig = content.newCompTransConfig || {};
+                    content.newCompTransConfig.materialCompositions = normalizedCompositions;
+                    content.newCompTransConfig.selectedLanguages = ['ES', 'FR', 'EN', 'PT', 'DU', 'IT', 'GR', 'JA', 'DE', 'DA', 'SL', 'CH', 'KO', 'ID', 'AR', 'GA', 'CA', 'BS'];
+                    content.newCompTransConfig.textContent = content.newCompTransConfig.textContent || {};
+                    content.newCompTransConfig.textContent.separator = originalSeparator;
+                    content.newCompTransConfig.textContent.generatedText = multiLanguageText;
+                    content.newCompTransConfig.textContent.originalText = multiLanguageText;
+                    content.content = content.content || {};
+                    content.content.text = multiLanguageText;
+
+                    console.log(`  ✅ Applied 18-language composition to region ${currentRegionId}`);
+                  }
+                }
+              });
             }
           });
         }
