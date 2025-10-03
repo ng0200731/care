@@ -12,6 +12,8 @@ type OrderStatus = 'all' | 'draft' | 'complete' | 'send' | 'confirmed' | 'in_pro
 
 interface Order {
   id: string;
+  orderNumber?: string; // Sequential number (001, 002, etc.)
+  userOrderNumber?: string; // User-entered order number field
   customerId: string;
   projectSlug: string;
   layoutId: string;
@@ -38,9 +40,15 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
 
       if (savedOrders) {
         const parsedOrders = JSON.parse(savedOrders);
-        setOrders(parsedOrders);
-        console.log('✅ Loaded orders from localStorage:', parsedOrders);
-        console.log(`📊 Total orders: ${parsedOrders.length}`);
+
+        // Sort orders by createdAt descending (latest first)
+        const sortedOrders = parsedOrders.sort((a: Order, b: Order) => {
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        });
+
+        setOrders(sortedOrders);
+        console.log('✅ Loaded orders from localStorage:', sortedOrders);
+        console.log(`📊 Total orders: ${sortedOrders.length}`);
       } else {
         setOrders([]);
         console.log('📝 No orders found in localStorage');
@@ -89,6 +97,23 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
     return status.toUpperCase().replace('_', ' ');
   };
 
+  // Get layout name from layoutId
+  const getLayoutName = (projectSlug: string, layoutId: string): string => {
+    try {
+      const storageKey = `project_${projectSlug}_layouts`;
+      const savedLayouts = localStorage.getItem(storageKey);
+
+      if (savedLayouts) {
+        const parsedLayouts = JSON.parse(savedLayouts);
+        const layout = parsedLayouts.find((l: any) => l.id === layoutId);
+        return layout?.name || layoutId;
+      }
+    } catch (error) {
+      console.error('Error loading layout name:', error);
+    }
+    return layoutId;
+  };
+
   // Format order data for display
   const formatOrderForDisplay = (order: Order) => {
     const date = new Date(order.createdAt);
@@ -96,6 +121,11 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
 
     // Extract variable data
     const variables: { name: string; value: string }[] = [];
+
+    // Add user-entered order number if available
+    if (order.userOrderNumber) {
+      variables.push({ name: 'Order Number', value: order.userOrderNumber });
+    }
 
     // Add quantity
     variables.push({ name: 'Quantity', value: order.quantity.toString() });
@@ -125,11 +155,20 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
       });
     }
 
+    // Get layout name
+    const layoutName = getLayoutName(order.projectSlug, order.layoutId);
+
+    // Use orderNumber if available, otherwise fall back to timestamp
+    const displayOrderNumber = order.orderNumber
+      ? `#${order.orderNumber}`
+      : `#${order.id.split('_')[1] || order.id}`;
+
     return {
       id: order.id,
-      orderNumber: `#${order.id.split('_')[1] || order.id}`,
+      orderNumber: displayOrderNumber,
       date: formattedDate,
       projectName: order.projectSlug || 'N/A',
+      layoutName: layoutName,
       layoutId: order.layoutId || 'N/A',
       customerId: order.customerId || 'N/A',
       status: order.status,
@@ -311,7 +350,7 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
                 }}>
                   <span>📅 {displayOrder.date}</span>
                   <span>📁 {displayOrder.projectName}</span>
-                  <span>📄 {displayOrder.layoutId}</span>
+                  <span>📄 {displayOrder.layoutName}</span>
                   <span>👤 {displayOrder.customerId}</span>
                 </div>
               </div>

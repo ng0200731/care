@@ -54,6 +54,8 @@ interface LayoutCard {
 
 interface EditingOrder {
   id: string;
+  orderNumber?: string; // Sequential number (001, 002, etc.)
+  userOrderNumber?: string; // User-entered order number field
   customerId: string;
   projectSlug: string;
   layoutId: string;
@@ -107,6 +109,9 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
   const [showValidationModal, setShowValidationModal] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
+  // Success modal state
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
   // Variable components from layout
   interface VariableComponent {
     id: string;
@@ -137,6 +142,7 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
         projectSlug: editingOrder.projectSlug,
         layoutId: editingOrder.layoutId,
         quantity: editingOrder.quantity,
+        orderNumber: editingOrder.userOrderNumber || '', // Load user-entered order number
         // We'll need to load customer, project data separately
       }));
 
@@ -567,8 +573,17 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
   const saveToOrderManagement = (status: 'draft' | 'complete') => {
     console.log('💾 saveToOrderManagement called with status:', status);
 
+    // Get existing orders to generate next order number
+    const existingOrders = JSON.parse(localStorage.getItem('order_management') || '[]');
+
+    // Generate sequential order number (e.g., 001, 002, 003)
+    const nextOrderNumber = String(existingOrders.length + 1).padStart(3, '0');
+    const orderIdTimestamp = Date.now(); // Use timestamp for unique ID
+
     const orderData = {
-      id: `order_${Date.now()}`,
+      id: `order_${orderIdTimestamp}`,
+      orderNumber: nextOrderNumber, // Sequential order number for display (e.g., "001")
+      userOrderNumber: formData.orderNumber, // User-entered order number field
       customerId: formData.customerId,
       projectSlug: formData.projectSlug,
       layoutId: formData.layoutId,
@@ -579,11 +594,9 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
     };
 
     console.log('📦 Order data to save:', orderData);
-
-    // Save to localStorage (order management)
-    const existingOrders = JSON.parse(localStorage.getItem('order_management') || '[]');
     console.log('📚 Existing orders before save:', existingOrders.length);
 
+    // Save to localStorage (order management)
     existingOrders.push(orderData);
     localStorage.setItem('order_management', JSON.stringify(existingOrders));
 
@@ -683,27 +696,60 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
     } else {
       // All fields filled - save to order management with status "complete"
       saveToOrderManagement('complete');
-      alert('✅ Order submitted successfully!');
 
-      // Reset form
-      setFormData({
-        customerId: '',
-        customerName: '',
-        contact: '',
-        phone: '',
-        email: '',
-        address: '',
-        projectId: '',
-        projectSlug: '',
-        layoutId: '',
-        masterId: '',
-        masterFileId: '',
-        orderNumber: '',
-        quantity: 1,
-        variableValues: {},
-        status: 'draft'
-      });
-      setComponentVariables({});
+      // Show success modal asking what to do next
+      setShowSuccessModal(true);
+    }
+  };
+
+  const handleNewOrder = () => {
+    // Reset form for new order
+    setFormData({
+      customerId: '',
+      customerName: '',
+      contact: '',
+      phone: '',
+      email: '',
+      address: '',
+      projectId: '',
+      projectSlug: '',
+      layoutId: '',
+      masterId: '',
+      masterFileId: '',
+      orderNumber: '',
+      quantity: 1,
+      variableValues: {},
+      status: 'draft'
+    });
+    setComponentVariables({});
+    setShowSuccessModal(false);
+  };
+
+  const handleGoToOrderManagement = () => {
+    // Reset form
+    setFormData({
+      customerId: '',
+      customerName: '',
+      contact: '',
+      phone: '',
+      email: '',
+      address: '',
+      projectId: '',
+      projectSlug: '',
+      layoutId: '',
+      masterId: '',
+      masterFileId: '',
+      orderNumber: '',
+      quantity: 1,
+      variableValues: {},
+      status: 'draft'
+    });
+    setComponentVariables({});
+    setShowSuccessModal(false);
+
+    // Call parent to switch to order history tab
+    if (onClearOrder) {
+      onClearOrder();
     }
   };
 
@@ -743,7 +789,7 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
               fontSize: '14px',
               color: '#64748b'
             }}>
-              Order #{editingOrder.id.split('_')[1] || editingOrder.id}
+              Order #{editingOrder.orderNumber || editingOrder.id.split('_')[1] || editingOrder.id}
             </span>
           </div>
           <button
@@ -1326,6 +1372,7 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
             value={formData.orderNumber}
             onChange={(e) => setFormData({ ...formData, orderNumber: e.target.value })}
             placeholder="#001"
+            disabled={isDisabled}
             style={{
               width: '100%',
               maxWidth: '300px',
@@ -1852,6 +1899,119 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                 }}
               >
                 💾 Save as draft
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '40px',
+            maxWidth: '500px',
+            width: '90%',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+            textAlign: 'center'
+          }}>
+            <div style={{
+              fontSize: '48px',
+              marginBottom: '16px'
+            }}>
+              ✅
+            </div>
+
+            <h3 style={{
+              margin: '0 0 12px 0',
+              fontSize: '24px',
+              fontWeight: '600',
+              color: '#10b981'
+            }}>
+              Order Submitted Successfully!
+            </h3>
+
+            <p style={{
+              fontSize: '16px',
+              color: '#4a5568',
+              margin: '0 0 32px 0',
+              lineHeight: '1.5'
+            }}>
+              What would you like to do next?
+            </p>
+
+            <div style={{
+              display: 'flex',
+              gap: '12px',
+              justifyContent: 'center'
+            }}>
+              <button
+                onClick={handleNewOrder}
+                style={{
+                  padding: '12px 24px',
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  color: 'white',
+                  backgroundColor: '#3b82f6',
+                  border: '2px solid #3b82f6',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#2563eb';
+                  e.currentTarget.style.borderColor = '#2563eb';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#3b82f6';
+                  e.currentTarget.style.borderColor = '#3b82f6';
+                }}
+              >
+                📝 New Order
+              </button>
+
+              <button
+                onClick={handleGoToOrderManagement}
+                style={{
+                  padding: '12px 24px',
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  color: 'white',
+                  backgroundColor: '#10b981',
+                  border: '2px solid #10b981',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#059669';
+                  e.currentTarget.style.borderColor = '#059669';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#10b981';
+                  e.currentTarget.style.borderColor = '#10b981';
+                }}
+              >
+                📚 Go to Order Management
               </button>
             </div>
           </div>

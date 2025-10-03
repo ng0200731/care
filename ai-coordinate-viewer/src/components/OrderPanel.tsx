@@ -13,6 +13,8 @@ type TabType = 'new' | 'history';
 
 interface OrderData {
   id: string;
+  orderNumber?: string; // Sequential number (001, 002, etc.)
+  userOrderNumber?: string; // User-entered order number field
   customerId: string;
   projectSlug: string;
   layoutId: string;
@@ -51,30 +53,34 @@ const OrderPanel: React.FC = () => {
       height: '100%',
       display: 'flex',
       flexDirection: 'column',
-      backgroundColor: '#f8f9fa'
+      backgroundColor: '#f8f9fa',
+      position: 'relative'
     }}>
-      {/* Header */}
+      {/* Fixed Header and Tabs Container */}
       <div style={{
-        padding: '20px 24px',
+        flexShrink: 0,
         backgroundColor: 'white',
         borderBottom: '2px solid #e2e8f0'
       }}>
-        <h2 style={{
-          margin: 0,
-          fontSize: '24px',
-          fontWeight: '600',
-          color: '#1a202c'
+        {/* Header */}
+        <div style={{
+          padding: '20px 24px',
+          borderBottom: '2px solid #e2e8f0'
         }}>
-          ORDER MANAGEMENT
-        </h2>
-      </div>
+          <h2 style={{
+            margin: 0,
+            fontSize: '24px',
+            fontWeight: '600',
+            color: '#1a202c'
+          }}>
+            ORDER MANAGEMENT
+          </h2>
+        </div>
 
-      {/* Tab Navigation - 2 BIG TABS */}
-      <div style={{
-        backgroundColor: 'white',
-        borderBottom: '2px solid #e2e8f0',
-        padding: '0 24px'
-      }}>
+        {/* Tab Navigation - 2 BIG TABS */}
+        <div style={{
+          padding: '0 24px'
+        }}>
         <div style={{
           display: 'flex',
           gap: '4px'
@@ -137,9 +143,10 @@ const OrderPanel: React.FC = () => {
             📚 ORDER HISTORY
           </button>
         </div>
+        </div>
       </div>
 
-      {/* Tab Content */}
+      {/* Tab Content - Scrollable Area */}
       <div style={{
         flex: 1,
         overflow: 'auto',
