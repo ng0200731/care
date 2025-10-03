@@ -1226,77 +1226,97 @@ const NewOrderTab: React.FC = () => {
 
                 {/* Component-specific inputs */}
                 {component.type === 'comp-trans' ? (
-                  // Composition Translation Inputs
-                  <div>
-                    <p style={{
-                      margin: '0 0 12px 0',
-                      fontSize: '13px',
-                      fontWeight: '600',
-                      color: '#4a5568'
+                  // Composition Translation Inputs - Match NewCompTransDialog layout exactly
+                  <div style={{
+                    padding: '12px',
+                    border: '1px solid #ddd',
+                    borderRadius: '8px',
+                    backgroundColor: '#f8f9fa'
+                  }}>
+                    {/* Header Row */}
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginBottom: '12px'
                     }}>
-                      Material Composition:
-                    </p>
+                      <div style={{
+                        fontSize: '12px',
+                        fontWeight: '600',
+                        color: '#333',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px'
+                      }}>
+                        <span>
+                          Material Composition: ({(componentVariables[component.id]?.data?.compositions || []).reduce((sum: number, c: any) => sum + (parseFloat(c.percentage) || 0), 0)}%)
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setIsVariableEnabled(!isVariableEnabled)}
+                          style={{
+                            padding: '4px 12px',
+                            fontSize: '11px',
+                            fontWeight: '500',
+                            border: `1px solid ${isVariableEnabled ? '#28a745' : '#6c757d'}`,
+                            borderRadius: '4px',
+                            backgroundColor: isVariableEnabled ? '#28a745' : '#6c757d',
+                            color: 'white',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          Variable: {isVariableEnabled ? 'ON' : 'OFF'}
+                        </button>
+                      </div>
+                      <button
+                        onClick={() => {
+                          const currentComps = componentVariables[component.id]?.data?.compositions || [];
+                          setComponentVariables({
+                            ...componentVariables,
+                            [component.id]: {
+                              type: 'comp-trans',
+                              data: { compositions: [...currentComps, { material: '', percentage: '' }] }
+                            }
+                          });
+                        }}
+                        disabled={!isVariableEnabled}
+                        style={{
+                          padding: '4px 8px',
+                          fontSize: '14px',
+                          fontWeight: 'bold',
+                          border: '1px solid #007bff',
+                          borderRadius: '4px',
+                          backgroundColor: isVariableEnabled ? '#007bff' : '#ccc',
+                          color: isVariableEnabled ? 'white' : '#666',
+                          cursor: isVariableEnabled ? 'pointer' : 'not-allowed'
+                        }}
+                      >
+                        +
+                      </button>
+                    </div>
+
+                    {/* Composition Rows */}
                     {(componentVariables[component.id]?.data?.compositions || [{ material: '', percentage: '' }]).map((comp: any, compIndex: number) => (
                       <div
                         key={compIndex}
                         style={{
                           display: 'grid',
-                          gridTemplateColumns: '2fr 1fr auto',
+                          gridTemplateColumns: '1fr 2fr auto',
                           gap: '12px',
-                          marginBottom: '12px',
+                          marginBottom: compIndex < (componentVariables[component.id]?.data?.compositions || []).length - 1 ? '12px' : '0',
                           alignItems: 'end'
                         }}
                       >
+                        {/* Percentage Input */}
                         <div>
                           <label style={{
                             display: 'block',
-                            fontSize: '12px',
-                            fontWeight: '500',
-                            color: '#64748b',
-                            marginBottom: '4px'
+                            marginBottom: '4px',
+                            fontSize: '11px',
+                            fontWeight: '500'
                           }}>
-                            Material {compIndex + 1}
-                          </label>
-                          <select
-                            value={comp.material}
-                            onChange={(e) => {
-                              const newCompositions = [...(componentVariables[component.id]?.data?.compositions || [])];
-                              newCompositions[compIndex] = { ...newCompositions[compIndex], material: e.target.value };
-                              setComponentVariables({
-                                ...componentVariables,
-                                [component.id]: {
-                                  type: 'comp-trans',
-                                  data: { compositions: newCompositions }
-                                }
-                              });
-                            }}
-                            disabled={!isVariableEnabled}
-                            style={{
-                              width: '100%',
-                              padding: '8px 12px',
-                              border: '2px solid #e2e8f0',
-                              borderRadius: '6px',
-                              fontSize: '14px',
-                              backgroundColor: isVariableEnabled ? 'white' : '#f7fafc',
-                              cursor: isVariableEnabled ? 'pointer' : 'not-allowed'
-                            }}
-                          >
-                            <option value="">Select material...</option>
-                            {materialOptions.map(mat => (
-                              <option key={mat} value={mat}>{mat}</option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div>
-                          <label style={{
-                            display: 'block',
-                            fontSize: '12px',
-                            fontWeight: '500',
-                            color: '#64748b',
-                            marginBottom: '4px'
-                          }}>
-                            Percentage %
+                            Percentage (%):
                           </label>
                           <input
                             type="number"
@@ -1318,16 +1338,56 @@ const NewOrderTab: React.FC = () => {
                             placeholder="100"
                             style={{
                               width: '100%',
-                              padding: '8px 12px',
-                              border: '2px solid #e2e8f0',
-                              borderRadius: '6px',
-                              fontSize: '14px',
-                              backgroundColor: isVariableEnabled ? 'white' : '#f7fafc',
-                              cursor: isVariableEnabled ? 'text' : 'not-allowed'
+                              padding: '8px',
+                              border: '1px solid #ddd',
+                              borderRadius: '4px',
+                              fontSize: '12px',
+                              backgroundColor: isVariableEnabled ? 'white' : '#f7fafc'
                             }}
                           />
                         </div>
 
+                        {/* Material Element */}
+                        <div>
+                          <label style={{
+                            display: 'block',
+                            marginBottom: '4px',
+                            fontSize: '11px',
+                            fontWeight: '500'
+                          }}>
+                            Material Element:
+                          </label>
+                          <select
+                            value={comp.material}
+                            onChange={(e) => {
+                              const newCompositions = [...(componentVariables[component.id]?.data?.compositions || [])];
+                              newCompositions[compIndex] = { ...newCompositions[compIndex], material: e.target.value };
+                              setComponentVariables({
+                                ...componentVariables,
+                                [component.id]: {
+                                  type: 'comp-trans',
+                                  data: { compositions: newCompositions }
+                                }
+                              });
+                            }}
+                            disabled={!isVariableEnabled}
+                            style={{
+                              width: '100%',
+                              padding: '8px',
+                              border: '1px solid #ddd',
+                              borderRadius: '4px',
+                              fontSize: '12px',
+                              backgroundColor: isVariableEnabled ? 'white' : '#f7fafc'
+                            }}
+                          >
+                            <option value="">Select material...</option>
+                            {materialOptions.map(mat => (
+                              <option key={mat} value={mat}>{mat}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Delete Button */}
                         <button
                           onClick={() => {
                             const newCompositions = (componentVariables[component.id]?.data?.compositions || []).filter((_: any, i: number) => i !== compIndex);
@@ -1346,8 +1406,8 @@ const NewOrderTab: React.FC = () => {
                             fontWeight: '500',
                             color: '#ef4444',
                             backgroundColor: 'white',
-                            border: '2px solid #ef4444',
-                            borderRadius: '6px',
+                            border: '1px solid #ef4444',
+                            borderRadius: '4px',
                             cursor: (isVariableEnabled && (componentVariables[component.id]?.data?.compositions || []).length > 1) ? 'pointer' : 'not-allowed',
                             opacity: (isVariableEnabled && (componentVariables[component.id]?.data?.compositions || []).length > 1) ? 1 : 0.4
                           }}
@@ -1356,42 +1416,6 @@ const NewOrderTab: React.FC = () => {
                         </button>
                       </div>
                     ))}
-
-                    <button
-                      onClick={() => {
-                        const newCompositions = [...(componentVariables[component.id]?.data?.compositions || []), { material: '', percentage: '' }];
-                        setComponentVariables({
-                          ...componentVariables,
-                          [component.id]: {
-                            type: 'comp-trans',
-                            data: { compositions: newCompositions }
-                          }
-                        });
-                      }}
-                      disabled={!isVariableEnabled}
-                      style={{
-                        padding: '8px 16px',
-                        fontSize: '14px',
-                        fontWeight: '500',
-                        color: isVariableEnabled ? '#3b82f6' : '#94a3b8',
-                        backgroundColor: 'transparent',
-                        border: `2px dashed ${isVariableEnabled ? '#3b82f6' : '#cbd5e0'}`,
-                        borderRadius: '6px',
-                        cursor: isVariableEnabled ? 'pointer' : 'not-allowed',
-                        marginTop: '8px',
-                        transition: 'all 0.2s'
-                      }}
-                      onMouseEnter={(e) => {
-                        if (isVariableEnabled) {
-                          e.currentTarget.style.backgroundColor = '#eff6ff';
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'transparent';
-                      }}
-                    >
-                      + Add Material
-                    </button>
                   </div>
                 ) : (
                   // Multi-line Text Input
