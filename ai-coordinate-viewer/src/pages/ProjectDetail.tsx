@@ -148,13 +148,11 @@ const ProjectDetail: React.FC = () => {
 
         console.log(`🔍 Checking variables for layout ${pageId}:`, layout?.name);
 
+        // Check 1: canvasData.objects[].regions[].contents[] (for comp-trans)
+        let hasVariablesInRegions = false;
         if (layout && layout.canvasData?.objects) {
-          // Check if any object's regions have variable-enabled components
-          // Only check parent mothers, skip child/copied mothers
-          const hasVariables = layout.canvasData.objects.some((obj: any) => {
+          hasVariablesInRegions = layout.canvasData.objects.some((obj: any) => {
             // Skip child mothers - they inherit from parent and can't have independent variables
-            // Child mothers typically have names ending with letters like "Mother_2A", "Mother_2B", etc.
-            // or have a "copiedFrom" or similar property
             const isChildMother = obj.type === 'mother' && (
               /Mother_\d+[A-Z]/.test(obj.name) || // Matches Mother_2A, Mother_2B, etc.
               obj.copiedFrom ||
@@ -173,7 +171,7 @@ const ProjectDetail: React.FC = () => {
                     const isMultiLineVariable = content.type === 'new-multi-line' && content.newMultiLineConfig?.isVariableEnabled;
 
                     if (isCompTransVariable || isMultiLineVariable) {
-                      console.log(`  ✅ Found variable component in ${region.id}:`, content.type, content);
+                      console.log(`  ✅ Found variable in region.contents (${region.id}):`, content.type);
                     }
 
                     return isCompTransVariable || isMultiLineVariable;
@@ -184,12 +182,51 @@ const ProjectDetail: React.FC = () => {
             }
             return false;
           });
-
-          console.log(`  📊 Result: ${hasVariables ? 'HAS VARIABLES' : 'NO VARIABLES'}`);
-          return hasVariables;
-        } else {
-          console.log(`  ⚠️ No canvasData or objects found`);
         }
+
+        // Check 2: layout.regionContents[regionId][] (for multi-line stored separately)
+        let hasVariablesInRegionContents = false;
+        if (layout && layout.regionContents) {
+          // Get all parent mother region IDs (skip child mothers)
+          const parentRegionIds: string[] = [];
+          if (layout.canvasData?.objects) {
+            layout.canvasData.objects.forEach((obj: any) => {
+              const isChildMother = obj.type === 'mother' && (
+                /Mother_\d+[A-Z]/.test(obj.name) ||
+                obj.copiedFrom ||
+                obj.isChild
+              );
+
+              if (!isChildMother && obj.regions) {
+                obj.regions.forEach((region: any) => {
+                  parentRegionIds.push(region.id);
+                });
+              }
+            });
+          }
+
+          // Check regionContents for these parent region IDs
+          hasVariablesInRegionContents = parentRegionIds.some(regionId => {
+            const contents = layout.regionContents[regionId];
+            if (contents && Array.isArray(contents)) {
+              return contents.some((content: any) => {
+                const isCompTransVariable = content.type === 'new-comp-trans' && content.newCompTransConfig?.isVariableEnabled;
+                const isMultiLineVariable = content.type === 'new-multi-line' && content.newMultiLineConfig?.isVariableEnabled;
+
+                if (isCompTransVariable || isMultiLineVariable) {
+                  console.log(`  ✅ Found variable in regionContents (${regionId}):`, content.type);
+                }
+
+                return isCompTransVariable || isMultiLineVariable;
+              });
+            }
+            return false;
+          });
+        }
+
+        const hasVariables = hasVariablesInRegions || hasVariablesInRegionContents;
+        console.log(`  📊 Result: ${hasVariables ? 'HAS VARIABLES' : 'NO VARIABLES'}`);
+        return hasVariables;
       }
     } catch (error) {
       console.error('Error checking layout variables:', error);

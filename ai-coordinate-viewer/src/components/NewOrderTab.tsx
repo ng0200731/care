@@ -121,18 +121,17 @@ const NewOrderTab: React.FC = () => {
           if (selectedLayout && selectedLayout.canvasData?.objects) {
             const components: VariableComponent[] = [];
 
-            // Scan all objects and their regions for variable-enabled components
-            // Only check parent mothers, skip child/copied mothers
+            // Extract 1: From canvasData.objects[].regions[].contents[]
             selectedLayout.canvasData.objects.forEach((obj: any, objIndex: number) => {
-              // Skip child mothers - they inherit from parent and can't have independent variables
+              // Skip child mothers
               const isChildMother = obj.type === 'mother' && (
-                /Mother_\d+[A-Z]/.test(obj.name) || // Matches Mother_2A, Mother_2B, etc.
+                /Mother_\d+[A-Z]/.test(obj.name) ||
                 obj.copiedFrom ||
                 obj.isChild
               );
 
               if (isChildMother) {
-                return; // Skip this object
+                return;
               }
 
               if (obj.regions && Array.isArray(obj.regions)) {
@@ -165,6 +164,55 @@ const NewOrderTab: React.FC = () => {
                 });
               }
             });
+
+            // Extract 2: From layout.regionContents[regionId][] (for multi-line stored separately)
+            if (selectedLayout.regionContents) {
+              // Get all parent mother region IDs
+              const parentRegionIds: string[] = [];
+              selectedLayout.canvasData.objects.forEach((obj: any) => {
+                const isChildMother = obj.type === 'mother' && (
+                  /Mother_\d+[A-Z]/.test(obj.name) ||
+                  obj.copiedFrom ||
+                  obj.isChild
+                );
+
+                if (!isChildMother && obj.regions) {
+                  obj.regions.forEach((region: any) => {
+                    parentRegionIds.push(region.id);
+                  });
+                }
+              });
+
+              // Extract from regionContents for parent regions
+              parentRegionIds.forEach(regionId => {
+                const contents = selectedLayout.regionContents[regionId];
+                if (contents && Array.isArray(contents)) {
+                  contents.forEach((content: any, contentIndex: number) => {
+                    // Check for New Comp Trans with variable enabled
+                    if (content.type === 'new-comp-trans' &&
+                        content.newCompTransConfig?.isVariableEnabled) {
+                      components.push({
+                        id: `${regionId}_regionContent_${contentIndex}`,
+                        type: 'comp-trans',
+                        name: `Composition Translation (${regionId})`,
+                        config: content.newCompTransConfig
+                      });
+                    }
+
+                    // Check for New Multi-Line with variable enabled
+                    if (content.type === 'new-multi-line' &&
+                        content.newMultiLineConfig?.isVariableEnabled) {
+                      components.push({
+                        id: `${regionId}_regionContent_${contentIndex}`,
+                        type: 'multi-line',
+                        name: `Multi-line Text (${regionId})`,
+                        config: content.newMultiLineConfig
+                      });
+                    }
+                  });
+                }
+              });
+            }
 
             setVariableComponents(components);
             console.log(`✅ Found ${components.length} variable-enabled components in layout:`, components);
@@ -278,19 +326,19 @@ const NewOrderTab: React.FC = () => {
         const parsedLayouts = JSON.parse(savedLayouts);
         const layout = parsedLayouts.find((l: any) => l.id === layoutId);
 
+        // Check 1: canvasData.objects[].regions[].contents[] (for comp-trans)
+        let hasVariablesInRegions = false;
         if (layout && layout.canvasData?.objects) {
-          // Check if any object's regions have variable-enabled components
-          // Only check parent mothers, skip child/copied mothers
-          return layout.canvasData.objects.some((obj: any) => {
-            // Skip child mothers - they inherit from parent and can't have independent variables
+          hasVariablesInRegions = layout.canvasData.objects.some((obj: any) => {
+            // Skip child mothers
             const isChildMother = obj.type === 'mother' && (
-              /Mother_\d+[A-Z]/.test(obj.name) || // Matches Mother_2A, Mother_2B, etc.
+              /Mother_\d+[A-Z]/.test(obj.name) ||
               obj.copiedFrom ||
               obj.isChild
             );
 
             if (isChildMother) {
-              return false; // Skip child mothers
+              return false;
             }
 
             if (obj.regions && Array.isArray(obj.regions)) {
@@ -307,6 +355,42 @@ const NewOrderTab: React.FC = () => {
             return false;
           });
         }
+
+        // Check 2: layout.regionContents[regionId][] (for multi-line stored separately)
+        let hasVariablesInRegionContents = false;
+        if (layout && layout.regionContents) {
+          // Get all parent mother region IDs
+          const parentRegionIds: string[] = [];
+          if (layout.canvasData?.objects) {
+            layout.canvasData.objects.forEach((obj: any) => {
+              const isChildMother = obj.type === 'mother' && (
+                /Mother_\d+[A-Z]/.test(obj.name) ||
+                obj.copiedFrom ||
+                obj.isChild
+              );
+
+              if (!isChildMother && obj.regions) {
+                obj.regions.forEach((region: any) => {
+                  parentRegionIds.push(region.id);
+                });
+              }
+            });
+          }
+
+          // Check regionContents for these parent region IDs
+          hasVariablesInRegionContents = parentRegionIds.some(regionId => {
+            const contents = layout.regionContents[regionId];
+            if (contents && Array.isArray(contents)) {
+              return contents.some((content: any) => {
+                return (content.type === 'new-comp-trans' && content.newCompTransConfig?.isVariableEnabled) ||
+                       (content.type === 'new-multi-line' && content.newMultiLineConfig?.isVariableEnabled);
+              });
+            }
+            return false;
+          });
+        }
+
+        return hasVariablesInRegions || hasVariablesInRegionContents;
       }
     } catch (error) {
       console.error('Error checking layout variables:', error);
