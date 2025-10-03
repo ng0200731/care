@@ -8376,12 +8376,39 @@ function App() {
           console.log('🎨 Applying order data to regionContents Map (FIRST mother only - overflow will handle rest)...');
 
           Object.entries(orderData.variableData).forEach(([componentId, componentData]: [string, any]) => {
-            const match = componentId.match(/^(.+)_content_(\d+)$/);
+            // Match both patterns: region_xxx_content_0 OR region_xxx_regionContent_0
+            const match = componentId.match(/^(.+)_(?:region)?[Cc]ontent_(\d+)$/);
             if (match) {
-              const regionId = match[1];
+              const regionIdBase = match[1];
               const contentIndex = parseInt(match[2], 10);
 
               console.log(`🔍 Processing componentId: ${componentId}`);
+
+              // Find the actual regionId - it might be the regionIdBase itself
+              let actualRegionId: string | null = null;
+
+              // Try exact match first
+              if (restoredContents.has(regionIdBase)) {
+                actualRegionId = regionIdBase;
+              } else {
+                // Search for a region that contains content at this index
+                for (const [rid, contents] of Array.from(restoredContents.entries())) {
+                  if (contents && contents[contentIndex]) {
+                    // Check if this region's ID contains the base
+                    if (rid.includes(regionIdBase.split('_').pop() || '')) {
+                      actualRegionId = rid;
+                      break;
+                    }
+                  }
+                }
+              }
+
+              if (!actualRegionId) {
+                console.warn(`⚠️ Could not find region for componentId: ${componentId}`);
+                return;
+              }
+
+              console.log(`  🔍 Mapped to region: ${actualRegionId}`);
 
               // Apply to ALL regions with comp-trans content (all language mothers)
               let originalSeparator = ' - '; // Default
@@ -8389,7 +8416,7 @@ function App() {
               let multiLanguageText = '';
 
               // First: Get data from the main mother's region
-              const mainRegionContentArray = restoredContents.get(regionId);
+              const mainRegionContentArray = restoredContents.get(actualRegionId);
               if (mainRegionContentArray && mainRegionContentArray[contentIndex]) {
                 const mainContent = mainRegionContentArray[contentIndex];
 
