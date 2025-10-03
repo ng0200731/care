@@ -4503,6 +4503,10 @@ function App() {
     if (autoGeneratePDF && data && regionContents && regionContents.size > 0) {
       console.log('🖨️ Auto-generating PDF for order preview...');
 
+      // Enable "Only Preview" mode for PDF generation
+      setOnlyPreview(true);
+      console.log('👁️ Enabled "Only Preview" mode for PDF');
+
       // Wait for overflow and rendering to complete (10 seconds)
       const timer = setTimeout(async () => {
         console.log('🎨 Canvas rendered - generating PDF with Print as PDF method...');
@@ -11425,8 +11429,8 @@ function App() {
         pdf.setLineDashPattern([], 0); // Solid line
         pdf.rect(motherX, motherY, mother.width, mother.height);
 
-        // Draw sewing position lines if sewing lines are enabled
-        if (showSewingLines) {
+        // Draw sewing position lines if sewing lines are enabled (and not in only preview mode)
+        if (showSewingLines && !onlyPreview) {
           const objectSewingPosition = (mother as any).sewingPosition || 'top';
           const objectSewingOffset = (mother as any).sewingOffset || 5;
           const objectMidFoldLine = (mother as any).midFoldLine;
@@ -11480,9 +11484,9 @@ function App() {
           }
         }
 
-        // Draw mother margin lines (black dotted) if they exist and supporting lines are enabled
+        // Draw mother margin lines (black dotted) if they exist and supporting lines are enabled (and not in only preview mode)
         const motherMargins = (mother as any).margins;
-        if (motherMargins && showSupportingLines) {
+        if (motherMargins && showSupportingLines && !onlyPreview) {
           pdf.setDrawColor(0, 0, 0); // Black for all lines
           pdf.setLineWidth(0.2); // Fine style - very thin lines
 
@@ -11510,9 +11514,9 @@ function App() {
           pdf.setLineDashPattern([], 0); // Reset to solid line
         }
 
-        // Draw mid fold lines if they exist and sewing lines are enabled
+        // Draw mid fold lines if they exist and sewing lines are enabled (and not in only preview mode)
         const midFoldLine = (mother as any).midFoldLine;
-        if (midFoldLine && midFoldLine.enabled && showSewingLines) {
+        if (midFoldLine && midFoldLine.enabled && showSewingLines && !onlyPreview) {
           // Use the properly offset motherX and motherY coordinates
           const padding = midFoldLine.padding || 3;
 
@@ -11535,8 +11539,8 @@ function App() {
             pdf.setLineDashPattern([1, 1], 0.1); // Fine style with unique offset
             pdf.line(motherX, motherY + midFoldY, motherX + mother.width, motherY + midFoldY);
 
-            // Draw fold padding margin lines (dotted, no fill) only if supporting lines are enabled
-            if (showSupportingLines) {
+            // Draw fold padding margin lines (dotted, no fill) only if supporting lines are enabled (and not in only preview mode)
+            if (showSupportingLines && !onlyPreview) {
               pdf.setDrawColor(0, 0, 0); // Black for all lines
               pdf.setLineWidth(0.2); // Fine style - very thin lines
 
@@ -11575,8 +11579,8 @@ function App() {
             pdf.setLineDashPattern([1, 1], 0.2); // Fine style with unique offset
             pdf.line(motherX + midFoldX, motherY, motherX + midFoldX, motherY + mother.height);
 
-            // Draw fold padding margin lines (dotted, no fill) only if supporting lines are enabled
-            if (showSupportingLines) {
+            // Draw fold padding margin lines (dotted, no fill) only if supporting lines are enabled (and not in only preview mode)
+            if (showSupportingLines && !onlyPreview) {
               pdf.setDrawColor(0, 0, 0); // Black for all lines
               pdf.setLineWidth(0.2); // Fine style - very thin lines
 
@@ -11634,8 +11638,8 @@ function App() {
           const hasSlices = region.children && region.children.length > 0;
 
           if (hasSlices) {
-            // Draw parent region lines only if region borders are enabled
-            if (showRegionBorders) {
+            // Draw parent region lines only if region borders are enabled (and not in only preview mode)
+            if (showRegionBorders && !onlyPreview) {
               // Solid black region borders when region borders are enabled
               pdf.setDrawColor(0, 0, 0); // Black for parent
               pdf.setLineWidth(0.3); // Standard thickness
@@ -11646,8 +11650,8 @@ function App() {
             // NOTE: Region margin lines removed to match canvas behavior
             // Canvas doesn't show region margin lines, so PDF shouldn't either
 
-            // Add parent region label - top-left, bold (only if partition names are enabled)
-            if (showPartitionNames) {
+            // Add parent region label - top-left, bold (only if partition names are enabled and not in only preview mode)
+            if (showPartitionNames && !onlyPreview) {
               pdf.setFontSize(8);
               pdf.setFont('helvetica', 'bold'); // Bold font for region labels
               pdf.setTextColor(0, 0, 0); // Black text
@@ -11663,16 +11667,16 @@ function App() {
               const childX = regionX + relativeX;
               const childY = regionY + relativeY;
 
-              // Draw slice outline only if region borders are enabled
-              if (showRegionBorders) {
+              // Draw slice outline only if region borders are enabled (and not in only preview mode)
+              if (showRegionBorders && !onlyPreview) {
                 pdf.setDrawColor(0, 0, 0); // Black for slices
                 pdf.setLineWidth(0.3); // Standard thickness
                 pdf.rect(childX, childY, childRegion.width, childRegion.height);
               }
 
-              // Draw slice supporting lines (black dotted) if supporting lines are enabled
+              // Draw slice supporting lines (black dotted) if supporting lines are enabled (and not in only preview mode)
               // Use different offset to prevent overlap with parent region lines
-              if (showSupportingLines) {
+              if (showSupportingLines && !onlyPreview) {
                 pdf.setDrawColor(0, 0, 0); // Black for all lines
                 pdf.setLineWidth(0.2); // Fine style - very thin lines
                 pdf.setLineDashPattern([1, 1], 0.25); // Fine style with different offset
@@ -11683,8 +11687,8 @@ function App() {
               // NOTE: Child region margin lines removed to match canvas behavior
               // Canvas doesn't show region margin lines, so PDF shouldn't either
 
-              // Add slice label - top-right, regular font (only if partition names are enabled)
-              if (showPartitionNames) {
+              // Add slice label - top-right, regular font (only if partition names are enabled and not in only preview mode)
+              if (showPartitionNames && !onlyPreview) {
                 pdf.setFontSize(8);
                 pdf.setFont('helvetica', 'normal'); // Regular font for slice labels
                 pdf.setTextColor(0, 0, 0); // Black text
@@ -12320,8 +12324,8 @@ function App() {
               }
             });
           } else {
-            // Draw regular region lines only if region borders are enabled
-            if (showRegionBorders) {
+            // Draw regular region lines only if region borders are enabled (and not in only preview mode)
+            if (showRegionBorders && !onlyPreview) {
               // Solid black region borders when region borders are enabled
               pdf.setDrawColor(0, 0, 0); // Black for regions
               pdf.setLineWidth(0.3); // Standard thickness
@@ -12332,8 +12336,8 @@ function App() {
             // NOTE: Regular region margin lines removed to match canvas behavior
             // Canvas doesn't show region margin lines, so PDF shouldn't either
 
-            // Add region label - top-left, bold (only if partition names are enabled)
-            if (showPartitionNames) {
+            // Add region label - top-left, bold (only if partition names are enabled and not in only preview mode)
+            if (showPartitionNames && !onlyPreview) {
               pdf.setFontSize(8);
               pdf.setFont('helvetica', 'bold'); // Bold font for region labels
               pdf.setTextColor(0, 0, 0); // Black text

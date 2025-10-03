@@ -435,6 +435,8 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
       const messageHandler = (event: MessageEvent) => {
         if (event.data.type === 'PDF_GENERATED') {
           console.log('✅ PDF generated successfully from iframe');
+          console.log(`📄 File: ${event.data.fileName}`);
+          console.log(`📋 Order: ${order.orderNumber || order.id}`);
 
           // Clear timeout
           clearTimeout(timeout);
@@ -444,8 +446,7 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
           document.body.removeChild(iframe);
           setIsGeneratingPDF(false);
 
-          // Show success message
-          alert(`✅ PDF generated successfully!\n\nFile: ${event.data.fileName}\nOrder: ${order.orderNumber || order.id}`);
+          // No alert - PDF downloads silently
 
         } else if (event.data.type === 'PDF_ERROR') {
           console.error('❌ PDF generation error from iframe:', event.data.error);
