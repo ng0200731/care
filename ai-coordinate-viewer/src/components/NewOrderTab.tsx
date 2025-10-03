@@ -1243,31 +1243,9 @@ const NewOrderTab: React.FC = () => {
                       <div style={{
                         fontSize: '12px',
                         fontWeight: '600',
-                        color: '#333',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '12px'
+                        color: '#333'
                       }}>
-                        <span>
-                          Material Composition: ({(componentVariables[component.id]?.data?.compositions || []).reduce((sum: number, c: any) => sum + (parseFloat(c.percentage) || 0), 0)}%)
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setIsVariableEnabled(!isVariableEnabled)}
-                          style={{
-                            padding: '4px 12px',
-                            fontSize: '11px',
-                            fontWeight: '500',
-                            border: `1px solid ${isVariableEnabled ? '#28a745' : '#6c757d'}`,
-                            borderRadius: '4px',
-                            backgroundColor: isVariableEnabled ? '#28a745' : '#6c757d',
-                            color: 'white',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s'
-                          }}
-                        >
-                          Variable: {isVariableEnabled ? 'ON' : 'OFF'}
-                        </button>
+                        Material Composition: ({(componentVariables[component.id]?.data?.compositions || []).reduce((sum: number, c: any) => sum + (parseFloat(c.percentage) || 0), 0)}%)
                       </div>
                       <button
                         onClick={() => {
@@ -1280,16 +1258,15 @@ const NewOrderTab: React.FC = () => {
                             }
                           });
                         }}
-                        disabled={!isVariableEnabled}
                         style={{
                           padding: '4px 8px',
                           fontSize: '14px',
                           fontWeight: 'bold',
                           border: '1px solid #007bff',
                           borderRadius: '4px',
-                          backgroundColor: isVariableEnabled ? '#007bff' : '#ccc',
-                          color: isVariableEnabled ? 'white' : '#666',
-                          cursor: isVariableEnabled ? 'pointer' : 'not-allowed'
+                          backgroundColor: '#007bff',
+                          color: 'white',
+                          cursor: 'pointer'
                         }}
                       >
                         +
@@ -1334,7 +1311,6 @@ const NewOrderTab: React.FC = () => {
                                 }
                               });
                             }}
-                            disabled={!isVariableEnabled}
                             placeholder="100"
                             style={{
                               width: '100%',
@@ -1342,7 +1318,7 @@ const NewOrderTab: React.FC = () => {
                               border: '1px solid #ddd',
                               borderRadius: '4px',
                               fontSize: '12px',
-                              backgroundColor: isVariableEnabled ? 'white' : '#f7fafc'
+                              backgroundColor: 'white'
                             }}
                           />
                         </div>
@@ -1370,14 +1346,13 @@ const NewOrderTab: React.FC = () => {
                                 }
                               });
                             }}
-                            disabled={!isVariableEnabled}
                             style={{
                               width: '100%',
                               padding: '8px',
                               border: '1px solid #ddd',
                               borderRadius: '4px',
                               fontSize: '12px',
-                              backgroundColor: isVariableEnabled ? 'white' : '#f7fafc'
+                              backgroundColor: 'white'
                             }}
                           >
                             <option value="">Select material...</option>
@@ -1399,7 +1374,7 @@ const NewOrderTab: React.FC = () => {
                               }
                             });
                           }}
-                          disabled={!isVariableEnabled || (componentVariables[component.id]?.data?.compositions || []).length <= 1}
+                          disabled={(componentVariables[component.id]?.data?.compositions || []).length <= 1}
                           style={{
                             padding: '8px 12px',
                             fontSize: '14px',
@@ -1408,8 +1383,8 @@ const NewOrderTab: React.FC = () => {
                             backgroundColor: 'white',
                             border: '1px solid #ef4444',
                             borderRadius: '4px',
-                            cursor: (isVariableEnabled && (componentVariables[component.id]?.data?.compositions || []).length > 1) ? 'pointer' : 'not-allowed',
-                            opacity: (isVariableEnabled && (componentVariables[component.id]?.data?.compositions || []).length > 1) ? 1 : 0.4
+                            cursor: (componentVariables[component.id]?.data?.compositions || []).length > 1 ? 'pointer' : 'not-allowed',
+                            opacity: (componentVariables[component.id]?.data?.compositions || []).length > 1 ? 1 : 0.4
                           }}
                         >
                           🗑️
