@@ -4495,6 +4495,28 @@ function App() {
     }
   }, [webCreationData]);
 
+  // Auto-generate PDF for order preview mode (hidden iframe)
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    const autoGeneratePDF = urlParams.get('autoGeneratePDF') === 'true';
+
+    if (autoGeneratePDF && data && regionContents && regionContents.size > 0) {
+      console.log('🖨️ Auto-generating PDF for order preview...');
+
+      // Wait for overflow and rendering to complete (5 seconds)
+      const timer = setTimeout(async () => {
+        console.log('🎨 Canvas rendered - generating PDF with Print as PDF method...');
+
+        // Call the same function as "Print as PDF" button
+        // (postMessage will be sent from inside generatePDFAllMothers after PDF saves)
+        await generatePDFAllMothers();
+
+      }, 5000); // Wait 5 seconds for overflow to complete
+
+      return () => clearTimeout(timer);
+    }
+  }, [data, regionContents, location.search]);
+
   // Removed space allocation dialog - now handled directly in son regions
 
   // Canvas control functions
@@ -8204,6 +8226,133 @@ function App() {
     return lines.join('\n\n');
   };
 
+  // Generate PDF for order preview (auto-download without showing canvas)
+  const generateOrderPreviewPDF = async (layoutData: any, orderVariableData: any, orderNumber: string) => {
+    try {
+      console.log('🖨️ Generating Order Preview PDF...', { orderNumber });
+
+      // Apply order variable data to layout
+      const updatedLayout = applyOrderDataToLayoutData(layoutData, orderVariableData);
+
+      if (!updatedLayout || !updatedLayout.objects) {
+        throw new Error('Invalid layout data');
+      }
+
+      const mothers = updatedLayout.objects.filter((obj: any) => obj.type?.includes('mother'));
+      if (mothers.length === 0) {
+        throw new Error('No mothers found in layout');
+      }
+
+      // Calculate PDF dimensions
+      let maxWidth = 0;
+      let totalHeight = 0;
+
+      mothers.forEach((mother: any) => {
+        maxWidth = Math.max(maxWidth, mother.x + mother.width);
+        totalHeight = Math.max(totalHeight, mother.y + mother.height);
+      });
+
+      const margin = 20;
+      const headerSpace = 40;
+      const totalWidthMM = maxWidth + margin;
+      const totalHeightMM = totalHeight + margin + headerSpace;
+
+      // Find best paper size
+      const basePaperSizes = [
+        { name: 'A4', width: 210, height: 297 },
+        { name: 'A3', width: 297, height: 420 },
+        { name: 'A2', width: 420, height: 594 },
+        { name: 'A1', width: 594, height: 841 }
+      ];
+
+      let bestFit: any = null;
+      let bestUtilization = 0;
+
+      basePaperSizes.forEach(size => {
+        ['portrait', 'landscape'].forEach(orientation => {
+          const paperWidth = orientation === 'portrait' ? size.width : size.height;
+          const paperHeight = orientation === 'portrait' ? size.height : size.width;
+
+          if (totalWidthMM <= paperWidth && totalHeightMM <= paperHeight) {
+            const utilization = (totalWidthMM * totalHeightMM) / (paperWidth * paperHeight);
+            if (utilization > bestUtilization) {
+              bestUtilization = utilization;
+              bestFit = { name: size.name, width: paperWidth, height: paperHeight, orientation };
+            }
+          }
+        });
+      });
+
+      if (!bestFit) {
+        bestFit = { name: 'A1', width: 841, height: 594, orientation: 'landscape' };
+      }
+
+      // Create PDF
+      const pdf = new jsPDF({
+        orientation: bestFit.orientation,
+        unit: 'mm',
+        format: [bestFit.width, bestFit.height]
+      });
+
+      // Render header
+      pdf.setFont('helvetica');
+      pdf.setFontSize(14);
+      pdf.text(`Order Preview: ${orderNumber}`, 10, 15);
+      pdf.setFontSize(10);
+      pdf.text(`Generated: ${new Date().toLocaleString()}`, 10, 22);
+
+      // Render all mothers and their content
+      mothers.forEach((mother: any) => {
+        const motherX = mother.x + margin / 2;
+        const motherY = mother.y + margin / 2 + headerSpace;
+
+        // Draw mother outline
+        pdf.setDrawColor(0, 0, 0);
+        pdf.setLineWidth(0.5);
+        pdf.rect(motherX, motherY, mother.width, mother.height);
+
+        // Draw regions and content
+        if (mother.regions) {
+          mother.regions.forEach((region: any) => {
+            const regionX = motherX + region.x;
+            const regionY = motherY + region.y;
+
+            // Draw region
+            pdf.setDrawColor(100, 100, 255);
+            pdf.setLineWidth(0.2);
+            pdf.rect(regionX, regionY, region.width, region.height);
+
+            // Render content text
+            if (region.contents) {
+              region.contents.forEach((content: any) => {
+                if (content.type === 'new-comp-trans' || content.type === 'new-multi-line') {
+                  const textContent = content.content?.text || '';
+                  if (textContent) {
+                    pdf.setFontSize(6);
+                    pdf.setTextColor(0, 0, 0);
+                    const lines = pdf.splitTextToSize(textContent, region.width - 2);
+                    pdf.text(lines, regionX + 1, regionY + 3);
+                  }
+                }
+              });
+            }
+          });
+        }
+      });
+
+      // Save PDF
+      const fileName = `Order_${orderNumber}_Preview_${new Date().toISOString().slice(0, 10)}.pdf`;
+      pdf.save(fileName);
+
+      console.log('✅ Order Preview PDF generated:', fileName);
+      return { success: true, fileName };
+
+    } catch (error) {
+      console.error('❌ Error generating order preview PDF:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  };
+
   // Apply order variable data to layout data (pure function - no state updates)
   const applyOrderDataToLayoutData = (layoutData: any, variableData: any) => {
     console.log('🎨 Applying order variable data to layout...', variableData);
@@ -10794,11 +10943,16 @@ function App() {
       return;
     }
 
-    // Simple confirmation dialog
-    const confirmed = window.confirm(`🖨️ Generate PDF with layout and content information?\n\n📊 Mothers: ${mothers.length}\n📋 Mode: ${isProjectMode ? 'Project Mode' : 'Master File Mode'}\n\n📄 PDF will include:\n• Mother outlines and margins\n• Regions and slices\n• Content types\n• Mid fold lines and padding\n\nContinue?`);
+    // Simple confirmation dialog (skip in order preview mode)
+    const urlParams = new URLSearchParams(window.location.search);
+    const isOrderPreview = urlParams.get('autoGeneratePDF') === 'true';
 
-    if (!confirmed) {
-      return;
+    if (!isOrderPreview) {
+      const confirmed = window.confirm(`🖨️ Generate PDF with layout and content information?\n\n📊 Mothers: ${mothers.length}\n📋 Mode: ${isProjectMode ? 'Project Mode' : 'Master File Mode'}\n\n📄 PDF will include:\n• Mother outlines and margins\n• Regions and slices\n• Content types\n• Mid fold lines and padding\n\nContinue?`);
+
+      if (!confirmed) {
+        return;
+      }
     }
 
     console.log('🖨️ Generating PDF for all mothers:', mothers.length);
@@ -12620,7 +12774,7 @@ function App() {
       });
 
       // Save the PDF
-      const filePrefix = isProjectMode ? 'Project_Everything' : 'AllMothers';
+      const filePrefix = isOrderPreview ? 'Order_Preview' : (isProjectMode ? 'Project_Everything' : 'AllMothers');
       const fileName = `${filePrefix}_${paperSize}_${new Date().toISOString().slice(0, 10)}.pdf`;
       pdf.save(fileName);
 
@@ -12635,17 +12789,40 @@ function App() {
       // Export all debug logs for easy copying
       exportAllLogs();
 
-      const notificationText = isProjectMode
-        ? `✅ Generated PDF with everything on canvas (${mothers.length} mothers) on ${paperSize}`
-        : `✅ Generated single PDF with ${mothers.length} mothers on ${paperSize}`;
-      setNotification(notificationText);
-      setTimeout(() => setNotification(null), 3000);
+      if (isOrderPreview) {
+        // Send success message to parent window
+        console.log('📤 Sending PDF_GENERATED message to parent window');
+        window.parent.postMessage({
+          type: 'PDF_GENERATED',
+          fileName: fileName
+        }, '*');
+      } else {
+        // Show notification for manual PDF generation
+        const notificationText = isProjectMode
+          ? `✅ Generated PDF with everything on canvas (${mothers.length} mothers) on ${paperSize}`
+          : `✅ Generated single PDF with ${mothers.length} mothers on ${paperSize}`;
+        setNotification(notificationText);
+        setTimeout(() => setNotification(null), 3000);
+      }
 
     } catch (error) {
       logExport('❌ Error generating PDF:', { error: error instanceof Error ? error.message : String(error) });
       exportAllLogs();
       console.error('❌ Error generating PDF:', error);
-      alert('❌ Error generating PDF. Please try again.');
+
+      // Check if this is order preview mode
+      const urlParams = new URLSearchParams(window.location.search);
+      const isOrderPreview = urlParams.get('autoGeneratePDF') === 'true';
+
+      if (isOrderPreview) {
+        // Send error message to parent window
+        window.parent.postMessage({
+          type: 'PDF_ERROR',
+          error: error instanceof Error ? error.message : 'Unknown error'
+        }, '*');
+      } else {
+        alert('❌ Error generating PDF. Please try again.');
+      }
     }
   };
 

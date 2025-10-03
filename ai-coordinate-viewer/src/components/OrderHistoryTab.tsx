@@ -10,6 +10,116 @@ import { useOrderVariable } from '../contexts/OrderVariableContext';
 import { useNavigate } from 'react-router-dom';
 import jsPDF from 'jspdf';
 
+// Material translations for 18 languages (ES, FR, EN, PT, DU, IT, GR, JA, DE, DA, SL, CH, KO, ID, AR, GA, CA, BS)
+const materialTranslations: { [key: string]: string[] } = {
+  'Cotton': ['algodón', 'coton', 'cotton', 'algodão', 'katoen', 'cotone', 'ΒΑΜΒΑΚΙ', 'コットン', 'baumwolle', 'bomuld', 'bombaž', '棉', '면', 'katun', 'قطن', 'algodón', 'cotó', 'kotoia'],
+  'Polyester': ['poliéster', 'polyester', 'polyester', 'poliéster', 'polyester', 'poliestere', 'ΠΟΛΥΕΣΤΕΡΑΣ', 'ポリエステル', 'polyester', 'polyester', 'poliester', '聚酯纤维', '폴리에스터', 'poliester', 'بوليستير', 'poliéster', 'polièster', 'poliesterra'],
+  'Elastane': ['elastano', 'élasthanne', 'elastane', 'elastano', 'elastaan', 'elastan', 'ΕΛΑΣΤΑΝΗ', 'エラスタン', 'elastan', 'elastan', 'elastan', '氨纶', '엘라스탄', 'elastan', 'إيلاستان', 'elastano', 'elastà', 'elastanoa'],
+  'Viscose': ['viscosa', 'viscose', 'viscose', 'viscose', 'viscose', 'viscosa', 'ΒΙΣΚΟΖΗ', 'ビスコース', 'viskose', 'viskose', 'viskoza', '粘胶纤维', '비스코스', 'viskosa', 'فيسكوز', 'viscosa', 'viscosa', 'biskosea'],
+  'Wool': ['lana', 'laine', 'wool', 'lã', 'wol', 'lana', 'ΜΑΛΛΙ', 'ウール', 'wolle', 'uld', 'volna', '羊毛', '울', 'wol', 'صوف', 'la', 'llana', 'artilea'],
+  'Nylon': ['nailon', 'nylon', 'nylon', 'nylon', 'nylon', 'nailon', 'ΝΑΪΛΟΝ', 'ナイロン', 'nylon', 'nylon', 'najlon', '锦纶', '나일론', 'nilon', 'نايلون', 'nailon', 'niló', 'nylona'],
+};
+
+// Generate multi-language text from composition data
+const generateMultiLanguageComposition = (compositions: any[], separator: string = ' - ') => {
+  const lines: string[] = [];
+
+  compositions.forEach((comp: any) => {
+    if (comp.material && comp.percentage) {
+      // Get translations for this material (case-insensitive lookup)
+      const materialKey = Object.keys(materialTranslations).find(
+        key => key.toLowerCase() === comp.material.toLowerCase()
+      );
+
+      const translations = materialKey ? materialTranslations[materialKey] : null;
+
+      if (translations && translations.length === 18) {
+        // Join all 18 languages with separator
+        const multiLangText = translations.join(separator);
+        // Ensure percentage is a number
+        const percentage = typeof comp.percentage === 'string' ? parseInt(comp.percentage, 10) : comp.percentage;
+        const line = `${percentage}% ${multiLangText}`;
+        lines.push(line);
+      } else {
+        // Fallback: use original material name if no translation found
+        const percentage = typeof comp.percentage === 'string' ? parseInt(comp.percentage, 10) : comp.percentage;
+        const line = `${percentage}% ${comp.material}`;
+        lines.push(line);
+      }
+    }
+  });
+
+  return lines.join('\n\n');
+};
+
+// Apply order variable data to layout
+const applyOrderDataToLayout = (layoutData: any, variableData: any) => {
+  console.log('🎨 Applying order variable data to layout...');
+
+  // Deep copy
+  const updatedLayout = JSON.parse(JSON.stringify(layoutData));
+
+  // Apply variable data to each component
+  Object.entries(variableData).forEach(([componentId, componentData]: [string, any]) => {
+    const match = componentId.match(/^(.+)_(?:region)?[Cc]ontent_(\d+)$/);
+    if (!match) return;
+
+    const regionId = match[1];
+    const contentIndex = parseInt(match[2], 10);
+
+    // Find the mother and region
+    for (const obj of updatedLayout.objects) {
+      if (obj.type?.includes('mother')) {
+        const regions = obj.regions || [];
+        const targetRegion = regions.find((r: any) => r.id === regionId);
+
+        if (targetRegion) {
+          const contents = targetRegion.contents || [];
+          const targetContent = contents[contentIndex];
+
+          if (targetContent) {
+            if (componentData.type === 'multi-line' && targetContent.type === 'new-multi-line') {
+              targetContent.content = targetContent.content || {};
+              targetContent.content.text = componentData.data.textContent;
+              targetContent.newMultiLineConfig = targetContent.newMultiLineConfig || {};
+              targetContent.newMultiLineConfig.textContent = componentData.data.textContent;
+
+            } else if (componentData.type === 'comp-trans' && targetContent.type === 'new-comp-trans') {
+              const compositions = componentData.data.compositions || [];
+
+              // Normalize percentages
+              const normalizedCompositions = compositions.map((comp: any) => ({
+                ...comp,
+                percentage: typeof comp.percentage === 'string' ? parseInt(comp.percentage, 10) : comp.percentage
+              }));
+
+              // Get original separator
+              const originalSeparator = targetContent.newCompTransConfig?.textContent?.separator || ' - ';
+
+              // Generate 18-language text
+              const multiLanguageText = generateMultiLanguageComposition(normalizedCompositions, originalSeparator);
+
+              // Update config
+              targetContent.newCompTransConfig = targetContent.newCompTransConfig || {};
+              targetContent.newCompTransConfig.materialCompositions = normalizedCompositions;
+              targetContent.newCompTransConfig.selectedLanguages = ['ES', 'FR', 'EN', 'PT', 'DU', 'IT', 'GR', 'JA', 'DE', 'DA', 'SL', 'CH', 'KO', 'ID', 'AR', 'GA', 'CA', 'BS'];
+              targetContent.newCompTransConfig.textContent = targetContent.newCompTransConfig.textContent || {};
+              targetContent.newCompTransConfig.textContent.separator = originalSeparator;
+              targetContent.newCompTransConfig.textContent.generatedText = multiLanguageText;
+              targetContent.newCompTransConfig.textContent.originalText = multiLanguageText;
+              targetContent.content = targetContent.content || {};
+              targetContent.content.text = multiLanguageText;
+            }
+          }
+          break;
+        }
+      }
+    }
+  });
+
+  return updatedLayout;
+};
+
 type OrderStatus = 'all' | 'draft' | 'complete' | 'send' | 'confirmed' | 'in_production' | 'completed';
 
 interface Order {
@@ -40,6 +150,7 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewImage, setPreviewImage] = useState<string>('');
   const [previewOrder, setPreviewOrder] = useState<Order | null>(null);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   // Load orders from localStorage
   const loadOrders = () => {
@@ -262,31 +373,36 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
     return updatedLayout;
   };
 
-  // Preview artwork - save order data to sessionStorage and navigate to canvas
+  // Preview artwork - Generate PDF using hidden iframe (same quality as "Print as PDF")
   const order2preview = async (order: Order) => {
     try {
-      console.log('🎨 Generating preview for order:', order);
+      console.log('🖨️ Generating PDF preview for order:', order);
 
-      // Load layout from localStorage to get master file info
+      // Show loading modal
+      setIsGeneratingPDF(true);
+
+      // Load layout from localStorage
       const storageKey = `project_${order.projectSlug}_layouts`;
       const savedLayouts = localStorage.getItem(storageKey);
 
       if (!savedLayouts) {
-        alert('Layout not found for this order');
+        setIsGeneratingPDF(false);
+        alert('❌ Layout not found for this order');
         return;
       }
 
       const parsedLayouts = JSON.parse(savedLayouts);
       const layout = parsedLayouts.find((l: any) => l.id === order.layoutId);
 
-      if (!layout) {
-        alert('Layout not found');
+      if (!layout || !layout.canvasData) {
+        setIsGeneratingPDF(false);
+        alert('❌ Layout data not found');
         return;
       }
 
       console.log('✅ Loaded layout:', layout.name);
 
-      // Save order variable data to sessionStorage for App.tsx to access
+      // Save order data to sessionStorage for canvas to access
       sessionStorage.setItem('__order_preview_data__', JSON.stringify({
         orderId: order.id,
         orderNumber: order.orderNumber,
@@ -295,21 +411,74 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
         layoutId: order.layoutId
       }));
 
-      console.log('💾 Saved order data to sessionStorage for preview');
-      console.log('🎯 Navigating to canvas for preview...');
+      console.log('💾 Saved order data to sessionStorage');
 
-      // Navigate to canvas page with orderPreview=true flag
-      // App.tsx will detect this and apply the order data after layout loads
+      // Create hidden iframe to render canvas and generate PDF
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.top = '-9999px';
+      iframe.style.left = '-9999px';
+      iframe.style.width = '1920px';
+      iframe.style.height = '1080px';
+      iframe.style.border = 'none';
+      iframe.style.opacity = '0';
+      iframe.style.pointerEvents = 'none';
+
+      // Build canvas URL with auto-generate PDF flag
       const masterFileId = layout.canvasData?.masterFileId || '';
       const projectName = order.projectSlug;
+      const canvasUrl = `/create_zero?context=projects&projectSlug=${order.projectSlug}&masterFileId=${masterFileId}&projectName=${encodeURIComponent(projectName)}&layoutId=${order.layoutId}&orderPreview=true&autoGeneratePDF=true`;
 
-      navigate(
-        `/create_zero?context=projects&projectSlug=${order.projectSlug}&masterFileId=${masterFileId}&projectName=${encodeURIComponent(projectName)}&layoutId=${order.layoutId}&orderPreview=true`
-      );
+      console.log('📍 Loading canvas in hidden iframe:', canvasUrl);
+
+      // Listen for PDF generation completion message from iframe
+      const messageHandler = (event: MessageEvent) => {
+        if (event.data.type === 'PDF_GENERATED') {
+          console.log('✅ PDF generated successfully from iframe');
+
+          // Clean up
+          window.removeEventListener('message', messageHandler);
+          document.body.removeChild(iframe);
+          setIsGeneratingPDF(false);
+
+          // Show success message
+          alert(`✅ PDF generated successfully!\n\nFile: ${event.data.fileName}\nOrder: ${order.orderNumber || order.id}`);
+
+        } else if (event.data.type === 'PDF_ERROR') {
+          console.error('❌ PDF generation error from iframe:', event.data.error);
+
+          // Clean up
+          window.removeEventListener('message', messageHandler);
+          document.body.removeChild(iframe);
+          setIsGeneratingPDF(false);
+
+          alert(`❌ Error generating PDF: ${event.data.error}`);
+        }
+      };
+
+      window.addEventListener('message', messageHandler);
+
+      // Set timeout in case iframe fails to load
+      const timeout = setTimeout(() => {
+        console.error('❌ PDF generation timeout');
+        window.removeEventListener('message', messageHandler);
+        if (document.body.contains(iframe)) {
+          document.body.removeChild(iframe);
+        }
+        setIsGeneratingPDF(false);
+        alert('❌ PDF generation timeout. Please try again.');
+      }, 30000); // 30 second timeout
+
+      // Load canvas in iframe
+      iframe.src = canvasUrl;
+      document.body.appendChild(iframe);
+
+      console.log('⏳ Waiting for canvas to render and generate PDF...');
 
     } catch (error) {
-      console.error('❌ Error generating preview:', error);
-      alert('Error generating preview. Please try again.');
+      console.error('❌ Error generating PDF:', error);
+      setIsGeneratingPDF(false);
+      alert('❌ Error generating PDF. Please check console for details.');
     }
   };
 
@@ -353,6 +522,46 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
       maxWidth: '1400px',
       margin: '0 auto'
     }}>
+      {/* PDF Generation Loading Modal */}
+      {isGeneratingPDF && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 9999
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '40px',
+            textAlign: 'center',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+            minWidth: '300px'
+          }}>
+            <div style={{
+              fontSize: '48px',
+              marginBottom: '20px',
+              animation: 'spin 1s linear infinite'
+            }}>🖨️</div>
+            <h3 style={{
+              margin: '0 0 10px 0',
+              color: '#2d3748',
+              fontSize: '20px'
+            }}>Generating PDF...</h3>
+            <p style={{
+              margin: 0,
+              color: '#718096',
+              fontSize: '14px'
+            }}>Please wait while we prepare your order preview</p>
+          </div>
+        </div>
+      )}
       {/* Filter Bar */}
       <div style={{
         backgroundColor: 'white',
