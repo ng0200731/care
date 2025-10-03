@@ -5,50 +5,61 @@
  * Contains: Filter, Order list with actions
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useOrderVariable } from '../contexts/OrderVariableContext';
 
-type OrderStatus = 'all' | 'draft' | 'send' | 'confirmed' | 'in_production' | 'completed';
+type OrderStatus = 'all' | 'draft' | 'complete' | 'send' | 'confirmed' | 'in_production' | 'completed';
+
+interface Order {
+  id: string;
+  customerId: string;
+  projectSlug: string;
+  layoutId: string;
+  quantity: number;
+  variableData: any;
+  createdAt: string;
+  status: 'draft' | 'complete';
+}
 
 const OrderHistoryTab: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState<OrderStatus>('all');
+  const [orders, setOrders] = useState<Order[]>([]);
 
-  // Mock data - will be replaced with real data from context
-  const mockOrders = [
-    {
-      id: '001',
-      orderNumber: '#001',
-      date: '2025-01-20 10:30 AM',
-      projectName: 'TCL-2025',
-      masterName: 'test-child-padding',
-      customerName: 'ABC Garment Factory',
-      status: 'send',
-      variables: [
-        { name: 'Composition', value: '100% Cotton' },
-        { name: 'Size', value: 'M' },
-        { name: 'Quantity', value: '500' }
-      ]
-    },
-    {
-      id: '002',
-      orderNumber: '#002',
-      date: '2025-01-19 3:15 PM',
-      projectName: 'TCL-2025',
-      masterName: 'composition-template',
-      customerName: 'ABC Garment Factory',
-      status: 'draft',
-      variables: [
-        { name: 'Material 1', value: 'Cotton' },
-        { name: 'Material 1 %', value: '60' },
-        { name: 'Material 2', value: 'Polyester' },
-        { name: 'Material 2 %', value: '40' }
-      ]
+  // Load orders from localStorage
+  const loadOrders = () => {
+    try {
+      const savedOrders = localStorage.getItem('order_management');
+      console.log('🔍 Checking localStorage for order_management:', savedOrders ? 'Found data' : 'No data');
+
+      if (savedOrders) {
+        const parsedOrders = JSON.parse(savedOrders);
+        setOrders(parsedOrders);
+        console.log('✅ Loaded orders from localStorage:', parsedOrders);
+        console.log(`📊 Total orders: ${parsedOrders.length}`);
+      } else {
+        setOrders([]);
+        console.log('📝 No orders found in localStorage');
+      }
+    } catch (error) {
+      console.error('❌ Error loading orders:', error);
+      setOrders([]);
     }
-  ];
+  };
+
+  useEffect(() => {
+    console.log('🔄 OrderHistoryTab mounted - loading orders');
+    loadOrders();
+  }, []);
+
+  // Filter orders based on status
+  const filteredOrders = filterStatus === 'all'
+    ? orders
+    : orders.filter(order => order.status === filterStatus);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'draft': return '💾';
+      case 'complete': return '✅';
       case 'send': return '📤';
       case 'confirmed': return '✅';
       case 'in_production': return '🏭';
@@ -60,6 +71,7 @@ const OrderHistoryTab: React.FC = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'draft': return '#64748b';
+      case 'complete': return '#10b981';
       case 'send': return '#3b82f6';
       case 'confirmed': return '#10b981';
       case 'in_production': return '#f59e0b';
@@ -70,6 +82,54 @@ const OrderHistoryTab: React.FC = () => {
 
   const getStatusLabel = (status: string) => {
     return status.toUpperCase().replace('_', ' ');
+  };
+
+  // Format order data for display
+  const formatOrderForDisplay = (order: Order) => {
+    const date = new Date(order.createdAt);
+    const formattedDate = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    // Extract variable data
+    const variables: { name: string; value: string }[] = [];
+
+    // Add quantity
+    variables.push({ name: 'Quantity', value: order.quantity.toString() });
+
+    // Add variable component data
+    if (order.variableData) {
+      Object.entries(order.variableData).forEach(([componentId, componentData]: [string, any]) => {
+        if (componentData.type === 'comp-trans') {
+          const compositions = componentData.data?.compositions || [];
+          compositions.forEach((comp: any, index: number) => {
+            if (comp.material && comp.percentage) {
+              variables.push({
+                name: `Material ${index + 1}`,
+                value: `${comp.percentage}% ${comp.material}`
+              });
+            }
+          });
+        } else if (componentData.type === 'multi-line') {
+          const textContent = componentData.data?.textContent || '';
+          if (textContent) {
+            variables.push({
+              name: 'Multi-line Text',
+              value: textContent
+            });
+          }
+        }
+      });
+    }
+
+    return {
+      id: order.id,
+      orderNumber: `#${order.id.split('_')[1] || order.id}`,
+      date: formattedDate,
+      projectName: order.projectSlug || 'N/A',
+      layoutId: order.layoutId || 'N/A',
+      customerId: order.customerId || 'N/A',
+      status: order.status,
+      variables
+    };
   };
 
   return (
@@ -89,6 +149,32 @@ const OrderHistoryTab: React.FC = () => {
         alignItems: 'center',
         flexWrap: 'wrap'
       }}>
+        <button
+          onClick={loadOrders}
+          style={{
+            padding: '6px 16px',
+            fontSize: '13px',
+            fontWeight: '600',
+            color: 'white',
+            backgroundColor: '#10b981',
+            border: '2px solid #10b981',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+            marginRight: '12px'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = '#059669';
+            e.currentTarget.style.borderColor = '#059669';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = '#10b981';
+            e.currentTarget.style.borderColor = '#10b981';
+          }}
+        >
+          🔄 Refresh
+        </button>
+
         <span style={{
           fontSize: '14px',
           fontWeight: '500',
@@ -97,7 +183,7 @@ const OrderHistoryTab: React.FC = () => {
           Filter:
         </span>
 
-        {(['all', 'draft', 'send', 'confirmed', 'in_production', 'completed'] as OrderStatus[]).map((status) => (
+        {(['all', 'draft', 'complete'] as OrderStatus[]).map((status) => (
           <button
             key={status}
             onClick={() => setFilterStatus(status)}
@@ -137,9 +223,30 @@ const OrderHistoryTab: React.FC = () => {
         flexDirection: 'column',
         gap: '16px'
       }}>
-        {mockOrders.map((order) => (
+        {filteredOrders.length === 0 ? (
+          <div style={{
+            textAlign: 'center',
+            padding: '60px 20px',
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            color: '#64748b'
+          }}>
+            <div style={{ fontSize: '48px', marginBottom: '16px' }}>📋</div>
+            <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', color: '#1a202c' }}>
+              No orders found
+            </h3>
+            <p style={{ margin: 0, fontSize: '14px' }}>
+              {filterStatus === 'all'
+                ? 'Create your first order in the NEW tab'
+                : `No ${filterStatus} orders found`}
+            </p>
+          </div>
+        ) : (
+          filteredOrders.map((order) => {
+            const displayOrder = formatOrderForDisplay(order);
+            return (
           <div
-            key={order.id}
+            key={displayOrder.id}
             style={{
               backgroundColor: 'white',
               borderRadius: '8px',
@@ -176,17 +283,17 @@ const OrderHistoryTab: React.FC = () => {
                     fontWeight: '600',
                     color: '#1a202c'
                   }}>
-                    {getStatusIcon(order.status)} Order {order.orderNumber}
+                    {getStatusIcon(displayOrder.status)} Order {displayOrder.orderNumber}
                   </span>
                   <span style={{
                     padding: '4px 12px',
                     fontSize: '12px',
                     fontWeight: '600',
                     color: 'white',
-                    backgroundColor: getStatusColor(order.status),
+                    backgroundColor: getStatusColor(displayOrder.status),
                     borderRadius: '12px'
                   }}>
-                    {getStatusLabel(order.status)}
+                    {getStatusLabel(displayOrder.status)}
                   </span>
                 </div>
 
@@ -197,10 +304,10 @@ const OrderHistoryTab: React.FC = () => {
                   flexWrap: 'wrap',
                   gap: '16px'
                 }}>
-                  <span>📅 {order.date}</span>
-                  <span>📁 {order.projectName}</span>
-                  <span>📄 {order.masterName}</span>
-                  <span>👤 {order.customerName}</span>
+                  <span>📅 {displayOrder.date}</span>
+                  <span>📁 {displayOrder.projectName}</span>
+                  <span>📄 {displayOrder.layoutId}</span>
+                  <span>👤 {displayOrder.customerId}</span>
                 </div>
               </div>
             </div>
@@ -219,7 +326,7 @@ const OrderHistoryTab: React.FC = () => {
               gap: '12px',
               marginBottom: '16px'
             }}>
-              {order.variables.map((variable, index) => (
+              {displayOrder.variables.map((variable, index) => (
                 <div key={index}>
                   <span style={{
                     fontSize: '13px',
@@ -268,7 +375,7 @@ const OrderHistoryTab: React.FC = () => {
                 👁️ View
               </button>
 
-              {order.status === 'draft' ? (
+              {displayOrder.status === 'draft' ? (
                 <button
                   style={{
                     padding: '8px 16px',
@@ -336,7 +443,7 @@ const OrderHistoryTab: React.FC = () => {
                 🖨️ Print
               </button>
 
-              {order.status === 'draft' && (
+              {displayOrder.status === 'draft' && (
                 <>
                   <button
                     style={{
@@ -409,7 +516,9 @@ const OrderHistoryTab: React.FC = () => {
               </select>
             </div>
           </div>
-        ))}
+            );
+          })
+        )}
       </div>
 
       {/* Action Bar */}

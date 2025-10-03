@@ -19,7 +19,8 @@
       "Bash(git checkout:*)",
       "Read(//d/**)",
       "Bash(start D:projectlayout2carecheck-layout-variable-status.html)",
-      "Bash(start \"D:\\project\\layout2\\care\\check-layout-variable-status.html\")"
+      "Bash(start \"D:\\project\\layout2\\care\\check-layout-variable-status.html\")",
+      "Bash(start \"D:\\project\\layout2\\care\\check-order-management.html\")"
     ],
     "deny": [],
     "ask": []

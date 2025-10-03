@@ -25,9 +25,11 @@ interface OrderFormData {
   projectSlug: string;
   layoutId: string; // NEW: Selected layout card from project
   masterId: string;
+  masterFileId: string;
 
   // Order Data
   orderNumber: string;
+  quantity: number;
   variableValues: { [key: string]: string | number };
 
   // Submit Options
@@ -64,7 +66,9 @@ const NewOrderTab: React.FC = () => {
     projectSlug: '',
     layoutId: '',
     masterId: '',
+    masterFileId: '',
     orderNumber: '',
+    quantity: 1,
     variableValues: {},
     status: 'draft'
   });
@@ -81,6 +85,10 @@ const NewOrderTab: React.FC = () => {
 
   // Variable mode state
   const [isVariableEnabled, setIsVariableEnabled] = useState(false);
+
+  // Validation modal state
+  const [showValidationModal, setShowValidationModal] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
   // Variable components from layout
   interface VariableComponent {
@@ -515,14 +523,147 @@ const NewOrderTab: React.FC = () => {
     'Acrylic', 'Rayon', 'Spandex', 'Elastane', 'Viscose', 'Modal'
   ];
 
+  const saveToOrderManagement = (status: 'draft' | 'complete') => {
+    console.log('💾 saveToOrderManagement called with status:', status);
+
+    const orderData = {
+      id: `order_${Date.now()}`,
+      customerId: formData.customerId,
+      projectSlug: formData.projectSlug,
+      layoutId: formData.layoutId,
+      quantity: formData.quantity,
+      variableData: componentVariables,
+      createdAt: new Date().toISOString(),
+      status: status
+    };
+
+    console.log('📦 Order data to save:', orderData);
+
+    // Save to localStorage (order management)
+    const existingOrders = JSON.parse(localStorage.getItem('order_management') || '[]');
+    console.log('📚 Existing orders before save:', existingOrders.length);
+
+    existingOrders.push(orderData);
+    localStorage.setItem('order_management', JSON.stringify(existingOrders));
+
+    console.log('✅ Order saved! Total orders now:', existingOrders.length);
+    console.log('💽 Saved to localStorage key: "order_management"');
+
+    // Verify the save
+    const verification = localStorage.getItem('order_management');
+    console.log('🔍 Verification - localStorage now contains:', verification ? JSON.parse(verification).length + ' orders' : 'No data');
+
+    return orderData;
+  };
+
   const handleSaveDraft = () => {
-    // TODO: Implement save draft logic
-    console.log('Save Draft:', formData);
+    saveToOrderManagement('draft');
+    alert('💾 Order saved as draft');
+    setShowValidationModal(false);
+
+    // Reset form
+    setFormData({
+      customerId: '',
+      customerName: '',
+      contact: '',
+      phone: '',
+      email: '',
+      address: '',
+      projectId: '',
+      projectSlug: '',
+      layoutId: '',
+      masterId: '',
+      masterFileId: '',
+      orderNumber: '',
+      quantity: 1,
+      variableValues: {},
+      status: 'draft'
+    });
+    setComponentVariables({});
+  };
+
+  const handleContinueInput = () => {
+    setShowValidationModal(false);
   };
 
   const handleSubmitOrder = () => {
-    // TODO: Implement submit order logic
+    // This is not used anymore - keeping for backwards compatibility
     console.log('Submit Order:', formData);
+  };
+
+  // Validate if all fields are filled
+  const validateForm = (): { isValid: boolean; missingFields: string[] } => {
+    const missing: string[] = [];
+
+    // Check basic fields
+    if (!formData.customerId) missing.push('Customer');
+    if (!formData.projectSlug) missing.push('Project');
+    if (!formData.layoutId) missing.push('Layout');
+    if (!formData.quantity || formData.quantity <= 0) missing.push('Quantity');
+
+    // Check variable components data
+    variableComponents.forEach((component) => {
+      const componentData = componentVariables[component.id];
+
+      if (component.type === 'comp-trans') {
+        const compositions = componentData?.data?.compositions || [];
+        if (compositions.length === 0) {
+          missing.push(`${component.name} - no materials added`);
+        } else {
+          compositions.forEach((comp: any, index: number) => {
+            if (!comp.material) {
+              missing.push(`${component.name} - Material ${index + 1} not selected`);
+            }
+            if (!comp.percentage || comp.percentage === '') {
+              missing.push(`${component.name} - Percentage ${index + 1} not filled`);
+            }
+          });
+        }
+      } else if (component.type === 'multi-line') {
+        if (!componentData?.data?.textContent) {
+          missing.push(`${component.name} - text content not filled`);
+        }
+      }
+    });
+
+    return {
+      isValid: missing.length === 0,
+      missingFields: missing
+    };
+  };
+
+  const handleSubmit = () => {
+    const validation = validateForm();
+
+    if (!validation.isValid) {
+      // Show custom modal for incomplete form
+      setValidationErrors(validation.missingFields);
+      setShowValidationModal(true);
+    } else {
+      // All fields filled - save to order management with status "complete"
+      saveToOrderManagement('complete');
+      alert('✅ Order submitted successfully!');
+
+      // Reset form
+      setFormData({
+        customerId: '',
+        customerName: '',
+        contact: '',
+        phone: '',
+        email: '',
+        address: '',
+        projectId: '',
+        projectSlug: '',
+        layoutId: '',
+        masterId: '',
+        masterFileId: '',
+        orderNumber: '',
+        quantity: 1,
+        variableValues: {},
+        status: 'draft'
+      });
+      setComponentVariables({});
+    }
   };
 
   return (
@@ -1455,101 +1596,18 @@ const NewOrderTab: React.FC = () => {
         )}
       </div>
 
-      {/* d) SUBMIT OPTIONS */}
-      <div style={{
-        backgroundColor: 'white',
-        borderRadius: '8px',
-        padding: '24px',
-        marginBottom: '24px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-      }}>
-        <h3 style={{
-          margin: '0 0 20px 0',
-          fontSize: '18px',
-          fontWeight: '600',
-          color: '#1a202c',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px'
-        }}>
-          📤 SUBMIT OPTIONS
-        </h3>
-
-        <div>
-          <label style={{
-            display: 'block',
-            fontSize: '14px',
-            fontWeight: '500',
-            color: '#4a5568',
-            marginBottom: '6px'
-          }}>
-            Status
-          </label>
-          <select
-            value={formData.status}
-            onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-            style={{
-              width: '100%',
-              maxWidth: '300px',
-              padding: '10px 12px',
-              border: '2px solid #e2e8f0',
-              borderRadius: '6px',
-              fontSize: '14px',
-              outline: 'none',
-              backgroundColor: 'white'
-            }}
-            onFocus={(e) => e.currentTarget.style.borderColor = '#3b82f6'}
-            onBlur={(e) => e.currentTarget.style.borderColor = '#e2e8f0'}
-          >
-            <option value="draft">Draft</option>
-            <option value="send">Send</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="in_production">In Production</option>
-            <option value="completed">Completed</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Action Buttons */}
+      {/* Submit Button */}
       <div style={{
         display: 'flex',
         gap: '12px',
         justifyContent: 'flex-end',
-        paddingTop: '12px'
+        paddingTop: '24px'
       }}>
         <button
-          onClick={handleSaveDraft}
+          onClick={handleSubmit}
           style={{
-            padding: '12px 24px',
-            fontSize: '15px',
-            fontWeight: '600',
-            color: '#475569',
-            backgroundColor: 'white',
-            border: '2px solid #e2e8f0',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            transition: 'all 0.2s',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = '#f8fafc';
-            e.currentTarget.style.borderColor = '#cbd5e0';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'white';
-            e.currentTarget.style.borderColor = '#e2e8f0';
-          }}
-        >
-          💾 Save Draft
-        </button>
-
-        <button
-          onClick={handleSubmitOrder}
-          style={{
-            padding: '12px 24px',
-            fontSize: '15px',
+            padding: '12px 32px',
+            fontSize: '16px',
             fontWeight: '600',
             color: 'white',
             backgroundColor: '#3b82f6',
@@ -1563,14 +1621,134 @@ const NewOrderTab: React.FC = () => {
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.backgroundColor = '#2563eb';
+            e.currentTarget.style.borderColor = '#2563eb';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.backgroundColor = '#3b82f6';
+            e.currentTarget.style.borderColor = '#3b82f6';
           }}
         >
-          📤 Submit Order
+          ✅ Submitted
         </button>
       </div>
+
+      {/* Validation Modal */}
+      {showValidationModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '32px',
+            maxWidth: '500px',
+            width: '90%',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.3)'
+          }}>
+            <h3 style={{
+              margin: '0 0 20px 0',
+              fontSize: '20px',
+              fontWeight: '600',
+              color: '#c2410c',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              ⚠️ Incomplete Fields
+            </h3>
+
+            <p style={{
+              fontSize: '14px',
+              color: '#4a5568',
+              margin: '0 0 16px 0',
+              lineHeight: '1.5'
+            }}>
+              The following fields need to be completed:
+            </p>
+
+            <ul style={{
+              margin: '0 0 24px 0',
+              padding: '0 0 0 20px',
+              fontSize: '14px',
+              color: '#1a202c'
+            }}>
+              {validationErrors.map((error, index) => (
+                <li key={index} style={{
+                  marginBottom: '8px',
+                  lineHeight: '1.4'
+                }}>
+                  {error}
+                </li>
+              ))}
+            </ul>
+
+            <div style={{
+              display: 'flex',
+              gap: '12px',
+              justifyContent: 'flex-end'
+            }}>
+              <button
+                onClick={handleContinueInput}
+                style={{
+                  padding: '10px 20px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  color: '#4a5568',
+                  backgroundColor: 'white',
+                  border: '2px solid #cbd5e0',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#f7fafc';
+                  e.currentTarget.style.borderColor = '#a0aec0';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'white';
+                  e.currentTarget.style.borderColor = '#cbd5e0';
+                }}
+              >
+                Continue to input
+              </button>
+
+              <button
+                onClick={handleSaveDraft}
+                style={{
+                  padding: '10px 20px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  color: 'white',
+                  backgroundColor: '#f59e0b',
+                  border: '2px solid #f59e0b',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#d97706';
+                  e.currentTarget.style.borderColor = '#d97706';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#f59e0b';
+                  e.currentTarget.style.borderColor = '#f59e0b';
+                }}
+              >
+                💾 Save as draft
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
