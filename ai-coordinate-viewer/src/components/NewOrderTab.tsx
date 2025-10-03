@@ -135,25 +135,71 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
     if (editingOrder) {
       console.log('📝 Loading order for editing:', editingOrder);
 
-      // Load form data from order
-      setFormData(prev => ({
-        ...prev,
-        customerId: editingOrder.customerId,
-        projectSlug: editingOrder.projectSlug,
-        layoutId: editingOrder.layoutId,
-        quantity: editingOrder.quantity,
-        orderNumber: editingOrder.userOrderNumber || '', // Load user-entered order number
-        // We'll need to load customer, project data separately
-      }));
+      // Load customer, project, and layout data
+      const loadOrderData = async () => {
+        try {
+          // 1. Load customer data
+          const customer = customers.find(c => c.id === editingOrder.customerId);
 
-      // Load variable data
+          // 2. Load project to get projectId
+          const allProjects = await projectService.getAllProjects();
+          const project = allProjects.find(p => p.slug === editingOrder.projectSlug);
+
+          // 3. Load layout to get masterId
+          let masterId = '';
+          try {
+            const storageKey = `project_${editingOrder.projectSlug}_layouts`;
+            const savedLayouts = localStorage.getItem(storageKey);
+            if (savedLayouts) {
+              const parsedLayouts = JSON.parse(savedLayouts);
+              const layout = parsedLayouts.find((l: any) => l.id === editingOrder.layoutId);
+              masterId = layout?.canvasData?.masterFileId || '';
+            }
+          } catch (error) {
+            console.error('Error loading layout for masterId:', error);
+          }
+
+          // Set all form data
+          setFormData(prev => ({
+            ...prev,
+            customerId: customer?.id || editingOrder.customerId,
+            customerName: customer?.customerName || '',
+            contact: customer?.person || '',
+            phone: customer?.tel || '',
+            email: customer?.email || '',
+            address: '',
+            projectId: project?.id || '',
+            projectSlug: editingOrder.projectSlug,
+            layoutId: editingOrder.layoutId,
+            masterId: masterId,
+            quantity: editingOrder.quantity,
+            orderNumber: editingOrder.userOrderNumber || '',
+          }));
+
+          console.log('✅ Loaded order form data:', {
+            customerId: customer?.id,
+            projectId: project?.id,
+            layoutId: editingOrder.layoutId,
+            masterId
+          });
+        } catch (error) {
+          console.error('Error loading order data:', error);
+        }
+      };
+
+      loadOrderData();
+
+      // Load variable data - set after a delay to ensure layout extraction completes
       if (editingOrder.variableData) {
-        setComponentVariables(editingOrder.variableData);
+        setTimeout(() => {
+          setComponentVariables(editingOrder.variableData);
+          console.log('✅ Loaded variable data:', editingOrder.variableData);
+        }, 200);
       }
 
       console.log(isViewMode ? '👁️ View Mode: All fields will be disabled' : '✏️ Edit Mode: Fields are editable');
     }
-  }, [editingOrder, isViewMode]);
+  }, [editingOrder, isViewMode, customers]);
 
   // Extract variable-enabled components from selected layout
   useEffect(() => {
@@ -271,30 +317,37 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
             setVariableComponents(components);
             console.log(`✅ Found ${components.length} variable-enabled components in layout:`, components);
 
-            // Initialize component variables
-            const initialData: ComponentVariableData = {};
-            components.forEach(comp => {
-              if (comp.type === 'comp-trans') {
-                // Initialize with default composition structure
-                initialData[comp.id] = {
-                  type: 'comp-trans',
-                  data: {
-                    compositions: [
-                      { material: '', percentage: '' }
-                    ]
-                  }
-                };
-              } else if (comp.type === 'multi-line') {
-                // Initialize with empty text
-                initialData[comp.id] = {
-                  type: 'multi-line',
-                  data: {
-                    textContent: ''
-                  }
-                };
-              }
-            });
-            setComponentVariables(initialData);
+            // Only initialize with empty data if NOT loading an existing order
+            // If we're loading an order (editingOrder exists), the data will be loaded separately
+            if (!editingOrder) {
+              // Initialize component variables with empty data for new orders
+              const initialData: ComponentVariableData = {};
+              components.forEach(comp => {
+                if (comp.type === 'comp-trans') {
+                  // Initialize with default composition structure
+                  initialData[comp.id] = {
+                    type: 'comp-trans',
+                    data: {
+                      compositions: [
+                        { material: '', percentage: '' }
+                      ]
+                    }
+                  };
+                } else if (comp.type === 'multi-line') {
+                  // Initialize with empty text
+                  initialData[comp.id] = {
+                    type: 'multi-line',
+                    data: {
+                      textContent: ''
+                    }
+                  };
+                }
+              });
+              setComponentVariables(initialData);
+              console.log('📝 Initialized empty variable data for new order');
+            } else {
+              console.log('📋 Skipping initialization - loading existing order data');
+            }
           }
         }
       } catch (error) {
@@ -645,8 +698,24 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
     console.log('Submit Order:', formData);
   };
 
-  // Validate if all fields are filled
-  const validateForm = (): { isValid: boolean; missingFields: string[] } => {
+  // Validate for draft - only check basic required fields
+  const validateForDraft = (): { isValid: boolean; missingFields: string[] } => {
+    const missing: string[] = [];
+
+    // Check only basic required fields for draft
+    if (!formData.customerId) missing.push('Customer');
+    if (!formData.projectSlug) missing.push('Project');
+    if (!formData.layoutId) missing.push('Layout');
+    if (!formData.quantity || formData.quantity <= 0) missing.push('Quantity');
+
+    return {
+      isValid: missing.length === 0,
+      missingFields: missing
+    };
+  };
+
+  // Validate for complete - check all fields including composition percentages
+  const validateForComplete = (): { isValid: boolean; missingFields: string[] } => {
     const missing: string[] = [];
 
     // Check basic fields
@@ -664,6 +733,7 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
         if (compositions.length === 0) {
           missing.push(`${component.name} - no materials added`);
         } else {
+          // Check if all fields are filled
           compositions.forEach((comp: any, index: number) => {
             if (!comp.material) {
               missing.push(`${component.name} - Material ${index + 1} not selected`);
@@ -672,6 +742,12 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
               missing.push(`${component.name} - Percentage ${index + 1} not filled`);
             }
           });
+
+          // Check if total percentage = 100%
+          const totalPercentage = compositions.reduce((sum: number, c: any) => sum + (parseFloat(c.percentage) || 0), 0);
+          if (totalPercentage !== 100) {
+            missing.push(`${component.name} - Total percentage must equal 100% (currently ${totalPercentage}%)`);
+          }
         }
       } else if (component.type === 'multi-line') {
         if (!componentData?.data?.textContent) {
@@ -687,18 +763,26 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
   };
 
   const handleSubmit = () => {
-    const validation = validateForm();
+    // Check if can be saved as complete
+    const completeValidation = validateForComplete();
 
-    if (!validation.isValid) {
-      // Show custom modal for incomplete form
-      setValidationErrors(validation.missingFields);
-      setShowValidationModal(true);
-    } else {
-      // All fields filled - save to order management with status "complete"
+    if (completeValidation.isValid) {
+      // All fields valid including percentage = 100% - save as complete
       saveToOrderManagement('complete');
-
-      // Show success modal asking what to do next
       setShowSuccessModal(true);
+    } else {
+      // Check if can at least be saved as draft
+      const draftValidation = validateForDraft();
+
+      if (draftValidation.isValid) {
+        // Basic fields filled but composition incomplete - can only save as draft
+        setValidationErrors(completeValidation.missingFields);
+        setShowValidationModal(true);
+      } else {
+        // Even basic fields not filled - show all missing fields
+        setValidationErrors(draftValidation.missingFields);
+        setShowValidationModal(true);
+      }
     }
   };
 
@@ -1475,52 +1559,62 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                 {/* Component-specific inputs */}
                 {component.type === 'comp-trans' ? (
                   // Composition Translation Inputs - Match NewCompTransDialog layout exactly
-                  <div style={{
-                    padding: '12px',
-                    border: '1px solid #ddd',
-                    borderRadius: '8px',
-                    backgroundColor: '#f8f9fa'
-                  }}>
-                    {/* Header Row */}
-                    <div style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      marginBottom: '12px'
-                    }}>
+                  (() => {
+                    const compositions = componentVariables[component.id]?.data?.compositions || [];
+                    const totalPercentage = compositions.reduce((sum: number, c: any) => sum + (parseFloat(c.percentage) || 0), 0);
+                    const lastRow = compositions[compositions.length - 1];
+                    const isLastRowComplete = lastRow && lastRow.percentage && lastRow.material;
+                    const canAddMore = isLastRowComplete && totalPercentage < 100;
+                    const isPercentageValid = totalPercentage === 100;
+
+                    return (
                       <div style={{
-                        fontSize: '12px',
-                        fontWeight: '600',
-                        color: '#333'
+                        padding: '12px',
+                        border: '1px solid #ddd',
+                        borderRadius: '8px',
+                        backgroundColor: '#f8f9fa'
                       }}>
-                        Material Composition: ({(componentVariables[component.id]?.data?.compositions || []).reduce((sum: number, c: any) => sum + (parseFloat(c.percentage) || 0), 0)}%)
-                      </div>
-                      <button
-                        onClick={() => {
-                          const currentComps = componentVariables[component.id]?.data?.compositions || [];
-                          setComponentVariables({
-                            ...componentVariables,
-                            [component.id]: {
-                              type: 'comp-trans',
-                              data: { compositions: [...currentComps, { material: '', percentage: '' }] }
-                            }
-                          });
-                        }}
-                        disabled={isDisabled}
-                        style={{
-                          padding: '4px 8px',
-                          fontSize: '14px',
-                          fontWeight: 'bold',
-                          border: '1px solid #007bff',
-                          borderRadius: '4px',
-                          backgroundColor: '#007bff',
-                          color: 'white',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        +
-                      </button>
-                    </div>
+                        {/* Header Row */}
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          marginBottom: '12px'
+                        }}>
+                          <div style={{
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            color: isPercentageValid ? '#333' : '#ef4444'
+                          }}>
+                            Material Composition: ({totalPercentage}%)
+                          </div>
+                          <button
+                            onClick={() => {
+                              const currentComps = componentVariables[component.id]?.data?.compositions || [];
+                              setComponentVariables({
+                                ...componentVariables,
+                                [component.id]: {
+                                  type: 'comp-trans',
+                                  data: { compositions: [...currentComps, { material: '', percentage: '' }] }
+                                }
+                              });
+                            }}
+                            disabled={!canAddMore || isDisabled}
+                            style={{
+                              padding: '4px 8px',
+                              fontSize: '14px',
+                              fontWeight: 'bold',
+                              border: `1px solid ${canAddMore && !isDisabled ? '#007bff' : '#cbd5e0'}`,
+                              borderRadius: '4px',
+                              backgroundColor: canAddMore && !isDisabled ? '#007bff' : '#e5e7eb',
+                              color: canAddMore && !isDisabled ? 'white' : '#9ca3af',
+                              cursor: canAddMore && !isDisabled ? 'pointer' : 'not-allowed',
+                              opacity: canAddMore && !isDisabled ? 1 : 0.6
+                            }}
+                          >
+                            +
+                          </button>
+                        </div>
 
                     {/* Composition Rows */}
                     {(componentVariables[component.id]?.data?.compositions || [{ material: '', percentage: '' }]).map((comp: any, compIndex: number) => (
@@ -1643,6 +1737,8 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                       </div>
                     ))}
                   </div>
+                    );
+                  })()
                 ) : (
                   // Multi-line Text Input
                   <div>
@@ -1755,98 +1851,111 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
             width: '90%',
             boxShadow: '0 10px 30px rgba(0,0,0,0.3)'
           }}>
-            <h3 style={{
-              margin: '0 0 20px 0',
-              fontSize: '20px',
-              fontWeight: '600',
-              color: '#c2410c',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
-            }}>
-              ⚠️ Incomplete Fields
-            </h3>
+            {(() => {
+              // Check if basic fields are filled (can save as draft)
+              const canSaveAsDraft = validateForDraft().isValid;
 
-            <p style={{
-              fontSize: '14px',
-              color: '#4a5568',
-              margin: '0 0 16px 0',
-              lineHeight: '1.5'
-            }}>
-              The following fields need to be completed:
-            </p>
+              return (
+                <>
+                  <h3 style={{
+                    margin: '0 0 20px 0',
+                    fontSize: '20px',
+                    fontWeight: '600',
+                    color: '#c2410c',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    {canSaveAsDraft ? '⚠️ Cannot Submit as Complete' : '⚠️ Incomplete Fields'}
+                  </h3>
 
-            <ul style={{
-              margin: '0 0 24px 0',
-              padding: '0 0 0 20px',
-              fontSize: '14px',
-              color: '#1a202c'
-            }}>
-              {validationErrors.map((error, index) => (
-                <li key={index} style={{
-                  marginBottom: '8px',
-                  lineHeight: '1.4'
-                }}>
-                  {error}
-                </li>
-              ))}
-            </ul>
+                  <p style={{
+                    fontSize: '14px',
+                    color: '#4a5568',
+                    margin: '0 0 16px 0',
+                    lineHeight: '1.5'
+                  }}>
+                    {canSaveAsDraft
+                      ? 'The following issues prevent submitting as complete. You can save as draft and complete later:'
+                      : 'The following fields need to be completed:'}
+                  </p>
 
-            <div style={{
-              display: 'flex',
-              gap: '12px',
-              justifyContent: 'flex-end'
-            }}>
-              <button
-                onClick={handleContinueInput}
-                style={{
-                  padding: '10px 20px',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  color: '#4a5568',
-                  backgroundColor: 'white',
-                  border: '2px solid #cbd5e0',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#f7fafc';
-                  e.currentTarget.style.borderColor = '#a0aec0';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'white';
-                  e.currentTarget.style.borderColor = '#cbd5e0';
-                }}
-              >
-                Continue to input
-              </button>
+                  <ul style={{
+                    margin: '0 0 24px 0',
+                    padding: '0 0 0 20px',
+                    fontSize: '14px',
+                    color: '#1a202c'
+                  }}>
+                    {validationErrors.map((error, index) => (
+                      <li key={index} style={{
+                        marginBottom: '8px',
+                        lineHeight: '1.4'
+                      }}>
+                        {error}
+                      </li>
+                    ))}
+                  </ul>
 
-              <button
-                onClick={handleSaveDraft}
-                style={{
-                  padding: '10px 20px',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  color: 'white',
-                  backgroundColor: '#f59e0b',
-                  border: '2px solid #f59e0b',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#d97706';
-                  e.currentTarget.style.borderColor = '#d97706';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#f59e0b';
-                  e.currentTarget.style.borderColor = '#f59e0b';
-                }}
-              >
-                💾 Save as draft
-              </button>
-            </div>
+                  <div style={{
+                    display: 'flex',
+                    gap: '12px',
+                    justifyContent: 'flex-end'
+                  }}>
+                    <button
+                      onClick={handleContinueInput}
+                      style={{
+                        padding: '10px 20px',
+                        fontSize: '14px',
+                        fontWeight: '600',
+                        color: '#4a5568',
+                        backgroundColor: 'white',
+                        border: '2px solid #cbd5e0',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#f7fafc';
+                        e.currentTarget.style.borderColor = '#a0aec0';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'white';
+                        e.currentTarget.style.borderColor = '#cbd5e0';
+                      }}
+                    >
+                      Continue to input
+                    </button>
+
+                    {canSaveAsDraft && (
+                      <button
+                        onClick={handleSaveDraft}
+                        style={{
+                          padding: '10px 20px',
+                          fontSize: '14px',
+                          fontWeight: '600',
+                          color: 'white',
+                          backgroundColor: '#f59e0b',
+                          border: '2px solid #f59e0b',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#d97706';
+                          e.currentTarget.style.borderColor = '#d97706';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = '#f59e0b';
+                          e.currentTarget.style.borderColor = '#f59e0b';
+                        }}
+                      >
+                        💾 Save as draft
+                      </button>
+                    )}
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       )}
