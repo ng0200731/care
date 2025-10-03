@@ -21,7 +21,12 @@ interface Order {
   status: 'draft' | 'complete';
 }
 
-const OrderHistoryTab: React.FC = () => {
+interface OrderHistoryTabProps {
+  onViewOrder: (order: Order) => void;
+  onEditOrder: (order: Order) => void;
+}
+
+const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOrder }) => {
   const [filterStatus, setFilterStatus] = useState<OrderStatus>('all');
   const [orders, setOrders] = useState<Order[]>([]);
 
@@ -354,6 +359,7 @@ const OrderHistoryTab: React.FC = () => {
               flexWrap: 'wrap'
             }}>
               <button
+                onClick={() => onViewOrder(order)}
                 style={{
                   padding: '8px 16px',
                   fontSize: '13px',
@@ -377,6 +383,7 @@ const OrderHistoryTab: React.FC = () => {
 
               {displayOrder.status === 'draft' ? (
                 <button
+                  onClick={() => onEditOrder(order)}
                   style={{
                     padding: '8px 16px',
                     fontSize: '13px',

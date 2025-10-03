@@ -52,7 +52,24 @@ interface LayoutCard {
   updatedAt: string;
 }
 
-const NewOrderTab: React.FC = () => {
+interface EditingOrder {
+  id: string;
+  customerId: string;
+  projectSlug: string;
+  layoutId: string;
+  quantity: number;
+  variableData: any;
+  createdAt: string;
+  status: 'draft' | 'complete';
+}
+
+interface NewOrderTabProps {
+  editingOrder?: EditingOrder | null;
+  isViewMode?: boolean;
+  onClearOrder?: () => void;
+}
+
+const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = false, onClearOrder }) => {
   const { getAllProjects, createProject, createOrder } = useOrderVariable();
 
   const [formData, setFormData] = useState<OrderFormData>({
@@ -107,6 +124,30 @@ const NewOrderTab: React.FC = () => {
     };
   }
   const [componentVariables, setComponentVariables] = useState<ComponentVariableData>({});
+
+  // Load editing order data
+  useEffect(() => {
+    if (editingOrder) {
+      console.log('📝 Loading order for editing:', editingOrder);
+
+      // Load form data from order
+      setFormData(prev => ({
+        ...prev,
+        customerId: editingOrder.customerId,
+        projectSlug: editingOrder.projectSlug,
+        layoutId: editingOrder.layoutId,
+        quantity: editingOrder.quantity,
+        // We'll need to load customer, project data separately
+      }));
+
+      // Load variable data
+      if (editingOrder.variableData) {
+        setComponentVariables(editingOrder.variableData);
+      }
+
+      console.log(isViewMode ? '👁️ View Mode: All fields will be disabled' : '✏️ Edit Mode: Fields are editable');
+    }
+  }, [editingOrder, isViewMode]);
 
   // Extract variable-enabled components from selected layout
   useEffect(() => {
@@ -666,11 +707,72 @@ const NewOrderTab: React.FC = () => {
     }
   };
 
+  // Helper variable for disabled state
+  const isDisabled = isViewMode;
+
   return (
     <div style={{
       maxWidth: '1200px',
       margin: '0 auto'
     }}>
+      {/* Header with Back Button (when viewing/editing existing order) */}
+      {editingOrder && (
+        <div style={{
+          backgroundColor: isViewMode ? '#eff6ff' : '#ecfdf5',
+          borderRadius: '8px',
+          padding: '16px 24px',
+          marginBottom: '24px',
+          border: `2px solid ${isViewMode ? '#3b82f6' : '#10b981'}`,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px'
+          }}>
+            <span style={{
+              fontSize: '16px',
+              fontWeight: '600',
+              color: isViewMode ? '#1e40af' : '#047857'
+            }}>
+              {isViewMode ? '👁️ VIEW MODE' : '✏️ EDIT MODE'}
+            </span>
+            <span style={{
+              fontSize: '14px',
+              color: '#64748b'
+            }}>
+              Order #{editingOrder.id.split('_')[1] || editingOrder.id}
+            </span>
+          </div>
+          <button
+            onClick={onClearOrder}
+            style={{
+              padding: '8px 16px',
+              fontSize: '14px',
+              fontWeight: '600',
+              color: '#64748b',
+              backgroundColor: 'white',
+              border: '2px solid #cbd5e0',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#f8fafc';
+              e.currentTarget.style.borderColor = '#94a3b8';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'white';
+              e.currentTarget.style.borderColor = '#cbd5e0';
+            }}
+          >
+            ← Back to Order History
+          </button>
+        </div>
+      )}
+
       {/* a) CUSTOMER MANAGEMENT */}
       <div style={{
         backgroundColor: 'white',
@@ -705,7 +807,7 @@ const NewOrderTab: React.FC = () => {
           <select
             value={formData.customerId}
             onChange={(e) => handleCustomerSelect(e.target.value)}
-            disabled={loadingCustomers}
+            disabled={loadingCustomers || isViewMode}
             style={{
               width: '100%',
               padding: '10px 12px',
@@ -756,7 +858,7 @@ const NewOrderTab: React.FC = () => {
               value={formData.customerName}
               onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
               placeholder="ABC Garment Factory"
-              disabled={!!formData.customerId && formData.customerId !== 'new'}
+              disabled={(!!formData.customerId && formData.customerId !== 'new') || isDisabled}
               style={{
                 width: '100%',
                 padding: '10px 12px',
@@ -791,7 +893,7 @@ const NewOrderTab: React.FC = () => {
               value={formData.contact}
               onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
               placeholder="John Smith"
-              disabled={!!formData.customerId && formData.customerId !== 'new'}
+              disabled={(!!formData.customerId && formData.customerId !== 'new') || isDisabled}
               style={{
                 width: '100%',
                 padding: '10px 12px',
@@ -826,7 +928,7 @@ const NewOrderTab: React.FC = () => {
               value={formData.phone}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               placeholder="+1-555-1234"
-              disabled={!!formData.customerId && formData.customerId !== 'new'}
+              disabled={(!!formData.customerId && formData.customerId !== 'new') || isDisabled}
               style={{
                 width: '100%',
                 padding: '10px 12px',
@@ -861,7 +963,7 @@ const NewOrderTab: React.FC = () => {
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               placeholder="john@abc.com"
-              disabled={!!formData.customerId && formData.customerId !== 'new'}
+              disabled={(!!formData.customerId && formData.customerId !== 'new') || isDisabled}
               style={{
                 width: '100%',
                 padding: '10px 12px',
@@ -896,6 +998,7 @@ const NewOrderTab: React.FC = () => {
               value={formData.address}
               onChange={(e) => setFormData({ ...formData, address: e.target.value })}
               placeholder="123 Main Street, City, Country"
+              disabled={isDisabled}
               style={{
                 width: '100%',
                 padding: '10px 12px',
@@ -983,7 +1086,7 @@ const NewOrderTab: React.FC = () => {
               <select
                 value={formData.projectId}
                 onChange={(e) => handleProjectSelect(e.target.value)}
-                disabled={loadingProjects || projects.length === 0}
+                disabled={loadingProjects || projects.length === 0 || isDisabled}
                 style={{
                   width: '100%',
                   padding: '10px 12px',
@@ -1037,7 +1140,7 @@ const NewOrderTab: React.FC = () => {
               <select
                 value={formData.masterId}
                 onChange={(e) => handleMasterFileSelect(e.target.value)}
-                disabled={loadingMasterFiles || masterFiles.length === 0}
+                disabled={loadingMasterFiles || masterFiles.length === 0 || isDisabled}
                 style={{
                   width: '100%',
                   padding: '10px 12px',
@@ -1091,7 +1194,7 @@ const NewOrderTab: React.FC = () => {
               <select
                 value={formData.layoutId}
                 onChange={(e) => setFormData({ ...formData, layoutId: e.target.value })}
-                disabled={loadingLayouts || layoutCards.length === 0 || !formData.masterId}
+                disabled={loadingLayouts || layoutCards.length === 0 || !formData.masterId || isDisabled}
                 style={{
                   width: '100%',
                   padding: '10px 12px',
@@ -1190,7 +1293,7 @@ const NewOrderTab: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsVariableEnabled(!isVariableEnabled)}
-            disabled={!formData.layoutId}
+            disabled={!formData.layoutId || isDisabled}
             style={{
               padding: '6px 16px',
               fontSize: '12px',
@@ -1399,6 +1502,7 @@ const NewOrderTab: React.FC = () => {
                             }
                           });
                         }}
+                        disabled={isDisabled}
                         style={{
                           padding: '4px 8px',
                           fontSize: '14px',
@@ -1453,6 +1557,7 @@ const NewOrderTab: React.FC = () => {
                               });
                             }}
                             placeholder="100"
+                            disabled={isDisabled}
                             style={{
                               width: '100%',
                               padding: '8px',
@@ -1487,6 +1592,7 @@ const NewOrderTab: React.FC = () => {
                                 }
                               });
                             }}
+                            disabled={isDisabled}
                             style={{
                               width: '100%',
                               padding: '8px',
@@ -1515,7 +1621,7 @@ const NewOrderTab: React.FC = () => {
                               }
                             });
                           }}
-                          disabled={(componentVariables[component.id]?.data?.compositions || []).length <= 1}
+                          disabled={(componentVariables[component.id]?.data?.compositions || []).length <= 1 || isDisabled}
                           style={{
                             padding: '8px 12px',
                             fontSize: '14px',
@@ -1556,7 +1662,7 @@ const NewOrderTab: React.FC = () => {
                           }
                         });
                       }}
-                      disabled={!isVariableEnabled}
+                      disabled={!isVariableEnabled || isDisabled}
                       placeholder="Enter multi-line text content..."
                       rows={4}
                       style={{
@@ -1596,41 +1702,43 @@ const NewOrderTab: React.FC = () => {
         )}
       </div>
 
-      {/* Submit Button */}
-      <div style={{
-        display: 'flex',
-        gap: '12px',
-        justifyContent: 'flex-end',
-        paddingTop: '24px'
-      }}>
-        <button
-          onClick={handleSubmit}
-          style={{
-            padding: '12px 32px',
-            fontSize: '16px',
-            fontWeight: '600',
-            color: 'white',
-            backgroundColor: '#3b82f6',
-            border: '2px solid #3b82f6',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            transition: 'all 0.2s',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = '#2563eb';
-            e.currentTarget.style.borderColor = '#2563eb';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = '#3b82f6';
-            e.currentTarget.style.borderColor = '#3b82f6';
-          }}
-        >
-          ✅ Submitted
-        </button>
-      </div>
+      {/* Submit Button - Hidden in View Mode */}
+      {!isViewMode && (
+        <div style={{
+          display: 'flex',
+          gap: '12px',
+          justifyContent: 'flex-end',
+          paddingTop: '24px'
+        }}>
+          <button
+            onClick={handleSubmit}
+            style={{
+              padding: '12px 32px',
+              fontSize: '16px',
+              fontWeight: '600',
+              color: 'white',
+              backgroundColor: '#3b82f6',
+              border: '2px solid #3b82f6',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#2563eb';
+              e.currentTarget.style.borderColor = '#2563eb';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#3b82f6';
+              e.currentTarget.style.borderColor = '#3b82f6';
+            }}
+          >
+            ✅ Submitted
+          </button>
+        </div>
+      )}
 
       {/* Validation Modal */}
       {showValidationModal && (

@@ -11,8 +11,39 @@ import OrderHistoryTab from './OrderHistoryTab';
 
 type TabType = 'new' | 'history';
 
+interface OrderData {
+  id: string;
+  customerId: string;
+  projectSlug: string;
+  layoutId: string;
+  quantity: number;
+  variableData: any;
+  createdAt: string;
+  status: 'draft' | 'complete';
+}
+
 const OrderPanel: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('new');
+  const [editingOrder, setEditingOrder] = useState<OrderData | null>(null);
+  const [isViewMode, setIsViewMode] = useState(false);
+
+  const handleViewOrder = (order: OrderData) => {
+    setEditingOrder(order);
+    setIsViewMode(true);
+    setActiveTab('new');
+  };
+
+  const handleEditOrder = (order: OrderData) => {
+    setEditingOrder(order);
+    setIsViewMode(false);
+    setActiveTab('new');
+  };
+
+  const handleClearOrder = () => {
+    setEditingOrder(null);
+    setIsViewMode(false);
+    setActiveTab('history'); // Switch back to history tab
+  };
 
   return (
     <div style={{
@@ -114,7 +145,18 @@ const OrderPanel: React.FC = () => {
         overflow: 'auto',
         padding: '24px'
       }}>
-        {activeTab === 'new' ? <NewOrderTab /> : <OrderHistoryTab />}
+        {activeTab === 'new' ? (
+          <NewOrderTab
+            editingOrder={editingOrder}
+            isViewMode={isViewMode}
+            onClearOrder={handleClearOrder}
+          />
+        ) : (
+          <OrderHistoryTab
+            onViewOrder={handleViewOrder}
+            onEditOrder={handleEditOrder}
+          />
+        )}
       </div>
     </div>
   );
