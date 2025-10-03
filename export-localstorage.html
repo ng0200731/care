@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Export localStorage Data</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 40px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 { color: #333; }
+        button {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+        button:hover { background: #218838; }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            border-radius: 4px;
+        }
+        .success {
+            background: #d4edda;
+            border-left-color: #28a745;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📦 Export localStorage Data</h1>
+        <p>This tool will export your project layouts data to a JSON file that Claude can read.</p>
+
+        <button onclick="exportData()">🚀 Export localStorage to File</button>
+
+        <div id="status"></div>
+    </div>
+
+    <script>
+        function exportData() {
+            const statusDiv = document.getElementById('status');
+
+            try {
+                // Get the layouts data from localStorage
+                const layoutsKey = 'project_tcl-2025_layouts';
+                const layoutsData = localStorage.getItem(layoutsKey);
+
+                if (!layoutsData) {
+                    statusDiv.innerHTML = '<div class="status">❌ No data found in localStorage for key: ' + layoutsKey + '</div>';
+                    return;
+                }
+
+                // Parse and pretty-print the data
+                const layouts = JSON.parse(layoutsData);
+                const prettyJson = JSON.stringify(layouts, null, 2);
+
+                // Create a blob and download it
+                const blob = new Blob([prettyJson], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'project_tcl-2025_layouts.json';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                statusDiv.innerHTML = '<div class="status success">✅ Successfully exported ' + layouts.length + ' layout(s) to file: project_tcl-2025_layouts.json</div>';
+                statusDiv.innerHTML += '<div class="status">📂 File saved to your Downloads folder. Claude can now read it!</div>';
+
+            } catch (error) {
+                statusDiv.innerHTML = '<div class="status">❌ Error: ' + error.message + '</div>';
+                console.error('Export error:', error);
+            }
+        }
+
+        // Auto-export on page load for convenience
+        window.addEventListener('load', () => {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = '<div class="status">👋 Ready! Click the button to export your localStorage data.</div>';
+        });
+    </script>
+</body>
+</html>

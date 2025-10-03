@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test Layout API & Variable Toggles</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      padding: 30px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    h1 {
+      color: #667eea;
+      margin-top: 0;
+    }
+    .test-section {
+      margin: 20px 0;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border-left: 4px solid #667eea;
+    }
+    .result {
+      margin: 10px 0;
+      padding: 15px;
+      background: white;
+      border-radius: 6px;
+      border-left: 4px solid #10b981;
+      font-family: 'Consolas', monospace;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .result.error {
+      border-left-color: #ef4444;
+      background: #fee2e2;
+    }
+    .result.success {
+      border-left-color: #10b981;
+      background: #d1fae5;
+    }
+    .result.warning {
+      border-left-color: #f59e0b;
+      background: #fef3c7;
+    }
+    button {
+      padding: 12px 24px;
+      font-size: 16px;
+      font-weight: 600;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-right: 10px;
+      transition: all 0.2s;
+    }
+    button:hover {
+      background: #5568d3;
+      transform: translateY(-2px);
+    }
+    .copy-btn {
+      background: #10b981;
+      font-size: 14px;
+      padding: 8px 16px;
+    }
+    .copy-btn:hover {
+      background: #059669;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-left: 10px;
+    }
+    .badge.on {
+      background: #d1fae5;
+      color: #065f46;
+    }
+    .badge.off {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔬 Test Layout API & Variable Toggles</h1>
+    <p>This tool will check if the backend API is running and test if the layout has variable toggles enabled.</p>
+
+    <div class="test-section">
+      <h3>Step 1: Check localStorage</h3>
+      <label>Project Slug: <input type="text" id="projectSlug" value="tcl-2025" style="padding: 8px; margin: 0 10px; border: 2px solid #ddd; border-radius: 4px;"></label>
+      <button onclick="fetchLayoutsFromLocalStorage()">📥 Fetch Layouts from localStorage</button>
+      <div id="layoutsResult"></div>
+    </div>
+
+    <div class="test-section">
+      <h3>Step 3: Check Specific Layout Variable Toggles</h3>
+      <label>Layout Name: <input type="text" id="layoutName" value="4090 - mulitpe-first+comp-trans" style="padding: 8px; margin: 0 10px; border: 2px solid #ddd; border-radius: 4px; width: 300px;"></label>
+      <button onclick="checkLayoutToggles()">🔍 Check Toggles</button>
+      <div id="togglesResult"></div>
+    </div>
+  </div>
+
+  <script>
+    let allLayouts = null;
+
+    function fetchLayoutsFromLocalStorage() {
+      const projectSlug = document.getElementById('projectSlug').value;
+      const resultDiv = document.getElementById('layoutsResult');
+
+      // Try multiple variations
+      const possibleKeys = [
+        `project_${projectSlug}_layouts`,
+        `project_${projectSlug.toLowerCase()}_layouts`,
+        `project_${projectSlug.toUpperCase()}_layouts`,
+        `project_${projectSlug.replace(/-/g, '_')}_layouts`,
+      ];
+
+      resultDiv.innerHTML = '<div class="result">Searching localStorage...</div>';
+
+      // Try each key
+      let found = false;
+      for (const storageKey of possibleKeys) {
+        const layoutsRaw = localStorage.getItem(storageKey);
+        if (layoutsRaw) {
+          found = true;
+          resultDiv.innerHTML = `<div class="result success">✅ Found layouts with key: ${storageKey}</div>`;
+
+          try {
+            allLayouts = JSON.parse(layoutsRaw);
+            const summary = allLayouts.map((layout, i) =>
+              `${i + 1}. ${layout.name || 'Unnamed'} (ID: ${layout.id})`
+            ).join('\n');
+
+            resultDiv.innerHTML = `
+              <div class="result success">
+✅ Found ${allLayouts.length} layout(s) with key: <strong>${storageKey}</strong>
+
+${summary}
+
+<button class="copy-btn" onclick="copyToClipboard(JSON.stringify(allLayouts, null, 2))">📋 Copy Full JSON</button>
+              </div>
+            `;
+            return;
+          } catch (error) {
+            resultDiv.innerHTML = '<div class="result error">❌ Error parsing: ' + error.message + '</div>';
+            return;
+          }
+        }
+      }
+
+      if (!found) {
+        // List ALL keys in localStorage
+        const allKeys = Object.keys(localStorage);
+        const projectKeys = allKeys.filter(key => key.includes('project') || key.includes('layout') || key.includes('TCL') || key.includes('tcl'));
+
+        resultDiv.innerHTML = `<div class="result error">❌ No layouts found in localStorage
+
+<strong>Tried these keys:</strong>
+${possibleKeys.map(k => '- ' + k).join('\n')}
+
+<strong>All localStorage keys (${allKeys.length}):</strong>
+${allKeys.join('\n') || '(none)'}
+
+<strong>Project-related keys:</strong>
+${projectKeys.length > 0 ? projectKeys.join('\n') : '(none found)'}
+
+<strong>⚠️ This means layouts are saved to the BACKEND DATABASE, not localStorage!</strong>
+</div>`;
+      }
+    }
+
+    async function testBackendAPI() {
+      const resultDiv = document.getElementById('apiResult');
+      resultDiv.innerHTML = '<div class="result">Testing connection to http://localhost:3002...</div>';
+
+      try {
+        const response = await fetch('http://localhost:3002/api/health', {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (response.ok) {
+          resultDiv.innerHTML = '<div class="result success">✅ Backend API is running on port 3002!</div>';
+        } else {
+          resultDiv.innerHTML = '<div class="result warning">⚠️ Backend responded but with status: ' + response.status + '</div>';
+        }
+      } catch (error) {
+        // Try alternative endpoint
+        try {
+          const response = await fetch('http://localhost:3002/api/projects');
+          if (response.ok) {
+            resultDiv.innerHTML = '<div class="result success">✅ Backend API is running on port 3002!</div>';
+          } else {
+            resultDiv.innerHTML = '<div class="result error">❌ Backend API is not responding correctly: ' + error.message + '</div>';
+          }
+        } catch (error2) {
+          resultDiv.innerHTML = '<div class="result error">❌ Backend API is NOT running on port 3002\n\nError: ' + error2.message + '\n\nPlease start the backend server first!</div>';
+        }
+      }
+    }
+
+    async function fetchLayouts() {
+      const projectSlug = document.getElementById('projectSlug').value;
+      const resultDiv = document.getElementById('layoutsResult');
+      resultDiv.innerHTML = '<div class="result">Fetching layouts for project: ' + projectSlug + '...</div>';
+
+      try {
+        const response = await fetch(`http://localhost:3002/api/projects/${projectSlug}/layouts`);
+
+        if (!response.ok) {
+          throw new Error('HTTP ' + response.status + ': ' + response.statusText);
+        }
+
+        allLayouts = await response.json();
+
+        const summary = allLayouts.map((layout, i) =>
+          `${i + 1}. ${layout.name || layout.layoutData?.name || 'Unnamed'} (ID: ${layout.id})`
+        ).join('\n');
+
+        resultDiv.innerHTML = `
+          <div class="result success">
+✅ Found ${allLayouts.length} layout(s):
+
+${summary}
+
+<button class="copy-btn" onclick="copyToClipboard(JSON.stringify(allLayouts, null, 2))">📋 Copy Full JSON</button>
+          </div>
+        `;
+      } catch (error) {
+        resultDiv.innerHTML = '<div class="result error">❌ Failed to fetch layouts\n\nError: ' + error.message + '</div>';
+      }
+    }
+
+    function checkLayoutToggles() {
+      const layoutName = document.getElementById('layoutName').value;
+      const resultDiv = document.getElementById('togglesResult');
+
+      if (!allLayouts) {
+        resultDiv.innerHTML = '<div class="result error">❌ Please fetch layouts first (Step 2)</div>';
+        return;
+      }
+
+      // Find layout by name (partial match)
+      const targetLayout = allLayouts.find(l => {
+        const name = l.name || l.layoutData?.name || '';
+        return name.includes(layoutName);
+      });
+
+      if (!targetLayout) {
+        resultDiv.innerHTML = '<div class="result error">❌ Layout not found: "' + layoutName + '"\n\nAvailable layouts:\n' +
+          allLayouts.map(l => '- ' + (l.name || l.layoutData?.name || 'Unnamed')).join('\n') + '</div>';
+        return;
+      }
+
+      // Extract canvas data
+      const canvasData = targetLayout.layoutData?.canvasData || targetLayout.canvasData;
+
+      if (!canvasData || !canvasData.objects) {
+        resultDiv.innerHTML = '<div class="result error">❌ No canvasData.objects found in layout</div>';
+        return;
+      }
+
+      // Scan for variable components
+      let components = [];
+      canvasData.objects.forEach((obj, objIndex) => {
+        if (obj.regions && Array.isArray(obj.regions)) {
+          obj.regions.forEach((region, regionIndex) => {
+            if (region.contents && Array.isArray(region.contents)) {
+              region.contents.forEach((content, contentIndex) => {
+                if (content.type === 'new-comp-trans') {
+                  components.push({
+                    objectIndex: objIndex,
+                    regionId: region.id,
+                    contentIndex: contentIndex,
+                    type: 'Composition Translation',
+                    isVariableEnabled: content.newCompTransConfig?.isVariableEnabled || false,
+                    config: content.newCompTransConfig
+                  });
+                }
+                if (content.type === 'new-multi-line') {
+                  components.push({
+                    objectIndex: objIndex,
+                    regionId: region.id,
+                    contentIndex: contentIndex,
+                    type: 'Multi-line Text',
+                    isVariableEnabled: content.newMultiLineConfig?.isVariableEnabled || false,
+                    config: content.newMultiLineConfig
+                  });
+                }
+              });
+            }
+          });
+        }
+      });
+
+      if (components.length === 0) {
+        resultDiv.innerHTML = '<div class="result warning">⚠️ No comp-trans or multi-line components found in this layout</div>';
+        return;
+      }
+
+      const summary = components.map((comp, i) => {
+        const badge = comp.isVariableEnabled
+          ? '<span class="badge on">✅ ON</span>'
+          : '<span class="badge off">❌ OFF</span>';
+        return `${i + 1}. ${comp.type} in region ${comp.regionId} ${badge}`;
+      }).join('\n');
+
+      const enabledCount = components.filter(c => c.isVariableEnabled).length;
+
+      resultDiv.innerHTML = `
+        <div class="result ${enabledCount > 0 ? 'success' : 'error'}">
+<strong>Found ${components.length} component(s):</strong>
+${summary}
+
+<strong>Summary:</strong>
+- ${enabledCount} component(s) with Variable Toggle ON
+- ${components.length - enabledCount} component(s) with Variable Toggle OFF
+
+<button class="copy-btn" onclick="copyToClipboard(JSON.stringify(${JSON.stringify(components)}, null, 2))">📋 Copy Component Details</button>
+        </div>
+      `;
+    }
+
+    function copyToClipboard(text) {
+      navigator.clipboard.writeText(text).then(() => {
+        alert('✅ Copied to clipboard!');
+      }).catch(err => {
+        alert('❌ Failed to copy: ' + err.message);
+      });
+    }
+
+    // Auto-load layouts on page load
+    setTimeout(() => {
+      fetchLayoutsFromLocalStorage();
+    }, 500);
+  </script>
+</body>
+</html>

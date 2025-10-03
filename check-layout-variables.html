@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Check Layout Variables</title>
+  <style>
+    body {
+      font-family: monospace;
+      padding: 20px;
+      background: #1e1e1e;
+      color: #d4d4d4;
+    }
+    .result {
+      background: #252526;
+      padding: 15px;
+      margin: 10px 0;
+      border-radius: 5px;
+      border-left: 4px solid #007acc;
+    }
+    .success { border-left-color: #4ec9b0; }
+    .error { border-left-color: #f48771; }
+    pre {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔍 Check Layout Variable Toggles</h1>
+  <div id="output"></div>
+
+  <script>
+    const output = document.getElementById('output');
+
+    function log(message, type = 'result') {
+      const div = document.createElement('div');
+      div.className = `result ${type}`;
+      div.innerHTML = message;
+      output.appendChild(div);
+    }
+
+    // Check all localStorage keys
+    const allKeys = Object.keys(localStorage);
+    log('<h3>All localStorage keys (' + allKeys.length + '):</h3><pre>' + JSON.stringify(allKeys, null, 2) + '</pre>');
+
+    // Find any project layout keys
+    const projectLayoutKeys = allKeys.filter(key => key.includes('project') && key.includes('layout'));
+
+    if (projectLayoutKeys.length > 0) {
+      log('<h3>Found project layout keys:</h3><pre>' + projectLayoutKeys.join('\n') + '</pre>', 'success');
+    } else {
+      log('❌ No project layout keys found in localStorage', 'error');
+      log('<h3>Possible reasons:</h3><ul><li>Layouts are saved to backend API only (not localStorage)</li><li>Project slug is different</li><li>Layouts not saved yet</li></ul>');
+    }
+
+    // Try to find TCL-2025 project layouts (try different variations)
+    const possibleKeys = [
+      'project_tcl-2025_layouts',
+      'project_TCL-2025_layouts',
+      'project_east_layouts',
+      'project_tcl2025_layouts'
+    ];
+
+    let projectKey = null;
+    let layoutsRaw = null;
+
+    for (const key of possibleKeys) {
+      layoutsRaw = localStorage.getItem(key);
+      if (layoutsRaw) {
+        projectKey = key;
+        break;
+      }
+    }
+
+    // If not found, try to find ANY project key
+    if (!layoutsRaw && projectLayoutKeys.length > 0) {
+      projectKey = projectLayoutKeys[0];
+      layoutsRaw = localStorage.getItem(projectKey);
+    }
+
+    if (!layoutsRaw) {
+      log('❌ No layouts found for key: ' + projectKey, 'error');
+    } else {
+      log('✅ Found layouts for: ' + projectKey, 'success');
+
+      try {
+        const layouts = JSON.parse(layoutsRaw);
+        log(`<h3>Total layouts: ${layouts.length}</h3>`);
+
+        // Find the specific layout
+        const targetLayout = layouts.find(l => l.name && l.name.includes('4090 - mulitpe-first+comp-trans'));
+
+        if (!targetLayout) {
+          log('❌ Layout "4090 - mulitpe-first+comp-trans" not found', 'error');
+          log('<h3>Available layouts:</h3><pre>' + layouts.map(l => `- ${l.name || l.id}`).join('\n') + '</pre>');
+        } else {
+          log('✅ Found target layout!', 'success');
+          log('<h3>Layout Info:</h3><pre>Name: ' + targetLayout.name + '\nID: ' + targetLayout.id + '</pre>');
+
+          // Check structure
+          if (!targetLayout.canvasData) {
+            log('❌ No canvasData found', 'error');
+          } else if (!targetLayout.canvasData.objects) {
+            log('❌ No canvasData.objects found', 'error');
+          } else {
+            log(`✅ Found ${targetLayout.canvasData.objects.length} objects in canvasData`, 'success');
+
+            // Scan for variable-enabled components
+            let variableComponents = [];
+
+            targetLayout.canvasData.objects.forEach(obj => {
+              if (obj.regions && Array.isArray(obj.regions)) {
+                obj.regions.forEach(region => {
+                  if (region.contents && Array.isArray(region.contents)) {
+                    region.contents.forEach((content, idx) => {
+                      // Check comp-trans
+                      if (content.type === 'new-comp-trans') {
+                        variableComponents.push({
+                          regionId: region.id,
+                          contentIndex: idx,
+                          type: 'comp-trans',
+                          isVariableEnabled: content.newCompTransConfig?.isVariableEnabled || false,
+                          config: content.newCompTransConfig
+                        });
+                      }
+                      // Check multi-line
+                      if (content.type === 'new-multi-line') {
+                        variableComponents.push({
+                          regionId: region.id,
+                          contentIndex: idx,
+                          type: 'multi-line',
+                          isVariableEnabled: content.newMultiLineConfig?.isVariableEnabled || false,
+                          config: content.newMultiLineConfig
+                        });
+                      }
+                    });
+                  }
+                });
+              }
+            });
+
+            if (variableComponents.length === 0) {
+              log('❌ No comp-trans or multi-line components found in layout', 'error');
+            } else {
+              log(`<h3>Found ${variableComponents.length} components:</h3>`);
+              variableComponents.forEach(comp => {
+                const status = comp.isVariableEnabled ? '✅ Variable ON' : '❌ Variable OFF';
+                log(`<div><strong>${status}</strong> - ${comp.type} in region ${comp.regionId}</div>`);
+                log('<pre>' + JSON.stringify(comp.config, null, 2) + '</pre>');
+              });
+
+              const enabledCount = variableComponents.filter(c => c.isVariableEnabled).length;
+              if (enabledCount > 0) {
+                log(`<h2>✅ ${enabledCount} component(s) have variable toggle ON</h2>`, 'success');
+              } else {
+                log('<h2>❌ No components have variable toggle ON</h2>', 'error');
+              }
+            }
+          }
+        }
+      } catch (error) {
+        log('❌ Error parsing layouts: ' + error.message, 'error');
+      }
+    }
+  </script>
+</body>
+</html>

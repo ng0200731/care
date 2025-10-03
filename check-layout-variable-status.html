@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Check Layout Variable Status</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #007bff;
+            padding-bottom: 10px;
+        }
+        .result {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-left: 4px solid #28a745;
+            border-radius: 4px;
+        }
+        .error {
+            border-left-color: #dc3545;
+        }
+        .info {
+            border-left-color: #17a2b8;
+        }
+        .variable-found {
+            background: #d4edda;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            border-left: 4px solid #28a745;
+        }
+        .no-variable {
+            background: #f8d7da;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            border-left: 4px solid #dc3545;
+        }
+        pre {
+            background: #263238;
+            color: #aed581;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Check Layout Variable Status</h1>
+
+        <button onclick="findLayoutKeys()">1. Find Layout Keys</button>
+        <button onclick="checkLayout()">2. Check "mulitpe-first+comp-trans" Layout</button>
+        <button onclick="checkAllLayouts()">3. Check ALL Layouts</button>
+
+        <div id="results"></div>
+    </div>
+
+    <script>
+        function findLayoutKeys() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<h2>🔍 Searching all localStorage keys...</h2>';
+
+            try {
+                const allKeys = Object.keys(localStorage);
+                const projectKeys = allKeys.filter(key => key.includes('project_') && key.includes('_layouts'));
+
+                resultsDiv.innerHTML += '<div class="result info">Found ' + allKeys.length + ' total localStorage keys</div>';
+                resultsDiv.innerHTML += '<div class="result info">Found ' + projectKeys.length + ' project layout keys</div>';
+
+                if (projectKeys.length === 0) {
+                    resultsDiv.innerHTML += '<div class="result error">❌ No project layout keys found!</div>';
+                    resultsDiv.innerHTML += '<h3>All localStorage keys:</h3>';
+                    resultsDiv.innerHTML += '<pre>' + JSON.stringify(allKeys, null, 2) + '</pre>';
+                } else {
+                    resultsDiv.innerHTML += '<h3>✅ Project Layout Keys Found:</h3>';
+                    projectKeys.forEach(key => {
+                        const data = localStorage.getItem(key);
+                        const layouts = JSON.parse(data);
+                        resultsDiv.innerHTML += '<div class="result" style="background: #d4edda;">';
+                        resultsDiv.innerHTML += '<strong>Key:</strong> ' + key + '<br>';
+                        resultsDiv.innerHTML += '<strong>Layouts count:</strong> ' + layouts.length + '<br>';
+                        resultsDiv.innerHTML += '<strong>Layout names:</strong><br>';
+                        layouts.forEach((layout, index) => {
+                            resultsDiv.innerHTML += '&nbsp;&nbsp;' + (index + 1) + '. ' + layout.name + '<br>';
+                        });
+                        resultsDiv.innerHTML += '</div>';
+                    });
+                }
+            } catch (error) {
+                resultsDiv.innerHTML += '<div class="result error">❌ Error: ' + error.message + '</div>';
+                console.error(error);
+            }
+        }
+
+        function checkLayout() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<h2>Checking localStorage...</h2>';
+
+            try {
+                // Get layouts from localStorage
+                // Try both uppercase and lowercase project slug
+                let layoutsKey = 'project_TCL-2025_layouts';
+                let layoutsData = localStorage.getItem(layoutsKey);
+
+                if (!layoutsData) {
+                    // Try lowercase version
+                    layoutsKey = 'project_tcl-2025_layouts';
+                    layoutsData = localStorage.getItem(layoutsKey);
+                }
+
+                if (!layoutsData) {
+                    resultsDiv.innerHTML += '<div class="result error">❌ No layouts found in localStorage for key: ' + layoutsKey + '</div>';
+                    return;
+                }
+
+                const layouts = JSON.parse(layoutsData);
+                resultsDiv.innerHTML += '<div class="result info">✅ Found ' + layouts.length + ' layout(s) in project</div>';
+
+                // Find the specific layout
+                const targetLayout = layouts.find(layout => layout.name === 'mulitpe-first+comp-trans');
+
+                if (!targetLayout) {
+                    resultsDiv.innerHTML += '<div class="result error">❌ Layout "mulitpe-first+comp-trans" not found</div>';
+                    resultsDiv.innerHTML += '<div class="result info">Available layouts:<br>';
+                    layouts.forEach(layout => {
+                        resultsDiv.innerHTML += '- ' + layout.name + '<br>';
+                    });
+                    resultsDiv.innerHTML += '</div>';
+                    return;
+                }
+
+                resultsDiv.innerHTML += '<div class="result">✅ Found layout: <strong>' + targetLayout.name + '</strong></div>';
+                resultsDiv.innerHTML += '<div class="result info">Layout ID: ' + targetLayout.id + '</div>';
+
+                // Check for variable-enabled components
+                // This matches the logic in ProjectDetail.tsx line 151-168
+                let variableCount = 0;
+                const variableComponents = [];
+
+                if (targetLayout.canvasData && targetLayout.canvasData.regions) {
+                    targetLayout.canvasData.regions.forEach((region, regionIndex) => {
+                        if (region.contents && Array.isArray(region.contents)) {
+                            region.contents.forEach((content, contentIndex) => {
+                                // Check for new-comp-trans with variable enabled
+                                if (content.type === 'new-comp-trans' &&
+                                    content.newCompTransConfig &&
+                                    content.newCompTransConfig.isVariableEnabled === true) {
+                                    variableCount++;
+                                    variableComponents.push({
+                                        type: 'Composition Translation',
+                                        region: region.id,
+                                        contentIndex: contentIndex,
+                                        config: content.newCompTransConfig
+                                    });
+                                }
+
+                                // Check for new-multi-line with variable enabled
+                                if (content.type === 'new-multi-line' &&
+                                    content.newMultiLineConfig &&
+                                    content.newMultiLineConfig.isVariableEnabled === true) {
+                                    variableCount++;
+                                    variableComponents.push({
+                                        type: 'Multi-line Text',
+                                        region: region.id,
+                                        contentIndex: contentIndex,
+                                        config: content.newMultiLineConfig
+                                    });
+                                }
+                            });
+                        }
+                    });
+                }
+
+                // Display results
+                if (variableCount > 0) {
+                    resultsDiv.innerHTML += '<div class="variable-found">';
+                    resultsDiv.innerHTML += '<h3>✅ Found ' + variableCount + ' variable-enabled component(s)!</h3>';
+
+                    variableComponents.forEach((comp, index) => {
+                        resultsDiv.innerHTML += '<div style="margin: 10px 0; padding: 10px; background: white; border-radius: 4px;">';
+                        resultsDiv.innerHTML += '<strong>Component ' + (index + 1) + ':</strong><br>';
+                        resultsDiv.innerHTML += '• Type: ' + comp.type + '<br>';
+                        resultsDiv.innerHTML += '• Region: ' + comp.region + '<br>';
+                        resultsDiv.innerHTML += '• Content Index: ' + comp.contentIndex + '<br>';
+                        resultsDiv.innerHTML += '• Variable Enabled: <span style="color: #28a745; font-weight: bold;">TRUE</span><br>';
+                        resultsDiv.innerHTML += '</div>';
+                    });
+
+                    resultsDiv.innerHTML += '</div>';
+                } else {
+                    resultsDiv.innerHTML += '<div class="no-variable">';
+                    resultsDiv.innerHTML += '<h3>❌ No variable-enabled components found</h3>';
+                    resultsDiv.innerHTML += '<p>This layout does not have any components with isVariableEnabled = true</p>';
+                    resultsDiv.innerHTML += '</div>';
+                }
+
+                // Show full structure for debugging
+                resultsDiv.innerHTML += '<h3>📋 Full Layout Structure:</h3>';
+                resultsDiv.innerHTML += '<pre>' + JSON.stringify(targetLayout, null, 2).substring(0, 5000) + '...</pre>';
+
+            } catch (error) {
+                resultsDiv.innerHTML += '<div class="result error">❌ Error: ' + error.message + '</div>';
+                console.error('Error checking layout:', error);
+            }
+        }
+
+        function checkAllLayouts() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<h2>Checking ALL Layouts...</h2>';
+
+            try {
+                // Try both uppercase and lowercase project slug
+                let layoutsKey = 'project_TCL-2025_layouts';
+                let layoutsData = localStorage.getItem(layoutsKey);
+
+                if (!layoutsData) {
+                    layoutsKey = 'project_tcl-2025_layouts';
+                    layoutsData = localStorage.getItem(layoutsKey);
+                }
+
+                if (!layoutsData) {
+                    resultsDiv.innerHTML += '<div class="result error">❌ No layouts found</div>';
+                    return;
+                }
+
+                const layouts = JSON.parse(layoutsData);
+
+                layouts.forEach((layout, layoutIndex) => {
+                    let variableCount = 0;
+
+                    // Match the logic in ProjectDetail.tsx
+                    if (layout.canvasData && layout.canvasData.regions) {
+                        layout.canvasData.regions.forEach((region) => {
+                            if (region.contents && Array.isArray(region.contents)) {
+                                region.contents.forEach((content) => {
+                                    if ((content.type === 'new-comp-trans' && content.newCompTransConfig?.isVariableEnabled === true) ||
+                                        (content.type === 'new-multi-line' && content.newMultiLineConfig?.isVariableEnabled === true)) {
+                                        variableCount++;
+                                    }
+                                });
+                            }
+                        });
+                    }
+
+                    const cssClass = variableCount > 0 ? 'variable-found' : 'no-variable';
+                    resultsDiv.innerHTML += '<div class="' + cssClass + '">';
+                    resultsDiv.innerHTML += '<strong>' + (layoutIndex + 1) + '. ' + layout.name + '</strong><br>';
+                    resultsDiv.innerHTML += 'ID: ' + layout.id + '<br>';
+                    resultsDiv.innerHTML += 'Variable Components: <strong>' + variableCount + '</strong><br>';
+                    resultsDiv.innerHTML += '</div>';
+                });
+
+            } catch (error) {
+                resultsDiv.innerHTML += '<div class="result error">❌ Error: ' + error.message + '</div>';
+            }
+        }
+    </script>
+</body>
+</html>

@@ -118,32 +118,36 @@ const NewOrderTab: React.FC = () => {
           const parsedLayouts = JSON.parse(savedLayouts);
           const selectedLayout = parsedLayouts.find((layout: any) => layout.id === formData.layoutId);
 
-          if (selectedLayout && selectedLayout.canvasData?.regions) {
+          if (selectedLayout && selectedLayout.canvasData?.objects) {
             const components: VariableComponent[] = [];
 
-            // Scan all regions and their contents for variable-enabled components
-            selectedLayout.canvasData.regions.forEach((region: any) => {
-              if (region.contents && Array.isArray(region.contents)) {
-                region.contents.forEach((content: any, contentIndex: number) => {
-                  // Check for New Comp Trans with variable enabled
-                  if (content.type === 'new-comp-trans' &&
-                      content.newCompTransConfig?.isVariableEnabled) {
-                    components.push({
-                      id: `${region.id}_content_${contentIndex}`,
-                      type: 'comp-trans',
-                      name: `Composition Translation (${region.id})`,
-                      config: content.newCompTransConfig
-                    });
-                  }
+            // Scan all objects and their regions for variable-enabled components
+            selectedLayout.canvasData.objects.forEach((obj: any, objIndex: number) => {
+              if (obj.regions && Array.isArray(obj.regions)) {
+                obj.regions.forEach((region: any) => {
+                  if (region.contents && Array.isArray(region.contents)) {
+                    region.contents.forEach((content: any, contentIndex: number) => {
+                      // Check for New Comp Trans with variable enabled
+                      if (content.type === 'new-comp-trans' &&
+                          content.newCompTransConfig?.isVariableEnabled) {
+                        components.push({
+                          id: `${region.id}_content_${contentIndex}`,
+                          type: 'comp-trans',
+                          name: `Composition Translation (${region.id})`,
+                          config: content.newCompTransConfig
+                        });
+                      }
 
-                  // Check for New Multi-Line with variable enabled
-                  if (content.type === 'new-multi-line' &&
-                      content.newMultiLineConfig?.isVariableEnabled) {
-                    components.push({
-                      id: `${region.id}_content_${contentIndex}`,
-                      type: 'multi-line',
-                      name: `Multi-line Text (${region.id})`,
-                      config: content.newMultiLineConfig
+                      // Check for New Multi-Line with variable enabled
+                      if (content.type === 'new-multi-line' &&
+                          content.newMultiLineConfig?.isVariableEnabled) {
+                        components.push({
+                          id: `${region.id}_content_${contentIndex}`,
+                          type: 'multi-line',
+                          name: `Multi-line Text (${region.id})`,
+                          config: content.newMultiLineConfig
+                        });
+                      }
                     });
                   }
                 });
@@ -249,6 +253,42 @@ const NewOrderTab: React.FC = () => {
 
     loadCustomerData();
   }, [formData.customerId]);
+
+  // Helper function to check if a layout has variable-enabled components
+  const layoutHasVariables = (layoutId: string): boolean => {
+    if (!formData.projectSlug) return false;
+
+    try {
+      const storageKey = `project_${formData.projectSlug}_layouts`;
+      const savedLayouts = localStorage.getItem(storageKey);
+
+      if (savedLayouts) {
+        const parsedLayouts = JSON.parse(savedLayouts);
+        const layout = parsedLayouts.find((l: any) => l.id === layoutId);
+
+        if (layout && layout.canvasData?.objects) {
+          // Check if any object's regions have variable-enabled components
+          return layout.canvasData.objects.some((obj: any) => {
+            if (obj.regions && Array.isArray(obj.regions)) {
+              return obj.regions.some((region: any) => {
+                if (region.contents && Array.isArray(region.contents)) {
+                  return region.contents.some((content: any) => {
+                    return (content.type === 'new-comp-trans' && content.newCompTransConfig?.isVariableEnabled) ||
+                           (content.type === 'new-multi-line' && content.newMultiLineConfig?.isVariableEnabled);
+                  });
+                }
+                return false;
+              });
+            }
+            return false;
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error checking layout variables:', error);
+    }
+    return false;
+  };
 
   // Load layout cards for selected project AND master file
   useEffect(() => {
@@ -833,7 +873,7 @@ const NewOrderTab: React.FC = () => {
                 </option>
                 {layoutCards.map(layout => (
                   <option key={layout.id} value={layout.id}>
-                    {layout.name} ({layout.width}×{layout.height}mm)
+                    {layoutHasVariables(layout.id) ? '🔄 ' : ''}{layout.name} ({layout.width}×{layout.height}mm)
                   </option>
                 ))}
               </select>

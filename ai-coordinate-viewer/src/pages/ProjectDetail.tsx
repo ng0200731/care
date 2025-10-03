@@ -134,6 +134,55 @@ const ProjectDetail: React.FC = () => {
     }));
   };
 
+  // Helper function to check if a layout has variable-enabled components
+  const layoutHasVariables = (pageId: string): boolean => {
+    if (!slug) return false;
+
+    try {
+      const storageKey = `project_${slug}_layouts`;
+      const savedLayouts = localStorage.getItem(storageKey);
+
+      if (savedLayouts) {
+        const parsedLayouts = JSON.parse(savedLayouts);
+        const layout = parsedLayouts.find((l: any) => l.id === pageId);
+
+        console.log(`🔍 Checking variables for layout ${pageId}:`, layout?.name);
+
+        if (layout && layout.canvasData?.objects) {
+          // Check if any object's regions have variable-enabled components
+          const hasVariables = layout.canvasData.objects.some((obj: any) => {
+            if (obj.regions && Array.isArray(obj.regions)) {
+              return obj.regions.some((region: any) => {
+                if (region.contents && Array.isArray(region.contents)) {
+                  return region.contents.some((content: any) => {
+                    const isCompTransVariable = content.type === 'new-comp-trans' && content.newCompTransConfig?.isVariableEnabled;
+                    const isMultiLineVariable = content.type === 'new-multi-line' && content.newMultiLineConfig?.isVariableEnabled;
+
+                    if (isCompTransVariable || isMultiLineVariable) {
+                      console.log(`  ✅ Found variable component in ${region.id}:`, content.type, content);
+                    }
+
+                    return isCompTransVariable || isMultiLineVariable;
+                  });
+                }
+                return false;
+              });
+            }
+            return false;
+          });
+
+          console.log(`  📊 Result: ${hasVariables ? 'HAS VARIABLES' : 'NO VARIABLES'}`);
+          return hasVariables;
+        } else {
+          console.log(`  ⚠️ No canvasData or objects found`);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking layout variables:', error);
+    }
+    return false;
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Draft': return '#6c757d';
@@ -432,9 +481,23 @@ const ProjectDetail: React.FC = () => {
           >
             {/* Page Header */}
             <div style={{ marginBottom: '16px' }}>
-              <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: 'bold' }}>
-                📄 {page.name}
-              </h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold' }}>
+                  📄 {page.name}
+                </h3>
+                <div style={{
+                  padding: '4px 10px',
+                  fontSize: '11px',
+                  fontWeight: '600',
+                  border: `2px solid ${layoutHasVariables(page.id) ? '#28a745' : '#6c757d'}`,
+                  borderRadius: '6px',
+                  backgroundColor: layoutHasVariables(page.id) ? '#28a745' : '#6c757d',
+                  color: 'white',
+                  cursor: 'default'
+                }}>
+                  Variable: {layoutHasVariables(page.id) ? 'ON' : 'OFF'}
+                </div>
+              </div>
               <div style={{ fontSize: '14px', color: '#666', marginBottom: '12px' }}>
                 Dimensions: {page.width} × {page.height} mm
               </div>

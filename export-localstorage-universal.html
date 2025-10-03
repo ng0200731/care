@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Export localStorage Data</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 40px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 { color: #333; }
+        button {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover { background: #218838; }
+        .list-btn { background: #007bff; }
+        .list-btn:hover { background: #0056b3; }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            border-radius: 4px;
+        }
+        .success {
+            background: #d4edda;
+            border-left-color: #28a745;
+        }
+        .error {
+            background: #f8d7da;
+            border-left-color: #dc3545;
+        }
+        .key-item {
+            padding: 10px;
+            margin: 5px 0;
+            background: #f8f9fa;
+            border-left: 3px solid #007bff;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .key-item:hover {
+            background: #e9ecef;
+            transform: translateX(5px);
+        }
+        .instructions {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📦 Export localStorage Data (Universal)</h1>
+
+        <div class="instructions">
+            <strong>⚠️ IMPORTANT:</strong><br>
+            If you see "No data found", you need to:<br>
+            1. Copy this entire HTML file content<br>
+            2. Go to <code>http://localhost:3002</code><br>
+            3. Open DevTools (F12) → Console tab<br>
+            4. Paste and run the script at the bottom of this page<br><br>
+            <strong>OR</strong> move this file to your public folder and access via localhost
+        </div>
+
+        <button class="list-btn" onclick="listAllKeys()">📋 List All localStorage Keys</button>
+        <button onclick="exportAllData()">🚀 Export ALL localStorage</button>
+
+        <div id="status"></div>
+        <div id="keysList"></div>
+    </div>
+
+    <script>
+        function listAllKeys() {
+            const statusDiv = document.getElementById('status');
+            const keysListDiv = document.getElementById('keysList');
+
+            try {
+                const keys = Object.keys(localStorage);
+
+                if (keys.length === 0) {
+                    statusDiv.innerHTML = '<div class="status error">❌ localStorage is empty or not accessible from this origin</div>';
+                    statusDiv.innerHTML += '<div class="status">Current origin: <code>' + window.location.origin + '</code></div>';
+                    statusDiv.innerHTML += '<div class="status">You need to access this page from <code>http://localhost:3002</code></div>';
+                    return;
+                }
+
+                statusDiv.innerHTML = '<div class="status success">✅ Found ' + keys.length + ' key(s) in localStorage</div>';
+
+                keysListDiv.innerHTML = '<h3>Available Keys (click to export):</h3>';
+                keys.forEach(key => {
+                    const value = localStorage.getItem(key);
+                    const size = value ? (value.length / 1024).toFixed(2) : '0';
+
+                    keysListDiv.innerHTML +=
+                        '<div class="key-item" onclick="exportKey(\'' + key.replace(/'/g, "\\'") + '\')">' +
+                        '<strong>' + key + '</strong> (' + size + ' KB)' +
+                        '</div>';
+                });
+
+            } catch (error) {
+                statusDiv.innerHTML = '<div class="status error">❌ Error: ' + error.message + '</div>';
+                console.error('Error listing keys:', error);
+            }
+        }
+
+        function exportKey(key) {
+            const statusDiv = document.getElementById('status');
+
+            try {
+                const data = localStorage.getItem(key);
+
+                if (!data) {
+                    statusDiv.innerHTML = '<div class="status error">❌ No data found for key: ' + key + '</div>';
+                    return;
+                }
+
+                // Try to parse as JSON for pretty printing
+                let exportData = data;
+                try {
+                    const parsed = JSON.parse(data);
+                    exportData = JSON.stringify(parsed, null, 2);
+                } catch (e) {
+                    // Not JSON, export as-is
+                }
+
+                // Create and download file
+                const blob = new Blob([exportData], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = key.replace(/[^a-zA-Z0-9_-]/g, '_') + '.json';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                statusDiv.innerHTML = '<div class="status success">✅ Exported: ' + key + '</div>';
+
+            } catch (error) {
+                statusDiv.innerHTML = '<div class="status error">❌ Error: ' + error.message + '</div>';
+                console.error('Export error:', error);
+            }
+        }
+
+        function exportAllData() {
+            const statusDiv = document.getElementById('status');
+
+            try {
+                const allData = {};
+                const keys = Object.keys(localStorage);
+
+                if (keys.length === 0) {
+                    statusDiv.innerHTML = '<div class="status error">❌ localStorage is empty</div>';
+                    return;
+                }
+
+                keys.forEach(key => {
+                    const value = localStorage.getItem(key);
+                    try {
+                        allData[key] = JSON.parse(value);
+                    } catch (e) {
+                        allData[key] = value;
+                    }
+                });
+
+                const exportData = JSON.stringify(allData, null, 2);
+
+                // Create and download file
+                const blob = new Blob([exportData], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'all_localStorage_data.json';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                statusDiv.innerHTML = '<div class="status success">✅ Exported all localStorage data (' + keys.length + ' keys)</div>';
+
+            } catch (error) {
+                statusDiv.innerHTML = '<div class="status error">❌ Error: ' + error.message + '</div>';
+                console.error('Export error:', error);
+            }
+        }
+
+        // Auto-check on load
+        window.addEventListener('load', () => {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = '<div class="status">🔍 Current origin: <code>' + window.location.origin + '</code></div>';
+
+            if (window.location.protocol === 'file:') {
+                statusDiv.innerHTML += '<div class="status error">⚠️ You opened this as a file. localStorage from http://localhost:3002 is not accessible here.</div>';
+            }
+        });
+    </script>
+
+    <hr style="margin: 40px 0;">
+
+    <h2>📋 Copy This Script (Run in Browser Console at localhost:3002)</h2>
+    <p>If you can't access this page from localhost:3002, copy and run this in the console:</p>
+    <pre style="background: #263238; color: #aed581; padding: 20px; border-radius: 4px; overflow-x: auto;">
+// Run this in console at http://localhost:3002
+const allKeys = Object.keys(localStorage);
+console.log('Found keys:', allKeys);
+
+// Find project layouts
+const layoutKeys = allKeys.filter(k => k.includes('layout'));
+console.log('Layout keys:', layoutKeys);
+
+// Export project layouts
+layoutKeys.forEach(key => {
+    const data = localStorage.getItem(key);
+    console.log('\n========== ' + key + ' ==========');
+    console.log(data);
+});
+
+// Or export to file
+const exportKey = 'project_tcl-2025_layouts'; // Change this if needed
+const data = localStorage.getItem(exportKey);
+if (data) {
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = exportKey + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    console.log('✅ File downloaded!');
+} else {
+    console.log('❌ Key not found:', exportKey);
+    console.log('Available keys:', allKeys);
+}
+    </pre>
+</body>
+</html>

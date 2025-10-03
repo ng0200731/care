@@ -17,7 +17,9 @@
       "Bash(git pull:*)",
       "Bash(clip)",
       "Bash(git checkout:*)",
-      "Read(//d/**)"
+      "Read(//d/**)",
+      "Bash(start D:projectlayout2carecheck-layout-variable-status.html)",
+      "Bash(start \"D:\\project\\layout2\\care\\check-layout-variable-status.html\")"
     ],
     "deny": [],
     "ask": []

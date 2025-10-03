@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Logger Injector - Drag to Bookmarks Bar</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 40px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .container {
+      background: white;
+      padding: 40px;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      max-width: 600px;
+    }
+    h1 {
+      color: #667eea;
+      margin-top: 0;
+    }
+    .bookmarklet {
+      display: inline-block;
+      padding: 20px 40px;
+      background: #10b981;
+      color: white;
+      font-size: 20px;
+      font-weight: bold;
+      border-radius: 12px;
+      text-decoration: none;
+      margin: 20px 0;
+      cursor: move;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    .bookmarklet:hover {
+      background: #059669;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+    }
+    .instruction {
+      background: #fef3c7;
+      border-left: 4px solid #f59e0b;
+      padding: 16px;
+      margin: 20px 0;
+      border-radius: 4px;
+    }
+    code {
+      background: #f3f4f6;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: monospace;
+    }
+    ol {
+      line-height: 1.8;
+    }
+    .alternative {
+      background: #e0f2fe;
+      border: 2px solid #3b82f6;
+      padding: 20px;
+      border-radius: 8px;
+      margin-top: 30px;
+    }
+    button {
+      padding: 12px 24px;
+      background: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button:hover {
+      background: #2563eb;
+    }
+    textarea {
+      width: 100%;
+      height: 200px;
+      font-family: monospace;
+      font-size: 11px;
+      padding: 10px;
+      border: 2px solid #ddd;
+      border-radius: 4px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📋 Save Logger Injector</h1>
+
+    <p><strong>Method 1: Drag this button to your bookmarks bar →</strong></p>
+    <a href="javascript:(function(){const logs=[];const KEYWORDS=['777777','save','layout','api','backend','localstorage'];const originalLog=console.log;const originalError=console.error;console.log=function(...args){originalLog.apply(console,args);const msg=args.map(a=>typeof a==='object'?JSON.stringify(a,null,2):String(a)).join(' ');if(KEYWORDS.some(k=>msg.toLowerCase().includes(k))){logs.push({t:new Date().toLocaleTimeString(),m:msg});}};console.error=function(...args){originalError.apply(console,args);const msg=args.map(a=>typeof a==='object'?JSON.stringify(a,null,2):String(a)).join(' ');if(KEYWORDS.some(k=>msg.toLowerCase().includes(k))){logs.push({t:new Date().toLocaleTimeString(),m:msg});}};window.showSaveLogs=function(){const text=logs.map(l=>'['+l.t+'] '+l.m).join('\n\n');navigator.clipboard.writeText(text).then(()=>alert('✅ Copied '+logs.length+' logs!\n\nPaste them to Claude.')).catch(()=>alert('Logs:\n\n'+text));};const btn=document.createElement('div');btn.innerHTML='📋 '+logs.length;btn.style.cssText='position:fixed;top:20px;right:20px;background:#10b981;color:white;padding:16px 24px;border-radius:12px;cursor:pointer;z-index:999999;font-weight:bold;box-shadow:0 4px 12px rgba(0,0,0,0.3)';btn.onclick=window.showSaveLogs;document.body.appendChild(btn);setInterval(()=>btn.innerHTML='📋 '+logs.length,500);console.log('777777 LOGGER-INJECTED 777777 Logger is now active!');})();" class="bookmarklet">
+      🔍 INJECT LOGGER
+    </a>
+
+    <div class="instruction">
+      <strong>📝 Instructions:</strong>
+      <ol>
+        <li>Drag the green "INJECT LOGGER" button above to your <strong>bookmarks bar</strong></li>
+        <li>Go to your React app at <code>http://localhost:3002</code></li>
+        <li>Click the "INJECT LOGGER" bookmark</li>
+        <li>You'll see a green button appear in top-right corner</li>
+        <li>Save a layout in your app</li>
+        <li>Click the green button to copy all logs</li>
+        <li>Paste the logs to Claude</li>
+      </ol>
+    </div>
+
+    <div class="alternative">
+      <h3>Alternative: Copy & Paste Code</h3>
+      <p>If dragging doesn't work, you can also:</p>
+      <ol>
+        <li>Go to your React app at <code>http://localhost:3002</code></li>
+        <li>Press <code>F12</code> to open DevTools</li>
+        <li>Go to <strong>Console</strong> tab</li>
+        <li>Click the button below to copy the code</li>
+        <li>Paste it in the console and press Enter</li>
+      </ol>
+      <button onclick="copyCode()">📋 Copy Injector Code</button>
+      <textarea id="code" readonly>const logs=[];const KEYWORDS=['777777','save','layout','api','backend','localstorage'];const originalLog=console.log;const originalError=console.error;console.log=function(...args){originalLog.apply(console,args);const msg=args.map(a=>typeof a==='object'?JSON.stringify(a,null,2):String(a)).join(' ');if(KEYWORDS.some(k=>msg.toLowerCase().includes(k))){logs.push({t:new Date().toLocaleTimeString(),m:msg});}};console.error=function(...args){originalError.apply(console,args);const msg=args.map(a=>typeof a==='object'?JSON.stringify(a,null,2):String(a)).join(' ');if(KEYWORDS.some(k=>msg.toLowerCase().includes(k))){logs.push({t:new Date().toLocaleTimeString(),m:msg});}};window.showSaveLogs=function(){const text=logs.map(l=>'['+l.t+'] '+l.m).join('\n\n');navigator.clipboard.writeText(text).then(()=>alert('✅ Copied '+logs.length+' logs!\n\nPaste them to Claude.')).catch(()=>alert('Logs:\n\n'+text));};const btn=document.createElement('div');btn.innerHTML='📋 '+logs.length;btn.style.cssText='position:fixed;top:20px;right:20px;background:#10b981;color:white;padding:16px 24px;border-radius:12px;cursor:pointer;z-index:999999;font-weight:bold;box-shadow:0 4px 12px rgba(0,0,0,0.3)';btn.onclick=window.showSaveLogs;document.body.appendChild(btn);setInterval(()=>btn.innerHTML='📋 '+logs.length,500);console.log('777777 LOGGER-INJECTED 777777 Logger is now active!');</textarea>
+    </div>
+  </div>
+
+  <script>
+    function copyCode() {
+      const code = document.getElementById('code');
+      code.select();
+      document.execCommand('copy');
+      alert('✅ Code copied! Now paste it in your React app console (F12)');
+    }
+  </script>
+</body>
+</html>
