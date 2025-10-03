@@ -102,8 +102,8 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
   const [loadingLayouts, setLoadingLayouts] = useState(false);
   const [loadingMasterFiles, setLoadingMasterFiles] = useState(false);
 
-  // Variable mode state
-  const [isVariableEnabled, setIsVariableEnabled] = useState(false);
+  // Variable mode state - REMOVED: Not needed, variables show automatically if layout has them
+  // const [isVariableEnabled, setIsVariableEnabled] = useState(false);
 
   // Validation modal state
   const [showValidationModal, setShowValidationModal] = useState(false);
@@ -1319,43 +1319,17 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
         marginBottom: '24px',
         boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
       }}>
-        <div style={{
+        <h3 style={{
+          margin: '0 0 20px 0',
+          fontSize: '18px',
+          fontWeight: '600',
+          color: '#1a202c',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: '20px'
+          gap: '8px'
         }}>
-          <h3 style={{
-            margin: 0,
-            fontSize: '18px',
-            fontWeight: '600',
-            color: '#1a202c',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}>
-            📝 ORDER DATA
-          </h3>
-          <button
-            type="button"
-            onClick={() => setIsVariableEnabled(!isVariableEnabled)}
-            disabled={!formData.layoutId || isDisabled}
-            style={{
-              padding: '6px 16px',
-              fontSize: '12px',
-              fontWeight: '600',
-              border: `2px solid ${isVariableEnabled ? '#28a745' : '#6c757d'}`,
-              borderRadius: '6px',
-              backgroundColor: isVariableEnabled ? '#28a745' : '#6c757d',
-              color: 'white',
-              cursor: formData.layoutId ? 'pointer' : 'not-allowed',
-              opacity: formData.layoutId ? 1 : 0.5,
-              transition: 'all 0.2s'
-            }}
-          >
-            Variable: {isVariableEnabled ? 'ON' : 'OFF'}
-          </button>
-        </div>
+          📝 ORDER DATA
+        </h3>
 
         <div style={{ marginBottom: '20px' }}>
           <label style={{
@@ -1439,36 +1413,19 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
             {/* Header */}
             <div style={{
               padding: '12px 16px',
-              backgroundColor: isVariableEnabled ? '#e0f2fe' : '#f1f5f9',
+              backgroundColor: '#e0f2fe',
               borderRadius: '6px',
-              border: `2px solid ${isVariableEnabled ? '#3b82f6' : '#cbd5e0'}`
+              border: '2px solid #3b82f6',
+              marginBottom: '20px'
             }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between'
+              <p style={{
+                margin: 0,
+                fontSize: '14px',
+                fontWeight: '600',
+                color: '#1e40af'
               }}>
-                <p style={{
-                  margin: 0,
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  color: isVariableEnabled ? '#1e40af' : '#475569'
-                }}>
-                  📋 Variable Components ({variableComponents.length} found from "{layoutCards.find(l => l.id === formData.layoutId)?.name || 'layout'}")
-                </p>
-                {isVariableEnabled && (
-                  <span style={{
-                    fontSize: '11px',
-                    color: '#10b981',
-                    fontWeight: '600',
-                    padding: '2px 8px',
-                    backgroundColor: '#d1fae5',
-                    borderRadius: '4px'
-                  }}>
-                    ✓ ENABLED
-                  </span>
-                )}
-              </div>
+                📋 Variable Components ({variableComponents.length} found from "{layoutCards.find(l => l.id === formData.layoutId)?.name || 'layout'}")
+              </p>
             </div>
 
             {/* Variable Components */}
@@ -1709,7 +1666,7 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                           }
                         });
                       }}
-                      disabled={!isVariableEnabled || isDisabled}
+                      disabled={isDisabled}
                       placeholder="Enter multi-line text content..."
                       rows={4}
                       style={{
@@ -1720,11 +1677,11 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                         fontSize: '14px',
                         fontFamily: 'inherit',
                         resize: 'vertical',
-                        backgroundColor: isVariableEnabled ? 'white' : '#f7fafc',
-                        cursor: isVariableEnabled ? 'text' : 'not-allowed'
+                        backgroundColor: 'white',
+                        cursor: 'text'
                       }}
                       onFocus={(e) => {
-                        if (isVariableEnabled) {
+                        if (!isDisabled) {
                           e.currentTarget.style.borderColor = '#3b82f6';
                         }
                       }}
@@ -1734,17 +1691,6 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                 )}
               </div>
             ))}
-
-            {/* Tip */}
-            <p style={{
-              margin: 0,
-              fontSize: '12px',
-              color: '#3b82f6',
-              fontStyle: 'italic',
-              textAlign: 'center'
-            }}>
-              💡 Tip: Toggle "Variable: ON" to enable editing these fields
-            </p>
           </div>
         )}
       </div>
