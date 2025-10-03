@@ -906,6 +906,63 @@ function App() {
         return newContents;
       });
 
+      // ALSO UPDATE THE MAIN DATA OBJECTS to ensure persistence (same as comp-trans)
+      const currentData = data || webCreationData;
+      if (currentData) {
+        const updatedObjects = currentData.objects.map(obj => {
+          if ((obj as any).regions && (obj as any).regions.some((region: any) => region.id === regionId)) {
+            const updatedRegions = (obj as any).regions.map((region: any) => {
+              if (region.id === regionId) {
+                const updatedContents = (region.contents || []).map((content: any) =>
+                  content.id === editingContent.id
+                    ? {
+                        ...content,
+                        type: 'new-multi-line' as const,
+                        content: {
+                          ...content.content,
+                          text: config.textContent
+                        },
+                        typography: {
+                          ...content.typography,
+                          fontFamily: config.typography.fontFamily,
+                          fontSize: config.typography.fontSize,
+                          fontSizeUnit: config.typography.fontSizeUnit
+                        },
+                        layout: {
+                          ...content.layout,
+                          padding: config.padding,
+                          horizontalAlign: config.alignment.horizontal,
+                          verticalAlign: config.alignment.vertical
+                        },
+                        newMultiLineConfig: config
+                      }
+                    : content
+                );
+                return { ...region, contents: updatedContents };
+              }
+              return region;
+            });
+            return { ...obj, regions: updatedRegions } as any;
+          }
+          return obj;
+        });
+
+        const newData = {
+          ...currentData,
+          objects: updatedObjects
+        };
+
+        if (data) {
+          setData(newData);
+        } else {
+          setWebCreationData(newData);
+        }
+
+        if ((window as any).updateAppData) {
+          (window as any).updateAppData(newData);
+        }
+      }
+
       // Find region name for notification
       const regionName = (() => {
         const currentData = data || webCreationData;
@@ -977,6 +1034,39 @@ function App() {
 
         return newContents;
       });
+
+      // ALSO UPDATE THE MAIN DATA OBJECTS to ensure persistence (same as comp-trans)
+      const currentData = data || webCreationData;
+      if (currentData) {
+        const updatedObjects = currentData.objects.map(obj => {
+          if ((obj as any).regions && (obj as any).regions.some((region: any) => region.id === regionId)) {
+            const updatedRegions = (obj as any).regions.map((region: any) => {
+              if (region.id === regionId) {
+                const updatedContents = [...(region.contents || []), newContent];
+                return { ...region, contents: updatedContents };
+              }
+              return region;
+            });
+            return { ...obj, regions: updatedRegions } as any;
+          }
+          return obj;
+        });
+
+        const newData = {
+          ...currentData,
+          objects: updatedObjects
+        };
+
+        if (data) {
+          setData(newData);
+        } else {
+          setWebCreationData(newData);
+        }
+
+        if ((window as any).updateAppData) {
+          (window as any).updateAppData(newData);
+        }
+      }
 
       // Find region name for notification
       const regionName = (() => {

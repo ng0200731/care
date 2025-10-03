@@ -148,20 +148,19 @@ const ProjectDetail: React.FC = () => {
 
         console.log(`🔍 Checking variables for layout ${pageId}:`, layout?.name);
 
-        // Check 1: canvasData.objects[].regions[].contents[] (for comp-trans)
-        let hasVariablesInRegions = false;
+        // Check BOTH locations (for backward compatibility with old data)
+        let hasVariables = false;
+
+        // Location 1: canvasData.objects[].regions[].contents[] (NEW location - both comp-trans and multi-line)
         if (layout && layout.canvasData?.objects) {
-          hasVariablesInRegions = layout.canvasData.objects.some((obj: any) => {
-            // Skip child mothers - they inherit from parent and can't have independent variables
+          hasVariables = layout.canvasData.objects.some((obj: any) => {
             const isChildMother = obj.type === 'mother' && (
-              /Mother_\d+[A-Z]/.test(obj.name) || // Matches Mother_2A, Mother_2B, etc.
+              /Mother_\d+[A-Z]/.test(obj.name) ||
               obj.copiedFrom ||
               obj.isChild
             );
 
-            if (isChildMother) {
-              return false; // Skip child mothers
-            }
+            if (isChildMother) return false;
 
             if (obj.regions && Array.isArray(obj.regions)) {
               return obj.regions.some((region: any) => {
@@ -184,10 +183,8 @@ const ProjectDetail: React.FC = () => {
           });
         }
 
-        // Check 2: layout.regionContents[regionId][] (for multi-line stored separately)
-        let hasVariablesInRegionContents = false;
-        if (layout && layout.regionContents) {
-          // Get all parent mother region IDs (skip child mothers)
+        // Location 2: layout.regionContents[] (OLD location - for backward compatibility)
+        if (!hasVariables && layout?.regionContents) {
           const parentRegionIds: string[] = [];
           if (layout.canvasData?.objects) {
             layout.canvasData.objects.forEach((obj: any) => {
@@ -205,8 +202,7 @@ const ProjectDetail: React.FC = () => {
             });
           }
 
-          // Check regionContents for these parent region IDs
-          hasVariablesInRegionContents = parentRegionIds.some(regionId => {
+          hasVariables = parentRegionIds.some(regionId => {
             const contents = layout.regionContents[regionId];
             if (contents && Array.isArray(contents)) {
               return contents.some((content: any) => {
@@ -224,7 +220,6 @@ const ProjectDetail: React.FC = () => {
           });
         }
 
-        const hasVariables = hasVariablesInRegions || hasVariablesInRegionContents;
         console.log(`  📊 Result: ${hasVariables ? 'HAS VARIABLES' : 'NO VARIABLES'}`);
         return hasVariables;
       }
