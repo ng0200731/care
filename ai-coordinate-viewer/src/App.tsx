@@ -8595,34 +8595,34 @@ function App() {
                 }
               }
 
-              // Second: Apply to ALL regions (including child mothers)
-              restoredContents.forEach((regionContentArray, currentRegionId) => {
-                if (regionContentArray && regionContentArray[contentIndex]) {
-                  const content = regionContentArray[contentIndex];
+              // Second: Apply ONLY to the parent region (NOT to child mothers)
+              // Child mothers will be handled by overflow logic below
+              // Reuse mainRegionContentArray from above
+              if (mainRegionContentArray && mainRegionContentArray[contentIndex]) {
+                const parentContent = mainRegionContentArray[contentIndex];
 
-                  if (componentData.type === 'multi-line' && content.type === 'new-multi-line') {
-                    content.content = content.content || {};
-                    content.content.text = componentData.data.textContent;
-                    content.newMultiLineConfig = content.newMultiLineConfig || {};
-                    content.newMultiLineConfig.textContent = componentData.data.textContent;
-                    console.log(`  ✅ Applied multi-line to region ${currentRegionId}`);
+                if (componentData.type === 'multi-line' && parentContent.type === 'new-multi-line') {
+                  parentContent.content = parentContent.content || {};
+                  parentContent.content.text = componentData.data.textContent;
+                  parentContent.newMultiLineConfig = parentContent.newMultiLineConfig || {};
+                  parentContent.newMultiLineConfig.textContent = componentData.data.textContent;
+                  console.log(`  ✅ Applied multi-line to region ${actualRegionId}`);
 
-                  } else if (componentData.type === 'comp-trans' && content.type === 'new-comp-trans') {
-                    // Apply the SAME composition data to ALL regions
-                    content.newCompTransConfig = content.newCompTransConfig || {};
-                    content.newCompTransConfig.materialCompositions = normalizedCompositions;
-                    content.newCompTransConfig.selectedLanguages = ['ES', 'FR', 'EN', 'PT', 'DU', 'IT', 'GR', 'JA', 'DE', 'DA', 'SL', 'CH', 'KO', 'ID', 'AR', 'GA', 'CA', 'BS'];
-                    content.newCompTransConfig.textContent = content.newCompTransConfig.textContent || {};
-                    content.newCompTransConfig.textContent.separator = originalSeparator;
-                    content.newCompTransConfig.textContent.generatedText = multiLanguageText;
-                    content.newCompTransConfig.textContent.originalText = multiLanguageText;
-                    content.content = content.content || {};
-                    content.content.text = multiLanguageText;
+                } else if (componentData.type === 'comp-trans' && parentContent.type === 'new-comp-trans') {
+                  // Apply ONLY to parent mother (overflow will handle children)
+                  parentContent.newCompTransConfig = parentContent.newCompTransConfig || {};
+                  parentContent.newCompTransConfig.materialCompositions = normalizedCompositions;
+                  parentContent.newCompTransConfig.selectedLanguages = ['ES', 'FR', 'EN', 'PT', 'DU', 'IT', 'GR', 'JA', 'DE', 'DA', 'SL', 'CH', 'KO', 'ID', 'AR', 'GA', 'CA', 'BS'];
+                  parentContent.newCompTransConfig.textContent = parentContent.newCompTransConfig.textContent || {};
+                  parentContent.newCompTransConfig.textContent.separator = originalSeparator;
+                  parentContent.newCompTransConfig.textContent.generatedText = multiLanguageText;
+                  parentContent.newCompTransConfig.textContent.originalText = multiLanguageText;
+                  parentContent.content = parentContent.content || {};
+                  parentContent.content.text = multiLanguageText;
 
-                    console.log(`  ✅ Applied 18-language composition to region ${currentRegionId}`);
-                  }
+                  console.log(`  ✅ Applied 18-language composition to PARENT region ${actualRegionId} only`);
                 }
-              });
+              }
 
               // STEP: Detect overflow and create child mothers (following 2in1 logic exactly)
               if (componentData.type === 'comp-trans' && multiLanguageText && projectState.canvasData) {
@@ -8636,11 +8636,11 @@ function App() {
 
                 if (parentMotherObj) {
                   const parentRegion = parentMotherObj.regions.find((r: any) => r.id === actualRegionId);
-                  const mainRegionContentArray = restoredContents.get(actualRegionId);
-                  const mainContent = mainRegionContentArray?.[contentIndex];
+                  // Reuse mainRegionContentArray from above (line 8425)
+                  const overflowContent = mainRegionContentArray?.[contentIndex];
 
-                  if (parentRegion && mainContent?.newCompTransConfig) {
-                    const config = mainContent.newCompTransConfig;
+                  if (parentRegion && overflowContent?.newCompTransConfig) {
+                    const config = overflowContent.newCompTransConfig;
 
                     // Calculate N-split (EXACT copy from 2in1's detectOverflowAndSplitN)
                     const regionWidthPx = parentRegion.width * 3.779527559;
@@ -8747,11 +8747,11 @@ function App() {
 
                       // Store original config in window for child creation (like 2in1)
                       // DEEP COPY to prevent mutation when parent is updated
-                      if (mainContent) {
+                      if (overflowContent) {
                         (window as any).__current2in1Config = JSON.parse(JSON.stringify({
-                          ...mainContent.newCompTransConfig,
+                          ...overflowContent.newCompTransConfig,
                           textContent: {
-                            ...mainContent.newCompTransConfig.textContent,
+                            ...overflowContent.newCompTransConfig.textContent,
                             originalText: multiLanguageText, // Store FULL text
                             generatedText: multiLanguageText
                           }
@@ -8760,15 +8760,67 @@ function App() {
                       }
 
                       // Update parent with split1 text
-                      if (mainContent && textSplits[0]) {
-                        mainContent.newCompTransConfig.textContent.generatedText = textSplits[0];
-                        mainContent.newCompTransConfig.textContent.originalText = textSplits[0];
-                        mainContent.content.text = textSplits[0];
+                      if (overflowContent && textSplits[0]) {
+                        overflowContent.newCompTransConfig.textContent.generatedText = textSplits[0];
+                        overflowContent.newCompTransConfig.textContent.originalText = textSplits[0];
+                        overflowContent.content.text = textSplits[0];
                         console.log(`🎯🎯🎯 PREVIEW_PARENT_UPDATED: "${textSplits[0].substring(0, 100)}..."`);
                       }
 
                       // Create child mothers (EXACT loop from 2in1) - wrapped in async IIFE
                       (async () => {
+                        // STEP 1: Delete ALL existing child mothers (following 2in1 logic EXACTLY)
+                        const currentAppData = (window as any).currentAppData;
+                        if (currentAppData && currentAppData.objects) {
+                          const allChildMothersToRemove: any[] = [];
+
+                          // Method 1: Pattern-based - Mother_2A, Mother_2B, etc.
+                          const parentNamePattern = new RegExp(`^${parentMotherObj.name}[A-Z]+$`);
+                          const patternBasedMothers = currentAppData.objects.filter((obj: any) =>
+                            obj.type?.includes('mother') &&
+                            parentNamePattern.test(obj.name) &&
+                            obj.name !== parentMotherObj.name
+                          );
+                          allChildMothersToRemove.push(...patternBasedMothers);
+
+                          // Method 2: Direct children linked to parent
+                          const directChildMothers = currentAppData.objects.filter((obj: any) =>
+                            obj.type?.includes('mother') &&
+                            obj.name !== parentMotherObj.name &&
+                            obj.parentMotherId === parentMotherObj.name
+                          );
+                          directChildMothers.forEach((child: any) => {
+                            if (!allChildMothersToRemove.find((existing: any) => existing.name === child.name)) {
+                              allChildMothersToRemove.push(child);
+                            }
+                          });
+
+                          if (allChildMothersToRemove.length > 0) {
+                            console.log(`🎯🎯🎯 PREVIEW_DELETE_CHILDREN: Removing ${allChildMothersToRemove.length} existing child mothers:`, allChildMothersToRemove.map((c: any) => c.name));
+
+                            // Remove from objects array
+                            const childMotherNamesToRemove = allChildMothersToRemove.map((c: any) => c.name);
+                            currentAppData.objects = currentAppData.objects.filter((obj: any) =>
+                              !childMotherNamesToRemove.includes(obj.name)
+                            );
+
+                            // Clear parent's childMotherIds array
+                            if (parentMotherObj.childMotherIds) {
+                              parentMotherObj.childMotherIds = [];
+                            }
+
+                            // Update global data
+                            if ((window as any).updateAppData) {
+                              (window as any).updateAppData(currentAppData);
+                            }
+
+                            console.log(`🎯🎯🎯 PREVIEW_DELETE_COMPLETE: Removed ${childMotherNamesToRemove.length} children`);
+                          } else {
+                            console.log(`🎯🎯🎯 PREVIEW_NO_CHILDREN_TO_DELETE`);
+                          }
+                        }
+
+                        // STEP 2: Create fresh child mothers (following 2in1 logic EXACTLY)
                         const createdChildMotherIds: string[] = [];
                         for (let i = 1; i < totalMothersNeeded; i++) {
                           console.log(`🎯🎯🎯 PREVIEW_CREATE_CHILD_${i}: Starting...`);
