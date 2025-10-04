@@ -1798,7 +1798,12 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                   })()
                 ) : (
                   // Multi-line Text Input
-                  <div>
+                  <div style={{
+                    padding: '12px',
+                    border: '1px solid #ddd',
+                    borderRadius: '8px',
+                    backgroundColor: '#f8f9fa'
+                  }}>
                     <label style={{
                       display: 'block',
                       fontSize: '13px',
@@ -1831,7 +1836,8 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                         fontFamily: 'inherit',
                         resize: 'vertical',
                         backgroundColor: 'white',
-                        cursor: 'text'
+                        cursor: 'text',
+                        boxSizing: 'border-box'
                       }}
                       onFocus={(e) => {
                         if (!isDisabled) {
