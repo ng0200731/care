@@ -130,6 +130,22 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
   }
   const [componentVariables, setComponentVariables] = useState<ComponentVariableData>({});
 
+  // Order lines - each line has quantity and variable data
+  interface OrderLine {
+    id: string;
+    lineNumber: number;
+    quantity: number;
+    componentVariables: ComponentVariableData;
+  }
+  const [orderLines, setOrderLines] = useState<OrderLine[]>([
+    {
+      id: 'line_1',
+      lineNumber: 1,
+      quantity: 1,
+      componentVariables: {}
+    }
+  ]);
+
   // Load editing order data
   useEffect(() => {
     if (editingOrder) {
@@ -622,6 +638,57 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
     'Cotton', 'Polyester', 'Wool', 'Silk', 'Linen', 'Nylon',
     'Acrylic', 'Rayon', 'Spandex', 'Elastane', 'Viscose', 'Modal'
   ];
+
+  // Add new order line
+  const handleAddLine = () => {
+    const newLineNumber = orderLines.length + 1;
+    const newLine: OrderLine = {
+      id: `line_${newLineNumber}`,
+      lineNumber: newLineNumber,
+      quantity: 1,
+      componentVariables: {}
+    };
+    setOrderLines([...orderLines, newLine]);
+  };
+
+  // Remove order line
+  const handleRemoveLine = (lineId: string) => {
+    if (orderLines.length === 1) {
+      alert('Cannot remove the last line');
+      return;
+    }
+    const updatedLines = orderLines
+      .filter(line => line.id !== lineId)
+      .map((line, index) => ({
+        ...line,
+        lineNumber: index + 1,
+        id: `line_${index + 1}`
+      }));
+    setOrderLines(updatedLines);
+  };
+
+  // Update line quantity
+  const handleUpdateLineQuantity = (lineId: string, quantity: number) => {
+    setOrderLines(orderLines.map(line =>
+      line.id === lineId ? { ...line, quantity } : line
+    ));
+  };
+
+  // Update line component variables
+  const handleUpdateLineComponentVariables = (lineId: string, componentId: string, data: any) => {
+    setOrderLines(orderLines.map(line => {
+      if (line.id === lineId) {
+        return {
+          ...line,
+          componentVariables: {
+            ...line.componentVariables,
+            [componentId]: data
+          }
+        };
+      }
+      return line;
+    }));
+  };
 
   const saveToOrderManagement = (status: 'draft' | 'confirmed') => {
     console.log('💾 saveToOrderManagement called with status:', status);
@@ -1446,63 +1513,160 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
           />
         </div>
 
-        {/* Quantity + Variable Components Container */}
+        {/* Add Line Button */}
         <div style={{
           display: 'flex',
-          gap: '32px',
-          alignItems: 'flex-start'
+          justifyContent: 'flex-start',
+          marginBottom: '16px'
         }}>
-          {/* Left 20% - Order Quantity */}
-          <div style={{
-            width: '20%',
-            minWidth: '150px',
-            flexShrink: 0
-          }}>
-            <label style={{
-              display: 'block',
+          <button
+            onClick={handleAddLine}
+            disabled={isDisabled}
+            style={{
+              padding: '8px 16px',
               fontSize: '14px',
-              fontWeight: '500',
-              color: '#4a5568',
-              marginBottom: '6px'
-            }}>
-              Order Quantity
-            </label>
-            <input
-              type="number"
-              value={formData.quantity}
-              onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 1 })}
-              min="1"
-              disabled={isDisabled}
-              style={{
-                width: '100%',
-                padding: '10px 12px',
-                border: '2px solid #e2e8f0',
-                borderRadius: '6px',
-                fontSize: '14px',
-                outline: 'none'
-              }}
-              onFocus={(e) => e.currentTarget.style.borderColor = '#3b82f6'}
-              onBlur={(e) => e.currentTarget.style.borderColor = '#e2e8f0'}
-            />
-          </div>
+              fontWeight: '600',
+              color: 'white',
+              backgroundColor: '#10b981',
+              border: '2px solid #10b981',
+              borderRadius: '6px',
+              cursor: isDisabled ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+            onMouseEnter={(e) => {
+              if (!isDisabled) {
+                e.currentTarget.style.backgroundColor = '#059669';
+                e.currentTarget.style.borderColor = '#059669';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!isDisabled) {
+                e.currentTarget.style.backgroundColor = '#10b981';
+                e.currentTarget.style.borderColor = '#10b981';
+              }
+            }}
+          >
+            <span style={{ fontSize: '18px' }}>+</span> Add Line
+          </button>
+        </div>
 
-          {/* Right 80% - Variable Components Section */}
-          <div style={{
-            flex: 1,
-            minWidth: 0
+        {/* Order Lines */}
+        {orderLines.map((line, lineIndex) => (
+          <div key={line.id} style={{
+            marginBottom: '24px',
+            padding: '20px',
+            border: '2px solid #e2e8f0',
+            borderRadius: '8px',
+            backgroundColor: '#fafbfc'
           }}>
-            {/* Variable Components Label */}
-            <label style={{
-              display: 'block',
-              fontSize: '14px',
-              fontWeight: '500',
-              color: '#4a5568',
-              marginBottom: '6px'
+            {/* Line Header with Line Number and Delete Button */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '16px',
+              paddingBottom: '12px',
+              borderBottom: '2px solid #e2e8f0'
             }}>
-              {formData.layoutId && variableComponents.length > 0
-                ? `📋 Variable Components (${variableComponents.length} found from "${layoutCards.find(l => l.id === formData.layoutId)?.name || 'layout'}")`
-                : 'Variable Components'}
-            </label>
+              <h4 style={{
+                margin: 0,
+                fontSize: '16px',
+                fontWeight: '600',
+                color: '#1a202c'
+              }}>
+                Line {line.lineNumber}
+              </h4>
+              {orderLines.length > 1 && (
+                <button
+                  onClick={() => handleRemoveLine(line.id)}
+                  disabled={isDisabled}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '13px',
+                    fontWeight: '500',
+                    color: '#ef4444',
+                    backgroundColor: 'transparent',
+                    border: '2px solid #ef4444',
+                    borderRadius: '6px',
+                    cursor: isDisabled ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isDisabled) {
+                      e.currentTarget.style.backgroundColor = '#fef2f2';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isDisabled) {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                    }
+                  }}
+                >
+                  🗑️ Delete
+                </button>
+              )}
+            </div>
+
+            {/* Quantity + Variable Components Container */}
+            <div style={{
+              display: 'flex',
+              gap: '32px',
+              alignItems: 'flex-start'
+            }}>
+              {/* Left 20% - Order Quantity */}
+              <div style={{
+                width: '20%',
+                minWidth: '150px',
+                flexShrink: 0
+              }}>
+                <label style={{
+                  display: 'block',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  color: '#4a5568',
+                  marginBottom: '6px'
+                }}>
+                  Order Quantity
+                </label>
+                <input
+                  type="number"
+                  value={line.quantity}
+                  onChange={(e) => handleUpdateLineQuantity(line.id, parseInt(e.target.value) || 1)}
+                  min="1"
+                  disabled={isDisabled}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    border: '2px solid #e2e8f0',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    outline: 'none'
+                  }}
+                  onFocus={(e) => e.currentTarget.style.borderColor = '#3b82f6'}
+                  onBlur={(e) => e.currentTarget.style.borderColor = '#e2e8f0'}
+                />
+              </div>
+
+              {/* Right 80% - Variable Components Section */}
+              <div style={{
+                flex: 1,
+                minWidth: 0
+              }}>
+                {/* Variable Components Label */}
+                <label style={{
+                  display: 'block',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  color: '#4a5568',
+                  marginBottom: '6px'
+                }}>
+                  {formData.layoutId && variableComponents.length > 0
+                    ? `📋 Variable Components (${variableComponents.length} found from "${layoutCards.find(l => l.id === formData.layoutId)?.name || 'layout'}")`
+                    : 'Variable Components'}
+                </label>
 
         {!formData.layoutId ? (
           <div style={{
@@ -1600,7 +1764,7 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                 {component.type === 'comp-trans' ? (
                   // Composition Translation Inputs - Match NewCompTransDialog layout exactly
                   (() => {
-                    const compositions = componentVariables[component.id]?.data?.compositions || [];
+                    const compositions = line.componentVariables[component.id]?.data?.compositions || [];
                     const totalPercentage = compositions.reduce((sum: number, c: any) => sum + (parseFloat(c.percentage) || 0), 0);
                     const lastRow = compositions[compositions.length - 1];
                     const isLastRowComplete = lastRow && lastRow.percentage && lastRow.material;
@@ -1630,13 +1794,10 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                           </div>
                           <button
                             onClick={() => {
-                              const currentComps = componentVariables[component.id]?.data?.compositions || [];
-                              setComponentVariables({
-                                ...componentVariables,
-                                [component.id]: {
-                                  type: 'comp-trans',
-                                  data: { compositions: [...currentComps, { material: '', percentage: '' }] }
-                                }
+                              const currentComps = line.componentVariables[component.id]?.data?.compositions || [];
+                              handleUpdateLineComponentVariables(line.id, component.id, {
+                                type: 'comp-trans',
+                                data: { compositions: [...currentComps, { material: '', percentage: '' }] }
                               });
                             }}
                             disabled={!canAddMore || isDisabled}
@@ -1684,14 +1845,11 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                             max="100"
                             value={comp.percentage}
                             onChange={(e) => {
-                              const newCompositions = [...(componentVariables[component.id]?.data?.compositions || [])];
+                              const newCompositions = [...(line.componentVariables[component.id]?.data?.compositions || [])];
                               newCompositions[compIndex] = { ...newCompositions[compIndex], percentage: e.target.value };
-                              setComponentVariables({
-                                ...componentVariables,
-                                [component.id]: {
-                                  type: 'comp-trans',
-                                  data: { compositions: newCompositions }
-                                }
+                              handleUpdateLineComponentVariables(line.id, component.id, {
+                                type: 'comp-trans',
+                                data: { compositions: newCompositions }
                               });
                             }}
                             placeholder="100"
@@ -1720,14 +1878,11 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                           <select
                             value={comp.material}
                             onChange={(e) => {
-                              const newCompositions = [...(componentVariables[component.id]?.data?.compositions || [])];
+                              const newCompositions = [...(line.componentVariables[component.id]?.data?.compositions || [])];
                               newCompositions[compIndex] = { ...newCompositions[compIndex], material: e.target.value };
-                              setComponentVariables({
-                                ...componentVariables,
-                                [component.id]: {
-                                  type: 'comp-trans',
-                                  data: { compositions: newCompositions }
-                                }
+                              handleUpdateLineComponentVariables(line.id, component.id, {
+                                type: 'comp-trans',
+                                data: { compositions: newCompositions }
                               });
                             }}
                             disabled={isDisabled}
@@ -1743,7 +1898,7 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                             <option value="">Select material...</option>
                             {/* Show current material if already selected */}
                             {comp.material && !(() => {
-                              const selectedMaterials = (componentVariables[component.id]?.data?.compositions || [])
+                              const selectedMaterials = (line.componentVariables[component.id]?.data?.compositions || [])
                                 .filter((c: any, idx: number) => c.material && c.percentage > 0 && idx !== compIndex)
                                 .map((c: any) => c.material);
                               return !selectedMaterials.includes(comp.material);
@@ -1754,7 +1909,7 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                             )}
                             {/* Show available materials (excluding already selected in other rows) */}
                             {materialOptions.filter(mat => {
-                              const selectedMaterials = (componentVariables[component.id]?.data?.compositions || [])
+                              const selectedMaterials = (line.componentVariables[component.id]?.data?.compositions || [])
                                 .filter((c: any, idx: number) => c.material && c.percentage > 0 && idx !== compIndex)
                                 .map((c: any) => c.material);
                               return !selectedMaterials.includes(mat);
@@ -1767,16 +1922,13 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                         {/* Delete Button */}
                         <button
                           onClick={() => {
-                            const newCompositions = (componentVariables[component.id]?.data?.compositions || []).filter((_: any, i: number) => i !== compIndex);
-                            setComponentVariables({
-                              ...componentVariables,
-                              [component.id]: {
-                                type: 'comp-trans',
-                                data: { compositions: newCompositions.length > 0 ? newCompositions : [{ material: '', percentage: '' }] }
-                              }
+                            const newCompositions = (line.componentVariables[component.id]?.data?.compositions || []).filter((_: any, i: number) => i !== compIndex);
+                            handleUpdateLineComponentVariables(line.id, component.id, {
+                              type: 'comp-trans',
+                              data: { compositions: newCompositions.length > 0 ? newCompositions : [{ material: '', percentage: '' }] }
                             });
                           }}
-                          disabled={(componentVariables[component.id]?.data?.compositions || []).length <= 1 || isDisabled}
+                          disabled={(line.componentVariables[component.id]?.data?.compositions || []).length <= 1 || isDisabled}
                           style={{
                             padding: '8px 12px',
                             fontSize: '14px',
@@ -1814,14 +1966,11 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                       Text Content:
                     </label>
                     <textarea
-                      value={componentVariables[component.id]?.data?.textContent || ''}
+                      value={line.componentVariables[component.id]?.data?.textContent || ''}
                       onChange={(e) => {
-                        setComponentVariables({
-                          ...componentVariables,
-                          [component.id]: {
-                            type: 'multi-line',
-                            data: { textContent: e.target.value }
-                          }
+                        handleUpdateLineComponentVariables(line.id, component.id, {
+                          type: 'multi-line',
+                          data: { textContent: e.target.value }
                         });
                       }}
                       disabled={isDisabled}
@@ -1852,10 +2001,13 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
             ))}
           </div>
         )}
+              </div>
+              {/* End Right 80% - Variable Components */}
+            </div>
+            {/* End Quantity + Variable Components Container */}
           </div>
-          {/* End Right 80% - Variable Components */}
-        </div>
-        {/* End Quantity + Variable Components Container */}
+        ))}
+        {/* End Order Lines */}
       </div>
 
       {/* Submit Button - Hidden in View Mode */}
