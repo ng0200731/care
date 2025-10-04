@@ -128,8 +128,11 @@ interface Order {
   orderNumber?: string; // Sequential number (001, 002, etc.)
   userOrderNumber?: string; // User-entered order number field
   customerId: string;
+  customerName?: string; // Customer name from Customer Management
   projectSlug: string;
   layoutId: string;
+  masterFileId?: string; // Master file ID
+  masterFileName?: string; // Master file name
   quantity: number;
   variableData: any;
   createdAt: string;
@@ -301,6 +304,52 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
     return layoutId;
   };
 
+  // Get master file name from layoutId
+  const getMasterFileName = (projectSlug: string, layoutId: string): string => {
+    try {
+      const storageKey = `project_${projectSlug}_layouts`;
+      const savedLayouts = localStorage.getItem(storageKey);
+
+      if (savedLayouts) {
+        const parsedLayouts = JSON.parse(savedLayouts);
+        const layout = parsedLayouts.find((l: any) => l.id === layoutId);
+
+        // Check if layout has master file name directly in canvasData
+        if (layout?.canvasData?.masterFileName) {
+          return layout.canvasData.masterFileName;
+        }
+
+        // Otherwise try to get from masterFileId
+        if (layout?.canvasData?.masterFileId) {
+          // Get master file name from master files list
+          const masterFilesKey = `master_files`;
+          const savedMasterFiles = localStorage.getItem(masterFilesKey);
+          if (savedMasterFiles) {
+            const masterFiles = JSON.parse(savedMasterFiles);
+            const masterFile = masterFiles.find((mf: any) => mf.id === layout.canvasData.masterFileId);
+            if (masterFile) {
+              return masterFile.name || masterFile.id;
+            }
+          }
+
+          // Try to extract name from project-specific master files
+          const projectMasterKey = `project_${projectSlug}_master_files`;
+          const projectMasterFiles = localStorage.getItem(projectMasterKey);
+          if (projectMasterFiles) {
+            const parsedProjectMasters = JSON.parse(projectMasterFiles);
+            const masterFile = parsedProjectMasters.find((mf: any) => mf.id === layout.canvasData.masterFileId);
+            if (masterFile) {
+              return masterFile.name || masterFile.id;
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error loading master file name:', error);
+    }
+    return 'N/A';
+  };
+
   // Format order data for display
   const formatOrderForDisplay = (order: Order) => {
     const date = new Date(order.createdAt);
@@ -321,20 +370,9 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
     if ((order as any).orderLines && Array.isArray((order as any).orderLines)) {
       const orderLines = (order as any).orderLines;
 
-      // Display each line's data
+      // Display each line's data (but skip individual line quantities in summary)
       orderLines.forEach((line: any, lineIndex: number) => {
-        variables.push({
-          name: `─── Line ${line.lineNumber || lineIndex + 1} ───`,
-          value: ''
-        });
-
-        // Line quantity
-        variables.push({
-          name: `  Quantity`,
-          value: line.quantity.toString()
-        });
-
-        // Line variable component data
+        // Line variable component data only (no line quantity in summary)
         if (line.componentVariables) {
           Object.entries(line.componentVariables).forEach(([componentId, componentData]: [string, any]) => {
             if (componentData.type === 'comp-trans') {
@@ -389,6 +427,9 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
     // Get layout name
     const layoutName = getLayoutName(order.projectSlug, order.layoutId);
 
+    // Get master file name - use saved value or try to look it up
+    const masterFileName = order.masterFileName || getMasterFileName(order.projectSlug, order.layoutId);
+
     // Use orderNumber if available, otherwise fall back to timestamp
     const displayOrderNumber = order.orderNumber
       ? `#${order.orderNumber}`
@@ -399,9 +440,11 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
       orderNumber: displayOrderNumber,
       date: formattedDate,
       projectName: order.projectSlug || 'N/A',
+      masterFileName: masterFileName,
       layoutName: layoutName,
       layoutId: order.layoutId || 'N/A',
       customerId: order.customerId || 'N/A',
+      customerName: order.customerName || 'N/A',
       status: order.status,
       variables
     };
@@ -975,13 +1018,16 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
                   fontSize: '14px',
                   color: '#64748b',
                   display: 'flex',
-                  flexWrap: 'wrap',
-                  gap: '16px'
+                  flexDirection: 'column',
+                  gap: '8px'
                 }}>
-                  <span>📅 {displayOrder.date}</span>
-                  <span>📁 {displayOrder.projectName}</span>
-                  <span>📄 {displayOrder.layoutName}</span>
-                  <span>👤 {displayOrder.customerId}</span>
+                  <div style={{ display: 'flex', gap: '16px' }}>
+                    <span>👤 {displayOrder.customerName}</span>
+                    <span>📋 Order #: {order.userOrderNumber}</span>
+                  </div>
+                  <div>
+                    {displayOrder.projectName} - {displayOrder.masterFileName} - {displayOrder.layoutName}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1043,20 +1089,12 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
                       }}>
                         <div style={{ flex: 1 }}>
                           <div style={{
-                            fontSize: '14px',
-                            fontWeight: '600',
-                            color: '#1a202c',
-                            marginBottom: '8px'
-                          }}>
-                            ─── Line {line.lineNumber || lineIndex + 1} ───
-                          </div>
-                          <div style={{
                             display: 'grid',
                             gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
                             gap: '8px'
                           }}>
                             <div>
-                              <span style={{ fontSize: '12px', color: '#64748b' }}>Quantity: </span>
+                              <span style={{ fontSize: '12px', color: '#64748b' }}>Line {line.lineNumber || lineIndex + 1} Quantity: </span>
                               <span style={{ fontSize: '13px', color: '#1a202c', fontWeight: '500' }}>{line.quantity}</span>
                             </div>
                             {line.componentVariables && Object.entries(line.componentVariables).map(([componentId, componentData]: [string, any]) => (

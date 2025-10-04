@@ -750,13 +750,20 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
     // Calculate total quantity from all lines
     const totalQuantity = orderLines.reduce((sum, line) => sum + (line.quantity || 0), 0);
 
+    // Get master file name from selected master file
+    const selectedMasterFile = masterFiles.find(mf => mf.id === formData.masterId);
+    const masterFileName = selectedMasterFile?.name || formData.masterId || 'N/A';
+
     const orderData = {
       id: `order_${orderIdTimestamp}`,
       orderNumber: nextOrderNumber, // Sequential order number for display (e.g., "001")
       userOrderNumber: formData.orderNumber, // User-entered order number field
       customerId: formData.customerId,
+      customerName: formData.customerName, // Add customer name
       projectSlug: formData.projectSlug,
       layoutId: formData.layoutId,
+      masterFileId: formData.masterId, // Add master file ID
+      masterFileName: masterFileName, // Add master file name
       quantity: totalQuantity, // Total quantity from all lines
       orderLines: orderLines, // Save all order lines
       variableData: componentVariables,
@@ -849,8 +856,27 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
 
     // Check basic fields
     if (!formData.customerId) missing.push('Customer');
+    if (!formData.customerName) missing.push('Customer Name');
+    if (!formData.orderNumber) missing.push('Order Number (PO#)');
     if (!formData.projectSlug) missing.push('Project');
     if (!formData.layoutId) missing.push('Layout');
+
+    // Check if master file exists for the selected layout
+    if (formData.layoutId && formData.projectSlug) {
+      try {
+        const storageKey = `project_${formData.projectSlug}_layouts`;
+        const savedLayouts = localStorage.getItem(storageKey);
+        if (savedLayouts) {
+          const parsedLayouts = JSON.parse(savedLayouts);
+          const layout = parsedLayouts.find((l: any) => l.id === formData.layoutId);
+          if (!layout?.canvasData?.masterFileId && !layout?.canvasData?.masterFileName) {
+            missing.push('Master File (layout is missing master file information)');
+          }
+        }
+      } catch (error) {
+        console.error('Error checking master file:', error);
+      }
+    }
 
     // Check total quantity from all lines
     const totalQuantity = orderLines.reduce((sum, line) => sum + (line.quantity || 0), 0);
