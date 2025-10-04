@@ -1415,6 +1415,7 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
           📝 ORDER DATA
         </h3>
 
+        {/* Order Number */}
         <div style={{ marginBottom: '20px' }}>
           <label style={{
             display: 'block',
@@ -1445,7 +1446,64 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
           />
         </div>
 
-        {/* Variable Components Section */}
+        {/* Quantity + Variable Components Container */}
+        <div style={{
+          display: 'flex',
+          gap: '32px',
+          alignItems: 'flex-start'
+        }}>
+          {/* Left 20% - Order Quantity */}
+          <div style={{
+            width: '20%',
+            minWidth: '150px',
+            flexShrink: 0
+          }}>
+            <label style={{
+              display: 'block',
+              fontSize: '14px',
+              fontWeight: '500',
+              color: '#4a5568',
+              marginBottom: '6px'
+            }}>
+              Order Quantity
+            </label>
+            <input
+              type="number"
+              value={formData.quantity}
+              onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 1 })}
+              min="1"
+              disabled={isDisabled}
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                border: '2px solid #e2e8f0',
+                borderRadius: '6px',
+                fontSize: '14px',
+                outline: 'none'
+              }}
+              onFocus={(e) => e.currentTarget.style.borderColor = '#3b82f6'}
+              onBlur={(e) => e.currentTarget.style.borderColor = '#e2e8f0'}
+            />
+          </div>
+
+          {/* Right 80% - Variable Components Section */}
+          <div style={{
+            flex: 1,
+            minWidth: 0
+          }}>
+            {/* Variable Components Label */}
+            <label style={{
+              display: 'block',
+              fontSize: '14px',
+              fontWeight: '500',
+              color: '#4a5568',
+              marginBottom: '6px'
+            }}>
+              {formData.layoutId && variableComponents.length > 0
+                ? `📋 Variable Components (${variableComponents.length} found from "${layoutCards.find(l => l.id === formData.layoutId)?.name || 'layout'}")`
+                : 'Variable Components'}
+            </label>
+
         {!formData.layoutId ? (
           <div style={{
             padding: '20px',
@@ -1494,24 +1552,6 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
             flexDirection: 'column',
             gap: '20px'
           }}>
-            {/* Header */}
-            <div style={{
-              padding: '12px 16px',
-              backgroundColor: '#e0f2fe',
-              borderRadius: '6px',
-              border: '2px solid #3b82f6',
-              marginBottom: '20px'
-            }}>
-              <p style={{
-                margin: 0,
-                fontSize: '14px',
-                fontWeight: '600',
-                color: '#1e40af'
-              }}>
-                📋 Variable Components ({variableComponents.length} found from "{layoutCards.find(l => l.id === formData.layoutId)?.name || 'layout'}")
-              </p>
-            </div>
-
             {/* Variable Components */}
             {variableComponents.map((component, componentIndex) => (
               <div
@@ -1806,6 +1846,10 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
             ))}
           </div>
         )}
+          </div>
+          {/* End Right 80% - Variable Components */}
+        </div>
+        {/* End Quantity + Variable Components Container */}
       </div>
 
       {/* Submit Button - Hidden in View Mode */}
