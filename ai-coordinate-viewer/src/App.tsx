@@ -4495,25 +4495,30 @@ function App() {
     }
   }, [webCreationData]);
 
-  // Auto-generate PDF for order preview mode (hidden iframe)
+  // Auto-generate PDF or capture image for order preview mode (hidden iframe)
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
     const autoGeneratePDF = urlParams.get('autoGeneratePDF') === 'true';
+    const captureImage = urlParams.get('captureImage') === 'true';
 
-    if (autoGeneratePDF && data && regionContents && regionContents.size > 0) {
-      console.log('🖨️ Auto-generating PDF for order preview...');
+    if ((autoGeneratePDF || captureImage) && data && regionContents && regionContents.size > 0) {
+      console.log(captureImage ? '📸 Capturing canvas image for multi-page PDF...' : '🖨️ Auto-generating PDF for order preview...');
 
       // Enable "Only Preview" mode for PDF generation
       setOnlyPreview(true);
-      console.log('👁️ Enabled "Only Preview" mode for PDF');
+      console.log('👁️ Enabled "Only Preview" mode');
 
       // Wait for overflow and rendering to complete (10 seconds)
       const timer = setTimeout(async () => {
-        console.log('🎨 Canvas rendered - generating PDF with Print as PDF method...');
-
-        // Call the same function as "Print as PDF" button
-        // (postMessage will be sent from inside generatePDFAllMothers after PDF saves)
-        await generatePDFAllMothers();
+        if (captureImage) {
+          // Capture canvas as image and send back to parent
+          console.log('📸 Canvas rendered - capturing image...');
+          await captureCanvasImage();
+        } else {
+          // Generate PDF directly
+          console.log('🎨 Canvas rendered - generating PDF with Print as PDF method...');
+          await generatePDFAllMothers();
+        }
 
       }, 10000); // Wait 10 seconds for child mother creation and overflow to complete
 
@@ -8513,9 +8518,26 @@ function App() {
         };
 
         // If this is order preview mode, apply order data NOW before setting state
-        if (orderData && orderData.variableData) {
-          console.log('🎨 Applying order data to canvas before state update...');
-          canvasDataWithLayoutName = applyOrderDataToLayoutData(canvasDataWithLayoutName, orderData.variableData);
+        if (orderData) {
+          // Check for current line data (new multi-page PDF support)
+          if (orderData.currentLine && orderData.currentLine.componentVariables) {
+            const lineIndex = orderData.currentLineIndex || 0;
+            console.log(`🎨 Applying order line data to canvas before state update (Line ${lineIndex + 1}/${orderData.totalLines})...`);
+            canvasDataWithLayoutName = applyOrderDataToLayoutData(canvasDataWithLayoutName, orderData.currentLine.componentVariables);
+          }
+          // Check for new multi-line format (backward compatibility)
+          else if (orderData.orderLines && Array.isArray(orderData.orderLines)) {
+            // Use first line's data for preview
+            const firstLine = orderData.orderLines[0];
+            if (firstLine && firstLine.componentVariables) {
+              console.log('🎨 Applying order line data to canvas before state update (Line 1)...');
+              canvasDataWithLayoutName = applyOrderDataToLayoutData(canvasDataWithLayoutName, firstLine.componentVariables);
+            }
+          } else if (orderData.variableData) {
+            // Old format
+            console.log('🎨 Applying order data to canvas before state update...');
+            canvasDataWithLayoutName = applyOrderDataToLayoutData(canvasDataWithLayoutName, orderData.variableData);
+          }
         }
 
         setData(canvasDataWithLayoutName);
@@ -8531,10 +8553,35 @@ function App() {
         });
 
         // If this is order preview mode, apply order data to region contents
-        if (orderData && orderData.variableData) {
-          console.log('🎨 Applying order data to regionContents Map (FIRST mother only - overflow will handle rest)...');
+        if (orderData) {
+          // Get the variable data to apply
+          let variableDataToApply: any = null;
+          let lineInfo = '';
 
-          Object.entries(orderData.variableData).forEach(([componentId, componentData]: [string, any]) => {
+          // Check for current line data (new multi-page PDF support)
+          if (orderData.currentLine && orderData.currentLine.componentVariables) {
+            const lineIndex = orderData.currentLineIndex || 0;
+            variableDataToApply = orderData.currentLine.componentVariables;
+            lineInfo = `Line ${lineIndex + 1}/${orderData.totalLines}`;
+            console.log(`🎨 Applying order line data to regionContents Map (${lineInfo} - FIRST mother only - overflow will handle rest)...`);
+          }
+          // Check for multi-line format (backward compatibility)
+          else if (orderData.orderLines && Array.isArray(orderData.orderLines)) {
+            // Use first line's data for preview
+            const firstLine = orderData.orderLines[0];
+            if (firstLine && firstLine.componentVariables) {
+              variableDataToApply = firstLine.componentVariables;
+              lineInfo = 'Line 1';
+              console.log('🎨 Applying order line data to regionContents Map (Line 1 - FIRST mother only - overflow will handle rest)...');
+            }
+          } else if (orderData.variableData) {
+            // Old format
+            variableDataToApply = orderData.variableData;
+            console.log('🎨 Applying order data to regionContents Map (FIRST mother only - overflow will handle rest)...');
+          }
+
+          if (variableDataToApply) {
+            Object.entries(variableDataToApply).forEach(([componentId, componentData]: [string, any]) => {
             // Match both patterns: region_xxx_content_0 OR region_xxx_regionContent_0
             const match = componentId.match(/^(.+)_(?:region)?[Cc]ontent_(\d+)$/);
             if (match) {
@@ -8862,6 +8909,7 @@ function App() {
               }
             }
           });
+          }
         }
 
         setRegionContents(restoredContents);
@@ -11145,6 +11193,111 @@ function App() {
     }
   };
 
+  // Capture canvas as image for multi-page PDF generation
+  const captureCanvasImage = async () => {
+    try {
+      console.log('📸 Starting canvas image capture...');
+
+      const svgElement = document.querySelector('svg') as SVGElement;
+      if (!svgElement) {
+        throw new Error('SVG element not found');
+      }
+
+      // Wait for content to render
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Get SVG viewport dimensions
+      const svgRect = svgElement.getBoundingClientRect();
+      const svgWidth = svgRect.width;
+      const svgHeight = svgRect.height;
+
+      console.log('📐 SVG dimensions:', { width: svgWidth, height: svgHeight });
+
+      // Create canvas for capture
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        throw new Error('Canvas context not available');
+      }
+
+      // Set high resolution
+      const scale = 3;
+      canvas.width = svgWidth * scale;
+      canvas.height = svgHeight * scale;
+      ctx.scale(scale, scale);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+
+      // Clone SVG and inline styles
+      const svgClone = svgElement.cloneNode(true) as SVGElement;
+      const inlineAllStyles = (element: Element) => {
+        if (element instanceof HTMLElement || element instanceof SVGElement) {
+          const computedStyle = window.getComputedStyle(element);
+          const importantProps = ['font-family', 'font-size', 'font-weight', 'fill', 'stroke', 'stroke-width', 'color', 'text-anchor', 'dominant-baseline', 'opacity'];
+          let cssText = '';
+          importantProps.forEach(prop => {
+            const value = computedStyle.getPropertyValue(prop);
+            if (value) cssText += `${prop}: ${value}; `;
+          });
+          if (cssText) {
+            element.setAttribute('style', (element.getAttribute('style') || '') + cssText);
+          }
+        }
+        Array.from(element.children).forEach(child => inlineAllStyles(child));
+      };
+      inlineAllStyles(svgClone);
+
+      // Serialize SVG
+      const serializer = new XMLSerializer();
+      const svgData = serializer.serializeToString(svgClone);
+      const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+      const svgUrl = URL.createObjectURL(svgBlob);
+
+      // Create image from SVG
+      const img = new Image();
+      const imageLoadPromise = new Promise<string>((resolve, reject) => {
+        img.onload = () => {
+          try {
+            // Draw to canvas
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, svgWidth, svgHeight);
+            ctx.drawImage(img, 0, 0, svgWidth, svgHeight);
+
+            // Convert to data URL
+            const imageData = canvas.toDataURL('image/png', 1.0);
+            URL.revokeObjectURL(svgUrl);
+
+            console.log('✅ Canvas image captured successfully');
+            resolve(imageData);
+          } catch (error) {
+            reject(error);
+          }
+        };
+        img.onerror = () => reject(new Error('Failed to load SVG image'));
+      });
+
+      img.src = svgUrl;
+      const imageData = await imageLoadPromise;
+
+      // Send image data back to parent window
+      window.parent.postMessage({
+        type: 'IMAGE_CAPTURED',
+        imageData: imageData,
+        width: canvas.width,
+        height: canvas.height
+      }, '*');
+
+      console.log('📤 Image data sent to parent window');
+
+    } catch (error) {
+      console.error('❌ Error capturing canvas image:', error);
+      window.parent.postMessage({
+        type: 'CAPTURE_ERROR',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }, '*');
+    }
+  };
+
   // Function to generate PDF with all mothers
   const generatePDFAllMothers = async () => {
     // Initialize debug log collection for easy export (same as canvas PDF)
@@ -13016,30 +13169,65 @@ function App() {
         });
       });
 
-      // Save the PDF
-      const filePrefix = isOrderPreview ? 'Order_Preview' : (isProjectMode ? 'Project_Everything' : 'AllMothers');
-      const fileName = `${filePrefix}_${paperSize}_${new Date().toISOString().slice(0, 10)}.pdf`;
-      pdf.save(fileName);
+      // Check if this is multi-page mode
+      const orderData = sessionStorage.getItem('__order_preview_data__');
+      const multiPageMode = orderData ? JSON.parse(orderData).multiPageMode : false;
+      const currentLineIndex = orderData ? JSON.parse(orderData).currentLineIndex : 0;
+      const totalLines = orderData ? JSON.parse(orderData).totalLines : 1;
 
-      logExport(`✅ Generated PDF: ${fileName}`, {
-        fileName: fileName,
-        paperSize: paperSize,
-        motherCount: mothers.length,
-        paperDimensions: `${paperWidthMM}×${paperHeightMM}mm`,
-        utilization: `${(bestUtilization * 100).toFixed(1)}%`
-      });
+      if (multiPageMode) {
+        // Multi-page mode: Send PDF data as base64 to parent for combining
+        console.log(`📄 Generating page ${currentLineIndex + 1}/${totalLines} for multi-page PDF...`);
 
-      // Export all debug logs for easy copying
-      exportAllLogs();
+        const pdfData = pdf.output('datauristring'); // Get PDF as base64 data URI
 
-      if (isOrderPreview) {
-        // Send success message to parent window
-        console.log('📤 Sending PDF_GENERATED message to parent window');
+        logExport(`✅ Generated PDF page ${currentLineIndex + 1}/${totalLines}`, {
+          pageNumber: currentLineIndex + 1,
+          totalPages: totalLines,
+          paperSize: paperSize,
+          paperDimensions: `${paperWidthMM}×${paperHeightMM}mm`
+        });
+
+        // Send PDF data to parent window
+        console.log(`📤 Sending PDF page ${currentLineIndex + 1}/${totalLines} to parent window`);
         window.parent.postMessage({
-          type: 'PDF_GENERATED',
-          fileName: fileName
+          type: 'PDF_PAGE_GENERATED',
+          pageNumber: currentLineIndex + 1,
+          totalPages: totalLines,
+          pdfData: pdfData,
+          paperSize: paperSize,
+          paperWidth: paperWidthMM,
+          paperHeight: paperHeightMM,
+          orientation: orientation
         }, '*');
       } else {
+        // Single page mode: Save immediately
+        const filePrefix = isOrderPreview ? 'Order_Preview' : (isProjectMode ? 'Project_Everything' : 'AllMothers');
+        const fileName = `${filePrefix}_${paperSize}_${new Date().toISOString().slice(0, 10)}.pdf`;
+        pdf.save(fileName);
+
+        logExport(`✅ Generated PDF: ${fileName}`, {
+          fileName: fileName,
+          paperSize: paperSize,
+          motherCount: mothers.length,
+          paperDimensions: `${paperWidthMM}×${paperHeightMM}mm`,
+          utilization: `${(bestUtilization * 100).toFixed(1)}%`
+        });
+
+        // Export all debug logs for easy copying
+        exportAllLogs();
+
+        if (isOrderPreview) {
+          // Send success message to parent window
+          console.log('📤 Sending PDF_GENERATED message to parent window');
+          window.parent.postMessage({
+            type: 'PDF_GENERATED',
+            fileName: fileName
+          }, '*');
+        }
+      }
+
+      if (!multiPageMode) {
         // Show notification for manual PDF generation
         const notificationText = isProjectMode
           ? `✅ Generated PDF with everything on canvas (${mothers.length} mothers) on ${paperSize}`

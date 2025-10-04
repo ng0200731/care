@@ -314,32 +314,76 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
       variables.push({ name: 'Order Number', value: order.userOrderNumber });
     }
 
-    // Add quantity
-    variables.push({ name: 'Quantity', value: order.quantity.toString() });
+    // Add total quantity
+    variables.push({ name: 'Total Quantity', value: order.quantity.toString() });
 
-    // Add variable component data
-    if (order.variableData) {
-      Object.entries(order.variableData).forEach(([componentId, componentData]: [string, any]) => {
-        if (componentData.type === 'comp-trans') {
-          const compositions = componentData.data?.compositions || [];
-          compositions.forEach((comp: any, index: number) => {
-            if (comp.material && comp.percentage) {
-              variables.push({
-                name: `Material ${index + 1}`,
-                value: `${comp.percentage}% ${comp.material}`
+    // Check if order has multiple lines (new format)
+    if ((order as any).orderLines && Array.isArray((order as any).orderLines)) {
+      const orderLines = (order as any).orderLines;
+
+      // Display each line's data
+      orderLines.forEach((line: any, lineIndex: number) => {
+        variables.push({
+          name: `─── Line ${line.lineNumber || lineIndex + 1} ───`,
+          value: ''
+        });
+
+        // Line quantity
+        variables.push({
+          name: `  Quantity`,
+          value: line.quantity.toString()
+        });
+
+        // Line variable component data
+        if (line.componentVariables) {
+          Object.entries(line.componentVariables).forEach(([componentId, componentData]: [string, any]) => {
+            if (componentData.type === 'comp-trans') {
+              const compositions = componentData.data?.compositions || [];
+              compositions.forEach((comp: any, index: number) => {
+                if (comp.material && comp.percentage) {
+                  variables.push({
+                    name: `  Material ${index + 1}`,
+                    value: `${comp.percentage}% ${comp.material}`
+                  });
+                }
               });
+            } else if (componentData.type === 'multi-line') {
+              const textContent = componentData.data?.textContent || '';
+              if (textContent) {
+                variables.push({
+                  name: '  Multi-line Text',
+                  value: textContent
+                });
+              }
             }
           });
-        } else if (componentData.type === 'multi-line') {
-          const textContent = componentData.data?.textContent || '';
-          if (textContent) {
-            variables.push({
-              name: 'Multi-line Text',
-              value: textContent
-            });
-          }
         }
       });
+    } else {
+      // Old format - single line order (backward compatibility)
+      if (order.variableData) {
+        Object.entries(order.variableData).forEach(([componentId, componentData]: [string, any]) => {
+          if (componentData.type === 'comp-trans') {
+            const compositions = componentData.data?.compositions || [];
+            compositions.forEach((comp: any, index: number) => {
+              if (comp.material && comp.percentage) {
+                variables.push({
+                  name: `Material ${index + 1}`,
+                  value: `${comp.percentage}% ${comp.material}`
+                });
+              }
+            });
+          } else if (componentData.type === 'multi-line') {
+            const textContent = componentData.data?.textContent || '';
+            if (textContent) {
+              variables.push({
+                name: 'Multi-line Text',
+                value: textContent
+              });
+            }
+          }
+        });
+      }
     }
 
     // Get layout name
@@ -444,6 +488,8 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
   const order2preview = async (order: Order) => {
     try {
       console.log('🖨️ Generating PDF preview for order:', order);
+      console.log('📊 Order has orderLines:', (order as any).orderLines);
+      console.log('📊 Number of lines:', (order as any).orderLines?.length || 0);
 
       // Show loading modal
       setIsGeneratingPDF(true);
@@ -470,96 +516,210 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
       console.log('✅ Loaded layout:', layout.name);
 
       // Save order data to sessionStorage for canvas to access
-      sessionStorage.setItem('__order_preview_data__', JSON.stringify({
+      // Check if order has new multi-line format
+      const orderPreviewData: any = {
         orderId: order.id,
         orderNumber: order.orderNumber,
-        variableData: order.variableData,
         projectSlug: order.projectSlug,
         layoutId: order.layoutId
-      }));
+      };
+
+      if ((order as any).orderLines && Array.isArray((order as any).orderLines)) {
+        // New format - use order lines
+        orderPreviewData.orderLines = (order as any).orderLines;
+        console.log('💾 Saving multi-line order data for preview');
+      } else {
+        // Old format - use variableData
+        orderPreviewData.variableData = order.variableData;
+        console.log('💾 Saving single-line order data for preview');
+      }
+
+      sessionStorage.setItem('__order_preview_data__', JSON.stringify(orderPreviewData));
 
       console.log('💾 Saved order data to sessionStorage');
 
-      // Create hidden iframe to render canvas and generate PDF
-      const iframe = document.createElement('iframe');
-      iframe.style.position = 'fixed';
-      iframe.style.top = '-9999px';
-      iframe.style.left = '-9999px';
-      iframe.style.width = '1920px';
-      iframe.style.height = '1080px';
-      iframe.style.border = 'none';
-      iframe.style.opacity = '0';
-      iframe.style.pointerEvents = 'none';
+      // Determine number of pages (lines) to generate
+      const orderLines = orderPreviewData.orderLines || [{ componentVariables: orderPreviewData.variableData }];
+      const totalPages = orderLines.length;
 
-      // Build canvas URL with auto-generate PDF flag
-      const masterFileId = layout.canvasData?.masterFileId || '';
-      const projectName = order.projectSlug;
-      const canvasUrl = `/create_zero?context=projects&projectSlug=${order.projectSlug}&masterFileId=${masterFileId}&projectName=${encodeURIComponent(projectName)}&layoutId=${order.layoutId}&orderPreview=true&autoGeneratePDF=true`;
+      console.log(`📄 Generating ${totalPages} page(s) for ${totalPages} order line(s) in ONE PDF file with Print as PDF styling`);
 
-      console.log('📍 Loading canvas in hidden iframe:', canvasUrl);
+      let completedPages = 0;
+      const pdfPages: Array<{ pageNumber: number, pdfData: string, paperWidth: number, paperHeight: number, orientation: string }> = [];
 
-      // Listen for PDF generation completion message from iframe
-      const messageHandler = (event: MessageEvent) => {
-        if (event.data.type === 'PDF_GENERATED') {
-          console.log('✅ PDF generated successfully from iframe');
-          console.log(`📄 File: ${event.data.fileName}`);
-          console.log(`📋 Order: ${order.orderNumber || order.id}`);
+      // Function to generate PDF page for a specific line using Print as PDF method
+      const generatePDFForLine = (lineIndex: number) => {
+        return new Promise<void>((resolve, reject) => {
+          const line = orderLines[lineIndex];
 
-          // Clear timeout
-          clearTimeout(timeout);
+          // Update sessionStorage with current line data
+          const currentLineData = {
+            ...orderPreviewData,
+            currentLineIndex: lineIndex,
+            currentLine: line,
+            totalLines: totalPages,
+            multiPageMode: true // Flag for multi-page PDF generation
+          };
+          sessionStorage.setItem('__order_preview_data__', JSON.stringify(currentLineData));
 
-          // Clean up
-          window.removeEventListener('message', messageHandler);
-          document.body.removeChild(iframe);
+          // Create hidden iframe to render canvas and generate PDF
+          const iframe = document.createElement('iframe');
+          iframe.style.position = 'fixed';
+          iframe.style.top = '-9999px';
+          iframe.style.left = '-9999px';
+          iframe.style.width = '1920px';
+          iframe.style.height = '1080px';
+          iframe.style.border = 'none';
+          iframe.style.opacity = '0';
+          iframe.style.pointerEvents = 'none';
+
+          // Build canvas URL with auto-generate PDF flag and line index
+          const masterFileId = layout.canvasData?.masterFileId || '';
+          const projectName = order.projectSlug;
+          const canvasUrl = `/create_zero?context=projects&projectSlug=${order.projectSlug}&masterFileId=${masterFileId}&projectName=${encodeURIComponent(projectName)}&layoutId=${order.layoutId}&orderPreview=true&autoGeneratePDF=true&lineIndex=${lineIndex}`;
+
+          console.log(`📍 Loading canvas for Line ${lineIndex + 1}/${totalPages}:`, canvasUrl);
+
+          // Listen for PDF generation completion message from iframe
+          const messageHandler = (event: MessageEvent) => {
+            if (event.data.type === 'PDF_PAGE_GENERATED') {
+              console.log(`✅ PDF page generated for Line ${lineIndex + 1}/${totalPages}`);
+
+              // Store PDF page data
+              pdfPages.push({
+                pageNumber: event.data.pageNumber,
+                pdfData: event.data.pdfData,
+                paperWidth: event.data.paperWidth,
+                paperHeight: event.data.paperHeight,
+                orientation: event.data.orientation
+              });
+
+              // Clear timeout
+              clearTimeout(timeout);
+
+              // Clean up
+              window.removeEventListener('message', messageHandler);
+              document.body.removeChild(iframe);
+
+              resolve();
+
+            } else if (event.data.type === 'PDF_ERROR') {
+              console.error(`❌ PDF generation error for Line ${lineIndex + 1}:`, event.data.error);
+
+              // Clear timeout
+              clearTimeout(timeout);
+
+              // Clean up
+              window.removeEventListener('message', messageHandler);
+              document.body.removeChild(iframe);
+
+              reject(new Error(event.data.error));
+            }
+          };
+
+          window.addEventListener('message', messageHandler);
+
+          // Set timeout in case iframe fails to load
+          const timeout = setTimeout(() => {
+            console.error(`❌ PDF generation timeout for Line ${lineIndex + 1}`);
+            window.removeEventListener('message', messageHandler);
+            if (document.body.contains(iframe)) {
+              document.body.removeChild(iframe);
+            }
+            reject(new Error('Timeout'));
+          }, 60000); // 60 second timeout per page
+
+          // Add load event listener
+          iframe.onload = () => {
+            console.log(`✅ Iframe loaded for Line ${lineIndex + 1}`);
+          };
+
+          iframe.onerror = () => {
+            console.error(`❌ Iframe failed to load for Line ${lineIndex + 1}`);
+            clearTimeout(timeout);
+            window.removeEventListener('message', messageHandler);
+            document.body.removeChild(iframe);
+            reject(new Error('Iframe load failed'));
+          };
+
+          // Append iframe to body
+          iframe.src = canvasUrl;
+          document.body.appendChild(iframe);
+        });
+      };
+
+      // Generate PDFs sequentially for all lines and combine
+      (async () => {
+        try {
+          // Step 1: Generate all PDF pages
+          for (let i = 0; i < totalPages; i++) {
+            await generatePDFForLine(i);
+            completedPages++;
+            console.log(`✅ Progress: ${completedPages}/${totalPages} pages completed`);
+          }
+
+          // Step 2: Combine all PDF pages into one document using pdf-lib
+          console.log(`📄 Combining ${totalPages} PDF page(s) into one document using pdf-lib...`);
+
+          const { PDFDocument } = await import('pdf-lib');
+
+          // Sort pages by page number
+          pdfPages.sort((a, b) => a.pageNumber - b.pageNumber);
+
+          // Create a new PDF document
+          const mergedPdf = await PDFDocument.create();
+
+          // Add all pages from individual PDFs
+          for (let i = 0; i < pdfPages.length; i++) {
+            const pageData = pdfPages[i];
+            console.log(`📄 Adding page ${i + 1}/${totalPages} to combined PDF...`);
+
+            // Convert data URI to Uint8Array
+            const base64Data = pageData.pdfData.split(',')[1];
+            const binaryData = atob(base64Data);
+            const uint8Array = new Uint8Array(binaryData.length);
+            for (let j = 0; j < binaryData.length; j++) {
+              uint8Array[j] = binaryData.charCodeAt(j);
+            }
+
+            // Load the PDF
+            const pdfDoc = await PDFDocument.load(uint8Array);
+
+            // Copy all pages from this PDF to merged PDF
+            const copiedPages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
+            copiedPages.forEach((page) => {
+              mergedPdf.addPage(page);
+            });
+
+            console.log(`✅ Page ${i + 1} added to combined PDF`);
+          }
+
+          // Save the combined PDF
+          const pdfBytes = await mergedPdf.save();
+          const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+          const url = URL.createObjectURL(blob);
+
+          // Create download link
+          const orderNumber = orderPreviewData.orderNumber || orderPreviewData.userOrderNumber || 'Unknown';
+          const fileName = `Order_${orderNumber}_${totalPages}pages_${new Date().toISOString().slice(0, 10)}.pdf`;
+
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = fileName;
+          link.click();
+
+          URL.revokeObjectURL(url);
+
+          console.log(`✅ Combined PDF with ${totalPages} page(s) generated successfully: ${fileName}`);
           setIsGeneratingPDF(false);
+          alert(`✅ PDF generated successfully!\n\n📄 File: ${fileName}\n📄 Pages: ${totalPages}`);
 
-          // No alert - PDF downloads silently
-
-        } else if (event.data.type === 'PDF_ERROR') {
-          console.error('❌ PDF generation error from iframe:', event.data.error);
-
-          // Clear timeout
-          clearTimeout(timeout);
-
-          // Clean up
-          window.removeEventListener('message', messageHandler);
-          document.body.removeChild(iframe);
+        } catch (error) {
+          console.error('❌ Error generating multi-page PDF:', error);
           setIsGeneratingPDF(false);
-
-          alert(`❌ Error generating PDF: ${event.data.error}`);
+          alert(`❌ Error generating PDF: ${error}`);
         }
-      };
-
-      window.addEventListener('message', messageHandler);
-
-      // Set timeout in case iframe fails to load
-      const timeout = setTimeout(() => {
-        console.error('❌ PDF generation timeout');
-        window.removeEventListener('message', messageHandler);
-        if (document.body.contains(iframe)) {
-          document.body.removeChild(iframe);
-        }
-        setIsGeneratingPDF(false);
-        alert('❌ PDF generation timeout. Please try again.');
-      }, 60000); // 60 second timeout (10s wait + child creation + PDF generation)
-
-      // Add load event listener
-      iframe.onload = () => {
-        console.log('✅ Iframe loaded successfully');
-      };
-
-      iframe.onerror = () => {
-        console.error('❌ Iframe failed to load');
-        clearTimeout(timeout);
-        window.removeEventListener('message', messageHandler);
-        document.body.removeChild(iframe);
-        setIsGeneratingPDF(false);
-        alert('❌ Failed to load canvas. Please try again.');
-      };
-
-      // Load canvas in iframe
-      iframe.src = canvasUrl;
-      document.body.appendChild(iframe);
+      })();
 
       console.log('⏳ Waiting for canvas to render and generate PDF...');
       console.log('⏱️ Timeout set to 60 seconds');
@@ -834,31 +994,154 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
             }} />
 
             {/* Order Variables */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-              gap: '12px',
-              marginBottom: '16px'
-            }}>
-              {displayOrder.variables.map((variable, index) => (
-                <div key={index}>
-                  <span style={{
-                    fontSize: '13px',
-                    color: '#64748b',
-                    fontWeight: '500'
+            <div style={{ marginBottom: '16px' }}>
+              {/* Check if order has multiple lines */}
+              {(order as any).orderLines && Array.isArray((order as any).orderLines) && (order as any).orderLines.length > 0 ? (
+                <>
+                  {/* First row: Order Number and Total Quantity */}
+                  <div style={{
+                    display: 'flex',
+                    gap: '24px',
+                    marginBottom: '12px',
+                    paddingBottom: '12px',
+                    borderBottom: '2px solid #e2e8f0'
                   }}>
-                    {variable.name}:
-                  </span>
-                  <span style={{
-                    fontSize: '14px',
-                    color: '#1a202c',
-                    fontWeight: '500',
-                    marginLeft: '6px'
-                  }}>
-                    {variable.value}
-                  </span>
+                    {displayOrder.variables.slice(0, 2).map((variable, index) => (
+                      <div key={index}>
+                        <span style={{
+                          fontSize: '13px',
+                          color: '#64748b',
+                          fontWeight: '500'
+                        }}>
+                          {variable.name}:
+                        </span>
+                        <span style={{
+                          fontSize: '14px',
+                          color: '#1a202c',
+                          fontWeight: '600',
+                          marginLeft: '6px'
+                        }}>
+                          {variable.value}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Lines with individual PDF icons */}
+                  {(order as any).orderLines.map((line: any, lineIndex: number) => (
+                    <div key={lineIndex} style={{
+                      marginBottom: '12px',
+                      padding: '12px',
+                      backgroundColor: '#f8f9fa',
+                      borderRadius: '6px',
+                      border: '1px solid #e2e8f0'
+                    }}>
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'flex-start'
+                      }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{
+                            fontSize: '14px',
+                            fontWeight: '600',
+                            color: '#1a202c',
+                            marginBottom: '8px'
+                          }}>
+                            ─── Line {line.lineNumber || lineIndex + 1} ───
+                          </div>
+                          <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                            gap: '8px'
+                          }}>
+                            <div>
+                              <span style={{ fontSize: '12px', color: '#64748b' }}>Quantity: </span>
+                              <span style={{ fontSize: '13px', color: '#1a202c', fontWeight: '500' }}>{line.quantity}</span>
+                            </div>
+                            {line.componentVariables && Object.entries(line.componentVariables).map(([componentId, componentData]: [string, any]) => (
+                              <React.Fragment key={componentId}>
+                                {componentData.type === 'multi-line' && componentData.data?.textContent && (
+                                  <div>
+                                    <span style={{ fontSize: '12px', color: '#64748b' }}>Multi-line Text: </span>
+                                    <span style={{ fontSize: '13px', color: '#1a202c', fontWeight: '500' }}>{componentData.data.textContent}</span>
+                                  </div>
+                                )}
+                                {componentData.type === 'comp-trans' && componentData.data?.compositions?.map((comp: any, idx: number) => (
+                                  comp.material && comp.percentage && (
+                                    <div key={idx}>
+                                      <span style={{ fontSize: '12px', color: '#64748b' }}>Material {idx + 1}: </span>
+                                      <span style={{ fontSize: '13px', color: '#1a202c', fontWeight: '500' }}>{comp.percentage}% {comp.material}</span>
+                                    </div>
+                                  )
+                                ))}
+                              </React.Fragment>
+                            ))}
+                          </div>
+                        </div>
+                        {/* Individual Line PDF Preview Icon */}
+                        {displayOrder.status !== 'draft' && (
+                          <button
+                            onClick={() => {
+                              // Generate PDF for this specific line only
+                              const singleLineOrder = {
+                                ...order,
+                                orderLines: [line]
+                              };
+                              order2preview(singleLineOrder as any);
+                            }}
+                            style={{
+                              padding: '6px 12px',
+                              fontSize: '20px',
+                              backgroundColor: 'transparent',
+                              border: 'none',
+                              cursor: 'pointer',
+                              borderRadius: '4px',
+                              transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = '#e0f2fe';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = 'transparent';
+                            }}
+                            title={`Preview PDF for Line ${line.lineNumber || lineIndex + 1}`}
+                          >
+                            📄
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </>
+              ) : (
+                // Old single-line format
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                  gap: '12px'
+                }}>
+                  {displayOrder.variables.map((variable, index) => (
+                    <div key={index}>
+                      <span style={{
+                        fontSize: '13px',
+                        color: '#64748b',
+                        fontWeight: '500'
+                      }}>
+                        {variable.name}:
+                      </span>
+                      <span style={{
+                        fontSize: '14px',
+                        color: '#1a202c',
+                        fontWeight: '500',
+                        marginLeft: '6px'
+                      }}>
+                        {variable.value}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
 
             {/* Action Buttons */}

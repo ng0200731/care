@@ -206,12 +206,29 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
       loadOrderData();
 
       // Load variable data - set after a delay to ensure layout extraction completes
-      if (editingOrder.variableData) {
-        setTimeout(() => {
-          setComponentVariables(editingOrder.variableData);
-          console.log('✅ Loaded variable data:', editingOrder.variableData);
-        }, 200);
-      }
+      setTimeout(() => {
+        // Check if order has new multi-line format
+        if ((editingOrder as any).orderLines && Array.isArray((editingOrder as any).orderLines)) {
+          // New format - load order lines
+          setOrderLines((editingOrder as any).orderLines);
+          console.log('✅ Loaded order lines:', (editingOrder as any).orderLines);
+        } else {
+          // Old format - load single variable data (backward compatibility)
+          if (editingOrder.variableData) {
+            setComponentVariables(editingOrder.variableData);
+            // Create a single line with the old data
+            setOrderLines([
+              {
+                id: 'line_1',
+                lineNumber: 1,
+                quantity: editingOrder.quantity,
+                componentVariables: editingOrder.variableData
+              }
+            ]);
+            console.log('✅ Loaded variable data (old format):', editingOrder.variableData);
+          }
+        }
+      }, 200);
 
       console.log(isViewMode ? '👁️ View Mode: All fields will be disabled' : '✏️ Edit Mode: Fields are editable');
     }
@@ -360,7 +377,14 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                 }
               });
               setComponentVariables(initialData);
-              console.log('📝 Initialized empty variable data for new order');
+
+              // Also initialize for all order lines
+              setOrderLines(orderLines.map(line => ({
+                ...line,
+                componentVariables: initialData
+              })));
+
+              console.log('📝 Initialized empty variable data for new order and all lines');
             } else {
               console.log('📋 Skipping initialization - loading existing order data');
             }
@@ -642,11 +666,34 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
   // Add new order line
   const handleAddLine = () => {
     const newLineNumber = orderLines.length + 1;
+
+    // Initialize with the same structure as existing lines
+    const initialData: ComponentVariableData = {};
+    variableComponents.forEach(comp => {
+      if (comp.type === 'comp-trans') {
+        initialData[comp.id] = {
+          type: 'comp-trans',
+          data: {
+            compositions: [
+              { material: '', percentage: '' }
+            ]
+          }
+        };
+      } else if (comp.type === 'multi-line') {
+        initialData[comp.id] = {
+          type: 'multi-line',
+          data: {
+            textContent: ''
+          }
+        };
+      }
+    });
+
     const newLine: OrderLine = {
       id: `line_${newLineNumber}`,
       lineNumber: newLineNumber,
       quantity: 1,
-      componentVariables: {}
+      componentVariables: initialData
     };
     setOrderLines([...orderLines, newLine]);
   };
@@ -700,6 +747,9 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
     const nextOrderNumber = String(existingOrders.length + 1).padStart(3, '0');
     const orderIdTimestamp = Date.now(); // Use timestamp for unique ID
 
+    // Calculate total quantity from all lines
+    const totalQuantity = orderLines.reduce((sum, line) => sum + (line.quantity || 0), 0);
+
     const orderData = {
       id: `order_${orderIdTimestamp}`,
       orderNumber: nextOrderNumber, // Sequential order number for display (e.g., "001")
@@ -707,7 +757,8 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
       customerId: formData.customerId,
       projectSlug: formData.projectSlug,
       layoutId: formData.layoutId,
-      quantity: formData.quantity,
+      quantity: totalQuantity, // Total quantity from all lines
+      orderLines: orderLines, // Save all order lines
       variableData: componentVariables,
       createdAt: new Date().toISOString(),
       status: status
@@ -754,6 +805,14 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
       status: 'draft'
     });
     setComponentVariables({});
+    setOrderLines([
+      {
+        id: 'line_1',
+        lineNumber: 1,
+        quantity: 1,
+        componentVariables: {}
+      }
+    ]);
   };
 
   const handleContinueInput = () => {
@@ -773,7 +832,10 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
     if (!formData.customerId) missing.push('Customer');
     if (!formData.projectSlug) missing.push('Project');
     if (!formData.layoutId) missing.push('Layout');
-    if (!formData.quantity || formData.quantity <= 0) missing.push('Quantity');
+
+    // Check total quantity from all lines
+    const totalQuantity = orderLines.reduce((sum, line) => sum + (line.quantity || 0), 0);
+    if (!totalQuantity || totalQuantity <= 0) missing.push('Quantity (at least one line must have quantity > 0)');
 
     return {
       isValid: missing.length === 0,
@@ -789,38 +851,43 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
     if (!formData.customerId) missing.push('Customer');
     if (!formData.projectSlug) missing.push('Project');
     if (!formData.layoutId) missing.push('Layout');
-    if (!formData.quantity || formData.quantity <= 0) missing.push('Quantity');
 
-    // Check variable components data
-    variableComponents.forEach((component) => {
-      const componentData = componentVariables[component.id];
+    // Check total quantity from all lines
+    const totalQuantity = orderLines.reduce((sum, line) => sum + (line.quantity || 0), 0);
+    if (!totalQuantity || totalQuantity <= 0) missing.push('Quantity (at least one line must have quantity > 0)');
 
-      if (component.type === 'comp-trans') {
-        const compositions = componentData?.data?.compositions || [];
-        if (compositions.length === 0) {
-          missing.push(`${component.name} - no materials added`);
-        } else {
-          // Check if all fields are filled
-          compositions.forEach((comp: any, index: number) => {
-            if (!comp.material) {
-              missing.push(`${component.name} - Material ${index + 1} not selected`);
+    // Check variable components data for ALL lines
+    orderLines.forEach((line, lineIndex) => {
+      variableComponents.forEach((component) => {
+        const componentData = line.componentVariables[component.id];
+
+        if (component.type === 'comp-trans') {
+          const compositions = componentData?.data?.compositions || [];
+          if (compositions.length === 0) {
+            missing.push(`Line ${line.lineNumber} - ${component.name} - no materials added`);
+          } else {
+            // Check if all fields are filled
+            compositions.forEach((comp: any, index: number) => {
+              if (!comp.material) {
+                missing.push(`Line ${line.lineNumber} - ${component.name} - Material ${index + 1} not selected`);
+              }
+              if (!comp.percentage || comp.percentage === '') {
+                missing.push(`Line ${line.lineNumber} - ${component.name} - Percentage ${index + 1} not filled`);
+              }
+            });
+
+            // Check if total percentage = 100%
+            const totalPercentage = compositions.reduce((sum: number, c: any) => sum + (parseFloat(c.percentage) || 0), 0);
+            if (totalPercentage !== 100) {
+              missing.push(`Line ${line.lineNumber} - ${component.name} - Total percentage must equal 100% (currently ${totalPercentage}%)`);
             }
-            if (!comp.percentage || comp.percentage === '') {
-              missing.push(`${component.name} - Percentage ${index + 1} not filled`);
-            }
-          });
-
-          // Check if total percentage = 100%
-          const totalPercentage = compositions.reduce((sum: number, c: any) => sum + (parseFloat(c.percentage) || 0), 0);
-          if (totalPercentage !== 100) {
-            missing.push(`${component.name} - Total percentage must equal 100% (currently ${totalPercentage}%)`);
+          }
+        } else if (component.type === 'multi-line') {
+          if (!componentData?.data?.textContent) {
+            missing.push(`Line ${line.lineNumber} - ${component.name} - text content not filled`);
           }
         }
-      } else if (component.type === 'multi-line') {
-        if (!componentData?.data?.textContent) {
-          missing.push(`${component.name} - text content not filled`);
-        }
-      }
+      });
     });
 
     return {
@@ -873,6 +940,14 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
       status: 'draft'
     });
     setComponentVariables({});
+    setOrderLines([
+      {
+        id: 'line_1',
+        lineNumber: 1,
+        quantity: 1,
+        componentVariables: {}
+      }
+    ]);
     setShowSuccessModal(false);
   };
 
@@ -896,6 +971,14 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
       status: 'draft'
     });
     setComponentVariables({});
+    setOrderLines([
+      {
+        id: 'line_1',
+        lineNumber: 1,
+        quantity: 1,
+        componentVariables: {}
+      }
+    ]);
     setShowSuccessModal(false);
 
     // Call parent to switch to order history tab
@@ -1482,35 +1565,68 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
           📝 ORDER DATA
         </h3>
 
-        {/* Order Number */}
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{
-            display: 'block',
-            fontSize: '14px',
-            fontWeight: '500',
-            color: '#4a5568',
-            marginBottom: '6px'
-          }}>
-            Order Number
-          </label>
-          <input
-            type="text"
-            value={formData.orderNumber}
-            onChange={(e) => setFormData({ ...formData, orderNumber: e.target.value })}
-            placeholder="#001"
-            disabled={isDisabled}
-            style={{
-              width: '100%',
-              maxWidth: '300px',
+        {/* Order Number and Total Quantity */}
+        <div style={{
+          display: 'flex',
+          gap: '32px',
+          marginBottom: '20px',
+          alignItems: 'flex-end'
+        }}>
+          {/* Order Number */}
+          <div style={{ flex: 1 }}>
+            <label style={{
+              display: 'block',
+              fontSize: '14px',
+              fontWeight: '500',
+              color: '#4a5568',
+              marginBottom: '6px'
+            }}>
+              Order Number
+            </label>
+            <input
+              type="text"
+              value={formData.orderNumber}
+              onChange={(e) => setFormData({ ...formData, orderNumber: e.target.value })}
+              placeholder="#001"
+              disabled={isDisabled}
+              style={{
+                width: '100%',
+                maxWidth: '300px',
+                padding: '10px 12px',
+                border: '2px solid #e2e8f0',
+                borderRadius: '6px',
+                fontSize: '14px',
+                outline: 'none'
+              }}
+              onFocus={(e) => e.currentTarget.style.borderColor = '#3b82f6'}
+              onBlur={(e) => e.currentTarget.style.borderColor = '#e2e8f0'}
+            />
+          </div>
+
+          {/* Total Quantity */}
+          <div style={{ flex: 1 }}>
+            <label style={{
+              display: 'block',
+              fontSize: '14px',
+              fontWeight: '500',
+              color: '#4a5568',
+              marginBottom: '6px'
+            }}>
+              Total Quantity
+            </label>
+            <div style={{
               padding: '10px 12px',
               border: '2px solid #e2e8f0',
               borderRadius: '6px',
               fontSize: '14px',
-              outline: 'none'
-            }}
-            onFocus={(e) => e.currentTarget.style.borderColor = '#3b82f6'}
-            onBlur={(e) => e.currentTarget.style.borderColor = '#e2e8f0'}
-          />
+              backgroundColor: '#f8f9fa',
+              color: '#1a202c',
+              fontWeight: '600',
+              maxWidth: '300px'
+            }}>
+              {orderLines.reduce((sum, line) => sum + (line.quantity || 0), 0)}
+            </div>
+          </div>
         </div>
 
         {/* Add Line Button */}
@@ -1818,14 +1934,14 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                         </div>
 
                     {/* Composition Rows */}
-                    {(componentVariables[component.id]?.data?.compositions || [{ material: '', percentage: '' }]).map((comp: any, compIndex: number) => (
+                    {(line.componentVariables[component.id]?.data?.compositions || [{ material: '', percentage: '' }]).map((comp: any, compIndex: number) => (
                       <div
                         key={compIndex}
                         style={{
                           display: 'grid',
                           gridTemplateColumns: '1fr 2fr auto',
                           gap: '12px',
-                          marginBottom: compIndex < (componentVariables[component.id]?.data?.compositions || []).length - 1 ? '12px' : '0',
+                          marginBottom: compIndex < (line.componentVariables[component.id]?.data?.compositions || []).length - 1 ? '12px' : '0',
                           alignItems: 'end'
                         }}
                       >
@@ -1852,7 +1968,7 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                                 data: { compositions: newCompositions }
                               });
                             }}
-                            placeholder="100"
+                            placeholder=""
                             disabled={isDisabled}
                             style={{
                               width: '100%',
