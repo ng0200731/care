@@ -21,7 +21,7 @@ interface OrderData {
   quantity: number;
   variableData: any;
   createdAt: string;
-  status: 'draft' | 'complete';
+  status: 'draft' | 'confirmed' | 'send_out' | 'in_production' | 'shipped';
 }
 
 const OrderPanel: React.FC = () => {

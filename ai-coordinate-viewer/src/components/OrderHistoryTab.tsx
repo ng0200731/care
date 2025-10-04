@@ -120,7 +120,8 @@ const applyOrderDataToLayout = (layoutData: any, variableData: any) => {
   return updatedLayout;
 };
 
-type OrderStatus = 'all' | 'draft' | 'complete' | 'send' | 'confirmed' | 'in_production' | 'completed';
+type OrderStatusValue = 'draft' | 'confirmed' | 'send_out' | 'in_production' | 'shipped';
+type OrderStatus = 'all' | OrderStatusValue;
 
 interface Order {
   id: string;
@@ -132,7 +133,7 @@ interface Order {
   quantity: number;
   variableData: any;
   createdAt: string;
-  status: 'draft' | 'complete';
+  status: OrderStatusValue;
 }
 
 interface OrderHistoryTabProps {
@@ -151,6 +152,10 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
   const [previewImage, setPreviewImage] = useState<string>('');
   const [previewOrder, setPreviewOrder] = useState<Order | null>(null);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+
+  // Status change confirmation modal
+  const [showStatusConfirmModal, setShowStatusConfirmModal] = useState(false);
+  const [pendingStatusChange, setPendingStatusChange] = useState<{ orderId: string; newStatus: OrderStatusValue } | null>(null);
 
   // Load orders from localStorage
   const loadOrders = () => {
@@ -192,11 +197,10 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'draft': return '💾';
-      case 'complete': return '✅';
-      case 'send': return '📤';
       case 'confirmed': return '✅';
+      case 'send_out': return '📤';
       case 'in_production': return '🏭';
-      case 'completed': return '✔️';
+      case 'shipped': return '🚚';
       default: return '📋';
     }
   };
@@ -204,17 +208,80 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'draft': return '#64748b';
-      case 'complete': return '#10b981';
-      case 'send': return '#3b82f6';
       case 'confirmed': return '#10b981';
+      case 'send_out': return '#3b82f6';
       case 'in_production': return '#f59e0b';
-      case 'completed': return '#6366f1';
+      case 'shipped': return '#6366f1';
       default: return '#64748b';
     }
   };
 
   const getStatusLabel = (status: string) => {
-    return status.toUpperCase().replace('_', ' ');
+    switch (status) {
+      case 'draft': return 'DRAFT';
+      case 'confirmed': return 'CONFIRMED';
+      case 'send_out': return 'SEND OUT';
+      case 'in_production': return 'IN PRODUCTION';
+      case 'shipped': return 'SHIPPED';
+      default: return status.toUpperCase();
+    }
+  };
+
+  // Get available next statuses based on current status
+  const getAvailableNextStatuses = (currentStatus: string): OrderStatusValue[] => {
+    switch (currentStatus) {
+      case 'draft':
+        return ['confirmed'];
+      case 'confirmed':
+        return ['send_out'];
+      case 'send_out':
+        return ['in_production'];
+      case 'in_production':
+        return ['shipped'];
+      case 'shipped':
+        return [];
+      default:
+        return [];
+    }
+  };
+
+  // Handle status change with confirmation
+  const handleStatusChange = (orderId: string, newStatus: OrderStatusValue) => {
+    if (!newStatus) return;
+
+    setPendingStatusChange({ orderId, newStatus });
+    setShowStatusConfirmModal(true);
+  };
+
+  // Confirm status change
+  const confirmStatusChange = () => {
+    if (!pendingStatusChange) return;
+
+    try {
+      const updatedOrders = orders.map(order => {
+        if (order.id === pendingStatusChange.orderId) {
+          return { ...order, status: pendingStatusChange.newStatus };
+        }
+        return order;
+      });
+
+      setOrders(updatedOrders);
+      localStorage.setItem('order_management', JSON.stringify(updatedOrders));
+
+      console.log(`✅ Order ${pendingStatusChange.orderId} status changed to ${pendingStatusChange.newStatus}`);
+    } catch (error) {
+      console.error('❌ Error updating order status:', error);
+      alert('Error updating order status');
+    }
+
+    setShowStatusConfirmModal(false);
+    setPendingStatusChange(null);
+  };
+
+  // Cancel status change
+  const cancelStatusChange = () => {
+    setShowStatusConfirmModal(false);
+    setPendingStatusChange(null);
   };
 
   // Get layout name from layoutId
@@ -630,7 +697,7 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
           Filter:
         </span>
 
-        {(['all', 'draft', 'complete'] as OrderStatus[]).map((status) => (
+        {(['all', 'draft', 'confirmed', 'send_out', 'in_production', 'shipped'] as OrderStatus[]).map((status) => (
           <button
             key={status}
             onClick={() => setFilterStatus(status)}
@@ -659,7 +726,7 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
               }
             }}
           >
-            {status.replace('_', ' ')}
+            {status === 'all' ? 'All' : getStatusLabel(status)}
           </button>
         ))}
       </div>
@@ -800,174 +867,93 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
               gap: '8px',
               flexWrap: 'wrap'
             }}>
-              <button
-                onClick={() => onViewOrder(order)}
-                style={{
-                  padding: '8px 16px',
-                  fontSize: '13px',
-                  fontWeight: '500',
-                  color: '#3b82f6',
-                  backgroundColor: 'transparent',
-                  border: '2px solid #3b82f6',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#eff6ff';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                }}
-              >
-                👁️ View
-              </button>
-
-              {displayOrder.status === 'draft' ? (
+              {/* View + Edit button for draft and confirmed */}
+              {(displayOrder.status === 'draft' || displayOrder.status === 'confirmed') && (
                 <button
                   onClick={() => onEditOrder(order)}
                   style={{
                     padding: '8px 16px',
                     fontSize: '13px',
                     fontWeight: '500',
-                    color: '#10b981',
+                    color: '#3b82f6',
                     backgroundColor: 'transparent',
-                    border: '2px solid #10b981',
+                    border: '2px solid #3b82f6',
                     borderRadius: '6px',
                     cursor: 'pointer',
                     transition: 'all 0.2s'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#ecfdf5';
+                    e.currentTarget.style.backgroundColor = '#eff6ff';
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.backgroundColor = 'transparent';
                   }}
                 >
-                  ✏️ Continue Edit
+                  👁️ View + Edit
                 </button>
-              ) : (
+              )}
+
+              {/* View button for other statuses */}
+              {displayOrder.status !== 'draft' && displayOrder.status !== 'confirmed' && (
                 <button
+                  onClick={() => onViewOrder(order)}
                   style={{
                     padding: '8px 16px',
                     fontSize: '13px',
                     fontWeight: '500',
-                    color: '#64748b',
+                    color: '#3b82f6',
                     backgroundColor: 'transparent',
-                    border: '2px solid #cbd5e0',
+                    border: '2px solid #3b82f6',
                     borderRadius: '6px',
                     cursor: 'pointer',
                     transition: 'all 0.2s'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#f8fafc';
+                    e.currentTarget.style.backgroundColor = '#eff6ff';
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.backgroundColor = 'transparent';
                   }}
                 >
-                  ✏️ Edit
+                  👁️ View
                 </button>
               )}
 
+              {/* Preview Artwork button - only active for confirmed and later statuses */}
               <button
+                onClick={() => displayOrder.status !== 'draft' ? order2preview(order) : null}
+                disabled={displayOrder.status === 'draft'}
                 style={{
                   padding: '8px 16px',
                   fontSize: '13px',
                   fontWeight: '500',
-                  color: '#6366f1',
-                  backgroundColor: 'transparent',
-                  border: '2px solid #6366f1',
+                  color: displayOrder.status === 'draft' ? '#cbd5e0' : 'white',
+                  backgroundColor: displayOrder.status === 'draft' ? '#f1f5f9' : '#8b5cf6',
+                  border: displayOrder.status === 'draft' ? '2px solid #e2e8f0' : '2px solid #8b5cf6',
                   borderRadius: '6px',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s'
+                  cursor: displayOrder.status === 'draft' ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.2s',
+                  opacity: displayOrder.status === 'draft' ? 0.5 : 1
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#eef2ff';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                }}
-              >
-                🖨️ Print
-              </button>
-
-              {displayOrder.status === 'complete' && (
-                <button
-                  onClick={() => order2preview(order)}
-                  style={{
-                    padding: '8px 16px',
-                    fontSize: '13px',
-                    fontWeight: '500',
-                    color: 'white',
-                    backgroundColor: '#8b5cf6',
-                    border: '2px solid #8b5cf6',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s'
-                  }}
-                  onMouseEnter={(e) => {
+                  if (displayOrder.status !== 'draft') {
                     e.currentTarget.style.backgroundColor = '#7c3aed';
                     e.currentTarget.style.borderColor = '#7c3aed';
-                  }}
-                  onMouseLeave={(e) => {
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (displayOrder.status !== 'draft') {
                     e.currentTarget.style.backgroundColor = '#8b5cf6';
                     e.currentTarget.style.borderColor = '#8b5cf6';
-                  }}
-                >
-                  📄 Preview Artwork
-                </button>
-              )}
+                  }
+                }}
+              >
+                📄 Preview Artwork
+              </button>
 
-              {displayOrder.status === 'draft' && (
-                <>
-                  <button
-                    style={{
-                      padding: '8px 16px',
-                      fontSize: '13px',
-                      fontWeight: '500',
-                      color: '#3b82f6',
-                      backgroundColor: 'transparent',
-                      border: '2px solid #3b82f6',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = '#eff6ff';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                    }}
-                  >
-                    📤 Send
-                  </button>
-
-                  <button
-                    style={{
-                      padding: '8px 16px',
-                      fontSize: '13px',
-                      fontWeight: '500',
-                      color: '#ef4444',
-                      backgroundColor: 'transparent',
-                      border: '2px solid #ef4444',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = '#fef2f2';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                    }}
-                  >
-                    🗑️ Delete
-                  </button>
-                </>
-              )}
-
+              {/* Change Status dropdown */}
               <select
+                value=""
                 style={{
                   padding: '8px 12px',
                   fontSize: '13px',
@@ -980,15 +966,31 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
                   outline: 'none'
                 }}
                 onChange={(e) => {
-                  console.log('Change status to:', e.target.value);
+                  if (e.target.value) {
+                    handleStatusChange(order.id, e.target.value as OrderStatusValue);
+                    e.target.value = ''; // Reset dropdown
+                  }
                 }}
               >
                 <option value="">Change Status ▼</option>
-                <option value="draft">Draft</option>
-                <option value="send">Send</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="in_production">In Production</option>
-                <option value="completed">Completed</option>
+                {/* Show all statuses but dim the unavailable ones */}
+                {(['draft', 'confirmed', 'send_out', 'in_production', 'shipped'] as OrderStatusValue[]).map((status) => {
+                  const availableStatuses = getAvailableNextStatuses(displayOrder.status);
+                  const isAvailable = availableStatuses.includes(status);
+
+                  return (
+                    <option
+                      key={status}
+                      value={status}
+                      disabled={!isAvailable}
+                      style={{
+                        color: isAvailable ? '#1a202c' : '#cbd5e0'
+                      }}
+                    >
+                      {getStatusLabel(status)} {!isAvailable ? '(unavailable)' : ''}
+                    </option>
+                  );
+                })}
               </select>
             </div>
           </div>
@@ -1052,6 +1054,99 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
           🖨️ Print All
         </button>
       </div>
+
+      {/* Status Change Confirmation Modal */}
+      {showStatusConfirmModal && pendingStatusChange && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 10000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '32px',
+            maxWidth: '450px',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.3)'
+          }}>
+            <h3 style={{
+              margin: '0 0 16px 0',
+              fontSize: '20px',
+              fontWeight: '600',
+              color: '#1a202c'
+            }}>
+              ⚠️ Confirm Status Change
+            </h3>
+            <p style={{
+              margin: '0 0 24px 0',
+              fontSize: '15px',
+              color: '#64748b',
+              lineHeight: '1.6'
+            }}>
+              Are you sure you want to change the order status to <strong style={{ color: '#1a202c' }}>{getStatusLabel(pendingStatusChange.newStatus)}</strong>?
+            </p>
+            <div style={{
+              display: 'flex',
+              gap: '12px',
+              justifyContent: 'flex-end'
+            }}>
+              <button
+                onClick={cancelStatusChange}
+                style={{
+                  padding: '10px 20px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  color: '#64748b',
+                  backgroundColor: 'white',
+                  border: '2px solid #cbd5e0',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#f8fafc';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'white';
+                }}
+              >
+                ❌ Cancel
+              </button>
+              <button
+                onClick={confirmStatusChange}
+                style={{
+                  padding: '10px 20px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  color: 'white',
+                  backgroundColor: '#3b82f6',
+                  border: '2px solid #3b82f6',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#2563eb';
+                  e.currentTarget.style.borderColor = '#2563eb';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#3b82f6';
+                  e.currentTarget.style.borderColor = '#3b82f6';
+                }}
+              >
+                ✅ Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Preview Artwork Modal */}
       {showPreviewModal && (

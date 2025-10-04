@@ -33,7 +33,7 @@ interface OrderFormData {
   variableValues: { [key: string]: string | number };
 
   // Submit Options
-  status: 'draft' | 'send' | 'confirmed' | 'in_production' | 'completed';
+  status: 'draft' | 'confirmed' | 'send_out' | 'in_production' | 'shipped';
 }
 
 interface MasterFile {
@@ -62,7 +62,7 @@ interface EditingOrder {
   quantity: number;
   variableData: any;
   createdAt: string;
-  status: 'draft' | 'complete';
+  status: 'draft' | 'confirmed' | 'send_out' | 'in_production' | 'shipped';
 }
 
 interface NewOrderTabProps {
@@ -623,7 +623,7 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
     'Acrylic', 'Rayon', 'Spandex', 'Elastane', 'Viscose', 'Modal'
   ];
 
-  const saveToOrderManagement = (status: 'draft' | 'complete') => {
+  const saveToOrderManagement = (status: 'draft' | 'confirmed') => {
     console.log('💾 saveToOrderManagement called with status:', status);
 
     // Get existing orders to generate next order number
@@ -767,8 +767,8 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
     const completeValidation = validateForComplete();
 
     if (completeValidation.isValid) {
-      // All fields valid including percentage = 100% - save as complete
-      saveToOrderManagement('complete');
+      // All fields valid including percentage = 100% - save as confirmed
+      saveToOrderManagement('confirmed');
       setShowSuccessModal(true);
     } else {
       // Check if can at least be saved as draft
@@ -1701,7 +1701,24 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                             }}
                           >
                             <option value="">Select material...</option>
-                            {materialOptions.map(mat => (
+                            {/* Show current material if already selected */}
+                            {comp.material && !(() => {
+                              const selectedMaterials = (componentVariables[component.id]?.data?.compositions || [])
+                                .filter((c: any, idx: number) => c.material && c.percentage > 0 && idx !== compIndex)
+                                .map((c: any) => c.material);
+                              return !selectedMaterials.includes(comp.material);
+                            })() && (
+                              <option key={comp.material} value={comp.material}>
+                                {comp.material} (selected)
+                              </option>
+                            )}
+                            {/* Show available materials (excluding already selected in other rows) */}
+                            {materialOptions.filter(mat => {
+                              const selectedMaterials = (componentVariables[component.id]?.data?.compositions || [])
+                                .filter((c: any, idx: number) => c.material && c.percentage > 0 && idx !== compIndex)
+                                .map((c: any) => c.material);
+                              return !selectedMaterials.includes(mat);
+                            }).map(mat => (
                               <option key={mat} value={mat}>{mat}</option>
                             ))}
                           </select>
