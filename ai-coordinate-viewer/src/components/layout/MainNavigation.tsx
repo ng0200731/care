@@ -24,16 +24,16 @@ const MainNavigation: React.FC = () => {
       description: 'Multi-page label projects'
     },
     {
-      path: '/suppliers',
-      label: 'Suppliers',
-      icon: '🏭',
-      description: 'Manage supplier information'
-    },
-    {
       path: '/orders',
       label: 'Orders',
       icon: '📦',
       description: 'Track and manage orders'
+    },
+    {
+      path: '/suppliers',
+      label: 'Suppliers',
+      icon: '🏭',
+      description: 'Manage supplier information'
     },
     {
       path: '/settings',

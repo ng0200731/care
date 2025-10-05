@@ -755,7 +755,6 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
 
           console.log(`✅ Combined PDF with ${totalPages} page(s) generated successfully: ${fileName}`);
           setIsGeneratingPDF(false);
-          alert(`✅ PDF generated successfully!\n\n📄 File: ${fileName}\n📄 Pages: ${totalPages}`);
 
         } catch (error) {
           console.error('❌ Error generating multi-page PDF:', error);

@@ -50,14 +50,16 @@ const OrderPanel: React.FC = () => {
   return (
     <div style={{
       width: '100%',
-      height: '100%',
+      minHeight: '100%',
       display: 'flex',
       flexDirection: 'column',
-      backgroundColor: '#f8f9fa',
-      position: 'relative'
+      backgroundColor: '#f8f9fa'
     }}>
       {/* Fixed Header and Tabs Container */}
       <div style={{
+        position: 'sticky',
+        top: 0,
+        zIndex: 10,
         flexShrink: 0,
         backgroundColor: 'white',
         borderBottom: '2px solid #e2e8f0'
@@ -148,8 +150,6 @@ const OrderPanel: React.FC = () => {
 
       {/* Tab Content - Scrollable Area */}
       <div style={{
-        flex: 1,
-        overflow: 'auto',
         padding: '24px'
       }}>
         {activeTab === 'new' ? (

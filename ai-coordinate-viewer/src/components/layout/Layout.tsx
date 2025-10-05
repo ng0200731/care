@@ -103,7 +103,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         <main style={{
           flex: 1,
           padding: '30px',
-          overflow: 'auto'
+          overflow: 'auto',
+          height: 'calc(100vh - 101px)' // Subtract header height to create scrollable container
         }}>
           {children}
         </main>
