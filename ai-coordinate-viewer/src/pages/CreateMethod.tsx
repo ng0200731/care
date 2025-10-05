@@ -6,6 +6,8 @@ import NavigationButtons from '../components/NavigationButtons';
 const CreateMethod: React.FC = () => {
   const navigate = useNavigate();
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [showJsonUpload, setShowJsonUpload] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   // Load selected customer from session storage
   useEffect(() => {
@@ -30,7 +32,54 @@ const CreateMethod: React.FC = () => {
   };
 
   const handleCreateFromJson = () => {
-    navigate('/create_zero');
+    setShowJsonUpload(true);
+  };
+
+  const handleFileUpload = (file: File) => {
+    if (file && file.type === 'application/json') {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const jsonData = JSON.parse(e.target?.result as string);
+          // Save JSON data to sessionStorage
+          sessionStorage.setItem('importedJsonData', JSON.stringify(jsonData));
+          // Navigate to create_zero with a flag indicating JSON import
+          navigate('/create_zero?fromJson=true');
+        } catch (error) {
+          alert('❌ Invalid JSON file. Please check the file format.');
+        }
+      };
+      reader.readAsText(file);
+    } else {
+      alert('❌ Please upload a valid JSON file.');
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      handleFileUpload(files[0]);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      handleFileUpload(file);
+    }
   };
 
   if (!selectedCustomer) {
@@ -228,6 +277,133 @@ const CreateMethod: React.FC = () => {
           </p>
         </button>
       </div>
+
+      {/* JSON Upload Modal */}
+      {showJsonUpload && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '12px',
+            padding: '30px',
+            maxWidth: '600px',
+            width: '90%',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+          }}>
+            <h2 style={{
+              fontSize: '24px',
+              fontWeight: 'bold',
+              color: '#2d3748',
+              margin: '0 0 20px 0'
+            }}>
+              📄 Import JSON File
+            </h2>
+
+            {/* Drag & Drop Zone */}
+            <div
+              onDrop={handleDrop}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              style={{
+                border: isDragOver ? '3px solid #4CAF50' : '3px dashed #cbd5e0',
+                borderRadius: '8px',
+                padding: '40px',
+                textAlign: 'center',
+                background: isDragOver ? 'rgba(76,175,80,0.1)' : '#f7fafc',
+                marginBottom: '20px',
+                transition: 'all 0.3s ease'
+              }}
+            >
+              <div style={{
+                fontSize: '3rem',
+                marginBottom: '15px'
+              }}>
+                {isDragOver ? '📥' : '📁'}
+              </div>
+              <p style={{
+                fontSize: '16px',
+                color: '#4a5568',
+                marginBottom: '15px'
+              }}>
+                Drop your JSON file here
+              </p>
+              <p style={{
+                fontSize: '14px',
+                color: '#718096',
+                marginBottom: '20px'
+              }}>
+                or
+              </p>
+              <input
+                type="file"
+                accept=".json"
+                onChange={handleInputChange}
+                style={{
+                  display: 'none'
+                }}
+                id="json-file-input"
+              />
+              <label
+                htmlFor="json-file-input"
+                style={{
+                  display: 'inline-block',
+                  padding: '12px 24px',
+                  background: '#3b82f6',
+                  color: 'white',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  transition: 'background 0.3s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#2563eb';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = '#3b82f6';
+                }}
+              >
+                Browse Files
+              </label>
+            </div>
+
+            {/* Cancel Button */}
+            <button
+              onClick={() => setShowJsonUpload(false)}
+              style={{
+                width: '100%',
+                padding: '12px',
+                background: '#e2e8f0',
+                color: '#2d3748',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                transition: 'background 0.3s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#cbd5e0';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = '#e2e8f0';
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Additional Info */}
       <div style={{

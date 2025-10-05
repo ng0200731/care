@@ -22,7 +22,8 @@
       "Bash(start \"D:\\project\\layout2\\care\\check-layout-variable-status.html\")",
       "Bash(start \"D:\\project\\layout2\\care\\check-order-management.html\")",
       "Read(//d//**)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(git log:*)"
     ],
     "deny": [],
     "ask": []

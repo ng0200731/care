@@ -4505,6 +4505,38 @@ function App() {
     }
   }, [webCreationData]);
 
+  // Check for imported JSON data from "Create from JSON" flow
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    const fromJson = urlParams.get('fromJson') === 'true';
+
+    if (fromJson) {
+      const importedJson = sessionStorage.getItem('importedJsonData');
+      if (importedJson) {
+        try {
+          const jsonData = JSON.parse(importedJson);
+          console.log('📄 Loading imported JSON data:', jsonData);
+
+          // Set as web creation data
+          setWebCreationData(jsonData);
+          setIsWebCreationMode(true);
+
+          // Clear the imported data from sessionStorage
+          sessionStorage.removeItem('importedJsonData');
+
+          // Remove the fromJson flag from URL
+          const newUrl = window.location.pathname;
+          window.history.replaceState({}, '', newUrl);
+
+          console.log('✅ JSON data loaded successfully');
+        } catch (error) {
+          console.error('❌ Error loading imported JSON:', error);
+          alert('Failed to load JSON data. Please try again.');
+        }
+      }
+    }
+  }, [location.search]);
+
   // Auto-generate PDF or capture image for order preview mode (hidden iframe)
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
@@ -18315,7 +18347,7 @@ function App() {
       display: 'flex',
       flexDirection: 'column',
       background: '#f5f5f5',
-      marginRight: ((showContentMenu || pinnedContentMenu) || (showHierarchyMenu || pinnedHierarchyMenu) || (showNewCtMenu || pinnedNewCtMenu)) ? '300px' : '0',
+      marginRight: '0px',
       pointerEvents: isLoadingMasterFile ? 'none' : 'auto',
       opacity: isLoadingMasterFile ? 0.6 : 1,
       transition: 'margin-right 0.3s ease, opacity 0.3s ease'
