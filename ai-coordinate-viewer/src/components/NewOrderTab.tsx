@@ -1367,7 +1367,11 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
           <div style={{
             display: 'grid',
             gridTemplateColumns: '1fr 1fr 1fr 1fr',
-            gap: '16px'
+            gap: '16px',
+            padding: '16px',
+            backgroundColor: '#f0f9ff',
+            borderRadius: '6px',
+            border: '2px dashed #3b82f6'
           }}>
             <div>
               <label style={{
@@ -1391,7 +1395,8 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                   fontSize: '14px',
                   outline: 'none',
                   backgroundColor: (loadingProjects || projects.length === 0) ? '#f7fafc' : 'white',
-                  cursor: (loadingProjects || projects.length === 0) ? 'not-allowed' : 'pointer'
+                  cursor: (loadingProjects || projects.length === 0) ? 'not-allowed' : 'pointer',
+                  boxSizing: 'border-box'
                 }}
                 onFocus={(e) => {
                   if (!loadingProjects && projects.length > 0) {
@@ -1445,7 +1450,8 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                   fontSize: '14px',
                   outline: 'none',
                   backgroundColor: (loadingMasterFiles || masterFiles.length === 0) ? '#f7fafc' : 'white',
-                  cursor: (loadingMasterFiles || masterFiles.length === 0) ? 'not-allowed' : 'pointer'
+                  cursor: (loadingMasterFiles || masterFiles.length === 0) ? 'not-allowed' : 'pointer',
+                  boxSizing: 'border-box'
                 }}
                 onFocus={(e) => {
                   if (!loadingMasterFiles && masterFiles.length > 0) {
@@ -1499,7 +1505,8 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                   fontSize: '14px',
                   outline: 'none',
                   backgroundColor: (loadingLayouts || layoutCards.length === 0 || !formData.masterId) ? '#f7fafc' : 'white',
-                  cursor: (loadingLayouts || layoutCards.length === 0 || !formData.masterId) ? 'not-allowed' : 'pointer'
+                  cursor: (loadingLayouts || layoutCards.length === 0 || !formData.masterId) ? 'not-allowed' : 'pointer',
+                  boxSizing: 'border-box'
                 }}
                 onFocus={(e) => {
                   if (!loadingLayouts && layoutCards.length > 0 && formData.masterId) {
@@ -1540,11 +1547,29 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                 color: '#4a5568',
                 marginBottom: '6px'
               }}>
-                Date
+                Layout Created Date
               </label>
               <input
                 type="text"
-                value={new Date().toLocaleDateString()}
+                value={(() => {
+                  // Get layout creation date
+                  if (formData.layoutId && formData.projectSlug) {
+                    try {
+                      const storageKey = `project_${formData.projectSlug}_layouts`;
+                      const savedLayouts = localStorage.getItem(storageKey);
+                      if (savedLayouts) {
+                        const parsedLayouts = JSON.parse(savedLayouts);
+                        const layout = parsedLayouts.find((l: any) => l.id === formData.layoutId);
+                        if (layout?.createdAt) {
+                          return new Date(layout.createdAt).toLocaleDateString();
+                        }
+                      }
+                    } catch (error) {
+                      console.error('Error getting layout date:', error);
+                    }
+                  }
+                  return 'Select a layout';
+                })()}
                 readOnly
                 style={{
                   width: '100%',
@@ -1553,7 +1578,8 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                   borderRadius: '6px',
                   fontSize: '14px',
                   backgroundColor: '#f7fafc',
-                  color: '#718096'
+                  color: '#718096',
+                  boxSizing: 'border-box'
                 }}
               />
             </div>
