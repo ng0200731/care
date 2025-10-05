@@ -126,6 +126,7 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
     [componentId: string]: {
       type: 'comp-trans' | 'multi-line';
       data: any; // Composition data or text content
+      remark?: string; // Variable remark
     };
   }
   const [componentVariables, setComponentVariables] = useState<ComponentVariableData>({});
@@ -323,6 +324,7 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
               // Initialize component variables with empty data for new orders
               const initialData: ComponentVariableData = {};
               components.forEach(comp => {
+                console.log('🏷️ Initializing component with remark:', comp.id, 'remark:', comp.config?.variableRemark);
                 if (comp.type === 'comp-trans') {
                   // Initialize with default composition structure
                   initialData[comp.id] = {
@@ -331,7 +333,8 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                       compositions: [
                         { material: '', percentage: '' }
                       ]
-                    }
+                    },
+                    remark: comp.config?.variableRemark || '' // Add remark from config
                   };
                 } else if (comp.type === 'multi-line') {
                   // Initialize with empty text
@@ -339,10 +342,12 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                     type: 'multi-line',
                     data: {
                       textContent: ''
-                    }
+                    },
+                    remark: comp.config?.variableRemark || '' // Add remark from config
                   };
                 }
               });
+              console.log('📦 Final initialData with remarks:', initialData);
               setComponentVariables(initialData);
 
               // Also initialize for all order lines
@@ -1895,7 +1900,8 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                               const currentComps = line.componentVariables[component.id]?.data?.compositions || [];
                               handleUpdateLineComponentVariables(line.id, component.id, {
                                 type: 'comp-trans',
-                                data: { compositions: [...currentComps, { material: '', percentage: '' }] }
+                                data: { compositions: [...currentComps, { material: '', percentage: '' }] },
+                                remark: line.componentVariables[component.id]?.remark || component.config?.variableRemark || ''
                               });
                             }}
                             disabled={!canAddMore || isDisabled}
@@ -1947,7 +1953,8 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                               newCompositions[compIndex] = { ...newCompositions[compIndex], percentage: e.target.value };
                               handleUpdateLineComponentVariables(line.id, component.id, {
                                 type: 'comp-trans',
-                                data: { compositions: newCompositions }
+                                data: { compositions: newCompositions },
+                                remark: line.componentVariables[component.id]?.remark || component.config?.variableRemark || ''
                               });
                             }}
                             placeholder=""
@@ -1980,7 +1987,8 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                               newCompositions[compIndex] = { ...newCompositions[compIndex], material: e.target.value };
                               handleUpdateLineComponentVariables(line.id, component.id, {
                                 type: 'comp-trans',
-                                data: { compositions: newCompositions }
+                                data: { compositions: newCompositions },
+                                remark: line.componentVariables[component.id]?.remark || component.config?.variableRemark || ''
                               });
                             }}
                             disabled={isDisabled}
@@ -2023,7 +2031,8 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                             const newCompositions = (line.componentVariables[component.id]?.data?.compositions || []).filter((_: any, i: number) => i !== compIndex);
                             handleUpdateLineComponentVariables(line.id, component.id, {
                               type: 'comp-trans',
-                              data: { compositions: newCompositions.length > 0 ? newCompositions : [{ material: '', percentage: '' }] }
+                              data: { compositions: newCompositions.length > 0 ? newCompositions : [{ material: '', percentage: '' }] },
+                              remark: line.componentVariables[component.id]?.remark || component.config?.variableRemark || ''
                             });
                           }}
                           disabled={(line.componentVariables[component.id]?.data?.compositions || []).length <= 1 || isDisabled}
@@ -2068,7 +2077,8 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                       onChange={(e) => {
                         handleUpdateLineComponentVariables(line.id, component.id, {
                           type: 'multi-line',
-                          data: { textContent: e.target.value }
+                          data: { textContent: e.target.value },
+                          remark: line.componentVariables[component.id]?.remark || component.config?.variableRemark || ''
                         });
                       }}
                       disabled={isDisabled}

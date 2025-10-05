@@ -1108,14 +1108,21 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
                             </div>
                             {line.componentVariables && Object.entries(line.componentVariables).map(([componentId, componentData]: [string, any]) => (
                               <React.Fragment key={componentId}>
-                                {componentData.type === 'multi-line' && componentData.data?.textContent && (
+                                {componentData.type === 'multi-line' && (
                                   <div>
-                                    <span style={{ fontSize: '12px', color: '#64748b' }}>Multi-line Text: </span>
-                                    <span style={{ fontSize: '13px', color: '#1a202c', fontWeight: '500' }}>{componentData.data.textContent}</span>
+                                    <span style={{ fontSize: '12px', color: '#64748b' }}>
+                                      Multi-line Text{componentData.remark ? ` (${componentData.remark})` : ''}:
+                                    </span>
+                                    <span style={{ fontSize: '13px', color: '#1a202c', fontWeight: '500' }}>
+                                      {componentData.data?.textContent || ''}
+                                    </span>
                                   </div>
                                 )}
                                 {componentData.type === 'comp-trans' && componentData.data?.compositions && componentData.data.compositions.length > 0 && (
                                   <div>
+                                    <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>
+                                      Composition Translation{componentData.remark ? ` (${componentData.remark})` : ''}:
+                                    </div>
                                     {componentData.data.compositions.map((comp: any, idx: number) => (
                                       comp.material && comp.percentage ? (
                                         <div key={idx} style={{ display: 'inline' }}>
