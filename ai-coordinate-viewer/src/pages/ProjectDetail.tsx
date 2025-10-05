@@ -151,7 +151,43 @@ const ProjectDetail: React.FC = () => {
         let variableCount = 0;
         const countedRegions = new Set<string>(); // Track regions to avoid double-counting
 
-        // Location 1: canvasData.objects[].regions[].contents[] (NEW location)
+        // Helper function to check if content is a variable
+        const isVariableContent = (content: any): boolean => {
+          const isCompTransVariable = content.type === 'new-comp-trans' && content.newCompTransConfig?.isVariableEnabled;
+          const isMultiLineVariable = content.type === 'new-multi-line' && content.newMultiLineConfig?.isVariableEnabled;
+          return isCompTransVariable || isMultiLineVariable;
+        };
+
+        // Helper function to recursively scan region and its child regions (slices)
+        const scanRegionForVariables = (region: any, path: string = '', regionContents: any = null) => {
+          const hasSlices = region.children && Array.isArray(region.children) && region.children.length > 0;
+
+          if (hasSlices) {
+            // Region has slices - ONLY scan slices, skip the region itself
+            console.log(`  🔍 Region ${region.id} has ${region.children.length} slice(s) - scanning slices only`);
+            region.children.forEach((childRegion: any) => {
+              scanRegionForVariables(childRegion, `${path}${region.id} > slice > `, regionContents);
+            });
+          } else {
+            // Region without slices - scan the region itself ONLY from regionContents
+            console.log(`  🔍 Region ${region.id} has NO slices - scanning region`);
+
+            // Check contents in regionContents[region.id] (primary storage location)
+            if (regionContents && regionContents[region.id]) {
+              const contents = regionContents[region.id];
+              if (Array.isArray(contents)) {
+                contents.forEach((content: any) => {
+                  if (isVariableContent(content)) {
+                    console.log(`  ✅ Found variable at ${path}(${region.id}):`, content.type);
+                    variableCount++;
+                  }
+                });
+              }
+            }
+          }
+        };
+
+        // Location 1: canvasData.objects[].regions[] (scan label > region > slice hierarchy)
         if (layout && layout.canvasData?.objects) {
           layout.canvasData.objects.forEach((obj: any) => {
             const isChildMother = obj.type === 'mother' && (
@@ -164,21 +200,8 @@ const ProjectDetail: React.FC = () => {
 
             if (obj.regions && Array.isArray(obj.regions)) {
               obj.regions.forEach((region: any) => {
-                if (region.contents && Array.isArray(region.contents)) {
-                  region.contents.forEach((content: any) => {
-                    const isCompTransVariable = content.type === 'new-comp-trans' && content.newCompTransConfig?.isVariableEnabled;
-                    const isMultiLineVariable = content.type === 'new-multi-line' && content.newMultiLineConfig?.isVariableEnabled;
-
-                    if (isCompTransVariable || isMultiLineVariable) {
-                      console.log(`  ✅ Found variable in region.contents (${region.id}):`, content.type);
-                      variableCount++;
-                    }
-                  });
-                  // Mark this region as counted
-                  if (region.contents.length > 0) {
-                    countedRegions.add(region.id);
-                  }
-                }
+                scanRegionForVariables(region, 'label > region > ', layout.regionContents);
+                countedRegions.add(region.id);
               });
             }
           });

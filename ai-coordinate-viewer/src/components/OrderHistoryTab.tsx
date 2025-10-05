@@ -1098,9 +1098,9 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
                       }}>
                         <div style={{ flex: 1 }}>
                           <div style={{
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                            gap: '8px'
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '6px'
                           }}>
                             <div>
                               <span style={{ fontSize: '12px', color: '#64748b' }}>Layout {line.lineNumber || lineIndex + 1} Quantity: </span>
@@ -1114,14 +1114,19 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
                                     <span style={{ fontSize: '13px', color: '#1a202c', fontWeight: '500' }}>{componentData.data.textContent}</span>
                                   </div>
                                 )}
-                                {componentData.type === 'comp-trans' && componentData.data?.compositions?.map((comp: any, idx: number) => (
-                                  comp.material && comp.percentage && (
-                                    <div key={idx}>
-                                      <span style={{ fontSize: '12px', color: '#64748b' }}>Material {idx + 1}: </span>
-                                      <span style={{ fontSize: '13px', color: '#1a202c', fontWeight: '500' }}>{comp.percentage}% {comp.material}</span>
-                                    </div>
-                                  )
-                                ))}
+                                {componentData.type === 'comp-trans' && componentData.data?.compositions && componentData.data.compositions.length > 0 && (
+                                  <div>
+                                    {componentData.data.compositions.map((comp: any, idx: number) => (
+                                      comp.material && comp.percentage ? (
+                                        <div key={idx} style={{ display: 'inline' }}>
+                                          <span style={{ fontSize: '12px', color: '#64748b' }}>Material {idx + 1}: </span>
+                                          <span style={{ fontSize: '13px', color: '#1a202c', fontWeight: '500' }}>{comp.percentage}% {comp.material}</span>
+                                          {idx < componentData.data.compositions.length - 1 && <br />}
+                                        </div>
+                                      ) : null
+                                    ))}
+                                  </div>
+                                )}
                               </React.Fragment>
                             ))}
                           </div>

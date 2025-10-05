@@ -16985,50 +16985,6 @@ function App() {
 
                         {/* Child Region Text Content - Use same advanced rendering as main regions */}
                         {showPreview && (() => {
-                          // Create debug popup once
-                          if (!(window as any).debugPopupInjected) {
-                            (window as any).debugPopupInjected = true;
-                            (window as any).debugLogs = [];
-
-                            // Override console.log to capture logs
-                            const originalLog = console.log;
-                            console.log = function(...args: any[]) {
-                              originalLog.apply(console, args);
-                              const logText = args.map((arg: any) => {
-                                if (typeof arg === 'object') {
-                                  try { return JSON.stringify(arg); } catch(e) { return String(arg); }
-                                }
-                                return String(arg);
-                              }).join(' ');
-                              (window as any).debugLogs.push(logText);
-                            };
-
-                            // Create floating button
-                            const btn = document.createElement('button');
-                            btn.textContent = 'COPY ALL CONSOLE LOGS';
-                            btn.style.position = 'fixed';
-                            btn.style.top = '10px';
-                            btn.style.right = '10px';
-                            btn.style.zIndex = '9999999';
-                            btn.style.padding = '15px 30px';
-                            btn.style.fontSize = '16px';
-                            btn.style.background = 'red';
-                            btn.style.color = 'white';
-                            btn.style.border = '3px solid black';
-                            btn.style.cursor = 'pointer';
-                            btn.style.fontWeight = 'bold';
-
-                            btn.addEventListener('click', () => {
-                              const allLogs = (window as any).debugLogs.join('\n');
-                              navigator.clipboard.writeText(allLogs).then(() => {
-                                alert('Copied ' + (window as any).debugLogs.length + ' log lines to clipboard!');
-                              });
-                            });
-
-                            document.body.appendChild(btn);
-                            console.log('🔴🔴🔴 DEBUG BUTTON CREATED - Click red button to copy all logs');
-                          }
-
                           const sliceContents = regionContents.get(childRegion.id) || [];
                           console.log('🎯🎯🎯 CHILD REGION RENDERING START:', childRegion.id, 'contents:', sliceContents.length);
                           if (sliceContents.length === 0) return null;
