@@ -616,10 +616,10 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
           iframe.style.opacity = '0';
           iframe.style.pointerEvents = 'none';
 
-          // Build canvas URL with auto-generate PDF flag and line index
+          // Build canvas URL with auto-generate PDF flag, line index, and only preview mode
           const masterFileId = layout.canvasData?.masterFileId || '';
           const projectName = order.projectSlug;
-          const canvasUrl = `/create_zero?context=projects&projectSlug=${order.projectSlug}&masterFileId=${masterFileId}&projectName=${encodeURIComponent(projectName)}&layoutId=${order.layoutId}&orderPreview=true&autoGeneratePDF=true&lineIndex=${lineIndex}`;
+          const canvasUrl = `/create_zero?context=projects&projectSlug=${order.projectSlug}&masterFileId=${masterFileId}&projectName=${encodeURIComponent(projectName)}&layoutId=${order.layoutId}&orderPreview=true&autoGeneratePDF=true&onlyPreview=true&lineIndex=${lineIndex}`;
 
           console.log(`📍 Loading canvas for Line ${lineIndex + 1}/${totalPages}:`, canvasUrl);
 

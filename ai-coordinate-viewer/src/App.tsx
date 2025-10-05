@@ -411,6 +411,7 @@ function App() {
   const projectName = urlParams.get('projectName');
   const masterFileId = urlParams.get('masterFileId');
   const orderPreview = urlParams.get('orderPreview') === 'true';
+  const onlyPreviewParam = urlParams.get('onlyPreview') === 'true';
 
   // Mode Detection
   const isMasterFileMode = !context || context !== 'projects';
@@ -467,7 +468,7 @@ function App() {
   const [showSupportingLines, setShowSupportingLines] = useState(true); // Toggle to show/hide dotted lines (margin, padding, mid-fold)
   const [showSewingLines, setShowSewingLines] = useState(true); // Toggle to show/hide sewing lines (top, left, bottom, right) and mid-fold lines
   const [showLinkedLines, setShowLinkedLines] = useState(true); // Toggle to show/hide linked lines
-  const [onlyPreview, setOnlyPreview] = useState(true); // Toggle to show only preview content (default ON)
+  const [onlyPreview, setOnlyPreview] = useState(onlyPreviewParam); // Toggle to show only preview content (set from URL param)
   const [showPartitionNames, setShowPartitionNames] = useState(true); // Toggle to show/hide region and slice labels (R1, R2, S1, S2)
   const [autoFitNotification, setAutoFitNotification] = useState(false);
   // Removed unused capture mode states
@@ -4504,9 +4505,19 @@ function App() {
     if ((autoGeneratePDF || captureImage) && data && regionContents && regionContents.size > 0) {
       console.log(captureImage ? '📸 Capturing canvas image for multi-page PDF...' : '🖨️ Auto-generating PDF for order preview...');
 
-      // Enable "Only Preview" mode for PDF generation
+      // Enable "Only Preview" mode for PDF generation - turn off all editing UI
       setOnlyPreview(true);
-      console.log('👁️ Enabled "Only Preview" mode');
+      setShowLinkedLines(false);
+      setShowDimensions(false);
+      setShowPartitionLines(false);
+      setShowRegionBorders(false);
+      setShowEffects(false);
+      setShowLabels(false);
+      setShowSupportingLines(false);
+      setShowPartitionNames(false);
+      setShowContentTypeNames(false);
+      setShowSewingLines(false);
+      console.log('👁️ Enabled "Only Preview" mode - all editing UI disabled');
 
       // Wait for overflow and rendering to complete (10 seconds)
       const timer = setTimeout(async () => {
