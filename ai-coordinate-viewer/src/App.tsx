@@ -7956,11 +7956,13 @@ function App() {
     console.log('🔍 Save button clicked - checking conditions...');
     console.log('isWebCreationMode:', isWebCreationMode);
     console.log('data exists:', !!data);
-    console.log('objects count:', data?.objects?.length || 0);
+    console.log('webCreationData exists:', !!webCreationData);
+    console.log('objects count:', (data?.objects?.length || webCreationData?.objects?.length || 0));
     console.log('selectedCustomer:', !!selectedCustomer);
     console.log('isEditMode:', isEditMode);
 
-    if (!isWebCreationMode || !data || data.objects.length === 0) {
+    const currentData = data || webCreationData;
+    if (!isWebCreationMode || !currentData || currentData.objects.length === 0) {
       alert('Please create some objects before saving as master file.');
       return;
     }
@@ -8025,7 +8027,8 @@ function App() {
       return;
     }
 
-    if (!data || data.objects.length === 0) {
+    const currentData = data || webCreationData;
+    if (!currentData || currentData.objects.length === 0) {
       console.error('No data to save.');
       return;
     }
@@ -8045,13 +8048,13 @@ function App() {
       const canvasImage = generateSmallThumbnailSVG({ width: 300, height: 200 });
       console.log('📸 Small thumbnail SVG generated');
 
-      // Use actual canvas dimensions from webCreationData or calculate from objects
-      let widthInMm = (webCreationData as any)?.width || 200; // Use web creation canvas width
-      let heightInMm = (webCreationData as any)?.height || 150; // Use web creation canvas height
+      // Use actual canvas dimensions from currentData or calculate from objects
+      let widthInMm = (currentData as any)?.width || 200; // Use web creation canvas width
+      let heightInMm = (currentData as any)?.height || 150; // Use web creation canvas height
 
-      // If no webCreationData, calculate from objects
-      if (!webCreationData && data.objects.length > 0) {
-        const bounds = data.objects.reduce((acc, obj) => ({
+      // If no explicit dimensions, calculate from objects
+      if (!widthInMm || !heightInMm) {
+        const bounds = currentData.objects.reduce((acc, obj) => ({
           minX: Math.min(acc.minX, obj.x),
           minY: Math.min(acc.minY, obj.y),
           maxX: Math.max(acc.maxX, obj.x + obj.width),
@@ -8074,13 +8077,13 @@ function App() {
         width: widthInMm,
         height: heightInMm,
         customerId: selectedCustomer.id,
-        description: `Web created master file with ${data.objects.length} objects`,
+        description: `Web created master file with ${currentData.objects.length} objects`,
         canvasImage: canvasImage,
         designData: {
-          objects: data.objects,
+          objects: currentData.objects,
           metadata: {
             createdInWebMode: true,
-            objectCount: data.objects.length,
+            objectCount: currentData.objects.length,
             customerName: selectedCustomer.customerName,
             createdAt: new Date().toISOString(),
             canvasDimensions: {
@@ -8095,7 +8098,7 @@ function App() {
         // Keep saving state visible for at least 1 second, then show success
         setTimeout(() => {
           setIsSaving(false);
-          console.log(`✅ Master File Saved Successfully! Name: ${fileName}, Customer: ${selectedCustomer.customerName}, Objects: ${data.objects.length}`);
+          console.log(`✅ Master File Saved Successfully! Name: ${fileName}, Customer: ${selectedCustomer.customerName}, Objects: ${currentData.objects.length}`);
 
           // Navigate to master files management immediately
           window.location.href = '/master-files-management';
@@ -8349,7 +8352,8 @@ function App() {
   const saveAsNewMasterFile = async () => {
     console.log('🔍 Save As button clicked - checking conditions...');
 
-    if (!isWebCreationMode || !data || data.objects.length === 0) {
+    const currentData = data || webCreationData;
+    if (!isWebCreationMode || !currentData || currentData.objects.length === 0) {
       alert('Please create some objects before saving as master file.');
       return;
     }
@@ -8987,6 +8991,8 @@ function App() {
                     const totalMothersNeeded = Math.ceil(allLines.length / maxLinesPerMother);
 
                     console.log(`📊 Preview N-split: ${allLines.length} lines, max ${maxLinesPerMother} per mother → ${totalMothersNeeded} mothers needed`);
+                    console.log(`📝 All wrapped lines:`, allLines);
+                    console.log(`📏 Original text length: ${multiLanguageText.length} chars`);
 
                     // Create child mothers if overflow detected (EXACT copy from 2in1)
                     if (totalMothersNeeded > 1 && maxLinesPerMother > 0) {
@@ -9006,8 +9012,11 @@ function App() {
                       }
 
                       console.log(`🎯🎯🎯 PREVIEW_NSPLIT: Total splits = ${textSplits.length}`);
+                      const totalSplitLength = textSplits.reduce((sum, split) => sum + split.length, 0);
+                      console.log(`📏 Total split text length: ${totalSplitLength} chars (original: ${multiLanguageText.length})`);
+                      console.log(`⚠️ Text ${totalSplitLength === multiLanguageText.length ? '✅ PRESERVED' : '❌ LOST ' + (multiLanguageText.length - totalSplitLength) + ' chars'}`);
                       textSplits.forEach((split, idx) => {
-                        console.log(`🎯🎯🎯 PREVIEW_NSPLIT_${idx + 1}: "${split.substring(0, 100)}..."`);
+                        console.log(`🎯🎯🎯 PREVIEW_NSPLIT_${idx + 1} (${split.length} chars): "${split.substring(0, 100)}..."`);
                       });
 
                       // Store original config in window for child creation (like 2in1)

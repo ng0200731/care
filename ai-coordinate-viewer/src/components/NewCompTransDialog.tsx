@@ -248,6 +248,25 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     editingContent?.newCompTransConfig?.variableRemark || ''
   );
 
+  // Separate tricky input states for width and height - default 2mm each
+  const [trickyWidthMm, setTrickyWidthMm] = useState(() => {
+    const saved = localStorage.getItem('trickyWidthMm');
+    return saved ? parseFloat(saved) : 2; // Default: 2mm
+  });
+  const [trickyHeightMm, setTrickyHeightMm] = useState(() => {
+    const saved = localStorage.getItem('trickyHeightMm');
+    return saved ? parseFloat(saved) : 2; // Default: 2mm
+  });
+
+  // Use config.padding directly so it updates in real-time when user changes padding
+  const effectivePadding = config.padding || { left: 2, right: 2, top: 2, bottom: 2 };
+
+  // Auto-calculated usable dimensions based on formula:
+  // width = original width - left padding - right padding - tricky width
+  // height = original height - top padding - bottom padding - tricky height
+  const usableWidthMm = regionWidth - effectivePadding.left - effectivePadding.right - trickyWidthMm;
+  const usableHeightMm = regionHeight - effectivePadding.top - effectivePadding.bottom - trickyHeightMm;
+
   // Helper function to generate a unique signature for a composition
   const generateCompositionSignature = (compositions: MaterialComposition[]): string => {
     // Sort compositions by material name to ensure consistent signatures
@@ -540,19 +559,19 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
     const availableWidthMm = availableWidthPx / 3.779527559;
 
-    // CRITICAL: Apply safety buffer exactly like Text Overflow Analysis Settings
-    // From Settings.tsx: userSafetyBuffer = 1.5mm
-    const userSafetyBuffer = 1.5;
-    const effectiveAvailableWidth = availableWidthMm - userSafetyBuffer;
+    // Use auto-calculated usable width (already has tricky width subtracted)
+    // Formula: width = original width - left padding - right padding - tricky width
+    const effectiveAvailableWidth = usableWidthMm;
 
     const scaledFontSizeMm = scaledFontSize / 3.779527559;
     // 🔧 FIX: Use effectiveConfig instead of config for lineSpacing
     const lineHeightMm = scaledFontSizeMm * (effectiveConfig.lineBreakSettings?.lineSpacing || 1.2);
     const availableHeightMm = availableHeightPx / 3.779527559;
 
-    // CRITICAL: Follow Text Overflow Analysis Settings exactly
-    // From Settings.tsx: maxVisibleLines = Math.floor(availableHeightMm / lineHeightMm)
-    const maxLinesPerMother = Math.floor(availableHeightMm / lineHeightMm);
+    // Use auto-calculated usable height (already has tricky height subtracted)
+    // Formula: height = original height - top padding - bottom padding - tricky height
+    // Calculate max lines based on user's reliable usable height
+    const maxLinesPerMother = Math.floor(usableHeightMm / lineHeightMm);
 
 
     // Word wrapping logic
@@ -599,6 +618,33 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
     const allLines = wrapTextToLines(text);
 
+    // Debug: Verify text preservation during wrapping
+    const lineBreakSymbol = effectiveConfig.lineBreakSettings?.lineBreakSymbol || '\n';
+    console.log(`🎯2IN1_DEBUG Line break symbol:`, JSON.stringify(lineBreakSymbol), `(${lineBreakSymbol.length} chars)`);
+    console.log(`🎯2IN1_DEBUG Wrapped into ${allLines.length} lines`);
+    console.log(`🎯2IN1_DEBUG Region size: ${regionWidth}mm × ${regionHeight}mm`);
+    console.log(`🎯2IN1_DEBUG Padding: L${effectiveConfig.padding.left}mm R${effectiveConfig.padding.right}mm T${effectiveConfig.padding.top}mm B${effectiveConfig.padding.bottom}mm`);
+    console.log(`🎯2IN1_DEBUG Font: ${effectiveConfig.typography.fontSize}${effectiveConfig.typography.fontSizeUnit} ${effectiveConfig.typography.fontFamily}`);
+    console.log(`🎯2IN1_DEBUG Calculated available: ${availableWidthMm.toFixed(2)}mm × ${availableHeightMm.toFixed(2)}mm`);
+    console.log(`🎯2IN1_DEBUG User usable (reliable): ${usableWidthMm.toFixed(2)}mm × ${usableHeightMm.toFixed(2)}mm`);
+    console.log(`🎯2IN1_DEBUG Max lines per mother: ${maxLinesPerMother}`);
+
+    const joinedText = allLines.join(lineBreakSymbol);
+    console.log(`🎯2IN1_DEBUG Text check - Original: ${text.length} chars, After wrap & join: ${joinedText.length} chars`);
+
+    // Calculate expected length: sum of all line lengths + line break symbols between them
+    const totalLineChars = allLines.reduce((sum, line) => sum + line.length, 0);
+    const lineBreaksCount = allLines.length - 1; // N lines = N-1 line breaks
+    const expectedLength = totalLineChars + (lineBreaksCount * lineBreakSymbol.length);
+    console.log(`🎯2IN1_DEBUG Expected length: ${totalLineChars} (lines) + ${lineBreaksCount * lineBreakSymbol.length} (${lineBreaksCount} breaks × ${lineBreakSymbol.length} chars) = ${expectedLength}`);
+
+    if (text.length !== joinedText.length) {
+      console.error(`❌ 2in1 TEXT LOST during wrapping! Lost ${text.length - joinedText.length} chars`);
+      console.log(`Original text:`, text);
+      console.log(`Joined text:`, joinedText);
+      console.log(`All lines (${allLines.length}):`, allLines);
+    }
+
     // Check if splitting is needed
     if (allLines.length <= maxLinesPerMother) {
       return {
@@ -629,6 +675,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     let currentLineIndex = 0;
     let motherIndex = 0;
 
+    console.log(`🎯2IN1_DEBUG Splitting ${allLines.length} lines across ${totalMothersNeeded} mothers (max ${maxLinesPerMother} lines per mother)`);
+
     while (currentLineIndex < allLines.length && motherIndex < totalMothersNeeded) {
       // For each mother, take exactly maxLinesPerMother lines (or remaining lines if it's the last mother)
       const isLastMother = motherIndex === totalMothersNeeded - 1;
@@ -645,13 +693,49 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       }
 
       const motherLines = allLines.slice(currentLineIndex, currentLineIndex + linesToTake);
-      const motherText = motherLines.join(config.lineBreakSettings?.lineBreakSymbol || '\n');
+      const motherText = motherLines.join(effectiveConfig.lineBreakSettings?.lineBreakSymbol || '\n');
+
+      console.log(`🎯2IN1_DEBUG Split ${motherIndex + 1}: Lines ${currentLineIndex}-${currentLineIndex + linesToTake - 1} (${linesToTake} lines) = ${motherText.length} chars`);
+      console.log(`🎯2IN1_DEBUG Split ${motherIndex + 1} First line: "${motherLines[0]}"`);
+      console.log(`🎯2IN1_DEBUG Split ${motherIndex + 1} Last line: "${motherLines[motherLines.length - 1]}"`);
+
+      // Print all lines in this split
+      motherLines.forEach((line, idx) => {
+        console.log(`🎯2IN1_DEBUG Split ${motherIndex + 1} Line ${currentLineIndex + idx}: "${line}"`);
+      });
 
       textSplits.push(motherText);
       splitDetails.push({ text: motherText, lines: motherLines.length });
 
       currentLineIndex += linesToTake;
       motherIndex++;
+    }
+
+    // Debug: Verify text preservation after splitting
+    const totalSplitLength = textSplits.reduce((sum, split) => sum + split.length, 0);
+    console.log(`🎯2IN1_DEBUG Split check - Original: ${text.length} chars, Total splits: ${totalSplitLength} chars`);
+
+    // CRITICAL: Check if lines are preserved
+    const totalLinesInSplits = splitDetails.reduce((sum, detail) => sum + detail.lines, 0);
+    console.log(`🎯2IN1_DEBUG LINE CHECK: Original wrapped lines: ${allLines.length}`);
+    console.log(`🎯2IN1_DEBUG LINE CHECK: Total lines in splits: ${totalLinesInSplits}`);
+    console.log(`🎯2IN1_DEBUG LINE CHECK: Split 1 lines: ${splitDetails[0]?.lines || 0}`);
+    console.log(`🎯2IN1_DEBUG LINE CHECK: Split 2 lines: ${splitDetails[1]?.lines || 0}`);
+    console.log(`🎯2IN1_DEBUG LINE CHECK: Split 3 lines: ${splitDetails[2]?.lines || 0}`);
+
+    if (allLines.length !== totalLinesInSplits) {
+      console.error(`🎯2IN1_DEBUG ERROR: LINES LOST! ${allLines.length} wrapped lines → ${totalLinesInSplits} split lines (missing ${allLines.length - totalLinesInSplits} lines)`);
+    } else {
+      console.log(`🎯2IN1_DEBUG SUCCESS: All ${allLines.length} lines preserved in splits`);
+    }
+
+    if (text.length !== totalSplitLength) {
+      console.error(`🎯2IN1_DEBUG ERROR: TEXT LOST during splitting! Lost ${text.length - totalSplitLength} chars`);
+      textSplits.forEach((split, idx) => {
+        console.log(`🎯2IN1_DEBUG Split ${idx + 1} full text (${split.length} chars):`, split);
+      });
+    } else {
+      console.log(`🎯2IN1_DEBUG SUCCESS: All ${text.length} characters preserved in splits`);
     }
 
     return {
@@ -5476,6 +5560,143 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
             >
               Cancel
             </button>
+
+            {/* Usable Dimensions Input */}
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+              padding: '12px',
+              backgroundColor: '#f5f5f5',
+              borderRadius: '6px',
+              border: '1px solid #ddd'
+            }}>
+              <div style={{
+                fontSize: '12px',
+                fontWeight: '700',
+                color: '#555',
+                marginBottom: '4px'
+              }}>
+                Reliable Usable Size (mm):
+              </div>
+
+              {/* Width Calculation */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontSize: '13px'
+              }}>
+                <label style={{
+                  fontWeight: '600',
+                  color: '#555',
+                  width: '50px'
+                }}>
+                  Width:
+                </label>
+                <span style={{ color: '#666' }}>{regionWidth.toFixed(2)}</span>
+                <span style={{ color: '#999' }}>-</span>
+                <span style={{ color: '#666' }}>{effectivePadding.left.toFixed(2)}</span>
+                <span style={{ color: '#999' }}>-</span>
+                <span style={{ color: '#666' }}>{effectivePadding.right.toFixed(2)}</span>
+                <span style={{ color: '#999' }}>-</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="999"
+                  step="0.1"
+                  value={trickyWidthMm}
+                  onChange={(e) => {
+                    const value = parseFloat(e.target.value);
+                    if (!isNaN(value) && value >= 0) {
+                      setTrickyWidthMm(value);
+                      localStorage.setItem('trickyWidthMm', value.toString());
+                    }
+                  }}
+                  style={{
+                    width: '60px',
+                    padding: '6px 8px',
+                    border: '2px solid #ff9800',
+                    borderRadius: '4px',
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    textAlign: 'center'
+                  }}
+                  title="Tricky width: Additional safety margin for width"
+                />
+                <span style={{ color: '#999' }}>=</span>
+                <span style={{
+                  fontWeight: '700',
+                  color: '#9c27b0',
+                  fontSize: '14px'
+                }}>
+                  {usableWidthMm.toFixed(2)}mm
+                </span>
+              </div>
+
+              {/* Height Calculation */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontSize: '13px'
+              }}>
+                <label style={{
+                  fontWeight: '600',
+                  color: '#555',
+                  width: '50px'
+                }}>
+                  Height:
+                </label>
+                <span style={{ color: '#666' }}>{regionHeight.toFixed(2)}</span>
+                <span style={{ color: '#999' }}>-</span>
+                <span style={{ color: '#666' }}>{effectivePadding.top.toFixed(2)}</span>
+                <span style={{ color: '#999' }}>-</span>
+                <span style={{ color: '#666' }}>{effectivePadding.bottom.toFixed(2)}</span>
+                <span style={{ color: '#999' }}>-</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="999"
+                  step="0.1"
+                  value={trickyHeightMm}
+                  onChange={(e) => {
+                    const value = parseFloat(e.target.value);
+                    if (!isNaN(value) && value >= 0) {
+                      setTrickyHeightMm(value);
+                      localStorage.setItem('trickyHeightMm', value.toString());
+                    }
+                  }}
+                  style={{
+                    width: '60px',
+                    padding: '6px 8px',
+                    border: '2px solid #ff9800',
+                    borderRadius: '4px',
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    textAlign: 'center'
+                  }}
+                  title="Tricky height: Additional safety margin for height"
+                />
+                <span style={{ color: '#999' }}>=</span>
+                <span style={{
+                  fontWeight: '700',
+                  color: '#9c27b0',
+                  fontSize: '14px'
+                }}>
+                  {usableHeightMm.toFixed(2)}mm
+                </span>
+              </div>
+
+              <div style={{
+                fontSize: '10px',
+                color: '#888',
+                fontStyle: 'italic',
+                marginTop: '4px'
+              }}>
+                💡 Adjust based on testing to prevent text from disappearing at edges
+              </div>
+            </div>
 
             {/* 2in1 button - Universal handler for both overflow and non-overflow scenarios */}
             <button
