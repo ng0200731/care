@@ -836,20 +836,30 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
             minWidth: '300px'
           }}>
             <div style={{
-              fontSize: '48px',
               marginBottom: '20px',
-              animation: 'spin 1s linear infinite'
-            }}>🖨️</div>
+              display: 'flex',
+              justifyContent: 'center'
+            }}>
+              <img
+                src="/logo192.png"
+                alt="Loading"
+                style={{
+                  width: '80px',
+                  height: '80px',
+                  animation: 'spin 1s linear infinite'
+                }}
+              />
+            </div>
             <h3 style={{
               margin: '0 0 10px 0',
               color: '#2d3748',
               fontSize: '20px'
-            }}>Generating PDF...</h3>
+            }}>Artwork is generating...</h3>
             <p style={{
               margin: 0,
               color: '#718096',
               fontSize: '14px'
-            }}>Please wait while we prepare your order preview</p>
+            }}>Please wait while we prepare your preview</p>
           </div>
         </div>
       )}
@@ -1025,7 +1035,7 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
                     <span>📋 Order #: {order.userOrderNumber}</span>
                   </div>
                   <div>
-                    {displayOrder.projectName} - {displayOrder.masterFileName} - {displayOrder.layoutName}
+                    {displayOrder.projectName} - {displayOrder.masterFileName} - {displayOrder.layoutName}{(order as any).orderLines && Array.isArray((order as any).orderLines) && (order as any).orderLines.length > 0 ? ` - ${(order as any).orderLines.length} layouts` : ''}
                   </div>
                 </div>
               </div>
@@ -1093,7 +1103,7 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
                             gap: '8px'
                           }}>
                             <div>
-                              <span style={{ fontSize: '12px', color: '#64748b' }}>Line {line.lineNumber || lineIndex + 1} Quantity: </span>
+                              <span style={{ fontSize: '12px', color: '#64748b' }}>Layout {line.lineNumber || lineIndex + 1} Quantity: </span>
                               <span style={{ fontSize: '13px', color: '#1a202c', fontWeight: '500' }}>{line.quantity}</span>
                             </div>
                             {line.componentVariables && Object.entries(line.componentVariables).map(([componentId, componentData]: [string, any]) => (

@@ -1691,7 +1691,7 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
               }
             }}
           >
-            <span style={{ fontSize: '18px' }}>+</span> Add Line
+            <span style={{ fontSize: '18px' }}>+</span> Add Layout
           </button>
         </div>
 
@@ -1719,7 +1719,7 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                 fontWeight: '600',
                 color: '#1a202c'
               }}>
-                Line {line.lineNumber}
+                Layout {line.lineNumber}
               </h4>
               {orderLines.length > 1 && (
                 <button
