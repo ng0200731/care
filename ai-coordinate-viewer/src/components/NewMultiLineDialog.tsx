@@ -36,6 +36,7 @@ export interface NewMultiLineConfig {
   };
   processedLines?: string[]; // Exact lines from preview for canvas to use
   isVariableEnabled?: boolean; // Variable toggle state
+  variableRemark?: string; // Remark for variable
 }
 
 const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
@@ -113,6 +114,11 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
     editingContent?.newMultiLineConfig?.isVariableEnabled || false
   );
 
+  // State for Variable remark
+  const [variableRemark, setVariableRemark] = useState(
+    editingContent?.newMultiLineConfig?.variableRemark || ''
+  );
+
   // TODO: Import useOrderVariable hook when ready
   // const { getAllProjects, replaceVariables } = useOrderVariable();
 
@@ -120,6 +126,7 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
   useEffect(() => {
     setConfig(getInitialConfig());
     setIsVariableEnabled(editingContent?.newMultiLineConfig?.isVariableEnabled || false);
+    setVariableRemark(editingContent?.newMultiLineConfig?.variableRemark || '');
   }, [editingContent]);
 
   // Handle synchronized padding changes
@@ -450,14 +457,16 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
     const configWithProcessedLines = {
       ...config,
       processedLines: wrappedLines, // Store exact preview lines for canvas
-      isVariableEnabled: isVariableEnabled // Save variable toggle state
+      isVariableEnabled: isVariableEnabled, // Save variable toggle state
+      variableRemark: variableRemark // Save variable remark
     };
 
     console.log('💾 Saving multi-line config with processed lines:', {
       originalText: config.textContent,
       processedLines: wrappedLines,
       totalLines: wrappedLines.length,
-      isVariableEnabled: isVariableEnabled
+      isVariableEnabled: isVariableEnabled,
+      variableRemark: variableRemark
     });
 
     onSave(configWithProcessedLines);
@@ -900,6 +909,28 @@ const NewMultiLineDialog: React.FC<NewMultiLineDialogProps> = ({
             </button>
           </div>
 
+          {/* Variable Remark Input - shown when variable is enabled */}
+          {isVariableEnabled && (
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ fontSize: '14px', color: '#4a5568', display: 'block', marginBottom: '4px' }}>
+                Variable Remark
+              </label>
+              <input
+                type="text"
+                value={variableRemark}
+                onChange={(e) => setVariableRemark(e.target.value)}
+                placeholder="Enter remark for this variable"
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  fontSize: '14px',
+                  border: '1px solid #cbd5e0',
+                  borderRadius: '4px',
+                  outline: 'none'
+                }}
+              />
+            </div>
+          )}
 
           <div>
             <label style={{ fontSize: '14px', color: '#4a5568', display: 'block', marginBottom: '4px' }}>

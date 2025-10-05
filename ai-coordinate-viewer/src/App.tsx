@@ -17061,13 +17061,6 @@ function App() {
                               finalPadding: padding
                             });
 
-                            // SHOW ALERT WITH PADDING INFO
-                            if (contentIndex === 0 && !(window as any).debugAlertShown) {
-                              (window as any).debugAlertShown = true;
-                              const msg = `PADDING CHECK:\nType: ${content.type}\nPadding used: ${JSON.stringify(padding)}\nConfig padding: ${JSON.stringify(content.newCompTransConfig?.padding)}\nLayout padding: ${JSON.stringify(content.layout?.padding)}`;
-                              alert(msg);
-                              console.log('🚨🚨🚨 ALERT SHOWN:', msg);
-                            }
 
                             // Handle new content types with their specific configs (same as main regions)
                             if (content.type === 'new-line-text' && content.newLineTextConfig) {

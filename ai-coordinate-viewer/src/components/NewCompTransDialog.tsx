@@ -112,6 +112,7 @@ export interface NewCompTransConfig {
     lineWidth: number;
   };
   isVariableEnabled?: boolean; // Variable toggle state
+  variableRemark?: string; // Remark for variable
   // overflowOption removed - now handled automatically
 }
 
@@ -240,6 +241,11 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
   // State for Variable toggle - initialize from saved config when editing
   const [isVariableEnabled, setIsVariableEnabled] = useState(
     editingContent?.newCompTransConfig?.isVariableEnabled || false
+  );
+
+  // State for Variable remark
+  const [variableRemark, setVariableRemark] = useState(
+    editingContent?.newCompTransConfig?.variableRemark || ''
   );
 
   // Helper function to generate a unique signature for a composition
@@ -714,8 +720,9 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       const initialConfig = getInitialConfig();
       setConfig(initialConfig);
 
-      // Initialize isVariableEnabled from saved config
+      // Initialize isVariableEnabled and variableRemark from saved config
       setIsVariableEnabled(editingContent?.newCompTransConfig?.isVariableEnabled || false);
+      setVariableRemark(editingContent?.newCompTransConfig?.variableRemark || '');
 
       // 🔧 FIX: Text is now ALWAYS cleared in getInitialConfig()
       // So we ALWAYS start with isTextManuallyEdited = false
@@ -3093,7 +3100,9 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
             ...config.textContent,
             originalText: sliceUserInputText,
             generatedText: sliceUserInputText
-          }
+          },
+          isVariableEnabled: isVariableEnabled,
+          variableRemark: variableRemark
         };
 
         (window as any).__temp2in1Config = sliceTempConfig;
@@ -3257,7 +3266,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
               generatedText: sliceUserInputText,
               userInputValue: config.textContent.userInputValue || sliceUserInputText
             },
-            isVariableEnabled: isVariableEnabled // Save variable toggle state
+            isVariableEnabled: isVariableEnabled, // Save variable toggle state
+            variableRemark: variableRemark // Save variable remark
           };
 
           const saveSuccess = sliceOnSave(sliceSaveConfig, regionId);
@@ -3280,7 +3290,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
             generatedText: sliceNSplitResult.textSplits[0],
             userInputValue: config.textContent.userInputValue || sliceUserInputText
           },
-          isVariableEnabled: isVariableEnabled // Save variable toggle state
+          isVariableEnabled: isVariableEnabled, // Save variable toggle state
+          variableRemark: variableRemark // Save variable remark
         };
 
         sliceOnSave(sliceSplit1Config, regionId);
@@ -3679,7 +3690,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
             generatedText: userInputText,
             userInputValue: config.textContent.userInputValue || userInputText // 🔧 FIX: Save user's input!
           },
-          isVariableEnabled: isVariableEnabled // Save variable toggle state
+          isVariableEnabled: isVariableEnabled, // Save variable toggle state
+          variableRemark: variableRemark // Save variable remark
         };
 
         console.log('✅ 2in1: Calling onSave to update React state');
@@ -3748,7 +3760,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
           generatedText: nSplitResult.textSplits[0],
           userInputValue: config.textContent.userInputValue || userInputText // 🔧 FIX: Save user's input!
         },
-        isVariableEnabled: isVariableEnabled // Save variable toggle state
+        isVariableEnabled: isVariableEnabled, // Save variable toggle state
+        variableRemark: variableRemark // Save variable remark
       };
 
       console.log('✅ 2in1: Calling onSave with split1 text');
@@ -4137,7 +4150,9 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
           ...config.textContent,
           generatedText,
           originalText: generatedText
-        }
+        },
+        isVariableEnabled: isVariableEnabled,
+        variableRemark: variableRemark
       };
 
       // Store temp config for detectOverflowAndSplit to use
@@ -4174,7 +4189,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
           ...config.textContent,
           generatedText: split1Text // Save SPLIT 1 text only
         },
-        isVariableEnabled: isVariableEnabled // Save variable toggle state
+        isVariableEnabled: isVariableEnabled, // Save variable toggle state
+        variableRemark: variableRemark // Save variable remark
       });
 
       // Use the proper callback to create new mother for overflow
@@ -4387,7 +4403,8 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
     console.log(`✅ ${DIALOG_VERSION}: Saving content to parent` + (hasExistingChildren ? ' (child mothers removed)' : ''));
     onSave({
       ...config,
-      isVariableEnabled: isVariableEnabled // Save variable toggle state
+      isVariableEnabled: isVariableEnabled, // Save variable toggle state
+      variableRemark: variableRemark // Save variable remark
     });
   };
 
@@ -4406,7 +4423,9 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
       // Step 2: Fill SPLIT 1 in parent and save without closing the dialog
       const parentConfig = {
         ...config,
-        textContent: { ...config.textContent, generatedText: stepSplit1 }
+        textContent: { ...config.textContent, generatedText: stepSplit1 },
+        isVariableEnabled: isVariableEnabled,
+        variableRemark: variableRemark
       };
       (window as any).debugModeActive = true;
       onSave(parentConfig);
@@ -5110,6 +5129,30 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
                   </span>
                 )}
               </div>
+
+              {/* Variable Remark Input - shown when variable is enabled */}
+              {isVariableEnabled && (
+                <div style={{ marginTop: '8px', marginBottom: '8px' }}>
+                  <label style={{ fontSize: '14px', color: '#4a5568', display: 'block', marginBottom: '4px' }}>
+                    Variable Remark
+                  </label>
+                  <input
+                    type="text"
+                    value={variableRemark}
+                    onChange={(e) => setVariableRemark(e.target.value)}
+                    placeholder="Enter remark for this variable"
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      fontSize: '14px',
+                      border: '1px solid #cbd5e0',
+                      borderRadius: '4px',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+              )}
+
               <button
                 onClick={addMaterialComposition}
                 disabled={!canAddMore()}

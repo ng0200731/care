@@ -272,20 +272,22 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                     contents.forEach((content: any, contentIndex: number) => {
                       if (content.type === 'new-comp-trans' &&
                           content.newCompTransConfig?.isVariableEnabled) {
+                        const remark = content.newCompTransConfig?.variableRemark;
                         components.push({
                           id: `${region.id}_content_${contentIndex}`,
                           type: 'comp-trans',
-                          name: `Composition Translation (${region.id})`,
+                          name: remark ? `Composition Translation (${remark})` : `Composition Translation (${region.id})`,
                           config: content.newCompTransConfig
                         });
                       }
 
                       if (content.type === 'new-multi-line' &&
                           content.newMultiLineConfig?.isVariableEnabled) {
+                        const remark = content.newMultiLineConfig?.variableRemark;
                         components.push({
                           id: `${region.id}_content_${contentIndex}`,
                           type: 'multi-line',
-                          name: `Multi-line Text (${region.id})`,
+                          name: remark ? `Multi-line Text (${remark})` : `Multi-line Text (${region.id})`,
                           config: content.newMultiLineConfig
                         });
                       }
