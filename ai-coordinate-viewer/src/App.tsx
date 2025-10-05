@@ -11635,9 +11635,26 @@ function App() {
         contentFits: contentFitsWidth && contentFitsHeight
       });
 
+      // Calculate total width needed for all mothers in sequential layout
+      const spacing = 10; // 10mm spacing between mothers
+      let totalSequentialWidth = 0;
+      mothers.forEach((mother, idx) => {
+        totalSequentialWidth += mother.width;
+        if (idx < mothers.length - 1) {
+          totalSequentialWidth += spacing;
+        }
+      });
+
+      console.log(`TOTAL_SEQUENTIAL_WIDTH: ${totalSequentialWidth}mm`);
+      console.log(`PAPER_WIDTH: ${paperWidthMM}mm`);
+
+      // Center the mothers horizontally on the page
+      const horizontalCenterOffset = (paperWidthMM - totalSequentialWidth) / 2;
+      console.log(`HORIZONTAL_CENTER_OFFSET: ${horizontalCenterOffset}mm`);
+
       // Draw each mother and its regions
       // Calculate sequential X positions for sorted mothers
-      let sequentialX = contentOffsetX;
+      let sequentialX = horizontalCenterOffset;
 
       mothers.forEach((mother, motherIndex) => {
         const motherRegions = (mother as any).regions || [];
@@ -11650,7 +11667,6 @@ function App() {
         console.log(`RENDERING: ${mother.name} at x=${motherX} (original x=${mother.x})`);
 
         // Update sequential X for next mother (with spacing)
-        const spacing = 10; // 10mm spacing between mothers
         sequentialX += mother.width + spacing;
 
         // Draw mother outline
@@ -13258,11 +13274,19 @@ function App() {
         });
       });
 
-      // Check if this is multi-page mode
+      // Check if this is multi-page mode (only for order preview, not manual PDF generation)
       const orderData = sessionStorage.getItem('__order_preview_data__');
-      const multiPageMode = orderData ? JSON.parse(orderData).multiPageMode : false;
+      const multiPageMode = isOrderPreview && orderData ? JSON.parse(orderData).multiPageMode : false;
       const currentLineIndex = orderData ? JSON.parse(orderData).currentLineIndex : 0;
       const totalLines = orderData ? JSON.parse(orderData).totalLines : 1;
+
+      console.log('PDF_MODE_CHECK:', {
+        isOrderPreview,
+        hasOrderData: !!orderData,
+        multiPageMode,
+        currentLineIndex,
+        totalLines
+      });
 
       if (multiPageMode) {
         // Multi-page mode: Send PDF data as base64 to parent for combining
