@@ -1,0 +1,35 @@
+{
+  "scriptVersion": "5.1.0",
+  "exportDate": "Sun Oct 05 2025 20:33:43 GMT+0800",
+  "document": "Untitled-1",
+  "totalObjects": 1,
+  "objects": [
+    {
+      "name": "Unnamed",
+      "typename": "PathItem",
+      "layer": "Layer 1",
+      "x": 60.98,
+      "y": 102,
+      "width": 84.46,
+      "height": 59.43,
+      "topLeft": {
+        "x": 60.98,
+        "y": 102
+      },
+      "topRight": {
+        "x": 145.44,
+        "y": 102
+      },
+      "bottomLeft": {
+        "x": 60.98,
+        "y": 161.43
+      },
+      "bottomRight": {
+        "x": 145.44,
+        "y": 161.43
+      },
+      "type": "PathItem",
+      "units": "mm"
+    }
+  ]
+}

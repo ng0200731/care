@@ -4505,6 +4505,138 @@ function App() {
     }
   }, [webCreationData]);
 
+  // Converter: Transform flat Illustrator objects into hierarchical mother → region → slice structure
+  const convertIllustratorToHierarchy = (jsonData: any): any => {
+    console.log('🔄 Converting flat Illustrator data to hierarchical structure...');
+
+    const objects = jsonData.objects || [];
+
+    // Debug: Log first few objects to see their structure
+    console.log('🔍 Sample objects:', objects.slice(0, 3));
+
+    // Separate mothers and sons
+    let mothers = objects.filter((obj: AIObject) => obj.type?.includes('mother'));
+    const sons = objects.filter((obj: AIObject) => obj.type?.includes('son'));
+
+    console.log(`📊 Found ${mothers.length} mothers and ${sons.length} sons`);
+
+    // Debug: Show what types we actually have
+    const allTypes = objects.map((obj: AIObject) => obj.type).filter((t: any) => t);
+    const uniqueTypes = Array.from(new Set(allTypes));
+    console.log('📋 All object types:', uniqueTypes);
+
+    // If no mothers found, create them from son references
+    if (mothers.length === 0 && sons.length > 0) {
+      console.log('🔨 No mothers found - creating mothers from son references...');
+
+      // Extract unique mother numbers from sons
+      const motherNumbers = new Set<string>();
+      sons.forEach((son: AIObject) => {
+        const match = son.type?.match(/son (\d+)-/);
+        if (match) {
+          motherNumbers.add(match[1]);
+        }
+      });
+
+      console.log('📊 Creating mothers:', Array.from(motherNumbers));
+
+      // Create a mother for each referenced number
+      mothers = Array.from(motherNumbers).map(motherNum => {
+        // Find all sons for this mother
+        const motherSons = sons.filter((son: AIObject) =>
+          son.type?.includes(`son ${motherNum}-`)
+        );
+
+        // Calculate mother bounds from sons
+        const bounds = motherSons.reduce((acc: { minX: number; minY: number; maxX: number; maxY: number }, son: AIObject) => ({
+          minX: Math.min(acc.minX, son.x),
+          minY: Math.min(acc.minY, son.y),
+          maxX: Math.max(acc.maxX, son.x + son.width),
+          maxY: Math.max(acc.maxY, son.y + son.height)
+        }), { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+
+        const margin = 5; // Add 5mm margin around sons
+
+        return {
+          name: `Mother_${motherNum}`,
+          typename: 'PathItem',
+          type: `mother ${motherNum}`,
+          x: bounds.minX - margin,
+          y: bounds.minY - margin,
+          width: (bounds.maxX - bounds.minX) + (margin * 2),
+          height: (bounds.maxY - bounds.minY) + (margin * 2)
+        };
+      });
+
+      console.log(`✅ Created ${mothers.length} mothers from sons`);
+    }
+
+    // Convert each mother
+    const convertedMothers = mothers.map((mother: AIObject) => {
+      // Extract mother number (e.g., "mother 3" -> "3")
+      const motherNum = mother.type?.match(/mother (\d+)/)?.[1];
+
+      if (!motherNum) {
+        console.warn('⚠️ Could not extract mother number from:', mother.type);
+        return mother;
+      }
+
+      // Find all sons for this mother (e.g., "son 3-1", "son 3-2")
+      const motherSons = sons.filter((son: AIObject) =>
+        son.type?.includes(`son ${motherNum}-`)
+      );
+
+      console.log(`📦 Mother ${motherNum} has ${motherSons.length} sons`);
+
+      // Convert sons to regions
+      const regions: Region[] = motherSons.map((son: AIObject, index: number) => {
+        // Generate region ID and name
+        const regionId = `region-${motherNum}-${index + 1}`;
+        const regionName = `Region ${index + 1}`;
+
+        return {
+          id: regionId,
+          name: regionName,
+          x: son.x - mother.x, // Relative to mother
+          y: son.y - mother.y, // Relative to mother
+          width: son.width,
+          height: son.height,
+          margins: {
+            top: 2,
+            bottom: 2,
+            left: 2,
+            right: 2
+          },
+          borderColor: '#2196f3',
+          backgroundColor: 'rgba(33, 150, 243, 0.1)',
+          allowOverflow: false,
+          children: [], // No slices by default
+          isSliced: false
+        };
+      });
+
+      // Return mother with regions
+      return {
+        ...mother,
+        name: `Mother_${motherNum}`,
+        regions: regions,
+        margins: {
+          top: 5,
+          left: 5,
+          right: 5,
+          down: 5
+        }
+      };
+    });
+
+    console.log(`✅ Converted ${convertedMothers.length} mothers with regions`);
+
+    return {
+      ...jsonData,
+      objects: convertedMothers
+    };
+  };
+
   // Check for imported JSON data from "Create from JSON" flow
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
@@ -4519,12 +4651,16 @@ function App() {
           console.log('📊 Total objects:', jsonData.totalObjects);
           console.log('📦 Objects array length:', jsonData.objects?.length);
 
+          // Convert flat Illustrator data to hierarchical structure
+          const convertedData = convertIllustratorToHierarchy(jsonData);
+          console.log('✅ Conversion complete:', convertedData);
+
           // Enable web creation mode flags
           setIsWebCreationMode(true);
           sessionStorage.setItem('forceWebCreationMode', 'true');
 
           // Set as web creation data
-          setWebCreationData(jsonData);
+          setWebCreationData(convertedData);
           setData(null); // Clear any existing data
 
           // Clear the imported data from sessionStorage
@@ -15262,55 +15398,59 @@ function App() {
   };
 
   const handleFileUpload = (file: File) => {
+    console.log('📁 File upload started:', file.name, file.type);
+
     if (file && file.type === 'application/json') {
       const reader = new FileReader();
       reader.onload = (e) => {
         try {
+          console.log('📖 Reading file content...');
           const jsonData = JSON.parse(e.target?.result as string);
-          setData(jsonData);
+          console.log('📄 Drag & drop JSON data:', jsonData);
+          console.log('📊 Objects in JSON:', jsonData.objects?.length);
+
+          // Convert flat Illustrator data to hierarchical structure
+          console.log('🔄 Starting conversion...');
+          const convertedData = convertIllustratorToHierarchy(jsonData);
+          console.log('✅ Drag & drop conversion complete:', convertedData);
+          console.log('📦 Converted objects:', convertedData.objects?.length);
+
+          // Enable web creation mode flags
+          console.log('🌐 Enabling web creation mode...');
+          setIsWebCreationMode(true);
+          sessionStorage.setItem('forceWebCreationMode', 'true');
+
+          // Set as web creation data (not regular data)
+          console.log('💾 Setting web creation data...');
+          setWebCreationData(convertedData);
+          setData(null); // Clear any existing data
+
+          console.log('✅ All state updated, scheduling auto-fit...');
 
           // Auto-fit to screen after loading data
-          // Use setTimeout to ensure state is updated and DOM is ready
           setTimeout(() => {
-            if (jsonData && jsonData.objects && jsonData.objects.length > 0) {
-              // Get actual SVG dimensions
-              const svgElement = document.querySelector('svg');
-              if (svgElement) {
-                const svgRect = svgElement.getBoundingClientRect();
-                const viewportWidth = svgRect.width;
-                const viewportHeight = svgRect.height;
+            console.log('🔍 Auto-fitting canvas to screen...');
+            handleFitToScreen();
 
-                // Calculate bounds of all objects
-                const bounds = jsonData.objects.reduce((acc: any, obj: AIObject) => ({
-                  minX: Math.min(acc.minX, obj.x),
-                  minY: Math.min(acc.minY, obj.y),
-                  maxX: Math.max(acc.maxX, obj.x + obj.width),
-                  maxY: Math.max(acc.maxY, obj.y + obj.height)
-                }), { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
-
-                const contentWidth = bounds.maxX - bounds.minX;
-                const contentHeight = bounds.maxY - bounds.minY;
-                const padding = 100; // Padding in pixels
-
-                const scaleX = (viewportWidth - padding) / (contentWidth * 3.78); // 3.78 = mmToPx conversion
-                const scaleY = (viewportHeight - padding) / (contentHeight * 3.78);
-                const newZoom = Math.min(scaleX, scaleY, 2); // Max zoom 2x for fit
-
-                setZoom(newZoom);
-                setPanX(-(bounds.minX + contentWidth / 2) * newZoom * 3.78 + viewportWidth / 2);
-                setPanY(-(bounds.minY + contentHeight / 2) * newZoom * 3.78 + viewportHeight / 2);
-
-                // Show auto-fit notification
-                setAutoFitNotification(true);
-                setTimeout(() => setAutoFitNotification(false), 3000);
-              }
-            }
-          }, 200); // Increased timeout to ensure DOM is ready
+            // Show auto-fit notification
+            setAutoFitNotification(true);
+            setTimeout(() => setAutoFitNotification(false), 3000);
+          }, 500);
         } catch (error) {
-          console.error('Invalid JSON file:', error);
+          console.error('❌ Error loading JSON file:', error);
+          alert('Failed to load JSON file. Please check if it is a valid JSON file.\n\nError: ' + error);
         }
       };
+
+      reader.onerror = (error) => {
+        console.error('❌ Error reading file:', error);
+        alert('Failed to read file.');
+      };
+
       reader.readAsText(file);
+    } else {
+      console.warn('⚠️ Invalid file type:', file.type);
+      alert('Please upload a JSON file (.json)');
     }
   };
 
