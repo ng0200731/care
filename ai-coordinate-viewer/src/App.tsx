@@ -650,7 +650,10 @@ function App() {
       // Create a temporary canvas
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
-      if (!ctx) return null;
+      if (!ctx) {
+        console.error('❌ Failed to get canvas context for symbol:', symbol);
+        return null;
+      }
 
       // Set canvas size with padding
       const padding = size * 0.2;
@@ -663,6 +666,12 @@ function App() {
       ctx.textBaseline = 'middle';
       ctx.fillStyle = '#000000';
 
+      // Check if font is loaded
+      const fontLoaded = document.fonts.check(`${size}px "Wash Care Symbols M54"`);
+      if (!fontLoaded) {
+        console.warn(`⚠️ Wash Care Symbols M54 font not loaded for symbol: ${symbol}, using fallback`);
+      }
+
       // Clear canvas with white background
       ctx.fillStyle = '#FFFFFF';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -674,7 +683,7 @@ function App() {
       // Convert to base64 data URL
       return canvas.toDataURL('image/png');
     } catch (error) {
-      console.error('❌ Failed to render symbol to canvas:', error);
+      console.error('❌ Failed to render symbol to canvas:', symbol, error);
       return null;
     }
   };
@@ -4519,8 +4528,19 @@ function App() {
       setShowSewingLines(false);
       console.log('👁️ Enabled "Only Preview" mode - all editing UI disabled');
 
-      // Wait for overflow and rendering to complete (10 seconds)
+      // Wait for Wash Care font to load before generating PDF
+      const waitForFont = async () => {
+        try {
+          await document.fonts.ready;
+          console.log('✅ All fonts loaded including Wash Care Symbols M54');
+        } catch (error) {
+          console.warn('⚠️ Font loading check failed, proceeding anyway:', error);
+        }
+      };
+
+      // Wait for fonts and overflow to complete
       const timer = setTimeout(async () => {
+        await waitForFont();
         if (captureImage) {
           // Capture canvas as image and send back to parent
           console.log('📸 Canvas rendered - capturing image...');
@@ -11686,6 +11706,7 @@ function App() {
         pdf.rect(motherX, motherY, mother.width, mother.height);
 
         // Add mother label
+        pdf.setFont('helvetica', 'normal'); // Ensure Arial/Helvetica font for mother labels
         pdf.setFontSize(8);
         pdf.setTextColor(0, 0, 0); // Black text
         // Show dimensions only if dimensions toggle is enabled
