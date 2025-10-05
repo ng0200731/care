@@ -13977,11 +13977,19 @@ function App() {
 
     const { mothers, orphans } = buildHierarchy(currentData.objects);
 
+    console.log('🎨 Rendering hierarchy:', {
+      isWebCreationMode,
+      isMasterFileMode,
+      isProjectMode,
+      mothersCount: mothers.length
+    });
+
     return (
       <div>
         <h4>📋 Objects Hierarchy:</h4>
 
         {/* Centralized Control Buttons - Above All Mothers - 2x2 Grid Layout */}
+        {isWebCreationMode && (
         <div style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
@@ -14206,6 +14214,7 @@ function App() {
 
 
         </div>
+        )}
 
         {/* Add Master File Button - Below action buttons, above mothers */}
         {isProjectMode && (
@@ -19434,7 +19443,7 @@ function App() {
             </div>
           </div>
 
-          {data && data.objects.length > 0 ? (
+          {((data && data.objects.length > 0) || (webCreationData && webCreationData.objects.length > 0)) ? (
             <div>
               {renderHierarchicalList()}
             </div>
