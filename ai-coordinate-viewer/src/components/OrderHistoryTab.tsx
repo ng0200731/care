@@ -563,6 +563,8 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
       const orderPreviewData: any = {
         orderId: order.id,
         orderNumber: order.orderNumber,
+        userOrderNumber: order.userOrderNumber,
+        customerName: order.customerName,
         projectSlug: order.projectSlug,
         layoutId: order.layoutId
       };

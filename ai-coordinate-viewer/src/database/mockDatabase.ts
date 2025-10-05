@@ -106,8 +106,46 @@ class MockDatabase {
         const createdAt = typeof mf.createdAt === 'string' ? new Date(mf.createdAt) : mf.createdAt;
         const updatedAt = typeof mf.updatedAt === 'string' ? new Date(mf.updatedAt) : mf.updatedAt;
 
+        // Get actual dimensions from design data (same logic as Master Files Management page)
+        let width = mf.width;
+        let height = mf.height;
+
+        // For web-created master files, extract dimensions from the largest object (usually the mother)
+        if (mf.designData?.objects && Array.isArray(mf.designData.objects) && mf.designData.objects.length > 0) {
+          const objects = mf.designData.objects;
+          let largestObject = objects[0];
+          let maxArea = largestObject.width * largestObject.height;
+
+          objects.forEach((obj: any) => {
+            const area = obj.width * obj.height;
+            if (area > maxArea) {
+              maxArea = area;
+              largestObject = obj;
+            }
+          });
+
+          // Use the largest object's dimensions as the master file dimensions
+          width = largestObject.width;
+          height = largestObject.height;
+        }
+        // Fallback: check metadata
+        else if (mf.designData?.metadata?.canvasDimensions) {
+          const canvasDims = mf.designData.metadata.canvasDimensions;
+          if (canvasDims.width && canvasDims.height) {
+            width = canvasDims.width;
+            height = canvasDims.height;
+          }
+        }
+        // Ensure they are numbers
+        if (typeof width !== 'number' || typeof height !== 'number') {
+          width = 200;
+          height = 150;
+        }
+
         return {
           ...mf,
+          width,
+          height,
           createdAt,
           updatedAt,
           customerName: customer?.customerName || 'Unknown Customer',
