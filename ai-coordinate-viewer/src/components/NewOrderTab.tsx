@@ -524,15 +524,39 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
             layout.canvasData?.masterFileId === formData.masterId
           );
 
-          const layouts = filteredLayouts.map((layout: any, index: number) => ({
-            id: layout.id || `layout_${index}`,
-            name: layout.name || `Layout ${index + 1}`,
-            width: layout.canvasData?.width || 200,
-            height: layout.canvasData?.height || 189,
-            masterFileId: layout.canvasData?.masterFileId,
-            createdAt: layout.createdAt || new Date().toISOString(),
-            updatedAt: layout.updatedAt || layout.createdAt || new Date().toISOString()
-          }));
+          const layouts = filteredLayouts.map((layout: any, index: number) => {
+            // Get actual dimensions from canvasData objects (same logic as Master Files Management)
+            let width = 200;
+            let height = 189;
+
+            if (layout.canvasData?.objects && Array.isArray(layout.canvasData.objects) && layout.canvasData.objects.length > 0) {
+              // Find the largest object (usually the mother)
+              const objects = layout.canvasData.objects;
+              let largestObject = objects[0];
+              let maxArea = largestObject.width * largestObject.height;
+
+              objects.forEach((obj: any) => {
+                const area = obj.width * obj.height;
+                if (area > maxArea) {
+                  maxArea = area;
+                  largestObject = obj;
+                }
+              });
+
+              width = largestObject.width;
+              height = largestObject.height;
+            }
+
+            return {
+              id: layout.id || `layout_${index}`,
+              name: layout.name || `Layout ${index + 1}`,
+              width,
+              height,
+              masterFileId: layout.canvasData?.masterFileId,
+              createdAt: layout.createdAt || new Date().toISOString(),
+              updatedAt: layout.updatedAt || layout.createdAt || new Date().toISOString()
+            };
+          });
           setLayoutCards(layouts);
           console.log(`✅ Loaded ${layouts.length} layout cards for project ${formData.projectSlug} with master file ${formData.masterId}`);
         } else {

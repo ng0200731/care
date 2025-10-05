@@ -304,6 +304,39 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
     return layoutId;
   };
 
+  // Get master file dimensions from layoutId
+  const getMasterFileDimensions = (projectSlug: string, layoutId: string): string => {
+    try {
+      const storageKey = `project_${projectSlug}_layouts`;
+      const savedLayouts = localStorage.getItem(storageKey);
+
+      if (savedLayouts) {
+        const parsedLayouts = JSON.parse(savedLayouts);
+        const layout = parsedLayouts.find((l: any) => l.id === layoutId);
+
+        if (layout?.canvasData?.objects && Array.isArray(layout.canvasData.objects) && layout.canvasData.objects.length > 0) {
+          // Find the largest object (usually the mother) - same logic as Master Files Management
+          const objects = layout.canvasData.objects;
+          let largestObject = objects[0];
+          let maxArea = largestObject.width * largestObject.height;
+
+          objects.forEach((obj: any) => {
+            const area = obj.width * obj.height;
+            if (area > maxArea) {
+              maxArea = area;
+              largestObject = obj;
+            }
+          });
+
+          return `${largestObject.width}X${largestObject.height}`;
+        }
+      }
+    } catch (error) {
+      console.error('Error getting master file dimensions:', error);
+    }
+    return '';
+  };
+
   // Get master file name from layoutId
   const getMasterFileName = (projectSlug: string, layoutId: string): string => {
     try {
@@ -1037,7 +1070,7 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
                     <span>📋 Order #: {order.userOrderNumber}</span>
                   </div>
                   <div>
-                    {displayOrder.projectName} - {displayOrder.masterFileName} - {displayOrder.layoutName}{(order as any).orderLines && Array.isArray((order as any).orderLines) && (order as any).orderLines.length > 0 ? ` - ${(order as any).orderLines.length} layouts` : ''}
+                    {displayOrder.projectName} - {displayOrder.masterFileName} - {displayOrder.layoutName}{(order as any).orderLines && Array.isArray((order as any).orderLines) && (order as any).orderLines.length > 0 ? ` - ${(order as any).orderLines.length} layouts` : ''} {getMasterFileDimensions(order.projectSlug, order.layoutId) ? `{${getMasterFileDimensions(order.projectSlug, order.layoutId)}}` : ''}
                   </div>
                 </div>
               </div>
