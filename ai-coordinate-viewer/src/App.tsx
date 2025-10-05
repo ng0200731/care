@@ -11629,8 +11629,28 @@ function App() {
         const projectSlug = orderInfo.projectSlug || '';
         const layoutId = orderInfo.layoutId || '';
         const layoutName = (currentData as any).name || 'Layout';
-        const layoutWidth = (currentData as any).width || 0;
-        const layoutHeight = (currentData as any).height || 0;
+
+        // Get actual dimensions from design data (same logic as Master Files Management)
+        let layoutWidth = 0;
+        let layoutHeight = 0;
+
+        if (currentData?.objects && Array.isArray(currentData.objects) && currentData.objects.length > 0) {
+          // Find the largest object (usually the mother)
+          const objects = currentData.objects;
+          let largestObject = objects[0];
+          let maxArea = largestObject.width * largestObject.height;
+
+          objects.forEach((obj: any) => {
+            const area = obj.width * obj.height;
+            if (area > maxArea) {
+              maxArea = area;
+              largestObject = obj;
+            }
+          });
+
+          layoutWidth = largestObject.width;
+          layoutHeight = largestObject.height;
+        }
 
         pdf.setFontSize(10);
         let yPos = 10;
