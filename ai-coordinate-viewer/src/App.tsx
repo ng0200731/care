@@ -9496,29 +9496,47 @@ function App() {
       });
     });
 
-    // Sort mothers by relationship hierarchy first, then by position
-    mothers.sort((a, b) => {
-      // If one is master and other is child of that master, put master first
-      if (a.relationship && a.relationship.childIds.includes(b.object.name)) {
-        return -1; // a (master) comes before b (child)
+    // First, separate parent mothers from child mothers
+    const parentMothers = mothers.filter(m => !m.isChildMother);
+    const childMothers = mothers.filter(m => m.isChildMother);
+
+    // Sort parent mothers by x position (left to right)
+    parentMothers.sort((a, b) => a.object.x - b.object.x);
+
+    // Build final sorted array: insert children immediately after their parent
+    const sortedMothers: HierarchyNode[] = [];
+
+    parentMothers.forEach(parent => {
+      // Add the parent
+      sortedMothers.push(parent);
+
+      // Find and add all children of this parent (in creation order)
+      if (parent.relationship && parent.relationship.childIds.length > 0) {
+        parent.relationship.childIds.forEach((childId: string) => {
+          const child = childMothers.find(c => c.object.name === childId);
+          if (child) {
+            sortedMothers.push(child);
+          }
+        });
       }
-      if (b.relationship && b.relationship.childIds.includes(a.object.name)) {
-        return 1; // b (master) comes before a (child)
+
+      // Also check direct childMotherIds property
+      if ((parent.object as any).childMotherIds) {
+        (parent.object as any).childMotherIds.forEach((childId: string) => {
+          // Only add if not already added via relationship
+          if (!sortedMothers.find(m => m.object.name === childId)) {
+            const child = childMothers.find(c => c.object.name === childId);
+            if (child) {
+              sortedMothers.push(child);
+            }
+          }
+        });
       }
-      
-      // If both are children of same master, sort by creation order
-      if (a.isChildMother && b.isChildMother && a.masterName === b.masterName) {
-        const masterRel = motherRelationshipManager.getRelationship(a.masterName!);
-        if (masterRel) {
-          const aIndex = masterRel.childIds.indexOf(a.object.name);
-          const bIndex = masterRel.childIds.indexOf(b.object.name);
-          return aIndex - bIndex;
-        }
-      }
-      
-      // Default: sort by position left to right
-      return a.object.x - b.object.x;
     });
+
+    // Replace mothers array with sorted version
+    mothers.length = 0;
+    mothers.push(...sortedMothers);
 
     // Find orphan objects (not mothers or sons)
     objects.forEach(obj => {
@@ -11333,11 +11351,72 @@ function App() {
       return;
     }
 
-    const mothers = currentData.objects.filter(obj => obj.type?.includes('mother'));
+    let mothers = currentData.objects.filter(obj => obj.type?.includes('mother'));
     if (mothers.length === 0) {
       alert('❌ No mothers found to generate PDF');
       return;
     }
+
+    // Sort mothers to keep parent-child relationships together
+    console.log('DEBUG: Checking mother properties before sorting...');
+    mothers.forEach(m => {
+      console.log(`  ${m.name}:`, {
+        x: m.x,
+        isOverflowChild: (m as any).isOverflowChild,
+        parentMotherId: (m as any).parentMotherId,
+        childMotherIds: (m as any).childMotherIds
+      });
+    });
+
+    // Separate parent mothers from child mothers
+    const parentMothers = mothers.filter(m => !(m as any).isOverflowChild);
+    const childMothers = mothers.filter(m => (m as any).isOverflowChild);
+
+    console.log(`PARENTS: ${parentMothers.map(m => m.name).join(', ')}`);
+    console.log(`CHILDREN: ${childMothers.map(m => m.name).join(', ')}`);
+
+    // Sort parent mothers by x position (left to right)
+    parentMothers.sort((a, b) => a.x - b.x);
+
+    console.log(`PARENTS_SORTED_BY_X: ${parentMothers.map(m => `${m.name}(x=${m.x})`).join(', ')}`);
+
+    // Build final sorted array: insert children immediately after their parent
+    const sortedMothers: AIObject[] = [];
+    const addedChildNames = new Set<string>(); // Track added children to avoid duplicates
+
+    parentMothers.forEach(parent => {
+      // Add the parent
+      sortedMothers.push(parent);
+      console.log(`ADDED_PARENT: ${parent.name}`);
+
+      // Find and add all children of this parent (in creation order)
+      const parentChildIds = (parent as any).childMotherIds || [];
+      if (parentChildIds.length > 0) {
+        console.log(`  PARENT_HAS_CHILDREN: ${parent.name} -> ${parentChildIds.join(', ')}`);
+      }
+
+      parentChildIds.forEach((childId: string) => {
+        // Skip if already added (avoid duplicates)
+        if (addedChildNames.has(childId)) {
+          console.log(`  SKIP_DUPLICATE_CHILD: ${childId}`);
+          return;
+        }
+
+        const child = childMothers.find(c => c.name === childId);
+        if (child) {
+          sortedMothers.push(child);
+          addedChildNames.add(childId);
+          console.log(`  ADDED_CHILD: ${child.name}`);
+        } else {
+          console.log(`  CHILD_NOT_FOUND: ${childId}`);
+        }
+      });
+    });
+
+    console.log(`FINAL_ORDER: ${sortedMothers.map(m => m.name).join(', ')}`);
+
+    // Replace mothers array with sorted version
+    mothers = sortedMothers;
 
     // Simple confirmation dialog (skip in order preview mode)
     const urlParams = new URLSearchParams(window.location.search);
@@ -11557,12 +11636,22 @@ function App() {
       });
 
       // Draw each mother and its regions
+      // Calculate sequential X positions for sorted mothers
+      let sequentialX = contentOffsetX;
+
       mothers.forEach((mother, motherIndex) => {
         const motherRegions = (mother as any).regions || [];
 
-        // Calculate mother position with proper margins
-        const motherX = mother.x + contentOffsetX;
+        // Use sequential X position instead of canvas X position
+        // This ensures sorted order (parent followed by children)
+        const motherX = sequentialX;
         const motherY = mother.y + contentOffsetY;
+
+        console.log(`RENDERING: ${mother.name} at x=${motherX} (original x=${mother.x})`);
+
+        // Update sequential X for next mother (with spacing)
+        const spacing = 10; // 10mm spacing between mothers
+        sequentialX += mother.width + spacing;
 
         // Draw mother outline
         pdf.setDrawColor(0, 0, 0); // Black
