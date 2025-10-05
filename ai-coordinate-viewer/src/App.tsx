@@ -4516,10 +4516,16 @@ function App() {
         try {
           const jsonData = JSON.parse(importedJson);
           console.log('📄 Loading imported JSON data:', jsonData);
+          console.log('📊 Total objects:', jsonData.totalObjects);
+          console.log('📦 Objects array length:', jsonData.objects?.length);
+
+          // Enable web creation mode flags
+          setIsWebCreationMode(true);
+          sessionStorage.setItem('forceWebCreationMode', 'true');
 
           // Set as web creation data
           setWebCreationData(jsonData);
-          setIsWebCreationMode(true);
+          setData(null); // Clear any existing data
 
           // Clear the imported data from sessionStorage
           sessionStorage.removeItem('importedJsonData');
@@ -4529,6 +4535,14 @@ function App() {
           window.history.replaceState({}, '', newUrl);
 
           console.log('✅ JSON data loaded successfully');
+          console.log('✅ Web creation mode enabled');
+          console.log('✅ Canvas data set with', jsonData.objects?.length, 'objects');
+
+          // Auto-fit to screen after data is loaded
+          setTimeout(() => {
+            console.log('🔍 Auto-fitting canvas to screen...');
+            handleFitToScreen();
+          }, 500);
         } catch (error) {
           console.error('❌ Error loading imported JSON:', error);
           alert('Failed to load JSON data. Please try again.');
@@ -4610,7 +4624,8 @@ function App() {
     setPanY(0);
   };
   const handleFitToScreen = () => {
-    if (!data || data.objects.length === 0) {
+    const currentData = data || webCreationData;
+    if (!currentData || currentData.objects.length === 0) {
       console.log('No data or objects to fit');
       // Reset to default view if no objects
       setZoom(1);
@@ -4631,7 +4646,7 @@ function App() {
     const viewportHeight = svgRect.height;
 
     // Calculate bounds of all objects
-    const bounds = data.objects.reduce((acc, obj) => ({
+    const bounds = currentData.objects.reduce((acc, obj) => ({
       minX: Math.min(acc.minX, obj.x),
       minY: Math.min(acc.minY, obj.y),
       maxX: Math.max(acc.maxX, obj.x + obj.width),
@@ -15344,6 +15359,11 @@ function App() {
   };
 
   const renderObject = (obj: AIObject, index: number) => {
+    // Debug: Log first object only to avoid spam
+    if (index === 0) {
+      console.log('🎨 Rendering object:', obj.name, obj.type, `${obj.width}x${obj.height}mm at (${obj.x},${obj.y})`);
+    }
+
     // 1:1 scale: 1mm = 1px (at 96 DPI, 1mm ≈ 3.78px, but we'll use 1:1 for simplicity)
     // Apply zoom and pan transformations
     const mmToPx = 3.78; // Conversion factor for true 1:1 at 96 DPI
@@ -18937,7 +18957,7 @@ function App() {
                 <rect width="100%" height="100%" fill="url(#grid)" />
 
                 {/* Web Creation Mode Indicator */}
-                {isWebCreationMode && (!data || data.objects.length === 0) && (
+                {isWebCreationMode && (!data || data.objects.length === 0) && (!webCreationData || webCreationData.objects.length === 0) && (
                   <text
                     x="50%"
                     y="50%"
@@ -18950,6 +18970,15 @@ function App() {
                     🌐 Web Creation Canvas - Create your first mother object
                   </text>
                 )}
+
+                {/* Debug: Log rendering attempt */}
+                {(() => {
+                  const currentData = data || webCreationData;
+                  if (currentData?.objects && currentData.objects.length > 0) {
+                    console.log('🖼️ Canvas rendering', currentData.objects.length, 'objects');
+                  }
+                  return null;
+                })()}
 
                 {(data || webCreationData)?.objects.map((obj, index) => renderObject(obj, index))}
 
