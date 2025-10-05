@@ -1158,7 +1158,8 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                 fontSize: '14px',
                 outline: 'none',
                 backgroundColor: (!!formData.customerId && formData.customerId !== 'new') ? '#e2e8f0' : 'white',
-                cursor: (!!formData.customerId && formData.customerId !== 'new') ? 'not-allowed' : 'text'
+                cursor: (!!formData.customerId && formData.customerId !== 'new') ? 'not-allowed' : 'text',
+                boxSizing: 'border-box'
               }}
               onFocus={(e) => {
                 if (!formData.customerId || formData.customerId === 'new') {
@@ -1193,7 +1194,8 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                 fontSize: '14px',
                 outline: 'none',
                 backgroundColor: (!!formData.customerId && formData.customerId !== 'new') ? '#e2e8f0' : 'white',
-                cursor: (!!formData.customerId && formData.customerId !== 'new') ? 'not-allowed' : 'text'
+                cursor: (!!formData.customerId && formData.customerId !== 'new') ? 'not-allowed' : 'text',
+                boxSizing: 'border-box'
               }}
               onFocus={(e) => {
                 if (!formData.customerId || formData.customerId === 'new') {
@@ -1228,7 +1230,8 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                 fontSize: '14px',
                 outline: 'none',
                 backgroundColor: (!!formData.customerId && formData.customerId !== 'new') ? '#e2e8f0' : 'white',
-                cursor: (!!formData.customerId && formData.customerId !== 'new') ? 'not-allowed' : 'text'
+                cursor: (!!formData.customerId && formData.customerId !== 'new') ? 'not-allowed' : 'text',
+                boxSizing: 'border-box'
               }}
               onFocus={(e) => {
                 if (!formData.customerId || formData.customerId === 'new') {
@@ -1263,7 +1266,8 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                 fontSize: '14px',
                 outline: 'none',
                 backgroundColor: (!!formData.customerId && formData.customerId !== 'new') ? '#e2e8f0' : 'white',
-                cursor: (!!formData.customerId && formData.customerId !== 'new') ? 'not-allowed' : 'text'
+                cursor: (!!formData.customerId && formData.customerId !== 'new') ? 'not-allowed' : 'text',
+                boxSizing: 'border-box'
               }}
               onFocus={(e) => {
                 if (!formData.customerId || formData.customerId === 'new') {
@@ -1296,7 +1300,8 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                 border: '2px solid #e2e8f0',
                 borderRadius: '6px',
                 fontSize: '14px',
-                outline: 'none'
+                outline: 'none',
+                boxSizing: 'border-box'
               }}
               onFocus={(e) => e.currentTarget.style.borderColor = '#3b82f6'}
               onBlur={(e) => e.currentTarget.style.borderColor = '#e2e8f0'}
