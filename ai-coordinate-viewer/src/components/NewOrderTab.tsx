@@ -255,20 +255,21 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
           if (selectedLayout && selectedLayout.canvasData?.objects) {
             const components: VariableComponent[] = [];
 
-            // Extract from Location 1: canvasData.objects[].regions[].contents[] (NEW location)
-            selectedLayout.canvasData.objects.forEach((obj: any, objIndex: number) => {
-              const isChildMother = obj.type === 'mother' && (
-                /Mother_\d+[A-Z]/.test(obj.name) ||
-                obj.copiedFrom ||
-                obj.isChild
-              );
+            // Helper function to recursively extract variables from region and slices
+            const extractFromRegion = (region: any, regionContents: any) => {
+              const hasSlices = region.children && Array.isArray(region.children) && region.children.length > 0;
 
-              if (isChildMother) return;
-
-              if (obj.regions && Array.isArray(obj.regions)) {
-                obj.regions.forEach((region: any) => {
-                  if (region.contents && Array.isArray(region.contents)) {
-                    region.contents.forEach((content: any, contentIndex: number) => {
+              if (hasSlices) {
+                // Region has slices - extract from slices only
+                region.children.forEach((childRegion: any) => {
+                  extractFromRegion(childRegion, regionContents);
+                });
+              } else {
+                // Region without slices - extract from regionContents[region.id]
+                if (regionContents && regionContents[region.id]) {
+                  const contents = regionContents[region.id];
+                  if (Array.isArray(contents)) {
+                    contents.forEach((content: any, contentIndex: number) => {
                       if (content.type === 'new-comp-trans' &&
                           content.newCompTransConfig?.isVariableEnabled) {
                         components.push({
@@ -290,62 +291,26 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                       }
                     });
                   }
+                }
+              }
+            };
+
+            // Extract from all regions (including slices)
+            selectedLayout.canvasData.objects.forEach((obj: any, objIndex: number) => {
+              const isChildMother = obj.type === 'mother' && (
+                /Mother_\d+[A-Z]/.test(obj.name) ||
+                obj.copiedFrom ||
+                obj.isChild
+              );
+
+              if (isChildMother) return;
+
+              if (obj.regions && Array.isArray(obj.regions)) {
+                obj.regions.forEach((region: any) => {
+                  extractFromRegion(region, selectedLayout.regionContents);
                 });
               }
             });
-
-            // Extract from Location 2: layout.regionContents[] (OLD location - for backward compatibility)
-            if (selectedLayout.regionContents) {
-              const parentRegionIds: string[] = [];
-              selectedLayout.canvasData.objects.forEach((obj: any) => {
-                const isChildMother = obj.type === 'mother' && (
-                  /Mother_\d+[A-Z]/.test(obj.name) ||
-                  obj.copiedFrom ||
-                  obj.isChild
-                );
-
-                if (!isChildMother && obj.regions) {
-                  obj.regions.forEach((region: any) => {
-                    parentRegionIds.push(region.id);
-                  });
-                }
-              });
-
-              parentRegionIds.forEach(regionId => {
-                const contents = selectedLayout.regionContents[regionId];
-                if (contents && Array.isArray(contents)) {
-                  contents.forEach((content: any, contentIndex: number) => {
-                    // Skip if already added from region.contents
-                    const alreadyAdded = components.some(comp =>
-                      comp.id.startsWith(`${regionId}_content_`) &&
-                      comp.type === (content.type === 'new-comp-trans' ? 'comp-trans' : 'multi-line')
-                    );
-
-                    if (!alreadyAdded) {
-                      if (content.type === 'new-comp-trans' &&
-                          content.newCompTransConfig?.isVariableEnabled) {
-                        components.push({
-                          id: `${regionId}_regionContent_${contentIndex}`,
-                          type: 'comp-trans',
-                          name: `Composition Translation (${regionId})`,
-                          config: content.newCompTransConfig
-                        });
-                      }
-
-                      if (content.type === 'new-multi-line' &&
-                          content.newMultiLineConfig?.isVariableEnabled) {
-                        components.push({
-                          id: `${regionId}_regionContent_${contentIndex}`,
-                          type: 'multi-line',
-                          name: `Multi-line Text (${regionId})`,
-                          config: content.newMultiLineConfig
-                        });
-                      }
-                    }
-                  });
-                }
-              });
-            }
 
             setVariableComponents(components);
             console.log(`✅ Found ${components.length} variable-enabled components in layout:`, components);
@@ -473,12 +438,36 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
         const parsedLayouts = JSON.parse(savedLayouts);
         const layout = parsedLayouts.find((l: any) => l.id === layoutId);
 
-        // Check BOTH locations (for backward compatibility with old data)
-        let hasVariables = false;
+        if (!layout) return false;
 
-        // Location 1: canvasData.objects[].regions[].contents[] (NEW location)
-        if (layout && layout.canvasData?.objects) {
-          hasVariables = layout.canvasData.objects.some((obj: any) => {
+        // Helper to check if content is a variable
+        const isVariableContent = (content: any): boolean => {
+          return (content.type === 'new-comp-trans' && content.newCompTransConfig?.isVariableEnabled) ||
+                 (content.type === 'new-multi-line' && content.newMultiLineConfig?.isVariableEnabled);
+        };
+
+        // Helper to recursively check region and its slices
+        const regionHasVariables = (region: any, regionContents: any): boolean => {
+          const hasSlices = region.children && Array.isArray(region.children) && region.children.length > 0;
+
+          if (hasSlices) {
+            // Region has slices - check slices only
+            return region.children.some((childRegion: any) => regionHasVariables(childRegion, regionContents));
+          } else {
+            // Region without slices - check regionContents[region.id]
+            if (regionContents && regionContents[region.id]) {
+              const contents = regionContents[region.id];
+              if (Array.isArray(contents)) {
+                return contents.some((content: any) => isVariableContent(content));
+              }
+            }
+          }
+          return false;
+        };
+
+        // Scan all regions (including slices)
+        if (layout.canvasData?.objects) {
+          const hasVariables = layout.canvasData.objects.some((obj: any) => {
             const isChildMother = obj.type === 'mother' && (
               /Mother_\d+[A-Z]/.test(obj.name) ||
               obj.copiedFrom ||
@@ -488,52 +477,17 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
             if (isChildMother) return false;
 
             if (obj.regions && Array.isArray(obj.regions)) {
-              return obj.regions.some((region: any) => {
-                if (region.contents && Array.isArray(region.contents)) {
-                  return region.contents.some((content: any) => {
-                    return (content.type === 'new-comp-trans' && content.newCompTransConfig?.isVariableEnabled) ||
-                           (content.type === 'new-multi-line' && content.newMultiLineConfig?.isVariableEnabled);
-                  });
-                }
-                return false;
-              });
-            }
-            return false;
-          });
-        }
-
-        // Location 2: layout.regionContents[] (OLD location - for backward compatibility)
-        if (!hasVariables && layout?.regionContents) {
-          const parentRegionIds: string[] = [];
-          if (layout.canvasData?.objects) {
-            layout.canvasData.objects.forEach((obj: any) => {
-              const isChildMother = obj.type === 'mother' && (
-                /Mother_\d+[A-Z]/.test(obj.name) ||
-                obj.copiedFrom ||
-                obj.isChild
+              return obj.regions.some((region: any) =>
+                regionHasVariables(region, layout.regionContents)
               );
-
-              if (!isChildMother && obj.regions) {
-                obj.regions.forEach((region: any) => {
-                  parentRegionIds.push(region.id);
-                });
-              }
-            });
-          }
-
-          hasVariables = parentRegionIds.some(regionId => {
-            const contents = layout.regionContents[regionId];
-            if (contents && Array.isArray(contents)) {
-              return contents.some((content: any) => {
-                return (content.type === 'new-comp-trans' && content.newCompTransConfig?.isVariableEnabled) ||
-                       (content.type === 'new-multi-line' && content.newMultiLineConfig?.isVariableEnabled);
-              });
             }
             return false;
           });
+
+          if (hasVariables) return true;
         }
 
-        return hasVariables;
+        return false;
       }
     } catch (error) {
       console.error('Error checking layout variables:', error);
