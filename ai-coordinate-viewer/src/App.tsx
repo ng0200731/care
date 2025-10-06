@@ -12439,8 +12439,44 @@ function App() {
                         startY = childY + childRegion.height - paddingBottom - totalTextHeight;
                       }
 
-                      // Handle washing care symbols or regular text in child regions
-                      if (content.type === 'new-washing-care-symbol') {
+                      // Handle washing care symbols, graphics, or regular text in child regions
+                      if (content.type === 'new-graphic' && content.content?.pdfData) {
+                        // Render PDF graphic content in PDF export (child region)
+                        console.log('🎨 Rendering graphic content to PDF (child):', content.content.pdfFileName);
+
+                        const effectiveLayout = content.layout || {};
+                        const padding = effectiveLayout.padding || { top: 0, right: 0, bottom: 0, left: 0 };
+
+                        // Calculate available space after padding
+                        const availableWidth = Math.max(0, childRegion.width - padding.left - padding.right);
+                        const availableHeight = Math.max(0, childRegion.height - padding.top - padding.bottom);
+
+                        // Calculate position with padding
+                        const graphicX = childX + padding.left;
+                        const graphicY = childY + padding.top;
+
+                        try {
+                          // Add the rendered PDF image to the PDF export
+                          pdf.addImage(
+                            content.content.pdfData,
+                            'PNG',
+                            graphicX,
+                            graphicY,
+                            availableWidth,
+                            availableHeight,
+                            undefined,
+                            'FAST'
+                          );
+                          console.log('✅ Graphic content added to PDF (child):', {
+                            x: graphicX,
+                            y: graphicY,
+                            width: availableWidth,
+                            height: availableHeight
+                          });
+                        } catch (error) {
+                          console.error('❌ Error adding graphic to PDF (child):', error);
+                        }
+                      } else if (content.type === 'new-washing-care-symbol') {
                         // Render washing care symbols in PDF for child regions using configuration
                         const symbols = content.content?.symbols || ['b', 'G', '5', 'B', 'J'];
 
@@ -13267,6 +13303,42 @@ function App() {
                         }
                       } // End of fallback vector shapes
                     });
+                  } else if (content.type === 'new-graphic' && content.content?.pdfData) {
+                    // Render PDF graphic content in PDF export
+                    console.log('🎨 Rendering graphic content to PDF:', content.content.pdfFileName);
+
+                    const effectiveLayout = content.layout || {};
+                    const padding = effectiveLayout.padding || { top: 0, right: 0, bottom: 0, left: 0 };
+
+                    // Calculate available space after padding
+                    const availableWidth = Math.max(0, region.width - padding.left - padding.right);
+                    const availableHeight = Math.max(0, region.height - padding.top - padding.bottom);
+
+                    // Calculate position with padding
+                    const graphicX = regionX + padding.left;
+                    const graphicY = regionY + padding.top;
+
+                    try {
+                      // Add the rendered PDF image to the PDF export
+                      pdf.addImage(
+                        content.content.pdfData,
+                        'PNG',
+                        graphicX,
+                        graphicY,
+                        availableWidth,
+                        availableHeight,
+                        undefined,
+                        'FAST'
+                      );
+                      console.log('✅ Graphic content added to PDF:', {
+                        x: graphicX,
+                        y: graphicY,
+                        width: availableWidth,
+                        height: availableHeight
+                      });
+                    } catch (error) {
+                      console.error('❌ Error adding graphic to PDF:', error);
+                    }
                   } else if (content.type === 'new-comp-trans' || content.type === 'new-multi-line') {
                     // Render composition translation / multi-line text in PDF using configuration
                     const config = content.type === 'new-comp-trans' ? content.newCompTransConfig : content.newMultiLineConfig;
