@@ -282,18 +282,23 @@ function App() {
     // Trim lines if overflow
     const finalLines = hasOverflow ? wrappedLines.slice(0, maxLines) : wrappedLines;
 
-    // console.log('🎯 Child region text wrapping:', {
-    //   availableWidthMm: availableWidthMm.toFixed(2),
-    //   availableHeightPx: availableHeightPx.toFixed(2),
-    //   safeAvailableHeight: safeAvailableHeight.toFixed(2),
-    //   fontSizePx,
-    //   lineHeight,
-    //   textBaselineOffset: textBaselineOffset.toFixed(2),
-    //   maxLines,
-    //   totalLines: wrappedLines.length,
-    //   finalLines: finalLines.length,
-    //   hasOverflow
-    // });
+    // 🔍 DEBUG: Enable logging for Mother_1A and Mother_1B wrapping
+    if ((window as any).__debugMotherWrapping) {
+      console.log('🎯 processChildRegionTextWrapping RESULT:', {
+        availableWidthMm: availableWidthMm.toFixed(2),
+        availableHeightPx: availableHeightPx.toFixed(2),
+        safeAvailableHeight: safeAvailableHeight.toFixed(2),
+        fontSizePx,
+        lineHeight: lineHeight.toFixed(2),
+        textBaselineOffset: textBaselineOffset.toFixed(2),
+        maxLines,
+        totalLines: wrappedLines.length,
+        finalLines: finalLines.length,
+        hasOverflow,
+        firstLine: finalLines[0] || '',
+        lastLine: finalLines[finalLines.length - 1] || ''
+      });
+    }
 
     return { lines: finalLines, hasOverflow };
   };
@@ -8656,19 +8661,30 @@ function App() {
                 console.log(`🌍 Generated 18-language text (${multiLanguageText.length} chars)`);
                 console.log(`🔧 Using separator: "${originalSeparator}"`);
 
+                // ✅ FIX: Check if child mothers exist - if so, keep saved split text
+                const hasChildMothers = updatedData.objects.some((otherObj: any) =>
+                  otherObj.type?.includes('mother') &&
+                  otherObj.name !== obj.name &&
+                  new RegExp(`^${obj.name}[A-Z]$`).test(otherObj.name)
+                );
+
                 // Update the content configuration
                 targetContent.newCompTransConfig = targetContent.newCompTransConfig || {};
                 targetContent.newCompTransConfig.materialCompositions = normalizedCompositions; // Use normalized percentages
                 targetContent.newCompTransConfig.selectedLanguages = ['ES', 'FR', 'EN', 'PT', 'DU', 'IT', 'GR', 'JA', 'DE', 'DA', 'SL', 'CH', 'KO', 'ID', 'AR', 'GA', 'CA', 'BS']; // All 18 languages
                 targetContent.newCompTransConfig.textContent = targetContent.newCompTransConfig.textContent || {};
                 targetContent.newCompTransConfig.textContent.separator = originalSeparator;
-                targetContent.newCompTransConfig.textContent.generatedText = multiLanguageText;
-                targetContent.newCompTransConfig.textContent.originalText = multiLanguageText;
 
-                targetContent.content = targetContent.content || {};
-                targetContent.content.text = multiLanguageText;
-
-                console.log(`✅ Applied 18-language composition to ${obj.name} - Text will overflow to child mothers automatically`);
+                // Only overwrite text if NO child mothers (fresh layout)
+                if (!hasChildMothers) {
+                  targetContent.newCompTransConfig.textContent.generatedText = multiLanguageText;
+                  targetContent.newCompTransConfig.textContent.originalText = multiLanguageText;
+                  targetContent.content = targetContent.content || {};
+                  targetContent.content.text = multiLanguageText;
+                  console.log(`✅ Applied 18-language composition to ${obj.name} - Text will overflow to child mothers automatically`);
+                } else {
+                  console.log(`✅ Updated compositions for ${obj.name} - keeping saved split text (child mothers exist)`);
+                }
               }
             } else {
               console.warn(`⚠️ Content not found at index ${contentIndex} in region ${regionId}`);
@@ -8878,18 +8894,36 @@ function App() {
                   console.log(`  ✅ Applied multi-line to region ${actualRegionId}`);
 
                 } else if (componentData.type === 'comp-trans' && parentContent.type === 'new-comp-trans') {
+                  // ✅ FIX: Only update compositions, NOT the text if child mothers exist
+                  // If child mothers exist, the layout already has saved split1/split2/split3
+                  // Check if parent mother has child mothers
+                  const parentMotherForCheck = projectState.canvasData.objects.find((obj: any) =>
+                    obj.type?.includes('mother') &&
+                    obj.regions?.some((r: any) => r.id === actualRegionId)
+                  );
+                  const hasChildMothers = parentMotherForCheck && projectState.canvasData.objects.some((obj: any) =>
+                    obj.type?.includes('mother') &&
+                    obj.name !== parentMotherForCheck.name &&
+                    new RegExp(`^${parentMotherForCheck.name}[A-Z]$`).test(obj.name)
+                  );
+
                   // Apply ONLY to parent mother (overflow will handle children)
                   parentContent.newCompTransConfig = parentContent.newCompTransConfig || {};
                   parentContent.newCompTransConfig.materialCompositions = normalizedCompositions;
                   parentContent.newCompTransConfig.selectedLanguages = ['ES', 'FR', 'EN', 'PT', 'DU', 'IT', 'GR', 'JA', 'DE', 'DA', 'SL', 'CH', 'KO', 'ID', 'AR', 'GA', 'CA', 'BS'];
                   parentContent.newCompTransConfig.textContent = parentContent.newCompTransConfig.textContent || {};
                   parentContent.newCompTransConfig.textContent.separator = originalSeparator;
-                  parentContent.newCompTransConfig.textContent.generatedText = multiLanguageText;
-                  parentContent.newCompTransConfig.textContent.originalText = multiLanguageText;
-                  parentContent.content = parentContent.content || {};
-                  parentContent.content.text = multiLanguageText;
 
-                  console.log(`  ✅ Applied 18-language composition to PARENT region ${actualRegionId} only`);
+                  // Only overwrite text if NO child mothers (fresh layout)
+                  if (!hasChildMothers) {
+                    parentContent.newCompTransConfig.textContent.generatedText = multiLanguageText;
+                    parentContent.newCompTransConfig.textContent.originalText = multiLanguageText;
+                    parentContent.content = parentContent.content || {};
+                    parentContent.content.text = multiLanguageText;
+                    console.log(`  ✅ Applied 18-language composition to PARENT region ${actualRegionId} (no child mothers)`);
+                  } else {
+                    console.log(`  ✅ Updated compositions only - keeping saved split1 text (child mothers exist)`);
+                  }
                 }
               }
 
@@ -8904,6 +8938,24 @@ function App() {
                 );
 
                 if (parentMotherObj) {
+                  // ✅ FIX: Check if child mothers already exist (Mother_1A, Mother_1B, etc.)
+                  // If they do, SKIP re-splitting because the layout already has saved splits!
+                  const parentMotherName = parentMotherObj.name;
+                  const childMotherPattern = new RegExp(`^${parentMotherName}[A-Z]$`); // Mother_1A, Mother_1B, etc.
+                  const existingChildMothers = projectState.canvasData.objects.filter((obj: any) =>
+                    obj.type?.includes('mother') && childMotherPattern.test(obj.name)
+                  );
+
+                  if (existingChildMothers.length > 0) {
+                    console.log(`✅ Order Preview: Found ${existingChildMothers.length} existing child mothers (${existingChildMothers.map((m: any) => m.name).join(', ')})`);
+                    console.log(`✅ Skipping N-split regeneration - using saved split text from layout`);
+                    // Skip the entire re-splitting logic below!
+                  } else {
+                    console.log(`🔍 No existing child mothers found - will calculate N-split if needed`);
+                  }
+
+                  // Only run N-split logic if NO child mothers exist
+                  if (existingChildMothers.length === 0) {
                   const parentRegion = parentMotherObj.regions.find((r: any) => r.id === actualRegionId);
                   // Reuse mainRegionContentArray from above (line 8425)
                   const overflowContent = mainRegionContentArray?.[contentIndex];
@@ -9128,6 +9180,7 @@ function App() {
                       console.log('✅ Preview: No overflow - text fits in parent mother');
                     }
                   }
+                  } // End of: if (existingChildMothers.length === 0)
                 }
               }
             }
@@ -16471,6 +16524,16 @@ function App() {
                         // console.log('🧺 new-washing-care-symbol displayText:', displayText, 'content:', content);
                       } else if (content.type === 'new-comp-trans' && content.newCompTransConfig?.textContent?.generatedText) {
                         displayText = content.newCompTransConfig.textContent.generatedText;
+                        // 🔍 DEBUG: Log mother name and text length for Mother_1A and Mother_1B
+                        if (obj.name === 'Mother_1A' || obj.name === 'Mother_1B' || obj.name === 'Mother_1') {
+                          console.log(`🔍 DEBUG ${obj.name} rendering text:`, {
+                            motherName: obj.name,
+                            regionId: region.id,
+                            textLength: displayText.length,
+                            firstLine: displayText.split('\n')[0],
+                            totalLines: displayText.split('\n').length
+                          });
+                        }
                         // Reduced logging frequency - only log occasionally to reduce console noise
                         if (Math.random() < 0.01) { // Only log 1% of the time
                           console.log('🎨 [v2.9.180] Canvas rendering new-comp-trans:', displayText.substring(0, 50) + '...');
@@ -16638,22 +16701,32 @@ function App() {
                         // 🔍 DEBUG: Log font configuration for mother comparison
                         const fontFamily = content.newCompTransConfig?.typography?.fontFamily || 'Arial';
                         const fontSize = regionWrappingFontSize;
-                        if (region.name.includes('mother_1') || region.name.includes('mother_3')) {
+                        if (obj.name === 'Mother_1' || obj.name === 'Mother_1A' || obj.name === 'Mother_1B') {
                           // Set global debug region name for canvas debugging
                           (window as any).debugMotherRegionName = region.name;
-                          console.log(`🔍 MOTHER DEBUG - ${region.name} CompTrans:`, {
+                          console.log(`🔍 ${obj.name} WRAPPING DEBUG:`, {
+                            motherName: obj.name,
+                            regionId: region.id,
                             fontFamily: fontFamily,
                             fontSize: fontSize,
-                            availableWidth: availableWidthPx,
-                            availableHeight: availableHeightPx,
-                            text: displayText.substring(0, 30) + '...',
-                            padding: content.newCompTransConfig?.padding,
-                            alignment: content.newCompTransConfig?.alignment
+                            regionWidth: region.width,
+                            regionHeight: region.height,
+                            paddingUsed: padding,
+                            availableWidthPx: availableWidthPx,
+                            availableHeightPx: availableHeightPx,
+                            textLength: displayText.length,
+                            textPreview: displayText.substring(0, 50) + '...'
                           });
                         }
 
                         // CONSISTENT OVERFLOW LOGIC: Always run split1 processing
                         // This simulates the N-split detection logic from the dialog
+
+                        // 🔍 DEBUG: Enable detailed wrapping logs for Mother_1A and Mother_1B
+                        if (obj.name === 'Mother_1A' || obj.name === 'Mother_1B') {
+                          (window as any).__debugMotherWrapping = true;
+                        }
+
                         const regionProcessedResult = processChildRegionTextWrapping(
                           displayText,
                           availableWidthPx,
@@ -16663,6 +16736,9 @@ function App() {
                           content.newCompTransConfig?.lineBreakSettings?.lineBreakSymbol || '\n',
                           content.newCompTransConfig?.lineBreakSettings?.lineSpacing || 1.2
                         );
+
+                        // Disable debug flag after processing
+                        (window as any).__debugMotherWrapping = false;
 
                         // Always use split1 result (first split of the text)
                         displayLines = regionProcessedResult.lines;
@@ -19138,7 +19214,12 @@ function App() {
                   return null;
                 })()}
 
-                {(data || webCreationData)?.objects.map((obj, index) => renderObject(obj, index))}
+                {(() => {
+                  const objects = (data || webCreationData)?.objects || [];
+                  const motherNames = objects.map(obj => obj.name).join(', ');
+                  console.log('🔍 DEBUG ALL MOTHER NAMES:', motherNames);
+                  return objects.map((obj, index) => renderObject(obj, index));
+                })()}
 
 
               </svg>
