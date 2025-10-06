@@ -561,7 +561,11 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
     // Use auto-calculated usable width (already has tricky width subtracted)
     // Formula: width = original width - left padding - right padding - tricky width
-    const effectiveAvailableWidth = usableWidthMm;
+    //
+    // ✅ OPTION 1 FIX: Add width safety buffer to match canvas calculation (App.tsx:218-219)
+    // Canvas reserves 1.5mm safety buffer to prevent text boundary crossing
+    const userSafetyBuffer = 1.5;
+    const effectiveAvailableWidth = usableWidthMm - userSafetyBuffer;
 
     const scaledFontSizeMm = scaledFontSize / 3.779527559;
     // 🔧 FIX: Use effectiveConfig instead of config for lineSpacing
