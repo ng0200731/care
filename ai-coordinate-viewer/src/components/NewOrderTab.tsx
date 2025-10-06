@@ -1654,7 +1654,7 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
               color: '#4a5568',
               marginBottom: '6px'
             }}>
-              Total Quantity
+              Total Quantity(pcs)
             </label>
             <div style={{
               padding: '10px 12px',
@@ -1787,7 +1787,7 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                   color: '#4a5568',
                   marginBottom: '6px'
                 }}>
-                  Order Quantity
+                  Order Quantity (pcs)
                 </label>
                 <input
                   type="number"
