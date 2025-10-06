@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import NewCompTransDialog from '../NewCompTransDialog';
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 
 // Universal content data interface
 export interface UniversalContentData {
@@ -928,60 +929,62 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
           </div>
         </div>
 
-        {/* PART 2: Typography */}
-        <div style={{
-          ...sectionStyle,
-          backgroundColor: isConnector ? '#f8f9fa' : 'white',
-          opacity: isConnector ? 0.5 : 1,
-          pointerEvents: isConnector ? 'none' : 'auto'
-        }}>
-          <h3 style={{ margin: '0 0 15px 0', color: '#2d3748', fontSize: '16px' }}>
-            🔤 Typography
-            {isConnector && (
-              <span style={{ fontSize: '12px', color: '#666', fontWeight: 'normal', marginLeft: '10px' }}>
-                (Inherited from chain master)
-              </span>
-            )}
-          </h3>
+        {/* PART 2: Typography - Hidden for Graphic content */}
+        {contentType.id !== 'new-graphic' && (
+          <div style={{
+            ...sectionStyle,
+            backgroundColor: isConnector ? '#f8f9fa' : 'white',
+            opacity: isConnector ? 0.5 : 1,
+            pointerEvents: isConnector ? 'none' : 'auto'
+          }}>
+            <h3 style={{ margin: '0 0 15px 0', color: '#2d3748', fontSize: '16px' }}>
+              🔤 Typography
+              {isConnector && (
+                <span style={{ fontSize: '12px', color: '#666', fontWeight: 'normal', marginLeft: '10px' }}>
+                  (Inherited from chain master)
+                </span>
+              )}
+            </h3>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px' }}>
-            <div>
-              <label style={labelStyle}>Font Family:</label>
-              <select
-                value={isConnector && masterProperties ? masterProperties.typography.fontFamily : formData.typography.fontFamily}
-                onChange={(e) => handleTypographyChange('fontFamily', e.target.value)}
-                style={inputStyle}
-                disabled={!!isConnector}
-              >
-                {fontFamilies.map(font => (
-                  <option key={font} value={font}>{font}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label style={labelStyle}>Font Size (px):</label>
-              <input
-                type="number"
-                value={isConnector && masterProperties ? masterProperties.typography.fontSize : formData.typography.fontSize}
-                onChange={(e) => handleTypographyChange('fontSize', Number(e.target.value))}
-                style={inputStyle}
-                min="8"
-                max="72"
-                disabled={!!isConnector}
-              />
-            </div>
-            <div>
-              <label style={labelStyle}>Font Color:</label>
-              <input
-                type="color"
-                value={isConnector && masterProperties ? masterProperties.typography.fontColor : formData.typography.fontColor}
-                onChange={(e) => handleTypographyChange('fontColor', e.target.value)}
-                style={{ ...inputStyle, height: '40px' }}
-                disabled={!!isConnector}
-              />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px' }}>
+              <div>
+                <label style={labelStyle}>Font Family:</label>
+                <select
+                  value={isConnector && masterProperties ? masterProperties.typography.fontFamily : formData.typography.fontFamily}
+                  onChange={(e) => handleTypographyChange('fontFamily', e.target.value)}
+                  style={inputStyle}
+                  disabled={!!isConnector}
+                >
+                  {fontFamilies.map(font => (
+                    <option key={font} value={font}>{font}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label style={labelStyle}>Font Size (px):</label>
+                <input
+                  type="number"
+                  value={isConnector && masterProperties ? masterProperties.typography.fontSize : formData.typography.fontSize}
+                  onChange={(e) => handleTypographyChange('fontSize', Number(e.target.value))}
+                  style={inputStyle}
+                  min="8"
+                  max="72"
+                  disabled={!!isConnector}
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>Font Color:</label>
+                <input
+                  type="color"
+                  value={isConnector && masterProperties ? masterProperties.typography.fontColor : formData.typography.fontColor}
+                  onChange={(e) => handleTypographyChange('fontColor', e.target.value)}
+                  style={{ ...inputStyle, height: '40px' }}
+                  disabled={!!isConnector}
+                />
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* PART 3: Content Type Specific */}
         <div style={sectionStyle}>
@@ -1270,8 +1273,184 @@ const UniversalContentDialog: React.FC<UniversalContentDialogProps> = ({
             </div>
           )}
 
+          {/* Graphic Content - PDF Drag & Drop */}
+          {contentType.id === 'new-graphic' && (
+            <div>
+              <label style={labelStyle}>PDF File:</label>
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.currentTarget.style.borderColor = '#4a90e2';
+                  e.currentTarget.style.backgroundColor = '#e3f2fd';
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.currentTarget.style.borderColor = '#cbd5e0';
+                  e.currentTarget.style.backgroundColor = '#f8f9fa';
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.currentTarget.style.borderColor = '#cbd5e0';
+                  e.currentTarget.style.backgroundColor = '#f8f9fa';
+
+                  const files = Array.from(e.dataTransfer.files);
+                  const pdfFile = files.find(f => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf'));
+
+                  if (pdfFile) {
+                    console.log('📄 Processing PDF:', pdfFile.name);
+
+                    // Read PDF file as ArrayBuffer for pdf.js
+                    const reader = new FileReader();
+                    reader.onload = async (event) => {
+                      try {
+                        console.log('📄 Step 1: Reading array buffer...');
+                        const arrayBuffer = event.target?.result as ArrayBuffer;
+                        console.log('📄 Array buffer size:', arrayBuffer.byteLength);
+
+                        // Load PDF with pdf.js legacy (no worker needed)
+                        console.log('📄 Step 2: Loading PDF document...');
+                        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+                        const pdf = await loadingTask.promise;
+
+                        console.log('📄 Step 3: PDF loaded, pages:', pdf.numPages);
+
+                        // Render first page (can be extended to handle multiple pages)
+                        console.log('📄 Step 4: Getting page 1...');
+                        const page = await pdf.getPage(1);
+                        console.log('📄 Step 5: Creating viewport...');
+                        const viewport = page.getViewport({ scale: 2.0 }); // 2x scale for better quality
+                        console.log('📄 Viewport dimensions:', viewport.width, 'x', viewport.height);
+
+                        // Create canvas for rendering
+                        console.log('📄 Step 6: Creating canvas...');
+                        const canvas = document.createElement('canvas');
+                        const context = canvas.getContext('2d');
+                        canvas.width = viewport.width;
+                        canvas.height = viewport.height;
+
+                        if (context) {
+                          // Render PDF page to canvas
+                          console.log('📄 Step 7: Rendering PDF to canvas...');
+                          const renderContext = {
+                            canvasContext: context,
+                            viewport: viewport
+                          };
+                          await page.render(renderContext as any).promise;
+                          console.log('📄 Step 8: Render complete!');
+
+                          // Convert canvas to base64 image
+                          const renderedImage = canvas.toDataURL('image/png');
+
+                          // Get PDF dimensions in mm (assuming 72 DPI in PDF, convert to mm)
+                          const widthMm = (viewport.width / 2.0) * 25.4 / 72; // Convert pixels to mm
+                          const heightMm = (viewport.height / 2.0) * 25.4 / 72;
+
+                          // Update form data with rendered image
+                          setFormData(prev => ({
+                            ...prev,
+                            content: {
+                              ...prev.content,
+                              pdfData: renderedImage, // Rendered image instead of raw PDF
+                              pdfFileName: pdfFile.name,
+                              pdfSize: pdfFile.size,
+                              pdfPages: pdf.numPages,
+                              pdfWidthMm: widthMm,
+                              pdfHeightMm: heightMm
+                            }
+                          }));
+
+                          console.log('✅ PDF rendered successfully:', {
+                            fileName: pdfFile.name,
+                            pages: pdf.numPages,
+                            dimensions: `${widthMm.toFixed(1)}mm x ${heightMm.toFixed(1)}mm`
+                          });
+                        }
+                      } catch (error: any) {
+                        console.error('❌ Error rendering PDF:', error);
+                        console.error('Error details:', {
+                          message: error?.message,
+                          name: error?.name,
+                          stack: error?.stack
+                        });
+                        alert(`Error rendering PDF: ${error?.message || 'Unknown error'}. Check console for details.`);
+                      }
+                    };
+                    reader.readAsArrayBuffer(pdfFile);
+                  } else {
+                    alert('Please drop a PDF file');
+                  }
+                }}
+                style={{
+                  border: '2px dashed #cbd5e0',
+                  borderRadius: '8px',
+                  padding: '40px',
+                  textAlign: 'center',
+                  backgroundColor: '#f8f9fa',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  marginTop: '8px'
+                }}
+              >
+                {formData.content.pdfFileName ? (
+                  <div>
+                    <div style={{ fontSize: '48px', marginBottom: '12px' }}>📄</div>
+                    <div style={{ fontSize: '16px', fontWeight: '600', color: '#2d3748', marginBottom: '8px' }}>
+                      {formData.content.pdfFileName}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#718096', marginBottom: '4px' }}>
+                      Size: {(formData.content.pdfSize / 1024).toFixed(2)} KB
+                    </div>
+                    {formData.content.pdfPages && (
+                      <div style={{ fontSize: '12px', color: '#718096', marginBottom: '4px' }}>
+                        Pages: {formData.content.pdfPages}
+                      </div>
+                    )}
+                    {formData.content.pdfWidthMm && formData.content.pdfHeightMm && (
+                      <div style={{ fontSize: '12px', color: '#718096', marginBottom: '4px' }}>
+                        Dimensions: {formData.content.pdfWidthMm.toFixed(1)}mm × {formData.content.pdfHeightMm.toFixed(1)}mm
+                      </div>
+                    )}
+                    <div style={{ fontSize: '11px', color: '#a0aec0', marginTop: '12px' }}>
+                      Drag another PDF to replace
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div style={{ fontSize: '48px', marginBottom: '12px' }}>📄</div>
+                    <div style={{ fontSize: '16px', fontWeight: '600', color: '#2d3748', marginBottom: '8px' }}>
+                      Drop PDF file here
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#718096' }}>
+                      PDF will be rendered with all text, fonts, and lines preserved at 1:1 scale
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {formData.content.pdfData && (
+                <div style={{
+                  marginTop: '16px',
+                  padding: '12px',
+                  backgroundColor: '#e6fffa',
+                  borderRadius: '6px',
+                  border: '1px solid #81e6d9'
+                }}>
+                  <div style={{ fontSize: '12px', color: '#234e52', fontWeight: '600', marginBottom: '4px' }}>
+                    ✓ PDF Rendered Successfully
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#2c7a7b' }}>
+                    All text, fonts, and lines have been rendered and will display at 1:1 scale on the canvas
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Placeholder for unknown content types */}
-          {!['line-text', 'translation-paragraph', 'pure-english-paragraph', 'washing-symbol', 'image', 'coo', 'new-comp-trans'].includes(contentType.id) && (
+          {!['line-text', 'translation-paragraph', 'pure-english-paragraph', 'washing-symbol', 'image', 'coo', 'new-comp-trans', 'new-graphic'].includes(contentType.id) && (
             <div style={{
               padding: '20px',
               textAlign: 'center',

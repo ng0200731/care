@@ -87,6 +87,24 @@ const NewCtMenu: React.FC<NewCtMenuProps> = ({
     e.currentTarget.style.opacity = '0.5';
   };
 
+  // Drag handlers for Graphic
+  const handleGraphicDragStart = (e: React.DragEvent<HTMLButtonElement>) => {
+    const graphicContentType = {
+      id: 'new-graphic',
+      name: 'Graphic',
+      icon: '🎨',
+      description: 'New style graphic content',
+      isNewCt: true // Flag to identify this as new CT content
+    };
+
+    console.log('🚀 NEW CT DRAG START:', graphicContentType.name, 'ID:', graphicContentType.id);
+    e.dataTransfer.setData('application/json', JSON.stringify(graphicContentType));
+    e.dataTransfer.effectAllowed = 'copy';
+
+    // Add visual feedback
+    e.currentTarget.style.opacity = '0.5';
+  };
+
   const handleDragEnd = (e: React.DragEvent<HTMLButtonElement>) => {
     // Reset visual feedback
     e.currentTarget.style.opacity = '1';
@@ -311,6 +329,56 @@ const NewCtMenu: React.FC<NewCtMenuProps> = ({
       >
         <span style={{ fontSize: '18px' }}>🌐</span>
         Comp Trans
+      </button>
+
+      {/* Graphic Button - Draggable */}
+      <button
+        draggable
+        onDragStart={handleGraphicDragStart}
+        onDragEnd={handleDragEnd}
+        style={{
+          width: '100%',
+          padding: '15px 20px',
+          backgroundColor: 'rgba(255, 255, 255, 0.1)',
+          border: '2px solid rgba(255, 255, 255, 0.2)',
+          borderRadius: '8px',
+          color: 'white',
+          fontSize: '16px',
+          fontWeight: '600',
+          cursor: 'grab',
+          transition: 'all 0.2s ease',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '8px',
+          userSelect: 'none',
+          marginTop: '12px'
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.4)';
+          e.currentTarget.style.transform = 'translateY(-2px)';
+          e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.2)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+          e.currentTarget.style.transform = 'translateY(0)';
+          e.currentTarget.style.boxShadow = 'none';
+        }}
+        onMouseDown={(e) => {
+          e.currentTarget.style.cursor = 'grabbing';
+        }}
+        onMouseUp={(e) => {
+          e.currentTarget.style.cursor = 'grab';
+        }}
+        onClick={() => {
+          console.log('Graphic button clicked');
+          // Add functionality here later
+        }}
+      >
+        <span style={{ fontSize: '18px' }}>🎨</span>
+        Graphic
       </button>
     </div>
   );

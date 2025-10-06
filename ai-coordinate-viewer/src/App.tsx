@@ -16550,6 +16550,9 @@ function App() {
                         displayText = `[Image: ${content.content.src}]`;
                       } else if (content.type === 'coo' && content.content?.country) {
                         displayText = content.content.country;
+                      } else if (content.type === 'new-graphic' && content.content?.pdfData) {
+                        // Handle PDF/Graphic content - will render as image
+                        displayText = '[PDF_GRAPHIC]'; // Marker for special rendering
                       }
 
                       if (!displayText) {
@@ -16931,9 +16934,50 @@ function App() {
 
                       return (
                         <g key={`${region.id}-text-group-${contentIndex}`}>
-                          {/* Render text lines or washing care symbols without clipping */}
+                          {/* Render text lines or washing care symbols or PDF graphics without clipping */}
                           <g>
-                            {(content.type === 'new-washing-care-symbol' || (content.type === 'new-comp-trans' && displayText && /^[bGBJ5\s]+$/.test(displayText))) ? (
+                            {content.type === 'new-graphic' && content.content?.pdfData ? (
+                              // Render PDF as image at 1:1 scale
+                              (() => {
+                                const pdfData = content.content.pdfData;
+                                const effectiveLayout = content.layout;
+                                const padding = effectiveLayout?.padding || { top: 0, right: 0, bottom: 0, left: 0 };
+
+                                // Calculate position and size
+                                const paddingLeftPx = padding.left * scale;
+                                const paddingTopPx = padding.top * scale;
+                                const paddingRightPx = padding.right * scale;
+                                const paddingBottomPx = padding.bottom * scale;
+
+                                // Available space for PDF
+                                const availableWidth = regionWidthPx - paddingLeftPx - paddingRightPx;
+                                const availableHeight = regionHeightPx - paddingTopPx - paddingBottomPx;
+
+                                // Position PDF at top-left of available space
+                                const pdfX = baseX + (region.x * scale) + paddingLeftPx;
+                                const pdfY = baseY + (region.y * scale) + paddingTopPx;
+
+                                console.log('🎨 Rendering PDF graphic:', {
+                                  fileName: content.content.pdfFileName,
+                                  width: availableWidth,
+                                  height: availableHeight,
+                                  x: pdfX,
+                                  y: pdfY
+                                });
+
+                                return (
+                                  <image
+                                    href={pdfData}
+                                    x={pdfX}
+                                    y={pdfY}
+                                    width={availableWidth}
+                                    height={availableHeight}
+                                    preserveAspectRatio="xMidYMid meet"
+                                    opacity="0.9"
+                                  />
+                                );
+                              })()
+                            ) : (content.type === 'new-washing-care-symbol' || (content.type === 'new-comp-trans' && displayText && /^[bGBJ5\s]+$/.test(displayText))) ? (
                               // Render washing care symbols using Wash Care Symbols M54 font with configuration
                               (() => {
                                 const symbols = content.type === 'new-washing-care-symbol'
@@ -17522,6 +17566,9 @@ function App() {
                               displayText = `[Image: ${content.content.src}]`;
                             } else if (content.type === 'coo' && content.content?.country) {
                               displayText = content.content.country;
+                            } else if (content.type === 'new-graphic' && content.content?.pdfData) {
+                              // Handle PDF/Graphic content - will render as image
+                              displayText = '[PDF_GRAPHIC]'; // Marker for special rendering
                             }
 
                             if (!displayText) {
@@ -17801,12 +17848,53 @@ function App() {
                             // Render text lines (same as main regions)
                             if (displayLines.length === 0) return null;
 
-                            // Render text lines or washing care symbols without clipping (same structure as main regions)
+                            // Render text lines or washing care symbols or PDF graphics without clipping (same structure as main regions)
                             return (
                               <g key={`${childRegion.id}-text-group-${contentIndex}`}>
-                                {/* Render text lines or washing care symbols without clipping */}
+                                {/* Render text lines or washing care symbols or PDF graphics without clipping */}
                                 <g>
-                                  {(content.type === 'new-washing-care-symbol' || (content.type === 'new-comp-trans' && displayText && /^[bGBJ5\s]+$/.test(displayText))) ? (
+                                  {content.type === 'new-graphic' && content.content?.pdfData ? (
+                                    // Render PDF as image at 1:1 scale (child region version)
+                                    (() => {
+                                      const pdfData = content.content.pdfData;
+                                      const effectiveLayout = content.layout;
+                                      const padding = effectiveLayout?.padding || { top: 0, right: 0, bottom: 0, left: 0 };
+
+                                      // Calculate position and size
+                                      const paddingLeftPx = padding.left * scale;
+                                      const paddingTopPx = padding.top * scale;
+                                      const paddingRightPx = padding.right * scale;
+                                      const paddingBottomPx = padding.bottom * scale;
+
+                                      // Available space for PDF
+                                      const availableWidth = regionWidthPx - paddingLeftPx - paddingRightPx;
+                                      const availableHeight = regionHeightPx - paddingTopPx - paddingBottomPx;
+
+                                      // Position PDF at top-left of available space
+                                      const pdfX = childBaseX + paddingLeftPx;
+                                      const pdfY = childBaseY + paddingTopPx;
+
+                                      console.log('🎨 Rendering PDF graphic (child region):', {
+                                        fileName: content.content.pdfFileName,
+                                        width: availableWidth,
+                                        height: availableHeight,
+                                        x: pdfX,
+                                        y: pdfY
+                                      });
+
+                                      return (
+                                        <image
+                                          href={pdfData}
+                                          x={pdfX}
+                                          y={pdfY}
+                                          width={availableWidth}
+                                          height={availableHeight}
+                                          preserveAspectRatio="xMidYMid meet"
+                                          opacity="0.9"
+                                        />
+                                      );
+                                    })()
+                                  ) : (content.type === 'new-washing-care-symbol' || (content.type === 'new-comp-trans' && displayText && /^[bGBJ5\s]+$/.test(displayText))) ? (
                                     // Render washing care symbols using Wash Care Symbols M54 font with configuration
                                     (() => {
                                       const symbols = content.type === 'new-washing-care-symbol'
