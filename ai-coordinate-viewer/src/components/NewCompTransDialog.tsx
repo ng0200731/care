@@ -570,8 +570,14 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
 
     // Use auto-calculated usable height (already has tricky height subtracted)
     // Formula: height = original height - top padding - bottom padding - tricky height
-    // Calculate max lines based on user's reliable usable height
-    const maxLinesPerMother = Math.floor(usableHeightMm / lineHeightMm);
+    //
+    // ✅ OPTION 1 FIX: Add baseline offset to match canvas calculation (App.tsx:277-279)
+    // Canvas reserves space at bottom for text baseline positioning
+    const textBaselineOffsetMm = scaledFontSizeMm * 0.8;
+    const safeUsableHeightMm = usableHeightMm - textBaselineOffsetMm;
+
+    // Calculate max lines based on user's reliable usable height (with baseline offset)
+    const maxLinesPerMother = Math.floor(safeUsableHeightMm / lineHeightMm);
 
 
     // Word wrapping logic
