@@ -422,7 +422,6 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
               customerId: mf.customerId,
               designData: (mf as any).designData // Include designData to access unitPrice
             }));
-          console.log('📦 Loaded master files with designData:', customerMasterFiles);
           setMasterFiles(customerMasterFiles as any);
         }
       } catch (error) {
@@ -737,9 +736,22 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
     // Calculate total quantity from all lines
     const totalQuantity = orderLines.reduce((sum, line) => sum + (line.quantity || 0), 0);
 
-    // Get master file name from selected master file
+    // Get master file name and unit price from selected master file
     const selectedMasterFile = masterFiles.find(mf => mf.id === formData.masterId);
     const masterFileName = selectedMasterFile?.name || formData.masterId || 'N/A';
+
+    // Extract unit price from master file
+    let unitPrice = '';
+    if (selectedMasterFile && (selectedMasterFile as any).designData?.objects) {
+      const motherWithPrice = (selectedMasterFile as any).designData.objects.find((obj: any) =>
+        obj.type === 'mother' && obj.unitPrice
+      );
+      unitPrice = motherWithPrice?.unitPrice || '';
+    }
+
+    // Get customer currency
+    const selectedCustomer = customers.find(c => c.id === formData.customerId);
+    const currency = selectedCustomer?.currency || '';
 
     const orderData = {
       id: `order_${orderIdTimestamp}`,
@@ -754,6 +766,8 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
       quantity: totalQuantity, // Total quantity from all lines
       orderLines: orderLines, // Save all order lines
       variableData: componentVariables,
+      currency: currency, // Add currency
+      unitPrice: unitPrice, // Add unit price
       createdAt: new Date().toISOString(),
       status: status
     };
@@ -1690,20 +1704,12 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
               type="text"
               value={(() => {
                 const selectedMasterFile = masterFiles.find(mf => mf.id === formData.masterId);
-                console.log('💰 Looking for unit price in master file:', formData.masterId);
-                console.log('💰 Selected master file:', selectedMasterFile);
-
                 if (selectedMasterFile && (selectedMasterFile as any).designData?.objects) {
-                  console.log('💰 Design data objects:', (selectedMasterFile as any).designData.objects);
                   const motherWithPrice = (selectedMasterFile as any).designData.objects.find((obj: any) =>
                     obj.type === 'mother' && obj.unitPrice
                   );
-                  console.log('💰 Found mother with price:', motherWithPrice);
-                  const price = motherWithPrice?.unitPrice || '';
-                  console.log('💰 Unit price value:', price);
-                  return price;
+                  return motherWithPrice?.unitPrice || '';
                 }
-                console.log('💰 No designData or objects found');
                 return '';
               })()}
               disabled={true}

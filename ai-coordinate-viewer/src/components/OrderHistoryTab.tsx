@@ -135,6 +135,8 @@ interface Order {
   masterFileName?: string; // Master file name
   quantity: number;
   variableData: any;
+  currency?: string; // Customer currency
+  unitPrice?: string; // Unit price from master file
   createdAt: string;
   status: OrderStatusValue;
 }
@@ -388,50 +390,38 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
     const date = new Date(order.createdAt);
     const formattedDate = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-    // Extract variable data
-    const variables: { name: string; value: string }[] = [];
+    // SUMMARY VARIABLES (Order Number, Total Quantity, Unit Price, Total Amount)
+    const summaryVariables: { name: string; value: string }[] = [];
 
     // Add user-entered order number if available
     if (order.userOrderNumber) {
-      variables.push({ name: 'Order Number', value: order.userOrderNumber });
+      summaryVariables.push({ name: 'Order Number', value: order.userOrderNumber });
     }
 
     // Add total quantity
-    variables.push({ name: 'Total Quantity', value: order.quantity.toString() });
+    summaryVariables.push({ name: 'Total Quantity', value: order.quantity.toString() });
 
-    // Check if order has multiple lines (new format)
-    if ((order as any).orderLines && Array.isArray((order as any).orderLines)) {
-      const orderLines = (order as any).orderLines;
+    // Add unit price
+    if (order.unitPrice) {
+      const currencyLabel = order.currency ? `${order.currency} ` : '';
+      summaryVariables.push({ name: 'Unit Price', value: `${currencyLabel}${order.unitPrice}`.trim() });
+    }
 
-      // Display each line's data (but skip individual line quantities in summary)
-      orderLines.forEach((line: any, lineIndex: number) => {
-        // Line variable component data only (no line quantity in summary)
-        if (line.componentVariables) {
-          Object.entries(line.componentVariables).forEach(([componentId, componentData]: [string, any]) => {
-            if (componentData.type === 'comp-trans') {
-              const compositions = componentData.data?.compositions || [];
-              compositions.forEach((comp: any, index: number) => {
-                if (comp.material && comp.percentage) {
-                  variables.push({
-                    name: `  Material ${index + 1}`,
-                    value: `${comp.percentage}% ${comp.material}`
-                  });
-                }
-              });
-            } else if (componentData.type === 'multi-line') {
-              const textContent = componentData.data?.textContent || '';
-              if (textContent) {
-                variables.push({
-                  name: '  Multi-line Text',
-                  value: textContent
-                });
-              }
-            }
-          });
-        }
-      });
-    } else {
-      // Old format - single line order (backward compatibility)
+    // Add total amount (quantity * unit price)
+    if (order.unitPrice) {
+      const unitPriceNum = parseFloat(order.unitPrice);
+      if (!isNaN(unitPriceNum)) {
+        const totalAmount = (order.quantity * unitPriceNum).toFixed(2);
+        const currencyLabel = order.currency ? `${order.currency} ` : '';
+        summaryVariables.push({ name: 'Total Amount', value: `${currencyLabel}${totalAmount}`.trim() });
+      }
+    }
+
+    // DETAIL VARIABLES (for backward compatibility with old single-line orders)
+    const variables: { name: string; value: string }[] = [];
+
+    // Old format - single line order (backward compatibility)
+    if (!((order as any).orderLines && Array.isArray((order as any).orderLines))) {
       if (order.variableData) {
         Object.entries(order.variableData).forEach(([componentId, componentData]: [string, any]) => {
           if (componentData.type === 'comp-trans') {
@@ -468,6 +458,10 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
       ? `#${order.orderNumber}`
       : `#${order.id.split('_')[1] || order.id}`;
 
+    // For old single-line orders, combine summary and detail variables
+    const isNewFormat = (order as any).orderLines && Array.isArray((order as any).orderLines);
+    const allVariables = isNewFormat ? summaryVariables : [...summaryVariables, ...variables];
+
     return {
       id: order.id,
       orderNumber: displayOrderNumber,
@@ -479,7 +473,7 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
       customerId: order.customerId || 'N/A',
       customerName: order.customerName || 'N/A',
       status: order.status,
-      variables
+      variables: allVariables // Summary variables for new format, combined for old format
     };
   };
 
@@ -1088,15 +1082,16 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
               {/* Check if order has multiple lines */}
               {(order as any).orderLines && Array.isArray((order as any).orderLines) && (order as any).orderLines.length > 0 ? (
                 <>
-                  {/* First row: Order Number and Total Quantity */}
+                  {/* Summary Section: Order Number, Total Quantity, Unit Price, Total Amount */}
                   <div style={{
-                    display: 'flex',
-                    gap: '24px',
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(2, 1fr)',
+                    gap: '16px',
                     marginBottom: '12px',
                     paddingBottom: '12px',
                     borderBottom: '2px solid #e2e8f0'
                   }}>
-                    {displayOrder.variables.slice(0, 2).map((variable, index) => (
+                    {displayOrder.variables.map((variable, index) => (
                       <div key={index}>
                         <span style={{
                           fontSize: '13px',
