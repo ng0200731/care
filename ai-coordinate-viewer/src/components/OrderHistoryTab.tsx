@@ -398,22 +398,26 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
       summaryVariables.push({ name: 'Order Number', value: order.userOrderNumber });
     }
 
-    // Add total quantity
-    summaryVariables.push({ name: 'Total Quantity', value: order.quantity.toString() });
+    // Add total quantity (formatted with commas)
+    const formattedQuantity = order.quantity.toLocaleString('en-US');
+    summaryVariables.push({ name: 'Total Quantity', value: formattedQuantity });
 
-    // Add unit price
+    // Add unit price (formatted with commas and 2 decimals)
     if (order.unitPrice) {
+      const unitPriceNum = parseFloat(order.unitPrice);
+      const formattedUnitPrice = unitPriceNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       const currencyLabel = order.currency ? `${order.currency} ` : '';
-      summaryVariables.push({ name: 'Unit Price', value: `${currencyLabel}${order.unitPrice}`.trim() });
+      summaryVariables.push({ name: 'Unit Price', value: `${currencyLabel}${formattedUnitPrice}`.trim() });
     }
 
-    // Add total amount (quantity * unit price)
+    // Add total amount (quantity * unit price, formatted with commas and 2 decimals)
     if (order.unitPrice) {
       const unitPriceNum = parseFloat(order.unitPrice);
       if (!isNaN(unitPriceNum)) {
-        const totalAmount = (order.quantity * unitPriceNum).toFixed(2);
+        const totalAmount = order.quantity * unitPriceNum;
+        const formattedTotalAmount = totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         const currencyLabel = order.currency ? `${order.currency} ` : '';
-        summaryVariables.push({ name: 'Total Amount', value: `${currencyLabel}${totalAmount}`.trim() });
+        summaryVariables.push({ name: 'Total Amount', value: `${currencyLabel}${formattedTotalAmount}`.trim() });
       }
     }
 
@@ -657,7 +661,7 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
       const col4X = margin + 140;
 
       pdf.text('Layout / Details', col1X, currentY + 5);
-      pdf.text('Quantity', col2X, currentY + 5);
+      pdf.text('Quantity (pcs)', col2X, currentY + 5);
       pdf.text('Unit Price', col3X, currentY + 5);
       pdf.text('Subtotal', col4X, currentY + 5);
       currentY += 10;
@@ -711,10 +715,15 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
           });
         }
 
+        // Format numbers with commas
+        const formattedLineQuantity = lineQuantity.toLocaleString('en-US');
+        const formattedUnitPrice = unitPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const formattedLineSubtotal = parseFloat(lineSubtotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
         // Draw line quantities, prices
-        pdf.text(lineQuantity.toString(), col2X, startY + 3);
-        pdf.text(`${currency} ${unitPrice.toFixed(2)}`, col3X, startY + 3);
-        pdf.text(`${currency} ${lineSubtotal}`, col4X, startY + 3);
+        pdf.text(formattedLineQuantity, col2X, startY + 3);
+        pdf.text(`${currency} ${formattedUnitPrice}`, col3X, startY + 3);
+        pdf.text(`${currency} ${formattedLineSubtotal}`, col4X, startY + 3);
 
         currentY += 3;
 
@@ -724,25 +733,24 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
         currentY += 3;
       });
 
-      // Totals Section
-      currentY += 5;
+      // Move to bottom of page for totals
+      const bottomY = pageHeight - margin - 20;
+
+      // Totals Section at bottom
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(10);
 
-      if (currentY > pageHeight - 30) {
-        pdf.addPage();
-        currentPage++;
-        currentY = addHeaderBlock(currentPage);
-      }
+      // Format numbers with commas
+      const formattedQuantity = totalQuantity.toLocaleString('en-US');
+      const formattedAmount = parseFloat(totalAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-      pdf.text('Total Quantity:', col3X - 30, currentY);
-      pdf.text(totalQuantity.toString(), col4X, currentY);
-      currentY += 6;
+      pdf.text('Total Quantity (pcs):', col3X - 30, bottomY);
+      pdf.text(formattedQuantity, col4X, bottomY);
 
-      pdf.text('Total Amount:', col3X - 30, currentY);
-      pdf.text(`${currency} ${totalAmount}`, col4X, currentY);
+      pdf.text('Total Amount:', col3X - 30, bottomY + 6);
+      pdf.text(`${currency} ${formattedAmount}`, col4X, bottomY + 6);
 
-      // Now add artwork pages
+      // Now add artwork pages after the PO# page
       console.log(`📄 Adding ${orderLines.length} artwork page(s)...`);
 
       // Load layout to get canvas data for artwork generation
@@ -1498,7 +1506,7 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
                           }}>
                             <div>
                               <span style={{ fontSize: '12px', color: '#64748b' }}>Layout {line.lineNumber || lineIndex + 1} Quantity: </span>
-                              <span style={{ fontSize: '13px', color: '#1a202c', fontWeight: '500' }}>{line.quantity}</span>
+                              <span style={{ fontSize: '13px', color: '#1a202c', fontWeight: '500' }}>{line.quantity.toLocaleString('en-US')}</span>
                             </div>
                             {line.componentVariables && Object.entries(line.componentVariables).map(([componentId, componentData]: [string, any]) => (
                               <React.Fragment key={componentId}>
