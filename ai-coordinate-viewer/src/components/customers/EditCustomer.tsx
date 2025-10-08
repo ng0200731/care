@@ -11,7 +11,8 @@ const EditCustomer: React.FC = () => {
     customerName: '',
     person: '',
     email: '',
-    tel: ''
+    tel: '',
+    currency: 'USD'
   });
   const [errors, setErrors] = useState<Partial<UpdateCustomerRequest>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -34,7 +35,8 @@ const EditCustomer: React.FC = () => {
           customerName: customer.customerName,
           person: customer.person,
           email: customer.email,
-          tel: customer.tel
+          tel: customer.tel,
+          currency: customer.currency || 'USD'
         });
       } else {
         // Customer not found, redirect back
@@ -337,7 +339,7 @@ const EditCustomer: React.FC = () => {
         </div>
 
         {/* Phone Number */}
-        <div style={{ marginBottom: '30px' }}>
+        <div style={{ marginBottom: '20px' }}>
           <label style={{
             display: 'block',
             fontSize: '14px',
@@ -382,6 +384,55 @@ const EditCustomer: React.FC = () => {
               {errors.tel}
             </div>
           )}
+        </div>
+
+        {/* Currency */}
+        <div style={{ marginBottom: '30px' }}>
+          <label style={{
+            display: 'block',
+            fontSize: '14px',
+            fontWeight: '600',
+            color: '#2d3748',
+            marginBottom: '6px'
+          }}>
+            Currency
+          </label>
+          <select
+            value={formData.currency || 'USD'}
+            onChange={(e) => handleInputChange('currency', e.target.value)}
+            style={{
+              width: '100%',
+              padding: '10px 12px',
+              border: '1px solid #e2e8f0',
+              fontSize: '14px',
+              color: '#2d3748',
+              outline: 'none',
+              transition: 'border-color 0.3s ease',
+              boxSizing: 'border-box',
+              cursor: 'pointer'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = '#4a5568';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = '#e2e8f0';
+            }}
+          >
+            <option value="USD">USD - US Dollar</option>
+            <option value="EUR">EUR - Euro</option>
+            <option value="GBP">GBP - British Pound</option>
+            <option value="JPY">JPY - Japanese Yen</option>
+            <option value="CNY">CNY - Chinese Yuan</option>
+            <option value="CAD">CAD - Canadian Dollar</option>
+            <option value="AUD">AUD - Australian Dollar</option>
+            <option value="CHF">CHF - Swiss Franc</option>
+            <option value="HKD">HKD - Hong Kong Dollar</option>
+            <option value="SGD">SGD - Singapore Dollar</option>
+            <option value="KRW">KRW - South Korean Won</option>
+            <option value="INR">INR - Indian Rupee</option>
+            <option value="MXN">MXN - Mexican Peso</option>
+            <option value="BRL">BRL - Brazilian Real</option>
+          </select>
         </div>
 
         {/* Submit Button */}

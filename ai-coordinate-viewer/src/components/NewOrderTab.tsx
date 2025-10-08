@@ -419,9 +419,11 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
             .map(mf => ({
               id: mf.id,
               name: mf.name,
-              customerId: mf.customerId
+              customerId: mf.customerId,
+              designData: (mf as any).designData // Include designData to access unitPrice
             }));
-          setMasterFiles(customerMasterFiles);
+          console.log('📦 Loaded master files with designData:', customerMasterFiles);
+          setMasterFiles(customerMasterFiles as any);
         }
       } catch (error) {
         console.error('Failed to load master files:', error);
@@ -1607,7 +1609,7 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
           📝 ORDER DATA
         </h3>
 
-        {/* Order Number and Total Quantity */}
+        {/* Order Number, Total Quantity, and Unit Price */}
         <div style={{
           display: 'flex',
           gap: '32px',
@@ -1668,6 +1670,56 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
             }}>
               {orderLines.reduce((sum, line) => sum + (line.quantity || 0), 0)}
             </div>
+          </div>
+
+          {/* Unit Price */}
+          <div style={{ flex: 1 }}>
+            <label style={{
+              display: 'block',
+              fontSize: '14px',
+              fontWeight: '500',
+              color: '#4a5568',
+              marginBottom: '6px'
+            }}>
+              Unit Price {(() => {
+                const selectedCustomer = customers.find(c => c.id === formData.customerId);
+                return selectedCustomer?.currency ? `(${selectedCustomer.currency})` : '';
+              })()}
+            </label>
+            <input
+              type="text"
+              value={(() => {
+                const selectedMasterFile = masterFiles.find(mf => mf.id === formData.masterId);
+                console.log('💰 Looking for unit price in master file:', formData.masterId);
+                console.log('💰 Selected master file:', selectedMasterFile);
+
+                if (selectedMasterFile && (selectedMasterFile as any).designData?.objects) {
+                  console.log('💰 Design data objects:', (selectedMasterFile as any).designData.objects);
+                  const motherWithPrice = (selectedMasterFile as any).designData.objects.find((obj: any) =>
+                    obj.type === 'mother' && obj.unitPrice
+                  );
+                  console.log('💰 Found mother with price:', motherWithPrice);
+                  const price = motherWithPrice?.unitPrice || '';
+                  console.log('💰 Unit price value:', price);
+                  return price;
+                }
+                console.log('💰 No designData or objects found');
+                return '';
+              })()}
+              disabled={true}
+              style={{
+                width: '100%',
+                maxWidth: '300px',
+                padding: '10px 12px',
+                border: '2px solid #e2e8f0',
+                borderRadius: '6px',
+                fontSize: '14px',
+                backgroundColor: '#f8f9fa',
+                color: '#1a202c',
+                fontWeight: '600',
+                cursor: 'not-allowed'
+              }}
+            />
           </div>
         </div>
 

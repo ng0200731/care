@@ -3395,7 +3395,8 @@ function App() {
         customDistance: 0
       },
       padding: 3
-    }
+    },
+    unitPrice: ''
   });
 
   // Region management state
@@ -9483,7 +9484,8 @@ function App() {
           customDistance: 0
         },
         padding: 3
-      }
+      },
+      unitPrice: ''
     });
 
     setShowMotherDialog(true);
@@ -9515,7 +9517,8 @@ function App() {
       margins: storedMargins,
       sewingPosition: storedSewingPosition,
       sewingOffset: storedSewingOffset,
-      midFoldLine: storedMidFoldLine
+      midFoldLine: storedMidFoldLine,
+      unitPrice: (mother as any).unitPrice || ''
     });
 
     setShowMotherDialog(true);
@@ -9556,7 +9559,8 @@ function App() {
             margins: motherConfig.margins,
             sewingPosition: motherConfig.sewingPosition,
             sewingOffset: motherConfig.sewingOffset,
-            midFoldLine: motherConfig.midFoldLine
+            midFoldLine: motherConfig.midFoldLine,
+            unitPrice: motherConfig.unitPrice
           } as any;
 
           // Check if mother currently has no regions - if so, auto-create them
@@ -9618,6 +9622,7 @@ function App() {
         sewingPosition: motherConfig.sewingPosition,
         sewingOffset: motherConfig.sewingOffset,
         midFoldLine: motherConfig.midFoldLine,
+        unitPrice: motherConfig.unitPrice,
         regions: [] // Initialize with empty regions array first
       } as any;
 
@@ -20522,6 +20527,54 @@ function App() {
                   </div>
                 </div>
               )}
+
+              {/* Unit Price Block */}
+              <div style={{ marginTop: '25px' }}>
+                <h4 style={{ margin: '0 0 15px 0', color: '#666', fontSize: '14px' }}>
+                  💰 Unit Price {selectedCustomer && selectedCustomer.currency && `(${selectedCustomer.currency})`}:
+                </h4>
+                <input
+                  type="text"
+                  value={motherConfig.unitPrice}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    // Only allow numeric input (including decimal point)
+                    if (value === '' || /^\d*\.?\d*$/.test(value)) {
+                      setMotherConfig(prev => ({
+                        ...prev,
+                        unitPrice: value
+                      }));
+                    }
+                  }}
+                  placeholder={`Enter unit price${selectedCustomer && selectedCustomer.currency ? ` in ${selectedCustomer.currency}` : ''}`}
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    border: '1px solid #ddd',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    color: '#333',
+                    outline: 'none',
+                    transition: 'border-color 0.3s'
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = '#4caf50';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = '#ddd';
+                  }}
+                />
+                {!selectedCustomer?.currency && (
+                  <div style={{
+                    marginTop: '8px',
+                    fontSize: '12px',
+                    color: '#999',
+                    fontStyle: 'italic'
+                  }}>
+                    ℹ️ No currency set for this customer. You can set it in Customer Management.
+                  </div>
+                )}
+              </div>
             </div>
 
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>

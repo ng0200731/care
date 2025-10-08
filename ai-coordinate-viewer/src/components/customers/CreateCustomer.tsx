@@ -8,7 +8,8 @@ const CreateCustomer: React.FC = () => {
     customerName: '',
     person: '',
     email: '',
-    tel: ''
+    tel: '',
+    currency: 'USD'
   });
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Partial<CreateCustomerRequest>>({});
@@ -18,31 +19,36 @@ const CreateCustomer: React.FC = () => {
       customerName: 'Fashion Forward Inc.',
       person: 'Emma Johnson',
       email: 'emma.johnson@fashionforward.com',
-      tel: '+1-555-0101'
+      tel: '+1-555-0101',
+      currency: 'USD'
     },
     {
       customerName: 'Global Textile Solutions',
       person: 'Michael Chen',
       email: 'm.chen@globaltextile.com',
-      tel: '+1-555-0202'
+      tel: '+1-555-0202',
+      currency: 'EUR'
     },
     {
       customerName: 'Premium Apparel Co.',
       person: 'Sarah Williams',
       email: 'sarah.w@premiumapparel.com',
-      tel: '+1-555-0303'
+      tel: '+1-555-0303',
+      currency: 'GBP'
     },
     {
       customerName: 'Urban Style Brands',
       person: 'David Rodriguez',
       email: 'david.r@urbanstyle.com',
-      tel: '+1-555-0404'
+      tel: '+1-555-0404',
+      currency: 'CAD'
     },
     {
       customerName: 'Eco-Friendly Fashion',
       person: 'Lisa Thompson',
       email: 'lisa.t@ecofashion.com',
-      tel: '+1-555-0505'
+      tel: '+1-555-0505',
+      currency: 'AUD'
     }
   ];
 
@@ -294,7 +300,7 @@ const CreateCustomer: React.FC = () => {
           </div>
 
           {/* Phone */}
-          <div style={{ marginBottom: '35px' }}>
+          <div style={{ marginBottom: '25px' }}>
             <label style={labelStyle}>Phone Number *</label>
             <input
               type="tel"
@@ -311,6 +317,36 @@ const CreateCustomer: React.FC = () => {
             {errors.tel && (
               <div style={errorStyle}>{errors.tel}</div>
             )}
+          </div>
+
+          {/* Currency */}
+          <div style={{ marginBottom: '35px' }}>
+            <label style={labelStyle}>Currency</label>
+            <select
+              value={formData.currency || 'USD'}
+              onChange={(e) => handleInputChange('currency', e.target.value)}
+              style={{
+                ...inputStyle,
+                cursor: 'pointer'
+              }}
+              onFocus={(e) => e.target.style.borderColor = '#4a5568'}
+              onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
+            >
+              <option value="USD">USD - US Dollar</option>
+              <option value="EUR">EUR - Euro</option>
+              <option value="GBP">GBP - British Pound</option>
+              <option value="JPY">JPY - Japanese Yen</option>
+              <option value="CNY">CNY - Chinese Yuan</option>
+              <option value="CAD">CAD - Canadian Dollar</option>
+              <option value="AUD">AUD - Australian Dollar</option>
+              <option value="CHF">CHF - Swiss Franc</option>
+              <option value="HKD">HKD - Hong Kong Dollar</option>
+              <option value="SGD">SGD - Singapore Dollar</option>
+              <option value="KRW">KRW - South Korean Won</option>
+              <option value="INR">INR - Indian Rupee</option>
+              <option value="MXN">MXN - Mexican Peso</option>
+              <option value="BRL">BRL - Brazilian Real</option>
+            </select>
           </div>
 
           {/* Submit Buttons */}

@@ -7,6 +7,7 @@ export interface Customer {
   person: string;
   email: string;
   tel: string;
+  currency?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -16,6 +17,7 @@ export interface CreateCustomerRequest {
   person: string;
   email: string;
   tel: string;
+  currency?: string;
 }
 
 export interface UpdateCustomerRequest extends Partial<CreateCustomerRequest> {
