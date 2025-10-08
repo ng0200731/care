@@ -554,6 +554,370 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
     return updatedLayout;
   };
 
+  // Preview Order PDF - Generate comprehensive order document with details and artwork
+  const previewOrderPDF = async (order: Order) => {
+    try {
+      console.log('📋 Generating Order PDF for:', order);
+      setIsGeneratingPDF(true);
+
+      // Get customer information
+      const customerName = order.customerName || 'N/A';
+      const customerId = order.customerId || 'N/A';
+
+      // Get order lines (support both new multi-line format and old single-line format)
+      const orderLines = (order as any).orderLines || [
+        {
+          lineNumber: 1,
+          quantity: order.quantity,
+          componentVariables: order.variableData
+        }
+      ];
+
+      // Calculate totals
+      const totalQuantity = order.quantity;
+      const unitPrice = parseFloat(order.unitPrice || '0');
+      const totalAmount = (totalQuantity * unitPrice).toFixed(2);
+      const currency = order.currency || 'USD';
+
+      // Get order date
+      const orderDate = new Date(order.createdAt).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+
+      // Create PDF document (A4 size)
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 20;
+      let currentY = margin;
+      let currentPage = 1;
+      const totalPages = orderLines.length + 1; // 1 page for order details + 1 page per artwork
+
+      // Helper function to add header block on each page
+      const addHeaderBlock = (pageNum: number) => {
+        const headerY = margin;
+
+        // Bill To
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Bill To:', margin, headerY);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(customerName, margin, headerY + 5);
+        pdf.text(`Customer ID: ${customerId}`, margin, headerY + 10);
+
+        // Ship To
+        pdf.setFont('helvetica', 'bold');
+        pdf.text('Ship To:', margin + 80, headerY);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(customerName, margin + 80, headerY + 5);
+        pdf.text(`Customer ID: ${customerId}`, margin + 80, headerY + 10);
+
+        // Page number
+        pdf.setFont('helvetica', 'italic');
+        pdf.setFontSize(9);
+        pdf.text(`Page ${pageNum} / ${totalPages}`, pageWidth - margin - 20, headerY);
+
+        // Order Date
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(`Order Date: ${orderDate}`, pageWidth - margin - 40, headerY + 5);
+
+        // Separator line
+        pdf.setDrawColor(200, 200, 200);
+        pdf.line(margin, headerY + 15, pageWidth - margin, headerY + 15);
+
+        return headerY + 20;
+      };
+
+      // Page 1: Order Details
+      currentY = addHeaderBlock(currentPage);
+
+      // Order Title
+      pdf.setFontSize(16);
+      pdf.setFont('helvetica', 'bold');
+      const orderNumber = order.userOrderNumber || order.orderNumber || order.id;
+      pdf.text(`Order #${orderNumber}`, margin, currentY);
+      currentY += 10;
+
+      // Table Header
+      pdf.setFontSize(9);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFillColor(240, 240, 240);
+      pdf.rect(margin, currentY, pageWidth - 2 * margin, 8, 'F');
+
+      const col1X = margin + 2;
+      const col2X = margin + 50;
+      const col3X = margin + 110;
+      const col4X = margin + 140;
+
+      pdf.text('Layout / Details', col1X, currentY + 5);
+      pdf.text('Quantity', col2X, currentY + 5);
+      pdf.text('Unit Price', col3X, currentY + 5);
+      pdf.text('Subtotal', col4X, currentY + 5);
+      currentY += 10;
+
+      // Table Rows - Order Lines
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(8);
+
+      orderLines.forEach((line: any, index: number) => {
+        const lineNumber = line.lineNumber || index + 1;
+        const lineQuantity = line.quantity || 0;
+        const lineSubtotal = (lineQuantity * unitPrice).toFixed(2);
+
+        // Check if we need a new page
+        if (currentY > pageHeight - 40) {
+          pdf.addPage();
+          currentPage++;
+          currentY = addHeaderBlock(currentPage);
+        }
+
+        // Layout number
+        const startY = currentY;
+        pdf.text(`Layout ${lineNumber}`, col1X, currentY + 3);
+        currentY += 5;
+
+        // Component variables
+        if (line.componentVariables) {
+          Object.entries(line.componentVariables).forEach(([componentId, componentData]: [string, any]) => {
+            if (currentY > pageHeight - 40) {
+              pdf.addPage();
+              currentPage++;
+              currentY = addHeaderBlock(currentPage);
+            }
+
+            if (componentData.type === 'comp-trans') {
+              const compositions = componentData.data?.compositions || [];
+              pdf.text('Composition:', col1X + 3, currentY);
+              currentY += 4;
+              compositions.forEach((comp: any) => {
+                if (comp.material && comp.percentage) {
+                  pdf.text(`  ${comp.percentage}% ${comp.material}`, col1X + 3, currentY);
+                  currentY += 4;
+                }
+              });
+            } else if (componentData.type === 'multi-line') {
+              const textContent = componentData.data?.textContent || '';
+              const remark = componentData.remark ? ` (${componentData.remark})` : '';
+              pdf.text(`Text${remark}: ${textContent}`, col1X + 3, currentY);
+              currentY += 4;
+            }
+          });
+        }
+
+        // Draw line quantities, prices
+        pdf.text(lineQuantity.toString(), col2X, startY + 3);
+        pdf.text(`${currency} ${unitPrice.toFixed(2)}`, col3X, startY + 3);
+        pdf.text(`${currency} ${lineSubtotal}`, col4X, startY + 3);
+
+        currentY += 3;
+
+        // Separator line
+        pdf.setDrawColor(220, 220, 220);
+        pdf.line(margin, currentY, pageWidth - margin, currentY);
+        currentY += 3;
+      });
+
+      // Totals Section
+      currentY += 5;
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(10);
+
+      if (currentY > pageHeight - 30) {
+        pdf.addPage();
+        currentPage++;
+        currentY = addHeaderBlock(currentPage);
+      }
+
+      pdf.text('Total Quantity:', col3X - 30, currentY);
+      pdf.text(totalQuantity.toString(), col4X, currentY);
+      currentY += 6;
+
+      pdf.text('Total Amount:', col3X - 30, currentY);
+      pdf.text(`${currency} ${totalAmount}`, col4X, currentY);
+
+      // Now add artwork pages
+      console.log(`📄 Adding ${orderLines.length} artwork page(s)...`);
+
+      // Load layout to get canvas data for artwork generation
+      const storageKey = `project_${order.projectSlug}_layouts`;
+      const savedLayouts = localStorage.getItem(storageKey);
+
+      if (!savedLayouts) {
+        console.warn('⚠️ No layouts found, saving PDF without artwork');
+        const pdfBlob = pdf.output('blob');
+        const url = URL.createObjectURL(pdfBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `Order_${orderNumber}_${new Date().toISOString().slice(0, 10)}.pdf`;
+        link.click();
+        URL.revokeObjectURL(url);
+        setIsGeneratingPDF(false);
+        return;
+      }
+
+      const parsedLayouts = JSON.parse(savedLayouts);
+      const layout = parsedLayouts.find((l: any) => l.id === order.layoutId);
+
+      if (!layout || !layout.canvasData) {
+        console.warn('⚠️ Layout data not found, saving PDF without artwork');
+        const pdfBlob = pdf.output('blob');
+        const url = URL.createObjectURL(pdfBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `Order_${orderNumber}_${new Date().toISOString().slice(0, 10)}.pdf`;
+        link.click();
+        URL.revokeObjectURL(url);
+        setIsGeneratingPDF(false);
+        return;
+      }
+
+      // Generate artwork PDFs for each line and merge
+      const artworkPDFs: Array<{ pageNumber: number, pdfData: string }> = [];
+
+      for (let i = 0; i < orderLines.length; i++) {
+        const line = orderLines[i];
+
+        // Save line data to sessionStorage for canvas to access
+        const orderPreviewData = {
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          userOrderNumber: order.userOrderNumber,
+          customerName: order.customerName,
+          projectSlug: order.projectSlug,
+          layoutId: order.layoutId,
+          currentLineIndex: i,
+          currentLine: line,
+          totalLines: orderLines.length,
+          multiPageMode: true
+        };
+
+        sessionStorage.setItem('__order_preview_data__', JSON.stringify(orderPreviewData));
+
+        // Generate artwork PDF using iframe (same as order2preview)
+        const artworkPdfData = await new Promise<string>((resolve, reject) => {
+          const iframe = document.createElement('iframe');
+          iframe.style.position = 'fixed';
+          iframe.style.top = '-9999px';
+          iframe.style.left = '-9999px';
+          iframe.style.width = '1920px';
+          iframe.style.height = '1080px';
+          iframe.style.border = 'none';
+          iframe.style.opacity = '0';
+          iframe.style.pointerEvents = 'none';
+
+          const masterFileId = layout.canvasData?.masterFileId || '';
+          const projectName = order.projectSlug;
+          const canvasUrl = `/create_zero?context=projects&projectSlug=${order.projectSlug}&masterFileId=${masterFileId}&projectName=${encodeURIComponent(projectName)}&layoutId=${order.layoutId}&orderPreview=true&autoGeneratePDF=true&onlyPreview=true&lineIndex=${i}`;
+
+          console.log(`📍 Loading canvas for artwork Line ${i + 1}:`, canvasUrl);
+
+          const messageHandler = (event: MessageEvent) => {
+            if (event.data.type === 'PDF_PAGE_GENERATED') {
+              console.log(`✅ Artwork PDF generated for Line ${i + 1}`);
+              window.removeEventListener('message', messageHandler);
+              clearTimeout(timeout);
+              document.body.removeChild(iframe);
+              resolve(event.data.pdfData);
+            } else if (event.data.type === 'PDF_ERROR') {
+              console.error(`❌ PDF error for Line ${i + 1}:`, event.data.error);
+              window.removeEventListener('message', messageHandler);
+              clearTimeout(timeout);
+              document.body.removeChild(iframe);
+              reject(new Error(event.data.error));
+            }
+          };
+
+          window.addEventListener('message', messageHandler);
+
+          const timeout = setTimeout(() => {
+            console.error(`❌ Timeout generating artwork PDF for Line ${i + 1}`);
+            window.removeEventListener('message', messageHandler);
+            if (document.body.contains(iframe)) {
+              document.body.removeChild(iframe);
+            }
+            reject(new Error('Timeout'));
+          }, 60000);
+
+          iframe.onload = () => {
+            console.log(`✅ Canvas iframe loaded for Line ${i + 1}`);
+          };
+
+          iframe.onerror = () => {
+            console.error(`❌ Canvas iframe failed to load for Line ${i + 1}`);
+            clearTimeout(timeout);
+            window.removeEventListener('message', messageHandler);
+            document.body.removeChild(iframe);
+            reject(new Error('Iframe load failed'));
+          };
+
+          iframe.src = canvasUrl;
+          document.body.appendChild(iframe);
+        });
+
+        artworkPDFs.push({ pageNumber: i + 1, pdfData: artworkPdfData });
+      }
+
+      // Merge order details PDF with artwork PDFs
+      console.log(`📄 Merging order details with ${artworkPDFs.length} artwork PDF(s)...`);
+
+      const { PDFDocument } = await import('pdf-lib');
+
+      // Save current order details PDF
+      const orderDetailsPdfBytes = pdf.output('arraybuffer');
+      const mergedPdf = await PDFDocument.load(orderDetailsPdfBytes);
+
+      // Add artwork PDFs
+      for (let i = 0; i < artworkPDFs.length; i++) {
+        const artworkData = artworkPDFs[i];
+        console.log(`📄 Adding artwork ${i + 1} to merged PDF...`);
+
+        // Convert data URI to Uint8Array
+        const base64Data = artworkData.pdfData.split(',')[1];
+        const binaryData = atob(base64Data);
+        const uint8Array = new Uint8Array(binaryData.length);
+        for (let j = 0; j < binaryData.length; j++) {
+          uint8Array[j] = binaryData.charCodeAt(j);
+        }
+
+        // Load the artwork PDF
+        const artworkPdf = await PDFDocument.load(uint8Array);
+
+        // Copy pages from artwork PDF to merged PDF
+        const copiedPages = await mergedPdf.copyPages(artworkPdf, artworkPdf.getPageIndices());
+        copiedPages.forEach((page) => {
+          mergedPdf.addPage(page);
+        });
+
+        console.log(`✅ Artwork ${i + 1} added to merged PDF`);
+      }
+
+      // Save merged PDF
+      const mergedPdfBytes = await mergedPdf.save();
+      const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Order_${orderNumber}_${new Date().toISOString().slice(0, 10)}.pdf`;
+      link.click();
+      URL.revokeObjectURL(url);
+
+      console.log('✅ Order PDF with artwork generated successfully');
+      setIsGeneratingPDF(false);
+
+    } catch (error) {
+      console.error('❌ Error generating Order PDF:', error);
+      setIsGeneratingPDF(false);
+      alert(`❌ Error generating Order PDF: ${error}`);
+    }
+  };
+
   // Preview artwork - Generate PDF using hidden iframe (same quality as "Print as PDF")
   const order2preview = async (order: Order) => {
     try {
@@ -1290,6 +1654,38 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
                   👁️ View
                 </button>
               )}
+
+              {/* Preview Order button - only active for confirmed and later statuses */}
+              <button
+                onClick={() => displayOrder.status !== 'draft' ? previewOrderPDF(order) : null}
+                disabled={displayOrder.status === 'draft'}
+                style={{
+                  padding: '8px 16px',
+                  fontSize: '13px',
+                  fontWeight: '500',
+                  color: displayOrder.status === 'draft' ? '#cbd5e0' : 'white',
+                  backgroundColor: displayOrder.status === 'draft' ? '#f1f5f9' : '#10b981',
+                  border: displayOrder.status === 'draft' ? '2px solid #e2e8f0' : '2px solid #10b981',
+                  borderRadius: '6px',
+                  cursor: displayOrder.status === 'draft' ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.2s',
+                  opacity: displayOrder.status === 'draft' ? 0.5 : 1
+                }}
+                onMouseEnter={(e) => {
+                  if (displayOrder.status !== 'draft') {
+                    e.currentTarget.style.backgroundColor = '#059669';
+                    e.currentTarget.style.borderColor = '#059669';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (displayOrder.status !== 'draft') {
+                    e.currentTarget.style.backgroundColor = '#10b981';
+                    e.currentTarget.style.borderColor = '#10b981';
+                  }
+                }}
+              >
+                📋 Preview Order
+              </button>
 
               {/* Preview Artwork button - only active for confirmed and later statuses */}
               <button
