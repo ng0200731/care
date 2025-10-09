@@ -648,19 +648,21 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
       const totalQuantity = order.quantity;
       const unitPrice = parseFloat(order.unitPrice || '0');
 
-      // Calculate total amount: sum of (Layout Quantity × Mother Count × Unit Price)
+      // Calculate total amount: sum of (Layout Quantity × Actual Page Count × Unit Price)
       let totalAmount = 0;
-      if (motherCount > 0) {
-        orderLines.forEach((line: any) => {
-          const lineQuantity = line.quantity || 0;
-          totalAmount += lineQuantity * motherCount * unitPrice;
-        });
-      }
+      orderLines.forEach((line: any) => {
+        const lineQuantity = line.quantity || 0;
+        // Use actual page count if available, otherwise use motherCount
+        const linePageCount = line.actualPageCount || motherCount;
+        totalAmount += lineQuantity * linePageCount * unitPrice;
+      });
       const totalAmountStr = totalAmount.toFixed(2);
       const currency = order.currency || 'USD';
 
-      // Calculate total number of pages
-      const totalPages = orderLines.length * motherCount;
+      // Calculate total number of pages using actual page counts if available
+      const totalPages = orderLines.reduce((sum: number, line: any) => {
+        return sum + (line.actualPageCount || motherCount);
+      }, 0);
 
       // Get order date
       const orderDate = new Date(order.createdAt).toLocaleDateString('en-US', {
@@ -754,7 +756,10 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
       orderLines.forEach((line: any, index: number) => {
         const lineNumber = line.lineNumber || index + 1;
         const lineQuantity = line.quantity || 0;
-        const lineSubtotal = (lineQuantity * motherCount * unitPrice).toFixed(2);
+
+        // Use actual page count if available, otherwise use motherCount
+        const linePageCount = line.actualPageCount || motherCount;
+        const lineSubtotal = (lineQuantity * linePageCount * unitPrice).toFixed(2);
 
         // Check if we need a new page
         if (currentY > pageHeight - 40) {
@@ -801,9 +806,9 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
         const formattedUnitPrice = unitPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         const formattedLineSubtotal = parseFloat(lineSubtotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-        // Draw line quantities, mother count, prices
+        // Draw line quantities, page count (actual if available, otherwise motherCount), prices
         pdf.text(formattedLineQuantity, col2X, startY + 3);
-        pdf.text(motherCount.toString(), col3X, startY + 3);
+        pdf.text(linePageCount.toString(), col3X, startY + 3);
         pdf.text(`${currency} ${formattedUnitPrice}`, col4X, startY + 3);
         pdf.text(`${currency} ${formattedLineSubtotal}`, col5X, startY + 3);
 
@@ -826,11 +831,14 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
       const formattedQuantity = totalQuantity.toLocaleString('en-US');
       const formattedAmount = parseFloat(totalAmountStr).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-      // Create breakdown string for total pages
+      // Create breakdown string for total pages using actual page counts
       let totalPagesText = totalPages.toString();
       if (orderLines.length > 1) {
         const breakdown = orderLines
-          .map((line: any, index: number) => `layout ${index + 1} : ${motherCount}`)
+          .map((line: any, index: number) => {
+            const linePageCount = line.actualPageCount || motherCount;
+            return `layout ${index + 1} : ${linePageCount}`;
+          })
           .join(' + ');
         totalPagesText = `${totalPages} (${breakdown})`;
       }
@@ -881,7 +889,7 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
       }
 
       // Generate artwork PDFs for each line and merge
-      const artworkPDFs: Array<{ pageNumber: number, pdfData: string }> = [];
+      const artworkPDFs: Array<{ pageNumber: number, pdfData: string, actualMotherCount?: number }> = [];
 
       for (let i = 0; i < orderLines.length; i++) {
         const line = orderLines[i];
@@ -923,6 +931,14 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
           const messageHandler = (event: MessageEvent) => {
             if (event.data.type === 'PDF_PAGE_GENERATED') {
               console.log(`✅ Artwork PDF generated for Line ${i + 1}`);
+              console.log(`📊 Actual mother count received: ${event.data.actualMotherCount}`);
+
+              // Update the order line with actual page count
+              if (event.data.actualMotherCount !== undefined) {
+                line.actualPageCount = event.data.actualMotherCount;
+                console.log(`✅ Updated Line ${i + 1} with actualPageCount: ${event.data.actualMotherCount}`);
+              }
+
               window.removeEventListener('message', messageHandler);
               clearTimeout(timeout);
               document.body.removeChild(iframe);
@@ -1011,6 +1027,34 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
       URL.revokeObjectURL(url);
 
       console.log('✅ Order PDF with artwork generated successfully');
+
+      // Save updated order with actual page counts to localStorage
+      console.log('💾 Saving updated order with actual page counts...');
+      try {
+        const savedOrders = localStorage.getItem('order_management');
+        if (savedOrders) {
+          const parsedOrders = JSON.parse(savedOrders);
+          const updatedOrders = parsedOrders.map((o: Order) => {
+            if (o.id === order.id) {
+              // Update order with actual page counts
+              return {
+                ...o,
+                orderLines: orderLines // Contains updated actualPageCount for each line
+              };
+            }
+            return o;
+          });
+
+          localStorage.setItem('order_management', JSON.stringify(updatedOrders));
+          console.log('✅ Order saved with actual page counts:', orderLines.map((l: any) => ({ line: l.lineNumber, actualPageCount: l.actualPageCount })));
+
+          // Reload orders to refresh the display
+          loadOrders();
+        }
+      } catch (saveError) {
+        console.error('❌ Error saving updated order:', saveError);
+      }
+
       setIsGeneratingPDF(false);
 
     } catch (error) {
