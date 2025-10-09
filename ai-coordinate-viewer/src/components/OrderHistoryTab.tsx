@@ -414,7 +414,7 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
     const date = new Date(order.createdAt);
     const formattedDate = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-    // SUMMARY VARIABLES (Order Number, Total Quantity, Unit Price, Total Amount)
+    // SUMMARY VARIABLES (Order Number, Total Quantity, Total # of page, Unit Price, Total Amount)
     const summaryVariables: { name: string; value: string }[] = [];
 
     // Add user-entered order number if available
@@ -426,6 +426,35 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
     const formattedQuantity = order.quantity.toLocaleString('en-US');
     summaryVariables.push({ name: 'Total Quantity', value: formattedQuantity });
 
+    // Calculate total number of pages using actual page counts when available
+    const orderLines = (order as any).orderLines || [];
+
+    // Check if all lines have actual page counts
+    const hasAllPageCounts = orderLines.length > 0 && orderLines.every((line: any) => line.actualPageCount);
+
+    if (hasAllPageCounts) {
+      // Use actual page counts
+      const totalPages = orderLines.reduce((sum: number, line: any) => sum + (line.actualPageCount || 0), 0);
+
+      if (orderLines.length > 1) {
+        const breakdown = orderLines
+          .map((line: any, index: number) => `layout ${index + 1} : ${line.actualPageCount || 0}`)
+          .join(' + ');
+        summaryVariables.push({
+          name: 'Total # of page',
+          value: `${totalPages} (${breakdown})`
+        });
+      } else {
+        summaryVariables.push({ name: 'Total # of page', value: totalPages.toString() });
+      }
+    } else {
+      // Show placeholder if page counts not yet known
+      summaryVariables.push({
+        name: 'Total # of page',
+        value: '(it will be known after artwork preview)'
+      });
+    }
+
     // Add unit price (formatted with commas and 2 decimals)
     if (order.unitPrice) {
       const unitPriceNum = parseFloat(order.unitPrice);
@@ -434,14 +463,25 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
       summaryVariables.push({ name: 'Unit Price', value: `${currencyLabel}${formattedUnitPrice}`.trim() });
     }
 
-    // Add total amount (quantity * unit price, formatted with commas and 2 decimals)
+    // Add total amount (sum of: Layout Quantity × Actual Page Count × Unit Price for each layout)
     if (order.unitPrice) {
       const unitPriceNum = parseFloat(order.unitPrice);
-      if (!isNaN(unitPriceNum)) {
-        const totalAmount = order.quantity * unitPriceNum;
+      if (!isNaN(unitPriceNum) && hasAllPageCounts) {
+        let totalAmount = 0;
+
+        // Multi-line format: sum of (each layout's quantity × actual page count × unit price)
+        orderLines.forEach((line: any) => {
+          const lineQuantity = line.quantity || 0;
+          const linePageCount = line.actualPageCount || 0;
+          totalAmount += lineQuantity * linePageCount * unitPriceNum;
+        });
+
         const formattedTotalAmount = totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         const currencyLabel = order.currency ? `${order.currency} ` : '';
         summaryVariables.push({ name: 'Total Amount', value: `${currencyLabel}${formattedTotalAmount}`.trim() });
+      } else if (!isNaN(unitPriceNum)) {
+        // Show placeholder if page counts not yet known
+        summaryVariables.push({ name: 'Total Amount', value: '(it will be known after artwork preview)' });
       }
     }
 
@@ -601,11 +641,26 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
         }
       ];
 
+      // Get mother count for calculations
+      const motherCount = getMotherCount(order.projectSlug, order.layoutId);
+
       // Calculate totals
       const totalQuantity = order.quantity;
       const unitPrice = parseFloat(order.unitPrice || '0');
-      const totalAmount = (totalQuantity * unitPrice).toFixed(2);
+
+      // Calculate total amount: sum of (Layout Quantity × Mother Count × Unit Price)
+      let totalAmount = 0;
+      if (motherCount > 0) {
+        orderLines.forEach((line: any) => {
+          const lineQuantity = line.quantity || 0;
+          totalAmount += lineQuantity * motherCount * unitPrice;
+        });
+      }
+      const totalAmountStr = totalAmount.toFixed(2);
       const currency = order.currency || 'USD';
+
+      // Calculate total number of pages
+      const totalPages = orderLines.length * motherCount;
 
       // Get order date
       const orderDate = new Date(order.createdAt).toLocaleDateString('en-US', {
@@ -626,7 +681,7 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
       const margin = 20;
       let currentY = margin;
       let currentPage = 1;
-      const totalPages = orderLines.length + 1; // 1 page for order details + 1 page per artwork
+      const totalPDFPages = orderLines.length + 1; // 1 page for order details + 1 page per artwork
 
       // Helper function to add header block on each page
       const addHeaderBlock = (pageNum: number) => {
@@ -650,7 +705,7 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
         // Page number
         pdf.setFont('helvetica', 'italic');
         pdf.setFontSize(9);
-        pdf.text(`Page ${pageNum} / ${totalPages}`, pageWidth - margin - 20, headerY);
+        pdf.text(`Page ${pageNum} / ${totalPDFPages}`, pageWidth - margin - 20, headerY);
 
         // Order Date
         pdf.setFont('helvetica', 'normal');
@@ -681,13 +736,15 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
 
       const col1X = margin + 2;
       const col2X = margin + 50;
-      const col3X = margin + 110;
-      const col4X = margin + 140;
+      const col3X = margin + 90;
+      const col4X = margin + 120;
+      const col5X = margin + 150;
 
       pdf.text('Layout / Details', col1X, currentY + 5);
       pdf.text('Quantity (pcs)', col2X, currentY + 5);
-      pdf.text('Unit Price', col3X, currentY + 5);
-      pdf.text('Subtotal', col4X, currentY + 5);
+      pdf.text('no of page', col3X, currentY + 5);
+      pdf.text('Unit Price', col4X, currentY + 5);
+      pdf.text('Subtotal', col5X, currentY + 5);
       currentY += 10;
 
       // Table Rows - Order Lines
@@ -697,7 +754,7 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
       orderLines.forEach((line: any, index: number) => {
         const lineNumber = line.lineNumber || index + 1;
         const lineQuantity = line.quantity || 0;
-        const lineSubtotal = (lineQuantity * unitPrice).toFixed(2);
+        const lineSubtotal = (lineQuantity * motherCount * unitPrice).toFixed(2);
 
         // Check if we need a new page
         if (currentY > pageHeight - 40) {
@@ -744,10 +801,11 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
         const formattedUnitPrice = unitPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         const formattedLineSubtotal = parseFloat(lineSubtotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-        // Draw line quantities, prices
+        // Draw line quantities, mother count, prices
         pdf.text(formattedLineQuantity, col2X, startY + 3);
-        pdf.text(`${currency} ${formattedUnitPrice}`, col3X, startY + 3);
-        pdf.text(`${currency} ${formattedLineSubtotal}`, col4X, startY + 3);
+        pdf.text(motherCount.toString(), col3X, startY + 3);
+        pdf.text(`${currency} ${formattedUnitPrice}`, col4X, startY + 3);
+        pdf.text(`${currency} ${formattedLineSubtotal}`, col5X, startY + 3);
 
         currentY += 3;
 
@@ -758,7 +816,7 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
       });
 
       // Move to bottom of page for totals
-      const bottomY = pageHeight - margin - 20;
+      const bottomY = pageHeight - margin - 30;
 
       // Totals Section at bottom
       pdf.setFont('helvetica', 'bold');
@@ -766,13 +824,25 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
 
       // Format numbers with commas
       const formattedQuantity = totalQuantity.toLocaleString('en-US');
-      const formattedAmount = parseFloat(totalAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const formattedAmount = parseFloat(totalAmountStr).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-      pdf.text('Total Quantity (pcs):', col3X - 30, bottomY);
-      pdf.text(formattedQuantity, col4X, bottomY);
+      // Create breakdown string for total pages
+      let totalPagesText = totalPages.toString();
+      if (orderLines.length > 1) {
+        const breakdown = orderLines
+          .map((line: any, index: number) => `layout ${index + 1} : ${motherCount}`)
+          .join(' + ');
+        totalPagesText = `${totalPages} (${breakdown})`;
+      }
 
-      pdf.text('Total Amount:', col3X - 30, bottomY + 6);
-      pdf.text(`${currency} ${formattedAmount}`, col4X, bottomY + 6);
+      pdf.text('Total Quantity (pcs):', col4X - 30, bottomY);
+      pdf.text(formattedQuantity, col5X, bottomY);
+
+      pdf.text('Total # of page:', col4X - 30, bottomY + 6);
+      pdf.text(totalPagesText, col5X, bottomY + 6);
+
+      pdf.text('Total Amount:', col4X - 30, bottomY + 12);
+      pdf.text(`${currency} ${formattedAmount}`, col5X, bottomY + 12);
 
       // Now add artwork pages after the PO# page
       console.log(`📄 Adding ${orderLines.length} artwork page(s)...`);
@@ -1013,7 +1083,7 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
       console.log(`📄 Generating ${totalPages} page(s) for ${totalPages} order line(s) in ONE PDF file with Print as PDF styling`);
 
       let completedPages = 0;
-      const pdfPages: Array<{ pageNumber: number, pdfData: string, paperWidth: number, paperHeight: number, orientation: string }> = [];
+      const pdfPages: Array<{ pageNumber: number, pdfData: string, actualMotherCount?: number, paperWidth: number, paperHeight: number, orientation: string }> = [];
 
       // Function to generate PDF page for a specific line using Print as PDF method
       const generatePDFForLine = (lineIndex: number) => {
@@ -1052,15 +1122,23 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
           const messageHandler = (event: MessageEvent) => {
             if (event.data.type === 'PDF_PAGE_GENERATED') {
               console.log(`✅ PDF page generated for Line ${lineIndex + 1}/${totalPages}`);
+              console.log(`📊 Actual mother count received: ${event.data.actualMotherCount}`);
 
-              // Store PDF page data
+              // Store PDF page data with actual mother count
               pdfPages.push({
                 pageNumber: event.data.pageNumber,
                 pdfData: event.data.pdfData,
+                actualMotherCount: event.data.actualMotherCount, // Capture actual rendered mother count
                 paperWidth: event.data.paperWidth,
                 paperHeight: event.data.paperHeight,
                 orientation: event.data.orientation
               });
+
+              // Update the order line with actual page count
+              if (event.data.actualMotherCount !== undefined) {
+                orderLines[lineIndex].actualPageCount = event.data.actualMotherCount;
+                console.log(`✅ Updated Line ${lineIndex + 1} with actualPageCount: ${event.data.actualMotherCount}`);
+              }
 
               // Clear timeout
               clearTimeout(timeout);
@@ -1179,6 +1257,34 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
           URL.revokeObjectURL(url);
 
           console.log(`✅ Combined PDF with ${totalPages} page(s) generated successfully: ${fileName}`);
+
+          // Save updated order with actual page counts to localStorage
+          console.log('💾 Saving updated order with actual page counts...');
+          try {
+            const savedOrders = localStorage.getItem('order_management');
+            if (savedOrders) {
+              const parsedOrders = JSON.parse(savedOrders);
+              const updatedOrders = parsedOrders.map((o: Order) => {
+                if (o.id === order.id) {
+                  // Update order with actual page counts
+                  return {
+                    ...o,
+                    orderLines: orderLines // Contains updated actualPageCount for each line
+                  };
+                }
+                return o;
+              });
+
+              localStorage.setItem('order_management', JSON.stringify(updatedOrders));
+              console.log('✅ Order saved with actual page counts:', orderLines.map((l: any) => ({ line: l.lineNumber, actualPageCount: l.actualPageCount })));
+
+              // Reload orders to refresh the display
+              loadOrders();
+            }
+          } catch (saveError) {
+            console.error('❌ Error saving updated order:', saveError);
+          }
+
           setIsGeneratingPDF(false);
 
         } catch (error) {
@@ -1510,7 +1616,12 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
 
                   {/* Lines with individual PDF icons */}
                   {(order as any).orderLines.map((line: any, lineIndex: number) => {
-                    const motherCount = getMotherCount(order.projectSlug, order.layoutId);
+                    // Use stored page count if available, otherwise show placeholder
+                    const actualPageCount = line.actualPageCount;
+                    const pageCountText = actualPageCount
+                      ? actualPageCount.toString()
+                      : '(it will be known after artwork preview)';
+
                     return (
                     <div key={lineIndex} style={{
                       marginBottom: '12px',
@@ -1534,12 +1645,10 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
                               <span style={{ fontSize: '12px', color: '#64748b' }}>Layout {line.lineNumber || lineIndex + 1} Quantity: </span>
                               <span style={{ fontSize: '13px', color: '#1a202c', fontWeight: '500' }}>{line.quantity.toLocaleString('en-US')}</span>
                             </div>
-                            {motherCount > 0 && (
-                              <div>
-                                <span style={{ fontSize: '12px', color: '#64748b' }}>no of page: </span>
-                                <span style={{ fontSize: '13px', color: '#1a202c', fontWeight: '500' }}>{motherCount}</span>
-                              </div>
-                            )}
+                            <div>
+                              <span style={{ fontSize: '12px', color: '#64748b' }}>no of page: </span>
+                              <span style={{ fontSize: '13px', color: '#1a202c', fontWeight: '500', fontStyle: actualPageCount ? 'normal' : 'italic' }}>{pageCountText}</span>
+                            </div>
                             {line.componentVariables && Object.entries(line.componentVariables).map(([componentId, componentData]: [string, any]) => (
                               <React.Fragment key={componentId}>
                                 {componentData.type === 'multi-line' && (
