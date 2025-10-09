@@ -1048,8 +1048,8 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
           localStorage.setItem('order_management', JSON.stringify(updatedOrders));
           console.log('✅ Order saved with actual page counts:', orderLines.map((l: any) => ({ line: l.lineNumber, actualPageCount: l.actualPageCount })));
 
-          // Reload orders to refresh the display
-          loadOrders();
+          // Update state immediately to refresh the display
+          setOrders(updatedOrders);
         }
       } catch (saveError) {
         console.error('❌ Error saving updated order:', saveError);
@@ -1322,8 +1322,8 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
               localStorage.setItem('order_management', JSON.stringify(updatedOrders));
               console.log('✅ Order saved with actual page counts:', orderLines.map((l: any) => ({ line: l.lineNumber, actualPageCount: l.actualPageCount })));
 
-              // Reload orders to refresh the display
-              loadOrders();
+              // Update state immediately to refresh the display
+              setOrders(updatedOrders);
             }
           } catch (saveError) {
             console.error('❌ Error saving updated order:', saveError);
