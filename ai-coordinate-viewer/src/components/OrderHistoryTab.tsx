@@ -385,6 +385,30 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
     return 'N/A';
   };
 
+  // Get mother count (number of pages) from layoutId
+  const getMotherCount = (projectSlug: string, layoutId: string): number => {
+    try {
+      const storageKey = `project_${projectSlug}_layouts`;
+      const savedLayouts = localStorage.getItem(storageKey);
+
+      if (savedLayouts) {
+        const parsedLayouts = JSON.parse(savedLayouts);
+        const layout = parsedLayouts.find((l: any) => l.id === layoutId);
+
+        if (layout?.canvasData?.objects && Array.isArray(layout.canvasData.objects)) {
+          // Count objects that have "mother" in their type
+          const motherCount = layout.canvasData.objects.filter((obj: any) =>
+            obj.type && obj.type.includes('mother')
+          ).length;
+          return motherCount;
+        }
+      }
+    } catch (error) {
+      console.error('Error counting mothers:', error);
+    }
+    return 0;
+  };
+
   // Format order data for display
   const formatOrderForDisplay = (order: Order) => {
     const date = new Date(order.createdAt);
@@ -1485,7 +1509,9 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
                   </div>
 
                   {/* Lines with individual PDF icons */}
-                  {(order as any).orderLines.map((line: any, lineIndex: number) => (
+                  {(order as any).orderLines.map((line: any, lineIndex: number) => {
+                    const motherCount = getMotherCount(order.projectSlug, order.layoutId);
+                    return (
                     <div key={lineIndex} style={{
                       marginBottom: '12px',
                       padding: '12px',
@@ -1508,6 +1534,12 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
                               <span style={{ fontSize: '12px', color: '#64748b' }}>Layout {line.lineNumber || lineIndex + 1} Quantity: </span>
                               <span style={{ fontSize: '13px', color: '#1a202c', fontWeight: '500' }}>{line.quantity.toLocaleString('en-US')}</span>
                             </div>
+                            {motherCount > 0 && (
+                              <div>
+                                <span style={{ fontSize: '12px', color: '#64748b' }}>no of page: </span>
+                                <span style={{ fontSize: '13px', color: '#1a202c', fontWeight: '500' }}>{motherCount}</span>
+                              </div>
+                            )}
                             {line.componentVariables && Object.entries(line.componentVariables).map(([componentId, componentData]: [string, any]) => (
                               <React.Fragment key={componentId}>
                                 {componentData.type === 'multi-line' && (
@@ -1573,7 +1605,8 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
                         )}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </>
               ) : (
                 // Old single-line format
