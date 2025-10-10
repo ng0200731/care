@@ -1972,6 +1972,32 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                     : 'Variable Components'}
                 </label>
 
+                {/* Display selected languages for comp-trans components */}
+                {formData.layoutId && variableComponents.some(comp => comp.type === 'comp-trans' && comp.config?.selectedLanguages) && (
+                  <div style={{
+                    marginBottom: '8px',
+                    padding: '8px 12px',
+                    backgroundColor: '#eff6ff',
+                    border: '1px solid #dbeafe',
+                    borderRadius: '6px',
+                    fontSize: '13px',
+                    color: '#1e40af'
+                  }}>
+                    {(() => {
+                      const compTransWithLangs = variableComponents.find(comp => comp.type === 'comp-trans' && comp.config?.selectedLanguages);
+                      if (compTransWithLangs) {
+                        const selectedLangs = compTransWithLangs.config.selectedLanguages || [];
+                        return (
+                          <span>
+                            🧵 <strong>Composition Translation ({compTransWithLangs.config?.variableRemark || 'translation'})</strong> - {'{'}({selectedLangs.length} selected){'}'}
+                          </span>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </div>
+                )}
+
         {!formData.layoutId ? (
           <div style={{
             padding: '20px',

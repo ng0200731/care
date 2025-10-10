@@ -12540,18 +12540,23 @@ function App() {
                           let canvasUsed = false;
 
                           // Force canvas rendering for better compatibility across computers
-                          const canvasImage = renderSymbolToCanvas(symbol, configIconSize * 4); // Higher resolution
+                          // Match SVG font size: configIconSize * 3.78px (1mm = 3.78px at 96 DPI)
+                          const svgFontSizePx = configIconSize * 3.78; // Match SVG rendering exactly
+                          const canvasImage = renderSymbolToCanvas(symbol, svgFontSizePx);
                           if (canvasImage) {
                             try {
-                              // Calculate image size in mm (smaller for child regions)
-                              const imageSize = configIconSize * 0.7;
+                              // Calculate image size in mm to match SVG display exactly
+                              // Canvas has padding of 0.2 * size on each side, so total canvas = size * 1.4
+                              // To make the font-size pixels map to configIconSize mm, we need:
+                              // Canvas total size in PDF = configIconSize * 1.4
+                              const imageSize = configIconSize * 1.4; // Account for canvas padding (0.2 * size * 2)
                               const imageX = symbolX - imageSize / 2;
                               const imageY = symbolY - imageSize / 2;
 
                               // Add the canvas-rendered symbol as image
                               pdf.addImage(canvasImage, 'PNG', imageX, imageY, imageSize, imageSize);
                               canvasUsed = true;
-                              console.log(`✅ Used canvas rendering for child symbol: ${symbol} (cross-computer compatible)`);
+                              console.log(`✅ Used canvas rendering for child symbol: ${symbol} at ${imageSize}mm (1:1 SVG match)`);
                             } catch (error) {
                               console.error('❌ Canvas image failed for child:', error);
                               canvasUsed = false;
@@ -12583,11 +12588,14 @@ function App() {
 
                           if (!fontUsed) {
                             // Try canvas rendering to capture the actual font symbols
-                            const canvasImage = renderSymbolToCanvas(symbol, configIconSize * 4); // Higher resolution
+                            // Match SVG font size: configIconSize * 3.78px (1mm = 3.78px at 96 DPI)
+                            const svgFontSizePx = configIconSize * 3.78; // Match SVG rendering exactly
+                            const canvasImage = renderSymbolToCanvas(symbol, svgFontSizePx);
                             if (canvasImage) {
                               try {
-                                // Calculate image size in mm (smaller for child regions)
-                                const imageSize = configIconSize * 0.7;
+                                // Calculate image size in mm to match SVG display exactly
+                                // Canvas total size in PDF = configIconSize * 1.4 (includes padding)
+                                const imageSize = configIconSize * 1.4; // Account for canvas padding (0.2 * size * 2)
                                 const imageX = symbolX - imageSize / 2;
                                 const imageY = symbolY - imageSize / 2;
 
@@ -13214,18 +13222,23 @@ function App() {
                       let canvasUsed = false;
 
                       // Force canvas rendering for better compatibility across computers
-                      const canvasImage = renderSymbolToCanvas(symbol, configIconSize * 4); // Higher resolution
+                      // Match SVG font size: configIconSize * 3.78px (1mm = 3.78px at 96 DPI)
+                      const svgFontSizePx = configIconSize * 3.78; // Match SVG rendering exactly
+                      const canvasImage = renderSymbolToCanvas(symbol, svgFontSizePx);
                       if (canvasImage) {
                         try {
-                          // Calculate image size in mm
-                          const imageSize = configIconSize * 0.8;
+                          // Calculate image size in mm to match SVG display exactly
+                          // Canvas has padding of 0.2 * size on each side, so total canvas = size * 1.4
+                          // To make the font-size pixels map to configIconSize mm, we need:
+                          // Canvas total size in PDF = configIconSize * 1.4
+                          const imageSize = configIconSize * 1.4; // Account for canvas padding (0.2 * size * 2)
                           const imageX = symbolX - imageSize / 2;
                           const imageY = symbolY - imageSize / 2;
 
                           // Add the canvas-rendered symbol as image
                           pdf.addImage(canvasImage, 'PNG', imageX, imageY, imageSize, imageSize);
                           canvasUsed = true;
-                          console.log(`✅ Used canvas rendering for symbol: ${symbol} (cross-computer compatible)`);
+                          console.log(`✅ Used canvas rendering for symbol: ${symbol} at ${imageSize}mm (1:1 SVG match)`);
                         } catch (error) {
                           console.error('❌ Canvas image failed:', error);
                           canvasUsed = false;
@@ -13257,11 +13270,14 @@ function App() {
 
                       if (!fontUsed) {
                         // Try canvas rendering to capture the actual font symbols
-                        const canvasImage = renderSymbolToCanvas(symbol, configIconSize * 4); // Higher resolution
+                        // Match SVG font size: configIconSize * 3.78px (1mm = 3.78px at 96 DPI)
+                        const svgFontSizePx = configIconSize * 3.78; // Match SVG rendering exactly
+                        const canvasImage = renderSymbolToCanvas(symbol, svgFontSizePx);
                         if (canvasImage) {
                           try {
-                            // Calculate image size in mm
-                            const imageSize = configIconSize * 0.8;
+                            // Calculate image size in mm to match SVG display exactly
+                            // Canvas total size in PDF = configIconSize * 1.4 (includes padding)
+                            const imageSize = configIconSize * 1.4; // Account for canvas padding (0.2 * size * 2)
                             const imageX = symbolX - imageSize / 2;
                             const imageY = symbolY - imageSize / 2;
 
