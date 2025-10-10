@@ -429,10 +429,26 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
     // Calculate total number of pages using actual page counts when available
     const orderLines = (order as any).orderLines || [];
 
+    // Check if order has composition translation (comp-trans) changes
+    const hasCompTransChanges = orderLines.some((line: any) => {
+      if (line.componentVariables) {
+        return Object.values(line.componentVariables).some((componentData: any) =>
+          componentData.type === 'comp-trans'
+        );
+      }
+      return false;
+    });
+
     // Check if all lines have actual page counts
     const hasAllPageCounts = orderLines.length > 0 && orderLines.every((line: any) => line.actualPageCount);
 
-    if (hasAllPageCounts) {
+    // If order has comp-trans changes and is submitted (not draft), show placeholder until artwork preview is generated
+    if (hasCompTransChanges && order.status !== 'draft' && !hasAllPageCounts) {
+      summaryVariables.push({
+        name: 'Total # of page',
+        value: '(it will be known after artwork preview)'
+      });
+    } else if (hasAllPageCounts) {
       // Use actual page counts
       const totalPages = orderLines.reduce((sum: number, line: any) => sum + (line.actualPageCount || 0), 0);
 
@@ -704,13 +720,9 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
         pdf.text(customerName, margin + 80, headerY + 5);
         pdf.text(`Customer ID: ${customerId}`, margin + 80, headerY + 10);
 
-        // Page number
-        pdf.setFont('helvetica', 'italic');
-        pdf.setFontSize(9);
-        pdf.text(`Page ${pageNum} / ${totalPDFPages}`, pageWidth - margin - 20, headerY);
-
-        // Order Date
+        // Order Date (removed page number from here to avoid duplication)
         pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(10);
         pdf.text(`Order Date: ${orderDate}`, pageWidth - margin - 40, headerY + 5);
 
         // Separator line
@@ -985,7 +997,7 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
       // Merge order details PDF with artwork PDFs
       console.log(`📄 Merging order details with ${artworkPDFs.length} artwork PDF(s)...`);
 
-      const { PDFDocument } = await import('pdf-lib');
+      const { PDFDocument, rgb } = await import('pdf-lib');
 
       // Save current order details PDF
       const orderDetailsPdfBytes = pdf.output('arraybuffer');
@@ -1015,6 +1027,25 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
 
         console.log(`✅ Artwork ${i + 1} added to merged PDF`);
       }
+
+      // Add page numbers to all pages (including artwork pages)
+      const pages = mergedPdf.getPages();
+      const totalPDFPagesCount = pages.length;
+
+      pages.forEach((page, index) => {
+        const pageNum = index + 1;
+        const { width, height } = page.getSize();
+
+        // Add page number in top right corner
+        page.drawText(`Page ${pageNum} / ${totalPDFPagesCount}`, {
+          x: width - 80,
+          y: height - 20,
+          size: 9,
+          color: rgb(0.5, 0.5, 0.5)
+        });
+      });
+
+      console.log(`✅ Added page numbers to all ${totalPDFPagesCount} pages`);
 
       // Save merged PDF
       const mergedPdfBytes = await mergedPdf.save();
@@ -1050,6 +1081,9 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
 
           // Update state immediately to refresh the display
           setOrders(updatedOrders);
+
+          // Force reload from localStorage to ensure UI is in sync
+          loadOrders();
         }
       } catch (saveError) {
         console.error('❌ Error saving updated order:', saveError);
@@ -1310,11 +1344,32 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
               const parsedOrders = JSON.parse(savedOrders);
               const updatedOrders = parsedOrders.map((o: Order) => {
                 if (o.id === order.id) {
-                  // Update order with actual page counts
-                  return {
-                    ...o,
-                    orderLines: orderLines // Contains updated actualPageCount for each line
-                  };
+                  // Check if this is a single-line preview from the individual button
+                  if ((order as any).__originalLineIndex !== undefined) {
+                    const lineIndex = (order as any).__originalLineIndex;
+                    console.log(`📌 Updating line ${lineIndex} of original order with ${(o as any).orderLines?.length || 0} lines`);
+
+                    // Update only the specific line in the original order
+                    const updatedOrderLines = [...((o as any).orderLines || [])];
+                    if (updatedOrderLines[lineIndex]) {
+                      updatedOrderLines[lineIndex] = {
+                        ...updatedOrderLines[lineIndex],
+                        actualPageCount: orderLines[0]?.actualPageCount
+                      };
+                      console.log(`✅ Updated line ${lineIndex} actualPageCount: ${orderLines[0]?.actualPageCount}`);
+                    }
+
+                    return {
+                      ...o,
+                      orderLines: updatedOrderLines
+                    };
+                  } else {
+                    // Full order update (Preview Artwork or Preview Order button)
+                    return {
+                      ...o,
+                      orderLines: orderLines // Contains updated actualPageCount for each line
+                    };
+                  }
                 }
                 return o;
               });
@@ -1324,6 +1379,9 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
 
               // Update state immediately to refresh the display
               setOrders(updatedOrders);
+
+              // Force reload from localStorage to ensure UI is in sync
+              loadOrders();
             }
           } catch (saveError) {
             console.error('❌ Error saving updated order:', saveError);
@@ -1660,11 +1718,18 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
 
                   {/* Lines with individual PDF icons */}
                   {(order as any).orderLines.map((line: any, lineIndex: number) => {
+                    // Check if this line has comp-trans changes
+                    const hasCompTransInLine = line.componentVariables &&
+                      Object.values(line.componentVariables).some((componentData: any) =>
+                        componentData.type === 'comp-trans'
+                      );
+
                     // Use stored page count if available, otherwise show placeholder
                     const actualPageCount = line.actualPageCount;
-                    const pageCountText = actualPageCount
-                      ? actualPageCount.toString()
-                      : '(it will be known after artwork preview)';
+                    // If line has comp-trans changes and order is submitted, show placeholder until artwork preview
+                    const pageCountText = (hasCompTransInLine && displayOrder.status !== 'draft' && !actualPageCount)
+                      ? '(it will be known after artwork preview)'
+                      : (actualPageCount ? actualPageCount.toString() : '(it will be known after artwork preview)');
 
                     return (
                     <div key={lineIndex} style={{
@@ -1730,9 +1795,11 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
                           <button
                             onClick={() => {
                               // Generate PDF for this specific line only
+                              // But preserve the line index for proper saving
                               const singleLineOrder = {
                                 ...order,
-                                orderLines: [line]
+                                orderLines: [line],
+                                __originalLineIndex: lineIndex // Track which line this is in the original order
                               };
                               order2preview(singleLineOrder as any);
                             }}

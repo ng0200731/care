@@ -11694,7 +11694,20 @@ function App() {
       });
     });
 
+    // Add any remaining child mothers that weren't linked to a parent
+    // This handles cases where composition translation creates overflow children
+    // but the parent-child relationship isn't properly established
+    const orphanChildren = childMothers.filter(child => !addedChildNames.has(child.name));
+    if (orphanChildren.length > 0) {
+      console.log(`ORPHAN_CHILDREN_FOUND: ${orphanChildren.map(m => m.name).join(', ')}`);
+      orphanChildren.forEach(orphan => {
+        sortedMothers.push(orphan);
+        console.log(`  ADDED_ORPHAN_CHILD: ${orphan.name}`);
+      });
+    }
+
     console.log(`FINAL_ORDER: ${sortedMothers.map(m => m.name).join(', ')}`);
+    console.log(`FINAL_COUNT: ${sortedMothers.length} (was ${mothers.length} before sorting)`);
 
     // Replace mothers array with sorted version
     mothers = sortedMothers;
@@ -11911,7 +11924,7 @@ function App() {
         pdf.text(`Order #: PO: ${orderNumber}`, 10, yPos);
         yPos += 5;
 
-        pdf.text(`${projectSlug} - ${layoutId} - ${layoutName} - ${mothers.length} layouts`, 10, yPos);
+        pdf.text(`${projectSlug} - ${layoutId} - ${layoutName} - ${mothers.length} pages`, 10, yPos);
         yPos += 5;
 
         const now = new Date();

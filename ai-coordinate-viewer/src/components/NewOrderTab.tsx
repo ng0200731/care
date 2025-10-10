@@ -726,12 +726,8 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
   const saveToOrderManagement = (status: 'draft' | 'confirmed') => {
     console.log('💾 saveToOrderManagement called with status:', status);
 
-    // Get existing orders to generate next order number
+    // Get existing orders
     const existingOrders = JSON.parse(localStorage.getItem('order_management') || '[]');
-
-    // Generate sequential order number (e.g., 001, 002, 003)
-    const nextOrderNumber = String(existingOrders.length + 1).padStart(3, '0');
-    const orderIdTimestamp = Date.now(); // Use timestamp for unique ID
 
     // Calculate total quantity from all lines
     const totalQuantity = orderLines.reduce((sum, line) => sum + (line.quantity || 0), 0);
@@ -753,40 +749,132 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
     const selectedCustomer = customers.find(c => c.id === formData.customerId);
     const currency = selectedCustomer?.currency || '';
 
-    const orderData = {
-      id: `order_${orderIdTimestamp}`,
-      orderNumber: nextOrderNumber, // Sequential order number for display (e.g., "001")
-      userOrderNumber: formData.orderNumber, // User-entered order number field
-      customerId: formData.customerId,
-      customerName: formData.customerName, // Add customer name
-      projectSlug: formData.projectSlug,
-      layoutId: formData.layoutId,
-      masterFileId: formData.masterId, // Add master file ID
-      masterFileName: masterFileName, // Add master file name
-      quantity: totalQuantity, // Total quantity from all lines
-      orderLines: orderLines, // Save all order lines
-      variableData: componentVariables,
-      currency: currency, // Add currency
-      unitPrice: unitPrice, // Add unit price
-      createdAt: new Date().toISOString(),
-      status: status
-    };
+    // Clear actualPageCount from order lines if comp-trans DATA changes were made
+    const orderLinesWithClearedPageCounts = orderLines.map(line => {
+      if (!editingOrder) return line;
 
-    console.log('📦 Order data to save:', orderData);
-    console.log('📚 Existing orders before save:', existingOrders.length);
+      // Find the original line from the editing order
+      const originalOrderLines = (editingOrder as any).orderLines || [];
+      const originalLine = originalOrderLines.find((ol: any) => ol.lineNumber === line.lineNumber);
 
-    // Save to localStorage (order management)
-    existingOrders.push(orderData);
-    localStorage.setItem('order_management', JSON.stringify(existingOrders));
+      if (!originalLine) return line;
 
-    console.log('✅ Order saved! Total orders now:', existingOrders.length);
-    console.log('💽 Saved to localStorage key: "order_management"');
+      // Check if comp-trans DATA has changed (not just quantity)
+      let hasCompTransDataChanged = false;
 
-    // Verify the save
-    const verification = localStorage.getItem('order_management');
-    console.log('🔍 Verification - localStorage now contains:', verification ? JSON.parse(verification).length + ' orders' : 'No data');
+      Object.entries(line.componentVariables).forEach(([componentId, componentData]: [string, any]) => {
+        if (componentData.type === 'comp-trans') {
+          const originalComponentData = originalLine.componentVariables?.[componentId];
 
-    return orderData;
+          if (!originalComponentData) {
+            hasCompTransDataChanged = true;
+            return;
+          }
+
+          // Compare compositions (material and percentage)
+          const currentCompositions = componentData.data?.compositions || [];
+          const originalCompositions = originalComponentData.data?.compositions || [];
+
+          // Check if composition data is different
+          if (currentCompositions.length !== originalCompositions.length) {
+            hasCompTransDataChanged = true;
+            return;
+          }
+
+          // Compare each composition
+          for (let i = 0; i < currentCompositions.length; i++) {
+            const current = currentCompositions[i];
+            const original = originalCompositions[i];
+
+            if (current.material !== original.material ||
+                String(current.percentage) !== String(original.percentage)) {
+              hasCompTransDataChanged = true;
+              return;
+            }
+          }
+        }
+      });
+
+      if (hasCompTransDataChanged) {
+        // Clear the actualPageCount to trigger recalculation
+        const { actualPageCount, ...lineWithoutPageCount } = line as any;
+        console.log(`🔄 Clearing actualPageCount for line ${line.lineNumber} due to composition data changes`);
+        return lineWithoutPageCount;
+      }
+
+      return line;
+    });
+
+    // Check if we're editing an existing order
+    if (editingOrder) {
+      console.log('✏️ Updating existing order:', editingOrder.id);
+
+      const orderData = {
+        ...editingOrder, // Keep existing data like id, orderNumber, createdAt
+        userOrderNumber: formData.orderNumber, // Update user-entered order number
+        customerId: formData.customerId,
+        customerName: formData.customerName,
+        projectSlug: formData.projectSlug,
+        layoutId: formData.layoutId,
+        masterFileId: formData.masterId,
+        masterFileName: masterFileName,
+        quantity: totalQuantity,
+        orderLines: orderLinesWithClearedPageCounts, // Use cleared page counts
+        variableData: componentVariables,
+        currency: currency,
+        unitPrice: unitPrice,
+        status: status
+      };
+
+      // Update the existing order in the array
+      const updatedOrders = existingOrders.map((o: any) =>
+        o.id === editingOrder.id ? orderData : o
+      );
+
+      localStorage.setItem('order_management', JSON.stringify(updatedOrders));
+      console.log('✅ Order updated successfully!');
+
+      return orderData;
+    } else {
+      // Creating new order
+      const nextOrderNumber = String(existingOrders.length + 1).padStart(3, '0');
+      const orderIdTimestamp = Date.now();
+
+      const orderData = {
+        id: `order_${orderIdTimestamp}`,
+        orderNumber: nextOrderNumber,
+        userOrderNumber: formData.orderNumber,
+        customerId: formData.customerId,
+        customerName: formData.customerName,
+        projectSlug: formData.projectSlug,
+        layoutId: formData.layoutId,
+        masterFileId: formData.masterId,
+        masterFileName: masterFileName,
+        quantity: totalQuantity,
+        orderLines: orderLines, // For new orders, no need to clear page counts
+        variableData: componentVariables,
+        currency: currency,
+        unitPrice: unitPrice,
+        createdAt: new Date().toISOString(),
+        status: status
+      };
+
+      console.log('📦 Order data to save:', orderData);
+      console.log('📚 Existing orders before save:', existingOrders.length);
+
+      // Save to localStorage (order management)
+      existingOrders.push(orderData);
+      localStorage.setItem('order_management', JSON.stringify(existingOrders));
+
+      console.log('✅ Order saved! Total orders now:', existingOrders.length);
+      console.log('💽 Saved to localStorage key: "order_management"');
+
+      // Verify the save
+      const verification = localStorage.getItem('order_management');
+      console.log('🔍 Verification - localStorage now contains:', verification ? JSON.parse(verification).length + ' orders' : 'No data');
+
+      return orderData;
+    }
   };
 
   const handleSaveDraft = () => {
