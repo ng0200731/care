@@ -8437,7 +8437,7 @@ function App() {
   };
 
   // Generate multi-language text from composition data
-  const generateMultiLanguageComposition = (compositions: any[], separator: string = ' / ') => {
+  const generateMultiLanguageComposition = (compositions: any[], separator: string = ' / ', selectedLanguages?: string[]) => {
     const lines: string[] = [];
 
     compositions.forEach((comp: any) => {
@@ -8450,8 +8450,44 @@ function App() {
         const translations = materialKey ? materialTranslations[materialKey] : null;
 
         if (translations && translations.length === 18) {
-          // Join all 18 languages with separator
-          const multiLangText = translations.join(separator);
+          // If selectedLanguages is provided, filter to only those languages
+          let languagesToUse: string[];
+          if (selectedLanguages && selectedLanguages.length > 0) {
+            // Map selected language codes to translation indices
+            const availableLanguages = [
+              { code: 'ES', name: 'Español' },
+              { code: 'FR', name: 'Français' },
+              { code: 'EN', name: 'English' },
+              { code: 'PT', name: 'Português' },
+              { code: 'DU', name: 'Dutch' },
+              { code: 'IT', name: 'Italiano' },
+              { code: 'GR', name: 'Ελληνικά' },
+              { code: 'JA', name: '日本語' },
+              { code: 'DE', name: 'Deutsch' },
+              { code: 'DA', name: 'Dansk' },
+              { code: 'SL', name: 'Slovenščina' },
+              { code: 'CH', name: '中文' },
+              { code: 'KO', name: '한국어' },
+              { code: 'ID', name: 'Indonesian' },
+              { code: 'AR', name: 'عربي' },
+              { code: 'GA', name: 'Galego' },
+              { code: 'CA', name: 'Català' },
+              { code: 'BS', name: 'Bosanski' }
+            ];
+
+            languagesToUse = [];
+            selectedLanguages.forEach(langCode => {
+              const langIndex = availableLanguages.findIndex(lang => lang.code === langCode);
+              if (langIndex !== -1 && translations[langIndex]) {
+                languagesToUse.push(translations[langIndex]);
+              }
+            });
+          } else {
+            // No selected languages - use all 18 languages
+            languagesToUse = translations;
+          }
+
+          const multiLangText = languagesToUse.join(separator);
           const line = `${comp.percentage}% ${multiLangText}`;
           lines.push(line);
         } else {
@@ -8653,14 +8689,16 @@ function App() {
                   percentage: typeof comp.percentage === 'string' ? parseInt(comp.percentage, 10) : comp.percentage
                 }));
 
-                // Get the original separator from existing config (or use default " - ")
+                // Get the original separator and selectedLanguages from existing config
                 const originalSeparator = targetContent.newCompTransConfig?.textContent?.separator || ' - ';
+                const originalSelectedLanguages = targetContent.newCompTransConfig?.selectedLanguages || ['ES', 'FR', 'EN', 'PT', 'DU', 'IT', 'GR', 'JA', 'DE', 'DA', 'SL', 'CH', 'KO', 'ID', 'AR', 'GA', 'CA', 'BS'];
 
-                // Generate FULL 18-language text using original separator
-                const multiLanguageText = generateMultiLanguageComposition(normalizedCompositions, originalSeparator);
+                // Generate text using ONLY the selected languages from the layout config
+                const multiLanguageText = generateMultiLanguageComposition(normalizedCompositions, originalSeparator, originalSelectedLanguages);
 
-                console.log(`🌍 Generated 18-language text (${multiLanguageText.length} chars)`);
+                console.log(`🌍 Generated text with ${originalSelectedLanguages.length} selected language(s) (${multiLanguageText.length} chars)`);
                 console.log(`🔧 Using separator: "${originalSeparator}"`);
+                console.log(`🗣️ Selected languages:`, originalSelectedLanguages);
 
                 // ✅ FIX: Check if child mothers exist - if so, keep saved split text
                 const hasChildMothers = updatedData.objects.some((otherObj: any) =>
@@ -8672,7 +8710,7 @@ function App() {
                 // Update the content configuration
                 targetContent.newCompTransConfig = targetContent.newCompTransConfig || {};
                 targetContent.newCompTransConfig.materialCompositions = normalizedCompositions; // Use normalized percentages
-                targetContent.newCompTransConfig.selectedLanguages = ['ES', 'FR', 'EN', 'PT', 'DU', 'IT', 'GR', 'JA', 'DE', 'DA', 'SL', 'CH', 'KO', 'ID', 'AR', 'GA', 'CA', 'BS']; // All 18 languages
+                targetContent.newCompTransConfig.selectedLanguages = originalSelectedLanguages; // Preserve original selected languages
                 targetContent.newCompTransConfig.textContent = targetContent.newCompTransConfig.textContent || {};
                 targetContent.newCompTransConfig.textContent.separator = originalSeparator;
 
@@ -8682,7 +8720,7 @@ function App() {
                   targetContent.newCompTransConfig.textContent.originalText = multiLanguageText;
                   targetContent.content = targetContent.content || {};
                   targetContent.content.text = multiLanguageText;
-                  console.log(`✅ Applied 18-language composition to ${obj.name} - Text will overflow to child mothers automatically`);
+                  console.log(`✅ Applied composition with ${originalSelectedLanguages.length} language(s) to ${obj.name} - Text will overflow to child mothers automatically`);
                 } else {
                   console.log(`✅ Updated compositions for ${obj.name} - keeping saved split text (child mothers exist)`);
                 }
@@ -8870,14 +8908,16 @@ function App() {
                     percentage: typeof comp.percentage === 'string' ? parseInt(comp.percentage, 10) : comp.percentage
                   }));
 
-                  // Get the original separator
+                  // Get the original separator and selectedLanguages
                   originalSeparator = mainContent.newCompTransConfig?.textContent?.separator || ' - ';
+                  const originalSelectedLanguages = mainContent.newCompTransConfig?.selectedLanguages || ['ES', 'FR', 'EN', 'PT', 'DU', 'IT', 'GR', 'JA', 'DE', 'DA', 'SL', 'CH', 'KO', 'ID', 'AR', 'GA', 'CA', 'BS'];
 
-                  // Generate FULL 18-language text
-                  multiLanguageText = generateMultiLanguageComposition(normalizedCompositions, originalSeparator);
+                  // Generate text using ONLY the selected languages
+                  multiLanguageText = generateMultiLanguageComposition(normalizedCompositions, originalSeparator, originalSelectedLanguages);
 
-                  console.log(`  🌍 Generated 18-language text (${multiLanguageText.length} chars)`);
+                  console.log(`  🌍 Generated text with ${originalSelectedLanguages.length} selected language(s) (${multiLanguageText.length} chars)`);
                   console.log(`  🔧 Using separator: "${originalSeparator}"`);
+                  console.log(`  🗣️ Selected languages:`, originalSelectedLanguages);
                 }
               }
 
