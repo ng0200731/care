@@ -643,6 +643,28 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
     });
   };
 
+  // Language code to translation index mapping (matches NewCompTransDialog)
+  const languageCodeToTranslationIndex: { [key: string]: number } = {
+    'ES': 0,  // Spanish
+    'FR': 1,  // French
+    'EN': 2,  // English
+    'PT': 3,  // Portuguese
+    'DU': 4,  // Dutch
+    'IT': 5,  // Italian
+    'GR': 6,  // Greek
+    'JA': 7,  // Japanese
+    'DE': 8,  // German
+    'DA': 9,  // Danish
+    'SL': 10, // Slovenian
+    'CH': 11, // Chinese
+    'KO': 12, // Korean
+    'ID': 13, // Indonesian
+    'AR': 14, // Arabic
+    'GA': 15, // Galician
+    'CA': 16, // Catalan
+    'BS': 17  // Basque
+  };
+
   // Material options for composition dropdown
   const materialOptions = [
     'Cotton', 'Polyester', 'Wool', 'Silk', 'Linen', 'Nylon',
@@ -1987,9 +2009,47 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                       const compTransWithLangs = variableComponents.find(comp => comp.type === 'comp-trans' && comp.config?.selectedLanguages);
                       if (compTransWithLangs) {
                         const selectedLangs = compTransWithLangs.config.selectedLanguages || [];
+                        const languageSequence = compTransWithLangs.config.languageSequence || {};
+
+                        // Sort languages by selection sequence order (1, 2, 3, 4...)
+                        const sortedLangs = [...selectedLangs].sort((a, b) => {
+                          const seqA = languageSequence[a] || 0;
+                          const seqB = languageSequence[b] || 0;
+                          return seqA - seqB;
+                        });
+
+                        // Get language full names
+                        const availableLanguages = [
+                          { code: 'AR', name: 'Arabic' },
+                          { code: 'BS', name: 'Basque' },
+                          { code: 'CA', name: 'Catalan' },
+                          { code: 'CH', name: 'Chinese' },
+                          { code: 'DA', name: 'Danish' },
+                          { code: 'DU', name: 'Dutch' },
+                          { code: 'EN', name: 'English' },
+                          { code: 'FR', name: 'French' },
+                          { code: 'GA', name: 'Galician' },
+                          { code: 'DE', name: 'German' },
+                          { code: 'GR', name: 'Greek' },
+                          { code: 'ID', name: 'Indonesian' },
+                          { code: 'IT', name: 'Italian' },
+                          { code: 'JA', name: 'Japanese' },
+                          { code: 'KO', name: 'Korean' },
+                          { code: 'PT', name: 'Portuguese' },
+                          { code: 'SL', name: 'Slovenian' },
+                          { code: 'ES', name: 'Spanish' }
+                        ];
+
+                        // Format as "CODE LanguageName (sequence)"
+                        const formattedLangs = sortedLangs.map(code => {
+                          const lang = availableLanguages.find(l => l.code === code);
+                          const seq = languageSequence[code] || '';
+                          return lang ? `${lang.code} ${lang.name} (${seq})` : code;
+                        });
+
                         return (
                           <span>
-                            🧵 <strong>Composition Translation ({compTransWithLangs.config?.variableRemark || 'translation'})</strong> - {'{'}({selectedLangs.length} selected){'}'}
+                            🧵 <strong>Composition Translation</strong> - {'{'}({formattedLangs.join(', ')}){'}'}
                           </span>
                         );
                       }

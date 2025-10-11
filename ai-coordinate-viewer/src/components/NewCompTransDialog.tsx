@@ -5122,7 +5122,21 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
             alignItems: 'center',
             gap: '8px'
           }}>
-            🌐 Translation Languages ({(config.selectedLanguages || []).length} selected)
+            🌐 Translation Languages ({(config.selectedLanguages || []).length}) - {
+              (config.selectedLanguages || [])
+                .sort((a, b) => {
+                  const seqA = config.languageSequence?.[a] || 0;
+                  const seqB = config.languageSequence?.[b] || 0;
+                  return seqA - seqB;
+                })
+                .map(langCode => {
+                  const language = availableLanguages.find(l => l.code === langCode);
+                  const sequenceNumber = config.languageSequence?.[langCode] || '';
+                  return language ? `${language.code} ${language.name} (${sequenceNumber})` : '';
+                })
+                .filter(Boolean)
+                .join(', ')
+            }
           </h3>
 
           <div style={{ marginBottom: '12px', display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -5229,10 +5243,10 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                 {(config.selectedLanguages || [])
                   .sort((a, b) => {
-                    // Sort by translation array order (ES, FR, EN, PT, DU, IT, GR, JA, DE, DA, SL, CH, KO, ID, AR, GA, CA, BS)
-                    const indexA = languageCodeToTranslationIndex[a] ?? 999;
-                    const indexB = languageCodeToTranslationIndex[b] ?? 999;
-                    return indexA - indexB;
+                    // Sort by selection sequence order (1, 2, 3, 4...)
+                    const seqA = config.languageSequence?.[a] || 0;
+                    const seqB = config.languageSequence?.[b] || 0;
+                    return seqA - seqB;
                   })
                   .map(langCode => {
                     const language = availableLanguages.find(l => l.code === langCode);

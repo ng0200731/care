@@ -1773,7 +1773,41 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
                                 {componentData.type === 'comp-trans' && componentData.data?.compositions && componentData.data.compositions.length > 0 && (
                                   <div>
                                     <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>
-                                      Composition Translation{componentData.remark ? ` (${componentData.remark})` : ''}:
+                                      Composition Translation{(() => {
+                                        // Get remark from layout configuration
+                                        try {
+                                          const storageKey = `project_${order.projectSlug}_layouts`;
+                                          const savedLayouts = localStorage.getItem(storageKey);
+                                          if (savedLayouts) {
+                                            const parsedLayouts = JSON.parse(savedLayouts);
+                                            const layout = parsedLayouts.find((l: any) => l.id === order.layoutId);
+                                            if (layout?.canvasData?.objects) {
+                                              // Extract component configuration from layout
+                                              const match = componentId.match(/^(.+)_content_(\d+)$/);
+                                              if (match) {
+                                                const regionId = match[1];
+                                                const contentIndex = parseInt(match[2], 10);
+
+                                                for (const obj of layout.canvasData.objects) {
+                                                  if (obj.regions && Array.isArray(obj.regions)) {
+                                                    const region = obj.regions.find((r: any) => r.id === regionId);
+                                                    if (region && layout.regionContents?.[regionId]) {
+                                                      const contents = layout.regionContents[regionId];
+                                                      const content = contents[contentIndex];
+                                                      if (content?.newCompTransConfig?.variableRemark) {
+                                                        return ` (${content.newCompTransConfig.variableRemark})`;
+                                                      }
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            }
+                                          }
+                                        } catch (error) {
+                                          console.error('Error getting remark from layout:', error);
+                                        }
+                                        return componentData.remark ? ` (${componentData.remark})` : '';
+                                      })()}:
                                     </div>
                                     {componentData.data.compositions.map((comp: any, idx: number) => (
                                       comp.material && comp.percentage ? (
