@@ -11967,6 +11967,131 @@ function App() {
         pdf.text(`${projectSlug} - ${layoutId} - ${layoutName} - ${mothers.length} pages`, 10, yPos);
         yPos += 5;
 
+        // Add variable component information
+        const currentLine = orderInfo.currentLine || (orderInfo.orderLines && orderInfo.orderLines.length > 0 ? orderInfo.orderLines[0] : null);
+        const componentVariables = currentLine?.componentVariables || orderInfo.variableData;
+
+        if (componentVariables) {
+          // Available languages for translation
+          const availableLanguages = [
+            { code: 'ES', name: 'Spanish' },
+            { code: 'FR', name: 'French' },
+            { code: 'EN', name: 'English' },
+            { code: 'PT', name: 'Portuguese' },
+            { code: 'DU', name: 'Dutch' },
+            { code: 'IT', name: 'Italian' },
+            { code: 'GR', name: 'Greek' },
+            { code: 'JA', name: 'Japanese' },
+            { code: 'DE', name: 'German' },
+            { code: 'DA', name: 'Danish' },
+            { code: 'SL', name: 'Slovenian' },
+            { code: 'CH', name: 'Chinese' },
+            { code: 'KO', name: 'Korean' },
+            { code: 'ID', name: 'Indonesian' },
+            { code: 'AR', name: 'Arabic' },
+            { code: 'GA', name: 'Galician' },
+            { code: 'CA', name: 'Catalan' },
+            { code: 'BS', name: 'Basque' }
+          ];
+
+          // Iterate through component variables
+          Object.entries(componentVariables).forEach(([componentId, componentData]: [string, any]) => {
+            if (componentData.type === 'comp-trans') {
+              // Get remark from layout configuration
+              let remarkText = '';
+              try {
+                const storageKey = `project_${projectSlug}_layouts`;
+                const savedLayouts = localStorage.getItem(storageKey);
+                if (savedLayouts) {
+                  const parsedLayouts = JSON.parse(savedLayouts);
+                  const layout = parsedLayouts.find((l: any) => l.id === layoutId);
+                  if (layout?.canvasData?.objects) {
+                    // Extract component configuration from layout
+                    const match = componentId.match(/^(.+)_content_(\d+)$/);
+                    if (match) {
+                      const regionId = match[1];
+                      const contentIndex = parseInt(match[2], 10);
+
+                      for (const obj of layout.canvasData.objects) {
+                        if (obj.regions && Array.isArray(obj.regions)) {
+                          const region = obj.regions.find((r: any) => r.id === regionId);
+                          if (region && layout.regionContents?.[regionId]) {
+                            const contents = layout.regionContents[regionId];
+                            const content = contents[contentIndex];
+                            if (content?.newCompTransConfig) {
+                              // Get selected languages and sequence
+                              const selectedLanguages = content.newCompTransConfig.selectedLanguages || [];
+                              const languageSequence = content.newCompTransConfig.languageSequence || {};
+
+                              // Sort languages by selection sequence
+                              const sortedLangs = [...selectedLanguages].sort((a, b) => {
+                                const seqA = languageSequence[a] || 0;
+                                const seqB = languageSequence[b] || 0;
+                                return seqA - seqB;
+                              });
+
+                              // Format as "CODE LanguageName (sequence)"
+                              const formattedLangs = sortedLangs.map(code => {
+                                const lang = availableLanguages.find(l => l.code === code);
+                                const seq = languageSequence[code] || '';
+                                return lang ? `${lang.code} ${lang.name} (${seq})` : code;
+                              });
+
+                              remarkText = ` - {(${formattedLangs.join(', ')})}`;
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              } catch (error) {
+                console.error('Error getting composition translation info from layout:', error);
+              }
+
+              pdf.text(`Composition Translation${remarkText}`, 10, yPos);
+              yPos += 5;
+            } else if (componentData.type === 'multi-line') {
+              // Get remark from layout configuration
+              let remarkText = '';
+              try {
+                const storageKey = `project_${projectSlug}_layouts`;
+                const savedLayouts = localStorage.getItem(storageKey);
+                if (savedLayouts) {
+                  const parsedLayouts = JSON.parse(savedLayouts);
+                  const layout = parsedLayouts.find((l: any) => l.id === layoutId);
+                  if (layout?.canvasData?.objects) {
+                    // Extract component configuration from layout
+                    const match = componentId.match(/^(.+)_content_(\d+)$/);
+                    if (match) {
+                      const regionId = match[1];
+                      const contentIndex = parseInt(match[2], 10);
+
+                      for (const obj of layout.canvasData.objects) {
+                        if (obj.regions && Array.isArray(obj.regions)) {
+                          const region = obj.regions.find((r: any) => r.id === regionId);
+                          if (region && layout.regionContents?.[regionId]) {
+                            const contents = layout.regionContents[regionId];
+                            const content = contents[contentIndex];
+                            if (content?.newMultiLineConfig?.variableRemark) {
+                              remarkText = ` (${content.newMultiLineConfig.variableRemark})`;
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              } catch (error) {
+                console.error('Error getting multi-line remark from layout:', error);
+              }
+
+              pdf.text(`Multi-line Text${remarkText}`, 10, yPos);
+              yPos += 5;
+            }
+          });
+        }
+
         const now = new Date();
         const dateStr = `${now.getFullYear()}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getDate().toString().padStart(2, '0')} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
         pdf.text(`Layout Generated: ${dateStr}`, 10, yPos);
