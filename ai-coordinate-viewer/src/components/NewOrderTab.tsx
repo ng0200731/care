@@ -1914,14 +1914,18 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
               )}
             </div>
 
-            {/* Line Details Grid */}
+            {/* Quantity + Variable Components Container */}
             <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(3, 1fr)',
-              gap: '16px'
+              display: 'flex',
+              gap: '32px',
+              alignItems: 'flex-start'
             }}>
-              {/* Order Quantity */}
-              <div>
+              {/* Left 20% - Order Quantity */}
+              <div style={{
+                width: '20%',
+                minWidth: '150px',
+                flexShrink: 0
+              }}>
                 <label style={{
                   display: 'block',
                   fontSize: '14px',
@@ -1950,8 +1954,12 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                 />
               </div>
 
-              {/* no of page */}
-              <div>
+              {/* Right 80% - Variable Components Section */}
+              <div style={{
+                flex: 1,
+                minWidth: 0
+              }}>
+                {/* Variable Components Label */}
                 <label style={{
                   display: 'block',
                   fontSize: '14px',
@@ -1959,45 +1967,379 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                   color: '#4a5568',
                   marginBottom: '6px'
                 }}>
-                  no of page
+                  {formData.layoutId && variableComponents.length > 0
+                    ? `📋 Variable Components (${variableComponents.length} found from "${layoutCards.find(l => l.id === formData.layoutId)?.name || 'layout'}")`
+                    : 'Variable Components'}
                 </label>
-                <div style={{
-                  padding: '10px 12px',
-                  border: '2px solid #e2e8f0',
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  backgroundColor: '#f8f9fa',
-                  color: '#64748b',
-                  fontStyle: 'italic'
-                }}>
-                  (it will be known after artwork preview)
-                </div>
-              </div>
 
-              {/* Total Amount for this line */}
-              <div>
-                <label style={{
-                  display: 'block',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  color: '#4a5568',
-                  marginBottom: '6px'
-                }}>
-                  Total Amount
-                </label>
-                <div style={{
-                  padding: '10px 12px',
+                {/* Display selected languages for comp-trans components */}
+                {formData.layoutId && variableComponents.some(comp => comp.type === 'comp-trans' && comp.config?.selectedLanguages) && (
+                  <div style={{
+                    marginBottom: '8px',
+                    padding: '8px 12px',
+                    backgroundColor: '#eff6ff',
+                    border: '1px solid #dbeafe',
+                    borderRadius: '6px',
+                    fontSize: '13px',
+                    color: '#1e40af'
+                  }}>
+                    {(() => {
+                      const compTransWithLangs = variableComponents.find(comp => comp.type === 'comp-trans' && comp.config?.selectedLanguages);
+                      if (compTransWithLangs) {
+                        const selectedLangs = compTransWithLangs.config.selectedLanguages || [];
+                        return (
+                          <span>
+                            🧵 <strong>Composition Translation ({compTransWithLangs.config?.variableRemark || 'translation'})</strong> - {'{'}({selectedLangs.length} selected){'}'}
+                          </span>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </div>
+                )}
+
+        {!formData.layoutId ? (
+          <div style={{
+            padding: '20px',
+            backgroundColor: '#fff7ed',
+            border: '2px dashed #fb923c',
+            borderRadius: '6px',
+            textAlign: 'center'
+          }}>
+            <p style={{
+              fontSize: '14px',
+              color: '#c2410c',
+              margin: 0,
+              fontWeight: '500'
+            }}>
+              ⚠️ Please select a layout card to view and edit variable fields
+            </p>
+          </div>
+        ) : variableComponents.length === 0 ? (
+          <div style={{
+            padding: '20px',
+            backgroundColor: '#f7fafc',
+            border: '2px dashed #cbd5e0',
+            borderRadius: '6px',
+            textAlign: 'center'
+          }}>
+            <p style={{
+              fontSize: '14px',
+              color: '#64748b',
+              margin: 0,
+              fontWeight: '500'
+            }}>
+              📝 No variable-enabled components found in this layout
+            </p>
+            <p style={{
+              fontSize: '13px',
+              color: '#94a3b8',
+              margin: '8px 0 0 0',
+              fontStyle: 'italic'
+            }}>
+              Enable "Variable" toggle in Composition Translation or Multi-line Text settings
+            </p>
+          </div>
+        ) : (
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '20px'
+          }}>
+            {/* Variable Components */}
+            {variableComponents.map((component, componentIndex) => (
+              <div
+                key={component.id}
+                style={{
+                  padding: '20px',
+                  backgroundColor: 'white',
+                  borderRadius: '8px',
                   border: '2px solid #e2e8f0',
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  backgroundColor: '#f8f9fa',
-                  color: '#64748b',
-                  fontStyle: 'italic'
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                }}
+              >
+                {/* Component Header */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: '16px',
+                  paddingBottom: '12px',
+                  borderBottom: '1px solid #e2e8f0'
                 }}>
-                  (it will be known after artwork preview)
+                  <h4 style={{
+                    margin: 0,
+                    fontSize: '15px',
+                    fontWeight: '600',
+                    color: '#1a202c',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    {component.type === 'comp-trans' ? '🧵' : '📝'} {component.name}
+                  </h4>
+                  <span style={{
+                    fontSize: '11px',
+                    padding: '3px 8px',
+                    backgroundColor: component.type === 'comp-trans' ? '#fef3c7' : '#dbeafe',
+                    color: component.type === 'comp-trans' ? '#92400e' : '#1e40af',
+                    borderRadius: '4px',
+                    fontWeight: '600'
+                  }}>
+                    {component.type === 'comp-trans' ? 'Composition' : 'Multi-line'}
+                  </span>
                 </div>
+
+                {/* Component-specific inputs */}
+                {component.type === 'comp-trans' ? (
+                  // Composition Translation Inputs - Match NewCompTransDialog layout exactly
+                  (() => {
+                    const compositions = line.componentVariables[component.id]?.data?.compositions || [];
+                    const totalPercentage = compositions.reduce((sum: number, c: any) => sum + (parseFloat(c.percentage) || 0), 0);
+                    const lastRow = compositions[compositions.length - 1];
+                    const isLastRowComplete = lastRow && lastRow.percentage && lastRow.material;
+                    const canAddMore = isLastRowComplete && totalPercentage < 100;
+                    const isPercentageValid = totalPercentage === 100;
+
+                    return (
+                      <div style={{
+                        padding: '12px',
+                        border: '1px solid #ddd',
+                        borderRadius: '8px',
+                        backgroundColor: '#f8f9fa'
+                      }}>
+                        {/* Header Row */}
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          marginBottom: '12px'
+                        }}>
+                          <div style={{
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            color: isPercentageValid ? '#333' : '#ef4444'
+                          }}>
+                            Material Composition: ({totalPercentage}%)
+                          </div>
+                          <button
+                            onClick={() => {
+                              const currentComps = line.componentVariables[component.id]?.data?.compositions || [];
+                              handleUpdateLineComponentVariables(line.id, component.id, {
+                                type: 'comp-trans',
+                                data: { compositions: [...currentComps, { material: '', percentage: '' }] },
+                                remark: line.componentVariables[component.id]?.remark || component.config?.variableRemark || ''
+                              });
+                            }}
+                            disabled={!canAddMore || isDisabled}
+                            style={{
+                              padding: '4px 8px',
+                              fontSize: '14px',
+                              fontWeight: 'bold',
+                              border: `1px solid ${canAddMore && !isDisabled ? '#007bff' : '#cbd5e0'}`,
+                              borderRadius: '4px',
+                              backgroundColor: canAddMore && !isDisabled ? '#007bff' : '#e5e7eb',
+                              color: canAddMore && !isDisabled ? 'white' : '#9ca3af',
+                              cursor: canAddMore && !isDisabled ? 'pointer' : 'not-allowed',
+                              opacity: canAddMore && !isDisabled ? 1 : 0.6
+                            }}
+                          >
+                            +
+                          </button>
+                        </div>
+
+                    {/* Composition Rows */}
+                    {(line.componentVariables[component.id]?.data?.compositions || [{ material: '', percentage: '' }]).map((comp: any, compIndex: number) => (
+                      <div
+                        key={compIndex}
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: '1fr 2fr auto',
+                          gap: '12px',
+                          marginBottom: compIndex < (line.componentVariables[component.id]?.data?.compositions || []).length - 1 ? '12px' : '0',
+                          alignItems: 'end'
+                        }}
+                      >
+                        {/* Percentage Input */}
+                        <div>
+                          <label style={{
+                            display: 'block',
+                            marginBottom: '4px',
+                            fontSize: '11px',
+                            fontWeight: '500'
+                          }}>
+                            Percentage (%):
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={comp.percentage}
+                            onChange={(e) => {
+                              const newCompositions = [...(line.componentVariables[component.id]?.data?.compositions || [])];
+                              newCompositions[compIndex] = { ...newCompositions[compIndex], percentage: e.target.value };
+                              handleUpdateLineComponentVariables(line.id, component.id, {
+                                type: 'comp-trans',
+                                data: { compositions: newCompositions },
+                                remark: line.componentVariables[component.id]?.remark || component.config?.variableRemark || ''
+                              });
+                            }}
+                            placeholder=""
+                            disabled={isDisabled}
+                            style={{
+                              width: '100%',
+                              padding: '8px',
+                              border: '1px solid #ddd',
+                              borderRadius: '4px',
+                              fontSize: '12px',
+                              backgroundColor: 'white'
+                            }}
+                          />
+                        </div>
+
+                        {/* Material Element */}
+                        <div>
+                          <label style={{
+                            display: 'block',
+                            marginBottom: '4px',
+                            fontSize: '11px',
+                            fontWeight: '500'
+                          }}>
+                            Material Element:
+                          </label>
+                          <select
+                            value={comp.material}
+                            onChange={(e) => {
+                              const newCompositions = [...(line.componentVariables[component.id]?.data?.compositions || [])];
+                              newCompositions[compIndex] = { ...newCompositions[compIndex], material: e.target.value };
+                              handleUpdateLineComponentVariables(line.id, component.id, {
+                                type: 'comp-trans',
+                                data: { compositions: newCompositions },
+                                remark: line.componentVariables[component.id]?.remark || component.config?.variableRemark || ''
+                              });
+                            }}
+                            disabled={isDisabled}
+                            style={{
+                              width: '100%',
+                              padding: '8px',
+                              border: '1px solid #ddd',
+                              borderRadius: '4px',
+                              fontSize: '12px',
+                              backgroundColor: 'white'
+                            }}
+                          >
+                            <option value="">Select material...</option>
+                            {/* Show current material if already selected */}
+                            {comp.material && !(() => {
+                              const selectedMaterials = (line.componentVariables[component.id]?.data?.compositions || [])
+                                .filter((c: any, idx: number) => c.material && c.percentage > 0 && idx !== compIndex)
+                                .map((c: any) => c.material);
+                              return !selectedMaterials.includes(comp.material);
+                            })() && (
+                              <option key={comp.material} value={comp.material}>
+                                {comp.material} (selected)
+                              </option>
+                            )}
+                            {/* Show available materials (excluding already selected in other rows) */}
+                            {materialOptions.filter(mat => {
+                              const selectedMaterials = (line.componentVariables[component.id]?.data?.compositions || [])
+                                .filter((c: any, idx: number) => c.material && c.percentage > 0 && idx !== compIndex)
+                                .map((c: any) => c.material);
+                              return !selectedMaterials.includes(mat);
+                            }).map(mat => (
+                              <option key={mat} value={mat}>{mat}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Delete Button */}
+                        <button
+                          onClick={() => {
+                            const newCompositions = (line.componentVariables[component.id]?.data?.compositions || []).filter((_: any, i: number) => i !== compIndex);
+                            handleUpdateLineComponentVariables(line.id, component.id, {
+                              type: 'comp-trans',
+                              data: { compositions: newCompositions.length > 0 ? newCompositions : [{ material: '', percentage: '' }] },
+                              remark: line.componentVariables[component.id]?.remark || component.config?.variableRemark || ''
+                            });
+                          }}
+                          disabled={(line.componentVariables[component.id]?.data?.compositions || []).length <= 1 || isDisabled}
+                          style={{
+                            padding: '8px 12px',
+                            fontSize: '14px',
+                            fontWeight: '500',
+                            color: '#ef4444',
+                            backgroundColor: 'white',
+                            border: '1px solid #ef4444',
+                            borderRadius: '4px',
+                            cursor: (componentVariables[component.id]?.data?.compositions || []).length > 1 ? 'pointer' : 'not-allowed',
+                            opacity: (componentVariables[component.id]?.data?.compositions || []).length > 1 ? 1 : 0.4
+                          }}
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                    );
+                  })()
+                ) : (
+                  // Multi-line Text Input
+                  <div style={{
+                    padding: '12px',
+                    border: '1px solid #ddd',
+                    borderRadius: '8px',
+                    backgroundColor: '#f8f9fa'
+                  }}>
+                    <label style={{
+                      display: 'block',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      color: '#4a5568',
+                      marginBottom: '8px'
+                    }}>
+                      Text Content:
+                    </label>
+                    <textarea
+                      value={line.componentVariables[component.id]?.data?.textContent || ''}
+                      onChange={(e) => {
+                        handleUpdateLineComponentVariables(line.id, component.id, {
+                          type: 'multi-line',
+                          data: { textContent: e.target.value },
+                          remark: line.componentVariables[component.id]?.remark || component.config?.variableRemark || ''
+                        });
+                      }}
+                      disabled={isDisabled}
+                      placeholder="Enter multi-line text content..."
+                      rows={4}
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        border: '2px solid #e2e8f0',
+                        borderRadius: '6px',
+                        fontSize: '14px',
+                        fontFamily: 'inherit',
+                        resize: 'vertical',
+                        backgroundColor: 'white',
+                        cursor: 'text',
+                        boxSizing: 'border-box'
+                      }}
+                      onFocus={(e) => {
+                        if (!isDisabled) {
+                          e.currentTarget.style.borderColor = '#3b82f6';
+                        }
+                      }}
+                      onBlur={(e) => e.currentTarget.style.borderColor = '#e2e8f0'}
+                    />
+                  </div>
+                )}
               </div>
+            ))}
+          </div>
+        )}
+              </div>
+              {/* End Right 80% - Variable Components */}
             </div>
+            {/* End Quantity + Variable Components Container */}
           </div>
         ))}
         {/* End Order Lines */}

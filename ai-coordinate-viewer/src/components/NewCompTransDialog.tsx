@@ -5229,9 +5229,10 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                 {(config.selectedLanguages || [])
                   .sort((a, b) => {
-                    const seqA = config.languageSequence?.[a] || 0;
-                    const seqB = config.languageSequence?.[b] || 0;
-                    return seqA - seqB;
+                    // Sort by translation array order (ES, FR, EN, PT, DU, IT, GR, JA, DE, DA, SL, CH, KO, ID, AR, GA, CA, BS)
+                    const indexA = languageCodeToTranslationIndex[a] ?? 999;
+                    const indexB = languageCodeToTranslationIndex[b] ?? 999;
+                    return indexA - indexB;
                   })
                   .map(langCode => {
                     const language = availableLanguages.find(l => l.code === langCode);
