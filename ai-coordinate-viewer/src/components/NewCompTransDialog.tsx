@@ -47,6 +47,28 @@ const commonMaterials = [
 
 // Material translations mapping (from composition table)
 // Order: ES, FR, EN, PT, DU, IT, GR, JA, DE, DA, SL, CH, KO, ID, AR, GA, CA, BS
+// Mapping from language code to translation array index
+const languageCodeToTranslationIndex: { [key: string]: number } = {
+  'ES': 0,  // Spanish
+  'FR': 1,  // French
+  'EN': 2,  // English
+  'PT': 3,  // Portuguese
+  'DU': 4,  // Dutch
+  'IT': 5,  // Italian
+  'GR': 6,  // Greek
+  'JA': 7,  // Japanese
+  'DE': 8,  // German
+  'DA': 9,  // Danish
+  'SL': 10, // Slovenian
+  'CH': 11, // Chinese
+  'KO': 12, // Korean
+  'ID': 13, // Indonesian
+  'AR': 14, // Arabic
+  'GA': 15, // Galician
+  'CA': 16, // Catalan
+  'BS': 17  // Basque
+};
+
 const materialTranslations: { [key: string]: string[] } = {
   'COTTON': ['algodón', 'coton', 'cotton', 'algodão', 'katoen', 'cotone', 'ΒΑΜΒΑΚΙ', 'コットン', 'baumwolle', 'bomuld', 'bombaž', '棉', '면', 'katun', 'قطن', 'algodón', 'cotó', 'kotoia'],
   'POLYESTER': ['poliéster', 'polyester', 'polyester', 'poliéster', 'polyester', 'poliestere', 'ΠΟΛΥΕΣΤΕΡΑΣ', 'ポリエステル', 'polyester', 'polyester', 'poliester', '聚酯纤维', '폴리에스터', 'poliester', 'بوليستير', 'poliéster', 'polièster', 'poliesterra'],
@@ -99,6 +121,7 @@ export interface NewCompTransConfig {
     vertical: 'top' | 'center' | 'bottom';
   };
   selectedLanguages: string[];
+  languageSequence?: { [languageCode: string]: number }; // Track selection order for each language
   materialCompositions: MaterialComposition[];
   textContent: {
     separator: string;
@@ -378,12 +401,20 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
           const materialTexts: string[] = [];
 
           // Map selected language codes to translation indices
-          config.selectedLanguages.forEach(langCode => {
-            const langIndex = availableLanguages.findIndex(lang => lang.code === langCode);
-            if (langIndex !== -1 && translations[langIndex]) {
-              materialTexts.push(translations[langIndex]);
-            }
-          });
+          // Sort languages by their sequence numbers before iterating
+          config.selectedLanguages
+            .sort((a, b) => {
+              const seqA = config.languageSequence?.[a] || 0;
+              const seqB = config.languageSequence?.[b] || 0;
+              return seqA - seqB;
+            })
+            .forEach(langCode => {
+              // Use the correct mapping to get translation index
+              const translationIndex = languageCodeToTranslationIndex[langCode];
+              if (translationIndex !== undefined && translations[translationIndex]) {
+                materialTexts.push(translations[translationIndex]);
+              }
+            });
 
           if (materialTexts.length > 0) {
             const line = `${composition.percentage}% ${materialTexts.join(config.textContent.separator)}`;
@@ -4558,26 +4589,64 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
   const handleLanguageToggle = (languageCode: string) => {
     setConfig(prev => {
       const currentLanguages = prev.selectedLanguages || [];
-      return {
-        ...prev,
-        selectedLanguages: currentLanguages.includes(languageCode)
-          ? currentLanguages.filter(code => code !== languageCode)
-          : [...currentLanguages, languageCode]
-      };
+      const currentSequence = prev.languageSequence || {};
+
+      if (currentLanguages.includes(languageCode)) {
+        // Deselecting - remove language and recalculate sequence numbers
+        const newLanguages = currentLanguages.filter(code => code !== languageCode);
+        const oldSequence = currentSequence[languageCode];
+
+        // Recalculate sequence: decrement all languages with higher sequence numbers
+        const newSequence: { [key: string]: number } = {};
+        Object.keys(currentSequence).forEach(code => {
+          if (code !== languageCode) {
+            const seq = currentSequence[code];
+            newSequence[code] = seq > oldSequence ? seq - 1 : seq;
+          }
+        });
+
+        return {
+          ...prev,
+          selectedLanguages: newLanguages,
+          languageSequence: newSequence
+        };
+      } else {
+        // Selecting - add language with next sequence number
+        const maxSequence = Math.max(0, ...Object.values(currentSequence));
+        const newSequence = {
+          ...currentSequence,
+          [languageCode]: maxSequence + 1
+        };
+
+        return {
+          ...prev,
+          selectedLanguages: [...currentLanguages, languageCode],
+          languageSequence: newSequence
+        };
+      }
     });
   };
 
   const handleSelectAllLanguages = () => {
+    // Sort languages alphabetically by code and assign sequence numbers
+    const sortedLanguages = [...availableLanguages].sort((a, b) => a.code.localeCompare(b.code));
+    const languageSequence: { [key: string]: number } = {};
+    sortedLanguages.forEach((lang, index) => {
+      languageSequence[lang.code] = index + 1;
+    });
+
     setConfig(prev => ({
       ...prev,
-      selectedLanguages: availableLanguages.map(lang => lang.code)
+      selectedLanguages: sortedLanguages.map(lang => lang.code),
+      languageSequence
     }));
   };
 
   const handleDeselectAllLanguages = () => {
     setConfig(prev => ({
       ...prev,
-      selectedLanguages: []
+      selectedLanguages: [],
+      languageSequence: {}
     }));
   };
 
@@ -5102,33 +5171,47 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
               gridTemplateColumns: 'repeat(4, 1fr)',
               gap: '8px'
             }}>
-              {availableLanguages.map(language => (
-                <label
-                  key={language.code}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '6px 8px',
-                    border: '1px solid #ddd',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    backgroundColor: (config.selectedLanguages || []).includes(language.code) ? '#e3f2fd' : 'white',
-                    borderColor: (config.selectedLanguages || []).includes(language.code) ? '#2196f3' : '#ddd',
-                    fontSize: '11px',
-                    fontWeight: '500'
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={(config.selectedLanguages || []).includes(language.code)}
-                    onChange={() => handleLanguageToggle(language.code)}
-                    style={{ margin: 0, transform: 'scale(0.9)' }}
-                  />
-                  <span style={{ fontWeight: '600', marginRight: '4px' }}>{language.code}</span>
-                  <span>{language.name}</span>
-                </label>
-              ))}
+              {availableLanguages.map(language => {
+                const isSelected = (config.selectedLanguages || []).includes(language.code);
+                const sequenceNumber = isSelected ? (config.languageSequence?.[language.code] || '') : '';
+
+                return (
+                  <label
+                    key={language.code}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '6px 8px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      backgroundColor: isSelected ? '#e3f2fd' : 'white',
+                      borderColor: isSelected ? '#2196f3' : '#ddd',
+                      fontSize: '11px',
+                      fontWeight: '500'
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => handleLanguageToggle(language.code)}
+                      style={{ margin: 0, transform: 'scale(0.9)' }}
+                    />
+                    <span style={{ fontWeight: '600', marginRight: '4px' }}>{language.code}</span>
+                    <span>{language.name}</span>
+                    {isSelected && sequenceNumber && (
+                      <span style={{
+                        marginLeft: '4px',
+                        fontWeight: '700',
+                        color: '#2196f3'
+                      }}>
+                        ({sequenceNumber})
+                      </span>
+                    )}
+                  </label>
+                );
+              })}
             </div>
           </div>
 
@@ -5144,26 +5227,33 @@ const NewCompTransDialog: React.FC<NewCompTransDialogProps> = ({
                 Selected Languages:
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                {(config.selectedLanguages || []).map(langCode => {
-                  const language = availableLanguages.find(l => l.code === langCode);
-                  return language ? (
-                    <span
-                      key={langCode}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        padding: '2px 6px',
-                        backgroundColor: '#007bff',
-                        color: 'white',
-                        borderRadius: '12px',
-                        fontSize: '11px',
-                        fontWeight: '500'
-                      }}
-                    >
-                      {language.code} {language.name}
-                    </span>
-                  ) : null;
+                {(config.selectedLanguages || [])
+                  .sort((a, b) => {
+                    const seqA = config.languageSequence?.[a] || 0;
+                    const seqB = config.languageSequence?.[b] || 0;
+                    return seqA - seqB;
+                  })
+                  .map(langCode => {
+                    const language = availableLanguages.find(l => l.code === langCode);
+                    const sequenceNumber = config.languageSequence?.[langCode] || '';
+                    return language ? (
+                      <span
+                        key={langCode}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          padding: '2px 6px',
+                          backgroundColor: '#007bff',
+                          color: 'white',
+                          borderRadius: '12px',
+                          fontSize: '11px',
+                          fontWeight: '500'
+                        }}
+                      >
+                        {language.code} {language.name} ({sequenceNumber})
+                      </span>
+                    ) : null;
                 })}
               </div>
             </div>
