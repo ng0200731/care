@@ -10,14 +10,17 @@ import { useOrderVariable } from '../contexts/OrderVariableContext';
 import { useNavigate } from 'react-router-dom';
 import jsPDF from 'jspdf';
 
-// Material translations for 18 languages (ES, FR, EN, PT, DU, IT, GR, JA, DE, DA, SL, CH, KO, ID, AR, GA, CA, BS)
+// Material translations for 18 languages (AR, BS, CA, CH, DA, DE, DU, EN, ES, FR, GA, GR, ID, IT, JA, KO, PT, SL)
 const materialTranslations: { [key: string]: string[] } = {
-  'Cotton': ['algodón', 'coton', 'cotton', 'algodão', 'katoen', 'cotone', 'ΒΑΜΒΑΚΙ', 'コットン', 'baumwolle', 'bomuld', 'bombaž', '棉', '면', 'katun', 'قطن', 'algodón', 'cotó', 'kotoia'],
-  'Polyester': ['poliéster', 'polyester', 'polyester', 'poliéster', 'polyester', 'poliestere', 'ΠΟΛΥΕΣΤΕΡΑΣ', 'ポリエステル', 'polyester', 'polyester', 'poliester', '聚酯纤维', '폴리에스터', 'poliester', 'بوليستير', 'poliéster', 'polièster', 'poliesterra'],
-  'Elastane': ['elastano', 'élasthanne', 'elastane', 'elastano', 'elastaan', 'elastan', 'ΕΛΑΣΤΑΝΗ', 'エラスタン', 'elastan', 'elastan', 'elastan', '氨纶', '엘라스탄', 'elastan', 'إيلاستان', 'elastano', 'elastà', 'elastanoa'],
-  'Viscose': ['viscosa', 'viscose', 'viscose', 'viscose', 'viscose', 'viscosa', 'ΒΙΣΚΟΖΗ', 'ビスコース', 'viskose', 'viskose', 'viskoza', '粘胶纤维', '비스코스', 'viskosa', 'فيسكوز', 'viscosa', 'viscosa', 'biskosea'],
-  'Wool': ['lana', 'laine', 'wool', 'lã', 'wol', 'lana', 'ΜΑΛΛΙ', 'ウール', 'wolle', 'uld', 'volna', '羊毛', '울', 'wol', 'صوف', 'la', 'llana', 'artilea'],
-  'Nylon': ['nailon', 'nylon', 'nylon', 'nylon', 'nylon', 'nailon', 'ΝΑΪΛΟΝ', 'ナイロン', 'nylon', 'nylon', 'najlon', '锦纶', '나일론', 'nilon', 'نايلون', 'nailon', 'niló', 'nylona'],
+  'Cotton': ['قطن', 'kotoia', 'cotó', '棉', 'bomuld', 'baumwolle', 'katoen', 'cotton', 'algodón', 'coton', 'algodón', 'ΒΑΜΒΑΚΙ', 'katun', 'cotone', 'コットン', '면', 'algodão', 'bombaž'],
+  'Polyester': ['بوليستير', 'poliesterra', 'polièster', '聚酯纤维', 'polyester', 'polyester', 'polyester', 'polyester', 'poliéster', 'polyester', 'poliéster', 'ΠΟΛΥΕΣΤΕΡΑΣ', 'poliester', 'poliestere', 'ポリエステル', '폴리에스터', 'poliéster', 'poliester'],
+  'Elastane': ['إيلاستان', 'elastanoa', 'elastà', '氨纶', 'elastan', 'elastan', 'elastaan', 'elastane', 'elastano', 'élasthanne', 'elastano', 'ΕΛΑΣΤΑΝΗ', 'elastan', 'elastan', 'エラスタン', '엘라스탄', 'elastano', 'elastan'],
+  'Viscose': ['فيسكوز', 'biskosea', 'viscosa', '粘胶纤维', 'viskose', 'viskose', 'viscose', 'viscose', 'viscosa', 'viscose', 'viscosa', 'ΒΙΣΚΟΖΗ', 'viskosa', 'viscosa', 'ビスコース', '비스코스', 'viscose', 'viskoza'],
+  'Wool': ['صوف', 'artilea', 'llana', '羊毛', 'uld', 'wolle', 'wol', 'wool', 'lana', 'laine', 'la', 'ΜΑΛΛΙ', 'wol', 'lana', 'ウール', '울', 'lã', 'volna'],
+  'Nylon': ['نايلون', 'nylona', 'niló', '锦纶', 'nylon', 'nylon', 'nylon', 'nylon', 'nailon', 'nylon', 'nailon', 'ΝΑΪΛΟΝ', 'nilon', 'nailon', 'ナイロン', '나일론', 'nylon (so p/o Brasil poliamida)', 'najlon'],
+  'Silk': ['حرير', 'zetaa', 'seda', '丝绸', 'silke', 'seide', 'zijde', 'silk', 'seda', 'soie', 'seda', 'ΜΕΤΑΞI', 'sutra', 'seta', 'シルク', '실크', 'seda', 'svila'],
+  'Linen': ['كتان', 'lihoa', 'lli', '亚麻', 'hør', 'leinen', 'linnen', 'linen', 'lino', 'lin', 'lino', 'ΛΙΝΟ', 'linen', 'lino', 'リネン', '린넨', 'linho', 'lan'],
+  'Acrylic': ['أكريليك', 'akrilikoa', 'acrílic', '腈纶', 'akryl', 'acryl', 'acryl', 'acrylic', 'acrílico', 'acrylique', 'acrílico', 'ΑΚΡΥΛΙΚΟ', 'akrilik', 'acrilico', 'アクリル', '아크릴', 'acrílico', 'akril'],
 };
 
 // Generate multi-language text from composition data
@@ -102,7 +105,7 @@ const applyOrderDataToLayout = (layoutData: any, variableData: any) => {
               // Update config
               targetContent.newCompTransConfig = targetContent.newCompTransConfig || {};
               targetContent.newCompTransConfig.materialCompositions = normalizedCompositions;
-              targetContent.newCompTransConfig.selectedLanguages = ['ES', 'FR', 'EN', 'PT', 'DU', 'IT', 'GR', 'JA', 'DE', 'DA', 'SL', 'CH', 'KO', 'ID', 'AR', 'GA', 'CA', 'BS'];
+              targetContent.newCompTransConfig.selectedLanguages = ['AR', 'BS', 'CA', 'CH', 'DA', 'DE', 'DU', 'EN', 'ES', 'FR', 'GA', 'GR', 'ID', 'IT', 'JA', 'KO', 'PT', 'SL'];
               targetContent.newCompTransConfig.textContent = targetContent.newCompTransConfig.textContent || {};
               targetContent.newCompTransConfig.textContent.separator = originalSeparator;
               targetContent.newCompTransConfig.textContent.generatedText = multiLanguageText;
@@ -924,15 +927,18 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
 
         // Generate artwork PDF using iframe (same as order2preview)
         const artworkPdfData = await new Promise<string>((resolve, reject) => {
+          // Create VISIBLE iframe for manual testing and verification
           const iframe = document.createElement('iframe');
           iframe.style.position = 'fixed';
-          iframe.style.top = '-9999px';
-          iframe.style.left = '-9999px';
+          iframe.style.top = '50px';  // VISIBLE at top of screen
+          iframe.style.left = '50px';  // VISIBLE on left side
           iframe.style.width = '1920px';
           iframe.style.height = '1080px';
-          iframe.style.border = 'none';
-          iframe.style.opacity = '0';
-          iframe.style.pointerEvents = 'none';
+          iframe.style.border = '2px solid blue';  // BLUE BORDER (different from Preview Artwork's red)
+          iframe.style.opacity = '1';  // FULLY VISIBLE
+          iframe.style.pointerEvents = 'auto';  // ALLOW CLICKS
+          iframe.style.zIndex = '9999';  // ON TOP of everything
+          iframe.style.backgroundColor = 'white';
 
           const masterFileId = layout.canvasData?.masterFileId || '';
           const projectName = order.projectSlug;
@@ -1178,16 +1184,18 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
           };
           sessionStorage.setItem('__order_preview_data__', JSON.stringify(currentLineData));
 
-          // Create hidden iframe to render canvas and generate PDF
+          // Create VISIBLE iframe for manual testing and verification
           const iframe = document.createElement('iframe');
           iframe.style.position = 'fixed';
-          iframe.style.top = '-9999px';
-          iframe.style.left = '-9999px';
+          iframe.style.top = '50px';  // VISIBLE at top of screen
+          iframe.style.left = '50px';  // VISIBLE on left side
           iframe.style.width = '1920px';
           iframe.style.height = '1080px';
-          iframe.style.border = 'none';
-          iframe.style.opacity = '0';
-          iframe.style.pointerEvents = 'none';
+          iframe.style.border = '2px solid red';  // RED BORDER so you can see it
+          iframe.style.opacity = '1';  // FULLY VISIBLE
+          iframe.style.pointerEvents = 'auto';  // ALLOW CLICKS
+          iframe.style.zIndex = '9999';  // ON TOP of everything
+          iframe.style.backgroundColor = 'white';
 
           // Build canvas URL with auto-generate PDF flag, line index, and only preview mode
           const masterFileId = layout.canvasData?.masterFileId || '';

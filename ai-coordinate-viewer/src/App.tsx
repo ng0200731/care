@@ -4729,12 +4729,13 @@ function App() {
       // Wait for fonts and overflow to complete
       const timer = setTimeout(async () => {
         await waitForFont();
+
         if (captureImage) {
           // Capture canvas as image and send back to parent
           console.log('📸 Canvas rendered - capturing image...');
           await captureCanvasImage();
         } else {
-          // Generate PDF directly
+          // Generate PDF directly (same as Print as PDF button)
           console.log('🎨 Canvas rendered - generating PDF with Print as PDF method...');
           await generatePDFAllMothers();
         }
@@ -8420,20 +8421,20 @@ function App() {
     await performSave(layoutName.trim());
   };
 
-  // Material translations for 18 languages (ES, FR, EN, PT, DU, IT, GR, JA, DE, DA, SL, CH, KO, ID, AR, GA, CA, BS)
+  // Material translations for 18 languages (AR, BS, CA, CH, DA, DE, DU, EN, ES, FR, GA, GR, ID, IT, JA, KO, PT, SL)
   const materialTranslations: { [key: string]: string[] } = {
-    'Cotton': ['algodón', 'coton', 'cotton', 'algodão', 'katoen', 'cotone', 'ΒΑΜΒΑΚΙ', 'コットン', 'baumwolle', 'bomuld', 'bombaž', '棉', '면', 'katun', 'قطن', 'algodón', 'cotó', 'kotoia'],
-    'Polyester': ['poliéster', 'polyester', 'polyester', 'poliéster', 'polyester', 'poliestere', 'ΠΟΛΥΕΣΤΕΡΑΣ', 'ポリエステル', 'polyester', 'polyester', 'poliester', '聚酯纤维', '폴리에스터', 'poliester', 'بوليستير', 'poliéster', 'polièster', 'poliesterra'],
-    'Elastane': ['elastano', 'élasthanne', 'elastane', 'elastano', 'elastaan', 'elastan', 'ΕΛΑΣΤΑΝΗ', 'エラスタン', 'elastan', 'elastan', 'elastan', '氨纶', '엘라스탄', 'elastan', 'إيلاستان', 'elastano', 'elastà', 'elastanoa'],
-    'Viscose': ['viscosa', 'viscose', 'viscose', 'viscose', 'viscose', 'viscosa', 'ΒΙΣΚΟΖΗ', 'ビスコース', 'viskose', 'viskose', 'viskoza', '粘胶纤维', '비스코스', 'viskosa', 'فيسكوز', 'viscosa', 'viscosa', 'biskosea'],
-    'Wool': ['lana', 'laine', 'wool', 'lã', 'wol', 'lana', 'ΜΑΛΛΙ', 'ウール', 'wolle', 'uld', 'volna', '羊毛', '울', 'wol', 'صوف', 'la', 'llana', 'artilea'],
-    'Nylon': ['nailon', 'nylon', 'nylon', 'nylon', 'nylon', 'nailon', 'ΝΑΪΛΟΝ', 'ナイロン', 'nylon', 'nylon', 'najlon', '锦纶', '나일론', 'nilon', 'نايلون', 'nailon', 'niló', 'nylona'],
-    'Silk': ['seda', 'soie', 'silk', 'seda', 'zijde', 'seta', 'ΜΕΤΑΞΙ', 'シルク', 'seide', 'silke', 'svila', '丝绸', '실크', 'sutra', 'حرير', 'seda', 'seda', 'zeta'],
-    'Linen': ['lino', 'lin', 'linen', 'linho', 'linnen', 'lino', 'ΛΙΝΟ', 'リネン', 'leinen', 'hør', 'lan', '亚麻', '린넨', 'linen', 'كتان', 'lino', 'lli', 'lihoa'],
-    'Acrylic': ['acrílico', 'acrylique', 'acrylic', 'acrílico', 'acryl', 'acrilico', 'ΑΚΡΥΛΙΚΟ', 'アクリル', 'acryl', 'akryl', 'akril', '腈纶', '아크릴', 'akrilik', 'أكريليك', 'acrílico', 'acrílic', 'akrilikoa'],
-    'Rayon': ['rayón', 'rayonne', 'rayon', 'raiom', 'rayon', 'raion', 'ΡΕΓΙΟΝ', 'レーヨン', 'rayon', 'rayon', 'rajon', '人造丝', '레이온', 'rayon', 'رايون', 'rayón', 'raió', 'rayoia'],
-    'Spandex': ['spandex', 'spandex', 'spandex', 'spandex', 'spandex', 'spandex', 'ΣΠΑΝΤΕΞ', 'スパンデックス', 'spandex', 'spandex', 'spandeks', '氨纶', '스판덱스', 'spandeks', 'سباندكس', 'spandex', 'spandex', 'espandex'],
-    'Modal': ['modal', 'modal', 'modal', 'modal', 'modal', 'modal', 'ΜΟΝΤΑΛ', 'モダール', 'modal', 'modal', 'modal', '莫代尔', '모달', 'modal', 'مودال', 'modal', 'modal', 'modala'],
+    'Cotton': ['قطن', 'kotoia', 'cotó', '棉', 'bomuld', 'baumwolle', 'katoen', 'cotton', 'algodón', 'coton', 'algodón', 'ΒΑΜΒΑΚΙ', 'katun', 'cotone', 'コットン', '면', 'algodão', 'bombaž'],
+    'Polyester': ['بوليستير', 'poliesterra', 'polièster', '聚酯纤维', 'polyester', 'polyester', 'polyester', 'polyester', 'poliéster', 'polyester', 'poliéster', 'ΠΟΛΥΕΣΤΕΡΑΣ', 'poliester', 'poliestere', 'ポリエステル', '폴리에스터', 'poliéster', 'poliester'],
+    'Elastane': ['إيلاستان', 'elastanoa', 'elastà', '氨纶', 'elastan', 'elastan', 'elastaan', 'elastane', 'elastano', 'élasthanne', 'elastano', 'ΕΛΑΣΤΑΝΗ', 'elastan', 'elastan', 'エラスタン', '엘라스탄', 'elastano', 'elastan'],
+    'Viscose': ['فيسكوز', 'biskosea', 'viscosa', '粘胶纤维', 'viskose', 'viskose', 'viscose', 'viscose', 'viscosa', 'viscose', 'viscosa', 'ΒΙΣΚΟΖΗ', 'viskosa', 'viscosa', 'ビスコース', '비스코스', 'viscose', 'viskoza'],
+    'Wool': ['صوف', 'artilea', 'llana', '羊毛', 'uld', 'wolle', 'wol', 'wool', 'lana', 'laine', 'la', 'ΜΑΛΛΙ', 'wol', 'lana', 'ウール', '울', 'lã', 'volna'],
+    'Nylon': ['نايلون', 'nylona', 'niló', '锦纶', 'nylon', 'nylon', 'nylon', 'nylon', 'nailon', 'nylon', 'nailon', 'ΝΑΪΛΟΝ', 'nilon', 'nailon', 'ナイロン', '나일론', 'nylon (so p/o Brasil poliamida)', 'najlon'],
+    'Silk': ['حرير', 'zetaa', 'seda', '丝绸', 'silke', 'seide', 'zijde', 'silk', 'seda', 'soie', 'seda', 'ΜΕΤΑΞI', 'sutra', 'seta', 'シルク', '실크', 'seda', 'svila'],
+    'Linen': ['كتان', 'lihoa', 'lli', '亚麻', 'hør', 'leinen', 'linnen', 'linen', 'lino', 'lin', 'lino', 'ΛΙΝΟ', 'linen', 'lino', 'リネン', '린넨', 'linho', 'lan'],
+    'Acrylic': ['أكريليك', 'akrilikoa', 'acrílic', '腈纶', 'akryl', 'acryl', 'acryl', 'acrylic', 'acrílico', 'acrylique', 'acrílico', 'ΑΚΡΥΛΙΚΟ', 'akrilik', 'acrilico', 'アクリル', '아크릴', 'acrílico', 'akril'],
+    'Rayon': ['رايون', 'rayoia', 'raió', '人造丝', 'rayon', 'rayon', 'rayon', 'rayon', 'rayón', 'rayonne', 'rayón', 'ΡΕΓΙΟΝ', 'rayon', 'raion', 'レーヨン', '레이온', 'raiom', 'rajon'],
+    'Spandex': ['سباندكس', 'espandex', 'spandex', '氨纶', 'spandex', 'spandex', 'spandex', 'spandex', 'spandex', 'spandex', 'spandex', 'ΣΠΑΝΤΕΞ', 'spandeks', 'spandex', 'スパンデックス', '스판덱스', 'spandex', 'spandeks'],
+    'Modal': ['مودال', 'modala', 'modal', '莫代尔', 'modal', 'modal', 'modal', 'modal', 'modal', 'modal', 'modal', 'ΜΟΝΤΑΛ', 'modal', 'modal', 'モダール', '모달', 'modal', 'modal'],
   };
 
   // Generate multi-language text from composition data
@@ -8453,26 +8454,26 @@ function App() {
           // If selectedLanguages is provided, filter to only those languages
           let languagesToUse: string[];
           if (selectedLanguages && selectedLanguages.length > 0) {
-            // Map selected language codes to translation indices
+            // Map selected language codes to translation indices (must match materialTranslations order: AR, BS, CA, CH, DA, DE, DU, EN, ES, FR, GA, GR, ID, IT, JA, KO, PT, SL)
             const availableLanguages = [
+              { code: 'AR', name: 'عربي' },
+              { code: 'BS', name: 'Bosanski' },
+              { code: 'CA', name: 'Català' },
+              { code: 'CH', name: '中文' },
+              { code: 'DA', name: 'Dansk' },
+              { code: 'DE', name: 'Deutsch' },
+              { code: 'DU', name: 'Dutch' },
+              { code: 'EN', name: 'English' },
               { code: 'ES', name: 'Español' },
               { code: 'FR', name: 'Français' },
-              { code: 'EN', name: 'English' },
-              { code: 'PT', name: 'Português' },
-              { code: 'DU', name: 'Dutch' },
-              { code: 'IT', name: 'Italiano' },
-              { code: 'GR', name: 'Ελληνικά' },
-              { code: 'JA', name: '日本語' },
-              { code: 'DE', name: 'Deutsch' },
-              { code: 'DA', name: 'Dansk' },
-              { code: 'SL', name: 'Slovenščina' },
-              { code: 'CH', name: '中文' },
-              { code: 'KO', name: '한국어' },
-              { code: 'ID', name: 'Indonesian' },
-              { code: 'AR', name: 'عربي' },
               { code: 'GA', name: 'Galego' },
-              { code: 'CA', name: 'Català' },
-              { code: 'BS', name: 'Bosanski' }
+              { code: 'GR', name: 'Ελληνικά' },
+              { code: 'ID', name: 'Indonesian' },
+              { code: 'IT', name: 'Italiano' },
+              { code: 'JA', name: '日本語' },
+              { code: 'KO', name: '한국어' },
+              { code: 'PT', name: 'Português' },
+              { code: 'SL', name: 'Slovenščina' }
             ];
 
             languagesToUse = [];
@@ -8983,16 +8984,27 @@ function App() {
                   // If they do, SKIP re-splitting because the layout already has saved splits!
                   const parentMotherName = parentMotherObj.name;
                   const childMotherPattern = new RegExp(`^${parentMotherName}[A-Z]$`); // Mother_1A, Mother_1B, etc.
+
+                  console.log(`🔍🔍🔍 CLAUDE_DEBUG_DETECTION_START 🔍🔍🔍`);
+                  console.log(`🔍 Parent mother name: "${parentMotherName}"`);
+                  console.log(`🔍 Child mother pattern: ${childMotherPattern}`);
+                  console.log(`🔍 Total objects in projectState.canvasData.objects: ${projectState.canvasData.objects.length}`);
+                  console.log(`🔍 All mother objects:`, projectState.canvasData.objects.filter((obj: any) => obj.type?.includes('mother')).map((m: any) => m.name));
+
                   const existingChildMothers = projectState.canvasData.objects.filter((obj: any) =>
                     obj.type?.includes('mother') && childMotherPattern.test(obj.name)
                   );
 
                   if (existingChildMothers.length > 0) {
+                    console.log(`✅✅✅ CLAUDE_DEBUG_DETECTION_SUCCESS ✅✅✅`);
                     console.log(`✅ Order Preview: Found ${existingChildMothers.length} existing child mothers (${existingChildMothers.map((m: any) => m.name).join(', ')})`);
                     console.log(`✅ Skipping N-split regeneration - using saved split text from layout`);
+                    console.log(`✅✅✅ CLAUDE_DEBUG_WILL_SKIP_REGENERATION ✅✅✅`);
                     // Skip the entire re-splitting logic below!
                   } else {
+                    console.log(`❌❌❌ CLAUDE_DEBUG_DETECTION_FAILED ❌❌❌`);
                     console.log(`🔍 No existing child mothers found - will calculate N-split if needed`);
+                    console.log(`❌❌❌ CLAUDE_DEBUG_WILL_REGENERATE ❌❌❌`);
                   }
 
                   // Only run N-split logic if NO child mothers exist
@@ -9011,8 +9023,11 @@ function App() {
                     const paddingRightPx = config.padding.right * 3.779527559;
                     const paddingTopPx = config.padding.top * 3.779527559;
                     const paddingBottomPx = config.padding.bottom * 3.779527559;
+                    // Get trickyHeightMm from localStorage (same as NewCompTransDialog)
+                    const trickyHeightMm = parseFloat(localStorage.getItem('trickyHeightMm') || '2');
+                    const trickyHeightPx = trickyHeightMm * 3.779527559;
                     const availableWidthPx = Math.max(0, regionWidthPx - paddingLeftPx - paddingRightPx);
-                    const availableHeightPx = Math.max(0, regionHeightPx - paddingTopPx - paddingBottomPx);
+                    const availableHeightPx = Math.max(0, regionHeightPx - paddingTopPx - paddingBottomPx - trickyHeightPx);
 
                     let fontSizePx = config.typography.fontSize;
                     if (config.typography.fontSizeUnit === 'mm') {
@@ -9080,10 +9095,12 @@ function App() {
                       return wrappedLines;
                     };
 
+                    console.log(`🔄🔄🔄 CLAUDE_DEBUG_REGENERATION_RUNNING 🔄🔄🔄`);
                     const allLines = wrapTextToLines(multiLanguageText);
                     const totalMothersNeeded = Math.ceil(allLines.length / maxLinesPerMother);
 
                     console.log(`📊 Preview N-split: ${allLines.length} lines, max ${maxLinesPerMother} per mother → ${totalMothersNeeded} mothers needed`);
+                    console.log(`🔄🔄🔄 CLAUDE_DEBUG_WILL_CREATE_${totalMothersNeeded - 1}_CHILD_MOTHERS 🔄🔄🔄`);
                     console.log(`📝 All wrapped lines:`, allLines);
                     console.log(`📏 Original text length: ${multiLanguageText.length} chars`);
 
@@ -10787,19 +10804,50 @@ function App() {
     (parentMother as any).childMotherIds = (parentMother as any).childMotherIds || [];
     (parentMother as any).childMotherIds.push(childMotherId);
 
-    // Add to objects array
-    const updatedObjects = [...currentData.objects, newMother];
+    // Add to objects array - INSERT RIGHT AFTER PARENT (or after last sibling), not at the end
+    // Find parent mother's index
+    const parentIndex = currentData.objects.findIndex((obj: any) =>
+      obj.type?.includes('mother') && obj.name === parentMotherId
+    );
+
+    const updatedObjects = [...currentData.objects];
+    if (parentIndex !== -1) {
+      // CRITICAL: Update the parent mother in the array with the new childMotherIds
+      updatedObjects[parentIndex] = parentMother;
+
+      // Find the last existing sibling child of the same parent
+      // Example: if mother_1A exists, insert mother_1B after mother_1A, not after mother_1
+      let insertIndex = parentIndex + 1;
+
+      // Check if there are existing children after parent
+      for (let i = parentIndex + 1; i < updatedObjects.length; i++) {
+        const obj = updatedObjects[i];
+        if (obj.type?.includes('mother') && obj.name?.startsWith(parentMotherId) && obj.name !== parentMotherId) {
+          // This is a sibling child, update insert index to be after it
+          insertIndex = i + 1;
+        } else if (obj.type?.includes('mother') && !obj.name?.startsWith(parentMotherId)) {
+          // We've reached a different mother family, stop searching
+          break;
+        }
+      }
+
+      updatedObjects.splice(insertIndex, 0, newMother);
+      console.log(`✅ Inserted ${childMotherId} after ${parentMotherId} family at index ${insertIndex}`);
+      console.log(`✅ Parent ${parentMotherId} now has childMotherIds:`, (parentMother as any).childMotherIds);
+    } else {
+      // Fallback: append at end if parent not found (shouldn't happen)
+      updatedObjects.push(newMother);
+      console.warn(`⚠️ Could not find parent ${parentMotherId}, appending ${childMotherId} at end`);
+    }
     const updatedData = {
       ...currentData,
       objects: updatedObjects,
       totalObjects: updatedObjects.length
     };
 
-    // Update state
+    // Update state - ALWAYS update both to ensure canvas rendering sees the changes
     setData(updatedData);
-    if (webCreationData) {
-      setWebCreationData(updatedData);
-    }
+    setWebCreationData(updatedData);
 
     // 🔧 CRITICAL FIX: Update global data immediately for N-split consistency
     (window as any).currentAppData = updatedData;
@@ -11051,8 +11099,12 @@ function App() {
       (window as any).updateAppData(currentData);
       console.log(`✅ Child content stored in global data for region: ${firstRegion.id}`);
     }
-    
-    // ALSO update React state so canvas can render the child content
+
+    // DO NOT call setData/setWebCreationData here - currentData might be from globalData which is stale
+    // The objects order was already set correctly by createChildMotherStructure
+    // Calling setData here would overwrite the correct order with potentially stale data
+
+    // ONLY update React state for regionContents (not main data)
     console.log(`🎨 Also updating React state for canvas rendering...`);
     console.log(`🔍 BEFORE update - regionContents Map size: ${regionContents.size}`);
     console.log(`🔍 BEFORE update - existing regions in Map:`, Array.from(regionContents.keys()));
@@ -11673,6 +11725,127 @@ function App() {
     }
 
     let mothers = currentData.objects.filter(obj => obj.type?.includes('mother'));
+
+    // 🎯 LOG ALL MOTHERS' TEXT CONTENT FOR DEBUGGING
+    console.log('\n' + '='.repeat(100));
+    console.log('🎯🎯🎯 PDF GENERATION: MOTHER TEXT CONTENT SNAPSHOT 🎯🎯🎯');
+    console.log('='.repeat(100));
+
+    const motherTextSummary: string[] = [];
+
+    mothers.forEach((mother: any) => {
+      console.log(`\n📄 ${mother.name}:`);
+      console.log('─'.repeat(80));
+
+      // Check if mother has main region with comp-trans or multi-line content
+      if (mother.regions && Array.isArray(mother.regions)) {
+        mother.regions.forEach((region: any, regionIdx: number) => {
+          const regionContentsForThisRegion = regionContents?.get(region.id);
+          if (regionContentsForThisRegion && Array.isArray(regionContentsForThisRegion)) {
+            regionContentsForThisRegion.forEach((content: any, contentIdx: number) => {
+              if (content.type === 'new-comp-trans' || content.type === 'new-multi-line') {
+                const textContent = content.newCompTransConfig?.textContent?.generatedText ||
+                                    content.newMultiLineConfig?.textContent ||
+                                    content.content?.text || '';
+                const lines = textContent.split('\n').filter((l: string) => l.trim());
+
+                // Store for easy copy summary
+                const reconstructedText = lines.join(' ');
+                motherTextSummary.push(`${mother.name}: ${reconstructedText}`);
+
+                console.log(`  Region ${regionIdx} [${region.id}] Content ${contentIdx} (${content.type}):`);
+                console.log(`  📊 Total lines: ${lines.length}`);
+                console.log(`  📏 Total chars: ${textContent.length}`);
+                console.log(`  📝 First 200 chars: "${textContent.substring(0, 200)}..."`);
+                console.log(`  📝 Last 200 chars: "...${textContent.substring(textContent.length - 200)}"`);
+
+                // 🎯 Show full reconstructed text (removing line breaks to see continuous text)
+                console.log(`  📄 FULL RECONSTRUCTED TEXT (all lines joined with space):`);
+                console.log(`     "${reconstructedText}"`);
+                console.log('');
+
+                console.log(`  📋 All lines (${lines.length} total):`);
+                lines.forEach((line: string, lineIdx: number) => {
+                  console.log(`     Line ${lineIdx + 1}: "${line}"`);
+                });
+              }
+            });
+          }
+        });
+      }
+    });
+
+    console.log('\n' + '='.repeat(100));
+    console.log('🎯🎯🎯 END OF MOTHER TEXT CONTENT SNAPSHOT 🎯🎯🎯');
+    console.log('='.repeat(100) + '\n');
+
+    // 🎯 EASY COPY SUMMARY - All mother texts in one place
+    console.log('\n' + '🔥'.repeat(50));
+    console.log('📋 EASY COPY SUMMARY - COPY TEXT BELOW 📋');
+    console.log('🔥'.repeat(50));
+    motherTextSummary.forEach((summary) => {
+      console.log(summary);
+      console.log(''); // Empty line between mothers
+    });
+    console.log('🔥'.repeat(50));
+    console.log('📋 END OF EASY COPY SUMMARY 📋');
+    console.log('🔥'.repeat(50) + '\n');
+
+    // Also save to window for console access
+    (window as any).motherTextSnapshot = motherTextSummary.join('\n\n');
+    console.log('💾 Full text also saved to: window.motherTextSnapshot');
+    console.log('💡 Type in console: copy(window.motherTextSnapshot) to copy all text');
+
+    // 🎯 READ ACTUAL RENDERED TEXT FROM CANVAS DOM
+    console.log('\n' + '🎨'.repeat(50));
+    console.log('🎨🎨🎨 ACTUAL RENDERED TEXT FROM CANVAS DOM 🎨🎨🎨');
+    console.log('🎨'.repeat(50));
+
+    const svgElement = document.querySelector('svg');
+    if (svgElement) {
+      // Find all foreignObject elements (these contain the rendered text)
+      const foreignObjects = svgElement.querySelectorAll('foreignObject');
+      console.log(`📊 Found ${foreignObjects.length} foreignObject elements in canvas`);
+
+      foreignObjects.forEach((foreignObj, index) => {
+        // Get the text content from the foreignObject
+        const textContent = foreignObj.textContent || '';
+        if (textContent.trim()) {
+          // Try to find which mother this belongs to by checking parent groups
+          let motherName = 'Unknown';
+          let parent: Element | null = foreignObj.parentElement;
+          while (parent && parent !== svgElement as Element) {
+            if (parent.getAttribute('data-mother-name')) {
+              motherName = parent.getAttribute('data-mother-name') || 'Unknown';
+              break;
+            }
+            // Check id attribute for mother pattern
+            const id = parent.getAttribute('id') || '';
+            if (id.includes('Mother_')) {
+              motherName = id;
+              break;
+            }
+            parent = parent.parentElement;
+          }
+
+          const lines = textContent.split('\n').filter(l => l.trim());
+          console.log(`\n📄 ForeignObject ${index + 1} (belongs to ${motherName}):`);
+          console.log(`  📊 Total lines: ${lines.length}`);
+          console.log(`  📏 Total chars: ${textContent.length}`);
+          console.log(`  📋 All lines:`);
+          lines.forEach((line, lineIdx) => {
+            console.log(`     Line ${lineIdx + 1}: "${line}"`);
+          });
+        }
+      });
+    } else {
+      console.log('❌ No SVG element found in canvas');
+    }
+
+    console.log('\n' + '🎨'.repeat(50));
+    console.log('🎨🎨🎨 END OF CANVAS DOM TEXT 🎨🎨🎨');
+    console.log('🎨'.repeat(50) + '\n');
+
     if (mothers.length === 0) {
       alert('❌ No mothers found to generate PDF');
       return;
@@ -12597,8 +12770,24 @@ function App() {
                     // Use splitTextToSize to wrap text exactly like web view
                     const wrappedText = pdf.splitTextToSize(displayText, textAreaWidth);
 
-                    // Calculate max lines exactly like web view
-                    const maxLines = Math.max(0, Math.floor(textAreaHeight / lineHeightMM));
+                    // Calculate max lines EXACTLY like NewCompTransDialog overflow detection
+                    // This ensures PDF preview matches layout card overflow settings
+                    // Formula from NewCompTransDialog.tsx lines 601-615:
+
+                    // Convert scaledFontSize from pixels to mm (same as NewCompTransDialog line 601)
+                    const scaledFontSizeMm = scaledFontSize / 3.779527559;
+
+                    // Calculate line height in mm using lineSpacing (default 1.2)
+                    // This matches NewCompTransDialog line 603
+                    const lineSpacing = 1.2; // Default from NewCompTransDialog
+                    const actualLineHeightMm = scaledFontSizeMm * lineSpacing;
+
+                    // Apply baseline offset (NewCompTransDialog lines 611-612)
+                    const textBaselineOffsetMm = scaledFontSizeMm * 0.8;
+                    const safeUsableHeightMm = textAreaHeight - textBaselineOffsetMm;
+
+                    // Calculate max lines using safe usable height (NewCompTransDialog line 615)
+                    const maxLines = Math.max(0, Math.floor(safeUsableHeightMm / actualLineHeightMm));
 
                     if (maxLines > 0) {
                       let displayLines = wrappedText;
@@ -16968,9 +17157,12 @@ function App() {
                         const paddingRightPx = padding.right * scale;
                         const paddingTopPx = padding.top * scale;
                         const paddingBottomPx = padding.bottom * scale;
+                        // Get trickyHeightMm from localStorage (same as NewCompTransDialog)
+                        const trickyHeightMm = parseFloat(localStorage.getItem('trickyHeightMm') || '2');
+                        const trickyHeightPx = trickyHeightMm * scale;
 
                         const availableWidthPx = Math.max(0, regionWidthPx - paddingLeftPx - paddingRightPx);
-                        const availableHeightPx = Math.max(0, regionHeightPx - paddingTopPx - paddingBottomPx);
+                        const availableHeightPx = Math.max(0, regionHeightPx - paddingTopPx - paddingBottomPx - trickyHeightPx);
 
                         // Calculate font size using zoom-dependent scaling (same as overflow logic)
                         // This ensures zoom in/out maintains same ratio like overflow text
@@ -17047,9 +17239,12 @@ function App() {
                         const paddingRightPx = padding.right * scale;
                         const paddingTopPx = padding.top * scale;
                         const paddingBottomPx = padding.bottom * scale;
+                        // Get trickyHeightMm from localStorage (same as NewCompTransDialog)
+                        const trickyHeightMm = parseFloat(localStorage.getItem('trickyHeightMm') || '2');
+                        const trickyHeightPx = trickyHeightMm * scale;
 
                         const availableWidthPx = Math.max(0, regionWidthPx - paddingLeftPx - paddingRightPx);
-                        const availableHeightPx = Math.max(0, regionHeightPx - paddingTopPx - paddingBottomPx);
+                        const availableHeightPx = Math.max(0, regionHeightPx - paddingTopPx - paddingBottomPx - trickyHeightPx);
 
                         // Calculate font size for region using consistent scaling
                         const regionScaledFontSize = calculateConsistentFontSize(
@@ -18066,9 +18261,12 @@ function App() {
                             const paddingRightPx = padding.right * scale;
                             const paddingBottomPx = padding.bottom * scale;
                             const paddingLeftPx = padding.left * scale;
+                            // Get trickyHeightMm from localStorage (same as NewCompTransDialog)
+                            const trickyHeightMm = parseFloat(localStorage.getItem('trickyHeightMm') || '2');
+                            const trickyHeightPx = trickyHeightMm * scale;
 
                             const availableWidthPx = Math.max(0, regionWidthPx - paddingLeftPx - paddingRightPx);
-                            const availableHeightPx = Math.max(0, regionHeightPx - paddingTopPx - paddingBottomPx);
+                            const availableHeightPx = Math.max(0, regionHeightPx - paddingTopPx - paddingBottomPx - trickyHeightPx);
 
                             // Use consistent font size calculation for child region text rendering
                             // 🔧 FIX: Use newCompTransConfig for comp trans content (was using newMultiLineConfig)
@@ -19582,10 +19780,50 @@ function App() {
                 })()}
 
                 {(() => {
-                  const objects = (data || webCreationData)?.objects || [];
-                  const motherNames = objects.map(obj => obj.name).join(', ');
-                  console.log('🔍 DEBUG ALL MOTHER NAMES:', motherNames);
-                  return objects.map((obj, index) => renderObject(obj, index));
+                  const currentData = data || webCreationData;
+                  if (!currentData) return null;
+
+                  let mothers = currentData.objects.filter(obj => obj.type?.includes('mother'));
+
+                  // Sort mothers EXACTLY like PDF generation (lines 11726-11786)
+                  if (mothers.length > 0) {
+                    const parentMothers = mothers.filter(m => !(m as any).isOverflowChild);
+                    const childMothers = mothers.filter(m => (m as any).isOverflowChild);
+
+                    // Sort parent mothers by x position (left to right)
+                    parentMothers.sort((a, b) => a.x - b.x);
+
+                    // Build final sorted array: insert children immediately after their parent
+                    const sortedMothers: AIObject[] = [];
+                    const addedChildNames = new Set<string>();
+
+                    parentMothers.forEach(parent => {
+                      // Add the parent
+                      sortedMothers.push(parent);
+
+                      // Find and add all children of this parent (in creation order)
+                      const parentChildIds = (parent as any).childMotherIds || [];
+                      parentChildIds.forEach((childId: string) => {
+                        if (!addedChildNames.has(childId)) {
+                          const child = childMothers.find(c => c.name === childId);
+                          if (child) {
+                            sortedMothers.push(child);
+                            addedChildNames.add(childId);
+                          }
+                        }
+                      });
+                    });
+
+                    // Add any orphan children
+                    const orphanChildren = childMothers.filter(child => !addedChildNames.has(child.name));
+                    orphanChildren.forEach(orphan => sortedMothers.push(orphan));
+
+                    // Replace mothers with sorted version
+                    mothers = sortedMothers;
+                  }
+
+                  // Return sorted mothers (same as PDF line 11786: mothers = sortedMothers)
+                  return mothers.map((obj, index) => renderObject(obj, index));
                 })()}
 
 

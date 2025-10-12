@@ -23,7 +23,9 @@
       "Bash(start \"D:\\project\\layout2\\care\\check-order-management.html\")",
       "Read(//d//**)",
       "Bash(npm install:*)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(awk:*)",
+      "Bash(cd:*)"
     ],
     "deny": [],
     "ask": []
