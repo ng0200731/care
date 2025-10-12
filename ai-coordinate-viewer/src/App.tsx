@@ -8854,6 +8854,14 @@ function App() {
 
           if (variableDataToApply) {
             Object.entries(variableDataToApply).forEach(([componentId, componentData]: [string, any]) => {
+            // 🔒 CRITICAL FIX: Check processing lock BEFORE entering component processing
+            // This prevents Stage 2/3 from starting when Stage 1 is still running
+            const processingLockKey = `__overflow_processing_${componentId}`;
+            if ((window as any)[processingLockKey]) {
+              console.log(`🔒 LOCKED: Component ${componentId} is already being processed - skipping to prevent Stage 2`);
+              return; // Skip this component entirely
+            }
+
             // Match both patterns: region_xxx_content_0 OR region_xxx_regionContent_0
             const match = componentId.match(/^(.+)_(?:region)?[Cc]ontent_(\d+)$/);
             if (match) {
@@ -8987,12 +8995,24 @@ function App() {
                   console.log(`🔍🔍🔍 CLAUDE_DEBUG_DETECTION_START 🔍🔍🔍`);
                   console.log(`🔍 Parent mother name: "${parentMotherName}"`);
                   console.log(`🔍 Child mother pattern: ${childMotherPattern}`);
-                  console.log(`🔍 Total objects in projectState.canvasData.objects: ${projectState.canvasData.objects.length}`);
-                  console.log(`🔍 All mother objects:`, projectState.canvasData.objects.filter((obj: any) => obj.type?.includes('mother')).map((m: any) => m.name));
 
-                  const existingChildMothers = projectState.canvasData.objects.filter((obj: any) =>
+                  // 🔒 CRITICAL FIX: Check if processing is already in progress for this component
+                  const processingLockKey = `__overflow_processing_${componentId}`;
+                  if ((window as any)[processingLockKey]) {
+                    console.log(`🔒 LOCKED: Overflow processing already in progress for ${componentId} - skipping to prevent concurrent execution`);
+                    return; // Exit to prevent race condition
+                  }
+
+                  // 🔒 CRITICAL FIX: Check LIVE app data, not stale projectState
+                  const globalAppData = (window as any).currentAppData;
+                  const currentLiveData = globalAppData || data || webCreationData;
+
+                  console.log(`🔍 Total objects in LIVE data: ${currentLiveData?.objects?.length || 0}`);
+                  console.log(`🔍 All mother objects:`, currentLiveData?.objects?.filter((obj: any) => obj.type?.includes('mother')).map((m: any) => m.name) || []);
+
+                  const existingChildMothers = currentLiveData?.objects?.filter((obj: any) =>
                     obj.type?.includes('mother') && childMotherPattern.test(obj.name)
-                  );
+                  ) || [];
 
                   if (existingChildMothers.length > 0) {
                     console.log(`✅✅✅ CLAUDE_DEBUG_DETECTION_SUCCESS ✅✅✅`);
@@ -9008,6 +9028,10 @@ function App() {
 
                   // Only run N-split logic if NO child mothers exist
                   if (existingChildMothers.length === 0) {
+                  // 🔒 Set processing lock to prevent concurrent execution
+                  (window as any)[processingLockKey] = true;
+                  console.log(`🔒 LOCK SET: Processing overflow for ${componentId}`);
+
                   const parentRegion = parentMotherObj.regions.find((r: any) => r.id === actualRegionId);
                   // Reuse mainRegionContentArray from above (line 8425)
                   const overflowContent = mainRegionContentArray?.[contentIndex];
@@ -9229,6 +9253,10 @@ function App() {
                         }
 
                         console.log(`🎯🎯🎯 PREVIEW_COMPLETE: Created ${createdChildMotherIds.length} children:`, createdChildMotherIds);
+
+                        // 🔒 Release processing lock
+                        delete (window as any)[processingLockKey];
+                        console.log(`🔒 LOCK RELEASED: Overflow processing complete for ${componentId}`);
 
                         // Clear stored config after child creation
                         delete (window as any).__current2in1Config;
