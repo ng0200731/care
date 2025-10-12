@@ -4740,7 +4740,7 @@ function App() {
           await generatePDFAllMothers();
         }
 
-      }, 10000); // Wait 10 seconds for child mother creation and overflow to complete
+      }, 5000); // Wait 5 seconds for child mother creation to complete (500ms per child × ~3 children + buffer)
 
       return () => clearTimeout(timer);
     }
@@ -8701,13 +8701,6 @@ function App() {
                 console.log(`🔧 Using separator: "${originalSeparator}"`);
                 console.log(`🗣️ Selected languages:`, originalSelectedLanguages);
 
-                // ✅ FIX: Check if child mothers exist - if so, keep saved split text
-                const hasChildMothers = updatedData.objects.some((otherObj: any) =>
-                  otherObj.type?.includes('mother') &&
-                  otherObj.name !== obj.name &&
-                  new RegExp(`^${obj.name}[A-Z]$`).test(otherObj.name)
-                );
-
                 // Update the content configuration
                 targetContent.newCompTransConfig = targetContent.newCompTransConfig || {};
                 targetContent.newCompTransConfig.materialCompositions = normalizedCompositions; // Use normalized percentages
@@ -8715,16 +8708,14 @@ function App() {
                 targetContent.newCompTransConfig.textContent = targetContent.newCompTransConfig.textContent || {};
                 targetContent.newCompTransConfig.textContent.separator = originalSeparator;
 
-                // Only overwrite text if NO child mothers (fresh layout)
-                if (!hasChildMothers) {
-                  targetContent.newCompTransConfig.textContent.generatedText = multiLanguageText;
-                  targetContent.newCompTransConfig.textContent.originalText = multiLanguageText;
-                  targetContent.content = targetContent.content || {};
-                  targetContent.content.text = multiLanguageText;
-                  console.log(`✅ Applied composition with ${originalSelectedLanguages.length} language(s) to ${obj.name} - Text will overflow to child mothers automatically`);
-                } else {
-                  console.log(`✅ Updated compositions for ${obj.name} - keeping saved split text (child mothers exist)`);
-                }
+                // ✅ FIX for Order Preview with different compositions:
+                // Always regenerate text when applying order data (even if child mothers exist)
+                // This ensures each order line gets its correct composition
+                targetContent.newCompTransConfig.textContent.generatedText = multiLanguageText;
+                targetContent.newCompTransConfig.textContent.originalText = multiLanguageText;
+                targetContent.content = targetContent.content || {};
+                targetContent.content.text = multiLanguageText;
+                console.log(`✅ Applied composition with ${originalSelectedLanguages.length} language(s) to ${obj.name} - Text will regenerate for all mothers`)
               }
             } else {
               console.warn(`⚠️ Content not found at index ${contentIndex} in region ${regionId}`);
@@ -8777,6 +8768,12 @@ function App() {
           try {
             orderData = JSON.parse(orderDataStr);
             console.log('🎨 Order Preview Mode - will apply order data to layout');
+            console.log('📊 Order Data:', {
+              currentLineIndex: orderData.currentLineIndex,
+              totalLines: orderData.totalLines,
+              hasCurrentLine: !!orderData.currentLine,
+              componentVariablesKeys: orderData.currentLine?.componentVariables ? Object.keys(orderData.currentLine.componentVariables) : []
+            });
           } catch (err) {
             console.error('❌ Error parsing order preview data:', err);
           }
@@ -8797,6 +8794,7 @@ function App() {
           if (orderData.currentLine && orderData.currentLine.componentVariables) {
             const lineIndex = orderData.currentLineIndex || 0;
             console.log(`🎨 Applying order line data to canvas before state update (Line ${lineIndex + 1}/${orderData.totalLines})...`);
+            console.log(`📝 Component Variables for Line ${lineIndex + 1}:`, JSON.stringify(orderData.currentLine.componentVariables, null, 2));
             canvasDataWithLayoutName = applyOrderDataToLayoutData(canvasDataWithLayoutName, orderData.currentLine.componentVariables);
           }
           // Check for new multi-line format (backward compatibility)
@@ -8970,6 +8968,7 @@ function App() {
               }
 
               // STEP: Detect overflow and create child mothers (following 2in1 logic exactly)
+              // 🔒 CRITICAL FIX: Add one-time execution flag to prevent multiple regenerations
               if (componentData.type === 'comp-trans' && multiLanguageText && projectState.canvasData) {
                 console.log('🔍 Preview: Checking for overflow on 18-language text...');
 

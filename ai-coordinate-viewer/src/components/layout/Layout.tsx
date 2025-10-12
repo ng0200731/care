@@ -15,6 +15,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   // Check if we're in project context
   const urlParams = new URLSearchParams(location.search);
   const context = urlParams.get('context');
+  const isLayout2 = urlParams.get('layout') === '2';
   const isProjectContext = context === 'projects';
   return (
     <div style={{
@@ -26,7 +27,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         position: 'fixed',
         top: 0,
         left: 0,
-        width: '220px', // Reduced from 280px to 220px
+        width: isLayout2 ? '280px' : '220px', // Reduced from 280px to 220px
         height: '100vh',
         zIndex: 10
       }}>
@@ -35,7 +36,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       {/* Main Content Area */}
       <div style={{
-        marginLeft: '220px', // Reduced from 280px to 220px for more content space
+        marginLeft: isLayout2 ? '280px' : '220px', // Reduced from 280px to 220px for more content space
         minHeight: '100vh',
         display: 'flex',
         flexDirection: 'column'

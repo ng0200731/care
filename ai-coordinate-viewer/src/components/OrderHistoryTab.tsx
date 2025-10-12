@@ -799,13 +799,104 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
 
             if (componentData.type === 'comp-trans') {
               const compositions = componentData.data?.compositions || [];
-              pdf.text('Composition:', col1X + 3, currentY);
-              currentY += 4;
+
+              // Generate 18-language text with distribution
+              const separator = ' - ';
+              const materialLines: string[] = [];
+
               compositions.forEach((comp: any) => {
                 if (comp.material && comp.percentage) {
-                  pdf.text(`  ${comp.percentage}% ${comp.material}`, col1X + 3, currentY);
-                  currentY += 4;
+                  // Get translations for this material
+                  const materialKey = Object.keys(materialTranslations).find(
+                    key => key.toLowerCase() === comp.material.toLowerCase()
+                  );
+                  const translations = materialKey ? materialTranslations[materialKey] : null;
+
+                  if (translations && translations.length === 18) {
+                    const multiLangText = translations.join(separator);
+                    const percentage = typeof comp.percentage === 'string' ? parseInt(comp.percentage, 10) : comp.percentage;
+                    materialLines.push(`${percentage}% ${multiLangText}`);
+                  } else {
+                    const percentage = typeof comp.percentage === 'string' ? parseInt(comp.percentage, 10) : comp.percentage;
+                    materialLines.push(`${percentage}% ${comp.material}`);
+                  }
                 }
+              });
+
+              // Simple distribution logic: split materials across mothers based on line length
+              const maxCharsPerPage = 400; // Approximate character limit per mother card
+              let currentMotherIndex = 1;
+              let currentMotherText = '';
+              const motherDistribution: { [key: string]: string[] } = {};
+
+              materialLines.forEach((line) => {
+                const motherKey = currentMotherIndex === 1 ? 'mother_1' : `mother_1${String.fromCharCode(64 + currentMotherIndex)}`; // mother_1A, mother_1B, etc.
+
+                if (!motherDistribution[motherKey]) {
+                  motherDistribution[motherKey] = [];
+                }
+
+                // Check if adding this line would exceed the limit
+                if ((currentMotherText + line).length > maxCharsPerPage && motherDistribution[motherKey].length > 0) {
+                  // Move to next mother
+                  currentMotherIndex++;
+                  currentMotherText = '';
+                  const newMotherKey = currentMotherIndex === 1 ? 'mother_1' : `mother_1${String.fromCharCode(64 + currentMotherIndex)}`;
+                  if (!motherDistribution[newMotherKey]) {
+                    motherDistribution[newMotherKey] = [];
+                  }
+                  motherDistribution[newMotherKey].push(line);
+                  currentMotherText = line;
+                } else {
+                  motherDistribution[motherKey].push(line);
+                  currentMotherText += line;
+                }
+              });
+
+              // Display composition with mother distribution
+              pdf.text('Composition:', col1X + 3, currentY);
+              currentY += 4;
+
+              Object.entries(motherDistribution).forEach(([motherKey, lines]) => {
+                pdf.setFont('helvetica', 'bold');
+                pdf.text(`  ${motherKey}`, col1X + 3, currentY);
+                pdf.setFont('helvetica', 'normal');
+                currentY += 3;
+
+                lines.forEach((line) => {
+                  // Split long lines to fit PDF width
+                  const maxLineLength = 85; // Approximate characters per line in PDF
+                  if (line.length > maxLineLength) {
+                    // Split by separator
+                    const parts = line.split(separator);
+                    let currentLine = '';
+                    const percentage = line.match(/^(\d+%)/)?.[1] || '';
+
+                    parts.forEach((part, idx) => {
+                      const testLine = currentLine ? `${currentLine}${separator}${part}` : `${idx === 0 ? percentage + ' ' : ''}${part}`;
+
+                      if (testLine.length > maxLineLength) {
+                        if (currentLine) {
+                          pdf.text(`    ${currentLine}`, col1X + 3, currentY);
+                          currentY += 3;
+                        }
+                        currentLine = part;
+                      } else {
+                        currentLine = testLine;
+                      }
+                    });
+
+                    if (currentLine) {
+                      pdf.text(`    ${currentLine}`, col1X + 3, currentY);
+                      currentY += 3;
+                    }
+                  } else {
+                    pdf.text(`    ${line}`, col1X + 3, currentY);
+                    currentY += 3;
+                  }
+                });
+
+                currentY += 2; // Add spacing between mothers
               });
             } else if (componentData.type === 'multi-line') {
               const textContent = componentData.data?.textContent || '';
@@ -942,7 +1033,8 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
 
           const masterFileId = layout.canvasData?.masterFileId || '';
           const projectName = order.projectSlug;
-          const canvasUrl = `/create_zero?context=projects&projectSlug=${order.projectSlug}&masterFileId=${masterFileId}&projectName=${encodeURIComponent(projectName)}&layoutId=${order.layoutId}&orderPreview=true&autoGeneratePDF=true&onlyPreview=true&lineIndex=${i}`;
+          const timestamp = Date.now();
+          const canvasUrl = `/create_zero?context=projects&projectSlug=${order.projectSlug}&masterFileId=${masterFileId}&projectName=${encodeURIComponent(projectName)}&layoutId=${order.layoutId}&orderPreview=true&autoGeneratePDF=true&onlyPreview=true&lineIndex=${i}&_t=${timestamp}`;
 
           console.log(`📍 Loading canvas for artwork Line ${i + 1}:`, canvasUrl);
 
@@ -1198,9 +1290,11 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
           iframe.style.backgroundColor = 'white';
 
           // Build canvas URL with auto-generate PDF flag, line index, and only preview mode
+          // Add timestamp to prevent caching between different lines
           const masterFileId = layout.canvasData?.masterFileId || '';
           const projectName = order.projectSlug;
-          const canvasUrl = `/create_zero?context=projects&projectSlug=${order.projectSlug}&masterFileId=${masterFileId}&projectName=${encodeURIComponent(projectName)}&layoutId=${order.layoutId}&orderPreview=true&autoGeneratePDF=true&onlyPreview=true&lineIndex=${lineIndex}`;
+          const timestamp = Date.now();
+          const canvasUrl = `/create_zero?context=projects&projectSlug=${order.projectSlug}&masterFileId=${masterFileId}&projectName=${encodeURIComponent(projectName)}&layoutId=${order.layoutId}&orderPreview=true&autoGeneratePDF=true&onlyPreview=true&lineIndex=${lineIndex}&_t=${timestamp}`;
 
           console.log(`📍 Loading canvas for Line ${lineIndex + 1}/${totalPages}:`, canvasUrl);
 
