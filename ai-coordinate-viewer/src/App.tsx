@@ -11998,7 +11998,7 @@ function App() {
           Object.entries(componentVariables).forEach(([componentId, componentData]: [string, any]) => {
             if (componentData.type === 'comp-trans') {
               // Get remark from layout configuration
-              let remarkText = '';
+              let remarkText: string | string[] = '';
               try {
                 const storageKey = `project_${projectSlug}_layouts`;
                 const savedLayouts = localStorage.getItem(storageKey);
@@ -12037,7 +12037,16 @@ function App() {
                                 return lang ? `${lang.code} ${lang.name} (${seq})` : code;
                               });
 
-                              remarkText = ` - {(${formattedLangs.join(', ')})}`;
+                              // Break into groups of 9 languages per line
+                              const langsPerLine = 9;
+                              const langGroups: string[] = [];
+                              for (let i = 0; i < formattedLangs.length; i += langsPerLine) {
+                                const group = formattedLangs.slice(i, i + langsPerLine);
+                                langGroups.push(group.join(', '));
+                              }
+
+                              // Store groups for multi-line rendering
+                              remarkText = langGroups;
                             }
                           }
                         }
@@ -12049,8 +12058,31 @@ function App() {
                 console.error('Error getting composition translation info from layout:', error);
               }
 
-              pdf.text(`Composition Translation${remarkText}`, 10, yPos);
-              yPos += 5;
+              // Handle multi-line text for composition translation
+              if (Array.isArray(remarkText)) {
+                // Reduce font size by 30% for composition translation
+                const originalFontSize = 10;
+                const reducedFontSize = originalFontSize * 0.7; // 70% of original
+                pdf.setFontSize(reducedFontSize);
+
+                // Render first line with opening bracket
+                pdf.text(`Composition Translation - {(${remarkText[0]}${remarkText.length > 1 ? ',' : ')'}}`, 10, yPos);
+                yPos += 4; // Slightly reduced spacing for smaller font
+
+                // Render middle lines with proper indentation
+                for (let i = 1; i < remarkText.length; i++) {
+                  const isLastLine = i === remarkText.length - 1;
+                  pdf.text(`  ${remarkText[i]}${isLastLine ? ')}' : ','}`, 10, yPos);
+                  yPos += 4; // Slightly reduced spacing for smaller font
+                }
+
+                // Restore original font size
+                pdf.setFontSize(originalFontSize);
+              } else {
+                // Fallback for when remarkText is a string
+                pdf.text(`Composition Translation${remarkText}`, 10, yPos);
+                yPos += 5;
+              }
             } else if (componentData.type === 'multi-line') {
               // Get remark from layout configuration
               let remarkText = '';

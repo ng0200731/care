@@ -1910,15 +1910,16 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                   onClick={() => handleRemoveLine(line.id)}
                   disabled={isDisabled}
                   style={{
-                    padding: '6px 12px',
-                    fontSize: '13px',
-                    fontWeight: '500',
+                    padding: '4px 10px',
+                    fontSize: '20px',
+                    fontWeight: '700',
                     color: '#ef4444',
                     backgroundColor: 'transparent',
                     border: '2px solid #ef4444',
                     borderRadius: '6px',
                     cursor: isDisabled ? 'not-allowed' : 'pointer',
-                    transition: 'all 0.2s'
+                    transition: 'all 0.2s',
+                    lineHeight: '1'
                   }}
                   onMouseEnter={(e) => {
                     if (!isDisabled) {
@@ -1930,8 +1931,9 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
                       e.currentTarget.style.backgroundColor = 'transparent';
                     }
                   }}
+                  title="Delete this layout"
                 >
-                  🗑️ Delete
+                  ×
                 </button>
               )}
             </div>

@@ -1672,6 +1672,50 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
                   </div>
                 </div>
               </div>
+
+              {/* Delete Order button - positioned at right edge */}
+              <button
+                onClick={() => {
+                  if (window.confirm(`Delete Order ${displayOrder.orderNumber}?\n\nThis will permanently delete this order and all its data.`)) {
+                    try {
+                      // Remove order from localStorage
+                      const savedOrders = localStorage.getItem('order_management');
+                      if (savedOrders) {
+                        const parsedOrders = JSON.parse(savedOrders);
+                        const updatedOrders = parsedOrders.filter((o: Order) => o.id !== order.id);
+
+                        localStorage.setItem('order_management', JSON.stringify(updatedOrders));
+                        setOrders(updatedOrders);
+                        console.log(`✅ Deleted order ${order.id}`);
+                      }
+                    } catch (error) {
+                      console.error('❌ Error deleting order:', error);
+                      alert('Error deleting order');
+                    }
+                  }
+                }}
+                style={{
+                  padding: '8px 12px',
+                  fontSize: '20px',
+                  color: '#ef4444',
+                  backgroundColor: 'transparent',
+                  border: '2px solid #ef4444',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  lineHeight: '1',
+                  height: 'fit-content'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#fef2f2';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+                title="Delete this order"
+              >
+                🗑️
+              </button>
             </div>
 
             {/* Separator */}
@@ -1824,39 +1868,106 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
                             ))}
                           </div>
                         </div>
-                        {/* Individual Line PDF Preview Icon */}
-                        {displayOrder.status !== 'draft' && (
-                          <button
-                            onClick={() => {
-                              // Generate PDF for this specific line only
-                              // But preserve the line index for proper saving
-                              const singleLineOrder = {
-                                ...order,
-                                orderLines: [line],
-                                __originalLineIndex: lineIndex // Track which line this is in the original order
-                              };
-                              order2preview(singleLineOrder as any);
-                            }}
-                            style={{
-                              padding: '6px 12px',
-                              fontSize: '20px',
-                              backgroundColor: 'transparent',
-                              border: 'none',
-                              cursor: 'pointer',
-                              borderRadius: '4px',
-                              transition: 'all 0.2s'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = '#e0f2fe';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = 'transparent';
-                            }}
-                            title={`Preview PDF for Line ${line.lineNumber || lineIndex + 1}`}
-                          >
-                            📄
-                          </button>
-                        )}
+                        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                          {/* Delete Button - only show for draft/confirmed orders with multiple lines */}
+                          {(displayOrder.status === 'draft' || displayOrder.status === 'confirmed') && (order as any).orderLines.length > 1 && (
+                            <button
+                              onClick={() => {
+                                if (window.confirm(`Delete Layout ${line.lineNumber || lineIndex + 1}?`)) {
+                                  try {
+                                    // Remove this line from the order
+                                    const updatedOrderLines = (order as any).orderLines
+                                      .filter((_: any, idx: number) => idx !== lineIndex)
+                                      .map((l: any, idx: number) => ({
+                                        ...l,
+                                        lineNumber: idx + 1
+                                      }));
+
+                                    // Recalculate total quantity
+                                    const newTotalQuantity = updatedOrderLines.reduce((sum: number, l: any) => sum + (l.quantity || 0), 0);
+
+                                    // Update order in localStorage
+                                    const savedOrders = localStorage.getItem('order_management');
+                                    if (savedOrders) {
+                                      const parsedOrders = JSON.parse(savedOrders);
+                                      const updatedOrders = parsedOrders.map((o: Order) => {
+                                        if (o.id === order.id) {
+                                          return {
+                                            ...o,
+                                            orderLines: updatedOrderLines,
+                                            quantity: newTotalQuantity
+                                          };
+                                        }
+                                        return o;
+                                      });
+
+                                      localStorage.setItem('order_management', JSON.stringify(updatedOrders));
+                                      setOrders(updatedOrders);
+                                      console.log(`✅ Deleted line ${lineIndex + 1} from order ${order.id}`);
+                                    }
+                                  } catch (error) {
+                                    console.error('❌ Error deleting order line:', error);
+                                    alert('Error deleting order line');
+                                  }
+                                }
+                              }}
+                              style={{
+                                padding: '4px 10px',
+                                fontSize: '20px',
+                                fontWeight: '700',
+                                color: '#ef4444',
+                                backgroundColor: 'transparent',
+                                border: '2px solid #ef4444',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                lineHeight: '1'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#fef2f2';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = 'transparent';
+                              }}
+                              title={`Delete Layout ${line.lineNumber || lineIndex + 1}`}
+                            >
+                              ×
+                            </button>
+                          )}
+                          {/* Individual Line PDF Preview Icon */}
+                          {displayOrder.status !== 'draft' && (
+                            <button
+                              onClick={() => {
+                                // Generate PDF for this specific line only
+                                // But preserve the line index for proper saving
+                                const singleLineOrder = {
+                                  ...order,
+                                  orderLines: [line],
+                                  __originalLineIndex: lineIndex // Track which line this is in the original order
+                                };
+                                order2preview(singleLineOrder as any);
+                              }}
+                              style={{
+                                padding: '6px 12px',
+                                fontSize: '20px',
+                                backgroundColor: 'transparent',
+                                border: 'none',
+                                cursor: 'pointer',
+                                borderRadius: '4px',
+                                transition: 'all 0.2s'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#e0f2fe';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = 'transparent';
+                              }}
+                              title={`Preview PDF for Line ${line.lineNumber || lineIndex + 1}`}
+                            >
+                              📄
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                     );
