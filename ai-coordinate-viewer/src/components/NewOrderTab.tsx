@@ -1038,8 +1038,8 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
     const completeValidation = validateForComplete();
 
     if (completeValidation.isValid) {
-      // All fields valid including percentage = 100% - save as confirmed
-      saveToOrderManagement('confirmed');
+      // All fields valid including percentage = 100% - save as draft
+      saveToOrderManagement('draft');
       setShowSuccessModal(true);
     } else {
       // Check if can at least be saved as draft
