@@ -1673,46 +1673,54 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
                 </div>
               </div>
 
-              {/* Delete Order button - positioned at right edge */}
+              {/* Delete Order button - positioned at right edge, only active for draft */}
               <button
                 onClick={() => {
-                  if (window.confirm(`Delete Order ${displayOrder.orderNumber}?\n\nThis will permanently delete this order and all its data.`)) {
-                    try {
-                      // Remove order from localStorage
-                      const savedOrders = localStorage.getItem('order_management');
-                      if (savedOrders) {
-                        const parsedOrders = JSON.parse(savedOrders);
-                        const updatedOrders = parsedOrders.filter((o: Order) => o.id !== order.id);
+                  if (displayOrder.status === 'draft') {
+                    if (window.confirm(`Delete Order ${displayOrder.orderNumber}?\n\nThis will permanently delete this order and all its data.`)) {
+                      try {
+                        // Remove order from localStorage
+                        const savedOrders = localStorage.getItem('order_management');
+                        if (savedOrders) {
+                          const parsedOrders = JSON.parse(savedOrders);
+                          const updatedOrders = parsedOrders.filter((o: Order) => o.id !== order.id);
 
-                        localStorage.setItem('order_management', JSON.stringify(updatedOrders));
-                        setOrders(updatedOrders);
-                        console.log(`✅ Deleted order ${order.id}`);
+                          localStorage.setItem('order_management', JSON.stringify(updatedOrders));
+                          setOrders(updatedOrders);
+                          console.log(`✅ Deleted order ${order.id}`);
+                        }
+                      } catch (error) {
+                        console.error('❌ Error deleting order:', error);
+                        alert('Error deleting order');
                       }
-                    } catch (error) {
-                      console.error('❌ Error deleting order:', error);
-                      alert('Error deleting order');
                     }
                   }
                 }}
+                disabled={displayOrder.status !== 'draft'}
                 style={{
                   padding: '8px 12px',
                   fontSize: '20px',
-                  color: '#ef4444',
+                  color: displayOrder.status === 'draft' ? '#ef4444' : '#cbd5e0',
                   backgroundColor: 'transparent',
-                  border: '2px solid #ef4444',
+                  border: displayOrder.status === 'draft' ? '2px solid #ef4444' : '2px solid #e2e8f0',
                   borderRadius: '6px',
-                  cursor: 'pointer',
+                  cursor: displayOrder.status === 'draft' ? 'pointer' : 'not-allowed',
                   transition: 'all 0.2s',
                   lineHeight: '1',
-                  height: 'fit-content'
+                  height: 'fit-content',
+                  opacity: displayOrder.status === 'draft' ? 1 : 0.5
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#fef2f2';
+                  if (displayOrder.status === 'draft') {
+                    e.currentTarget.style.backgroundColor = '#fef2f2';
+                  }
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'transparent';
+                  if (displayOrder.status === 'draft') {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }
                 }}
-                title="Delete this order"
+                title={displayOrder.status === 'draft' ? 'Delete this order' : 'Cannot delete non-draft orders'}
               >
                 🗑️
               </button>
@@ -1869,8 +1877,8 @@ const OrderHistoryTab: React.FC<OrderHistoryTabProps> = ({ onViewOrder, onEditOr
                           </div>
                         </div>
                         <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                          {/* Delete Button - only show for draft/confirmed orders with multiple lines */}
-                          {(displayOrder.status === 'draft' || displayOrder.status === 'confirmed') && (order as any).orderLines.length > 1 && (
+                          {/* Delete Button - only show for draft orders with multiple lines */}
+                          {displayOrder.status === 'draft' && (order as any).orderLines.length > 1 && (
                             <button
                               onClick={() => {
                                 if (window.confirm(`Delete Layout ${line.lineNumber || lineIndex + 1}?`)) {
