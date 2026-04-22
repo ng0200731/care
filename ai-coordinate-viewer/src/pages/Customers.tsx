@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { customerService, Customer } from '../services/customerService';
+import { customerService, Customer, CustomerOrder } from '../services/customerService';
 
 const Customers: React.FC = () => {
   const navigate = useNavigate();
@@ -56,6 +56,8 @@ const Customers: React.FC = () => {
     }
   };
 
+  const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null);
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -63,6 +65,90 @@ const Customers: React.FC = () => {
       month: 'short',
       day: 'numeric'
     });
+  };
+
+  const statusColor = (status: string) => {
+    switch (status) {
+      case 'confirmed': return { bg: '#c6f6d5', color: '#276749' };
+      case 'draft': return { bg: '#fefcbf', color: '#975a16' };
+      default: return { bg: '#edf2f7', color: '#4a5568' };
+    }
+  };
+
+  const renderOrderHistory = (orders: CustomerOrder[]) => {
+    if (!orders || orders.length === 0) {
+      return <p style={{ fontSize: '13px', color: '#a0aec0', margin: '8px 0 0' }}>No orders yet</p>;
+    }
+
+    // Get unique layouts
+    const layouts = Array.from(new Set(orders.map(o => o.layoutId || o.masterFileName).filter(Boolean)));
+
+    return (
+      <div style={{ marginTop: '12px' }}>
+        {/* Layout summary */}
+        {layouts.length > 0 && (
+          <div style={{ marginBottom: '10px' }}>
+            <span style={{ fontSize: '12px', fontWeight: '600', color: '#718096', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Layouts ({layouts.length})
+            </span>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
+              {layouts.map((layout, i) => (
+                <span key={i} style={{
+                  fontSize: '11px',
+                  padding: '2px 8px',
+                  background: '#ebf8ff',
+                  color: '#2b6cb0',
+                  borderRadius: '3px',
+                  border: '1px solid #bee3f8',
+                }}>
+                  {layout}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Order table */}
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+          <thead>
+            <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+              <th style={{ textAlign: 'left', padding: '6px 8px', color: '#718096', fontWeight: '600' }}>Order #</th>
+              <th style={{ textAlign: 'left', padding: '6px 8px', color: '#718096', fontWeight: '600' }}>Layout</th>
+              <th style={{ textAlign: 'right', padding: '6px 8px', color: '#718096', fontWeight: '600' }}>Qty</th>
+              <th style={{ textAlign: 'center', padding: '6px 8px', color: '#718096', fontWeight: '600' }}>Status</th>
+              <th style={{ textAlign: 'right', padding: '6px 8px', color: '#718096', fontWeight: '600' }}>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {orders.slice(0, 10).map(order => {
+              const sc = statusColor(order.status);
+              return (
+                <tr key={order.orderId} style={{ borderBottom: '1px solid #f7fafc' }}>
+                  <td style={{ padding: '5px 8px', color: '#2d3748' }}>{order.orderNumber || order.orderId.slice(0, 8)}</td>
+                  <td style={{ padding: '5px 8px', color: '#4a5568', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {order.masterFileName || order.layoutId || '-'}
+                  </td>
+                  <td style={{ padding: '5px 8px', color: '#4a5568', textAlign: 'right' }}>{order.quantity || '-'}</td>
+                  <td style={{ padding: '5px 8px', textAlign: 'center' }}>
+                    <span style={{ fontSize: '10px', fontWeight: '600', padding: '1px 6px', borderRadius: '3px', background: sc.bg, color: sc.color, textTransform: 'uppercase' }}>
+                      {order.status}
+                    </span>
+                  </td>
+                  <td style={{ padding: '5px 8px', color: '#a0aec0', textAlign: 'right', whiteSpace: 'nowrap' }}>{formatDate(order.createdAt)}</td>
+                </tr>
+              );
+            })}
+            {orders.length > 10 && (
+              <tr>
+                <td colSpan={5} style={{ padding: '5px 8px', color: '#a0aec0', textAlign: 'center', fontStyle: 'italic' }}>
+                  +{orders.length - 10} more orders
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    );
   };
 
   return (
@@ -225,20 +311,19 @@ const Customers: React.FC = () => {
                 <div
                   key={customer.id}
                   style={{
-                    padding: '20px',
                     border: '1px solid #e2e8f0',
-                    transition: 'all 0.3s ease'
+                    transition: 'all 0.3s ease',
+                    overflow: 'hidden'
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.borderColor = '#4a5568';
-                    e.currentTarget.style.background = '#f7fafc';
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.borderColor = '#e2e8f0';
-                    e.currentTarget.style.background = 'white';
                   }}
                 >
                   <div style={{
+                    padding: '20px',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'flex-start'
@@ -248,7 +333,6 @@ const Customers: React.FC = () => {
                         display: 'grid',
                         gridTemplateColumns: '1fr 1fr',
                         gap: '20px',
-                        marginBottom: '15px'
                       }}>
                         <div>
                           <div style={{
@@ -265,6 +349,19 @@ const Customers: React.FC = () => {
                             }}>
                               {customer.customerName}
                             </h3>
+                            {customer.orderCount ? (
+                              <span style={{
+                                fontSize: '11px',
+                                fontWeight: '600',
+                                padding: '2px 8px',
+                                background: '#ebf8ff',
+                                color: '#2b6cb0',
+                                borderRadius: '10px',
+                                border: '1px solid #bee3f8',
+                              }}>
+                                {customer.orderCount} order{customer.orderCount !== 1 ? 's' : ''}
+                              </span>
+                            ) : null}
                             {(() => {
                               const createdDate = new Date(customer.createdAt || '1970-01-01');
                               const now = new Date();
@@ -289,7 +386,7 @@ const Customers: React.FC = () => {
                             color: '#4a5568',
                             margin: '0 0 4px 0'
                           }}>
-                            <strong>Contact:</strong> {customer.person}
+                            <strong>Contact:</strong> {customer.person || '-'}
                           </p>
                           <p style={{
                             fontSize: '14px',
@@ -299,31 +396,56 @@ const Customers: React.FC = () => {
                             <strong>Created:</strong> {formatDate(customer.createdAt)}
                           </p>
                         </div>
-                        
+
                         <div>
                           <p style={{
                             fontSize: '14px',
                             color: '#4a5568',
                             margin: '0 0 4px 0'
                           }}>
-                            <strong>Email:</strong> {customer.email}
+                            <strong>Email:</strong> {customer.email || '-'}
                           </p>
                           <p style={{
                             fontSize: '14px',
                             color: '#4a5568',
                             margin: '0'
                           }}>
-                            <strong>Phone:</strong> {customer.tel}
+                            <strong>Phone:</strong> {customer.tel || '-'}
                           </p>
+                          {customer.currency && (
+                            <p style={{
+                              fontSize: '14px',
+                              color: '#4a5568',
+                              margin: '4px 0 0'
+                            }}>
+                              <strong>Currency:</strong> {customer.currency}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '8px', marginLeft: '20px' }}>
+                    <div style={{ display: 'flex', gap: '8px', marginLeft: '20px', flexShrink: 0 }}>
+                      {customer.orders && customer.orders.length > 0 && (
+                        <button
+                          onClick={() => setExpandedCustomer(expandedCustomer === customer.id ? null : customer.id)}
+                          style={{
+                            padding: '6px 12px',
+                            background: expandedCustomer === customer.id ? '#edf2f7' : '#f7fafc',
+                            color: '#4a5568',
+                            border: '1px solid #e2e8f0',
+                            fontSize: '13px',
+                            fontWeight: '500',
+                            cursor: 'pointer',
+                            transition: 'all 0.3s ease',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {expandedCustomer === customer.id ? '▲ Hide Orders' : '▼ Show Orders'}
+                        </button>
+                      )}
                       <button
-                        onClick={() => {
-                          navigate(`/customers/edit/${customer.id}`);
-                        }}
+                        onClick={() => navigate(`/customers/edit/${customer.id}`)}
                         style={{
                           padding: '6px 12px',
                           background: '#f7fafc',
@@ -334,17 +456,13 @@ const Customers: React.FC = () => {
                           cursor: 'pointer',
                           transition: 'all 0.3s ease'
                         }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = '#edf2f7';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = '#f7fafc';
-                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = '#edf2f7'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = '#f7fafc'}
                       >
-                        ✏️ Edit
+                        Edit
                       </button>
-                      
-                      <button 
+
+                      <button
                         onClick={(e) => {
                           e.stopPropagation();
                           handleDeleteCustomer(customer.id, customer.customerName);
@@ -368,10 +486,21 @@ const Customers: React.FC = () => {
                           e.currentTarget.style.color = '#c53030';
                         }}
                       >
-                        🗑️ Delete
+                        Delete
                       </button>
                     </div>
                   </div>
+
+                  {/* Expandable order history */}
+                  {expandedCustomer === customer.id && (
+                    <div style={{
+                      padding: '0 20px 20px',
+                      borderTop: '1px solid #e2e8f0',
+                      background: '#fafbfc',
+                    }}>
+                      {renderOrderHistory(customer.orders || [])}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
