@@ -377,9 +377,10 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
       setLoadingCustomers(true);
       try {
         const allCustomers = await customerService.getAllCustomers();
-        setCustomers(allCustomers);
+        setCustomers(Array.isArray(allCustomers) ? allCustomers : []);
       } catch (error) {
         console.error('Failed to load customers:', error);
+        setCustomers([]);
       } finally {
         setLoadingCustomers(false);
       }
@@ -1239,7 +1240,7 @@ const NewOrderTab: React.FC<NewOrderTabProps> = ({ editingOrder, isViewMode = fa
             <option value="">
               {loadingCustomers ? 'Loading customers...' : '-- Select Existing Customer or Create New --'}
             </option>
-            {customers.map(customer => (
+            {Array.isArray(customers) && customers.map(customer => (
               <option key={customer.id} value={customer.id}>
                 {customer.customerName} ({customer.person})
               </option>

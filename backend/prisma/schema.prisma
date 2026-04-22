@@ -87,6 +87,20 @@ model Order {
   @@map("orders")
 }
 
+// Customer model
+model Customer {
+  id           String   @id @default(cuid())
+  customerName String
+  person       String   @default("")
+  email        String   @default("")
+  tel          String   @default("")
+  currency     String   @default("USD")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("customers")
+}
+
 // Washing Care Symbols - Short Form table
 model ShortForm {
   id        String   @id @default(cuid())

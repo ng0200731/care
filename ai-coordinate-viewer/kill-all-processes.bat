@@ -22,8 +22,10 @@ for /f "tokens=5" %%a in ('netstat -aon ^| find ":5000"') do (
     taskkill /f /pid %%a >nul 2>&1
 )
 
-echo Killing Node.js processes...
-taskkill /f /im node.exe >nul 2>&1
+echo Killing remaining Node.js processes on app ports...
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":3002 :3003 :5000"') do (
+    taskkill /f /pid %%a >nul 2>&1
+)
 
 echo Killing React Scripts processes...
 taskkill /f /im react-scripts.cmd >nul 2>&1

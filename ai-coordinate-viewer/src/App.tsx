@@ -8683,46 +8683,32 @@ function App() {
 
                 const compositions = componentData.data.compositions || [];
 
-                // Convert percentage strings to numbers (fix "09091%" bug)
+                // Always regenerate text from order's compositions using layout's language settings
                 const normalizedCompositions = compositions.map((comp: any) => ({
                   ...comp,
                   percentage: typeof comp.percentage === 'string' ? parseInt(comp.percentage, 10) : comp.percentage
-                }));
+                })).filter((comp: any) => comp.material && comp.percentage);
 
-                // Get the original separator and selectedLanguages from existing config
-                const originalSeparator = targetContent.newCompTransConfig?.textContent?.separator || ' - ';
-                const originalSelectedLanguages = targetContent.newCompTransConfig?.selectedLanguages || ['ES', 'FR', 'EN', 'PT', 'DU', 'IT', 'GR', 'JA', 'DE', 'DA', 'SL', 'CH', 'KO', 'ID', 'AR', 'GA', 'CA', 'BS'];
+                if (normalizedCompositions.length > 0) {
+                  // Step 1: Translate compositions using layout's language settings
+                  const originalSeparator = targetContent.newCompTransConfig?.textContent?.separator || ' - ';
+                  const originalSelectedLanguages = targetContent.newCompTransConfig?.selectedLanguages || ['ES', 'FR', 'EN', 'PT', 'DU', 'IT', 'GR', 'JA', 'DE', 'DA', 'SL', 'CH', 'KO', 'ID', 'AR', 'GA', 'CA', 'BS'];
 
-                // Generate text using ONLY the selected languages from the layout config
-                const multiLanguageText = generateMultiLanguageComposition(normalizedCompositions, originalSeparator, originalSelectedLanguages);
+                  const multiLanguageText = generateMultiLanguageComposition(normalizedCompositions, originalSeparator, originalSelectedLanguages);
 
-                console.log(`🌍 Generated text with ${originalSelectedLanguages.length} selected language(s) (${multiLanguageText.length} chars)`);
-                console.log(`🔧 Using separator: "${originalSeparator}"`);
-                console.log(`🗣️ Selected languages:`, originalSelectedLanguages);
+                  console.log(`🌍 Generated text from order compositions (${multiLanguageText.length} chars, ${originalSelectedLanguages.length} languages)`);
 
-                // ✅ FIX: Check if child mothers exist - if so, keep saved split text
-                const hasChildMothers = updatedData.objects.some((otherObj: any) =>
-                  otherObj.type?.includes('mother') &&
-                  otherObj.name !== obj.name &&
-                  new RegExp(`^${obj.name}[A-Z]$`).test(otherObj.name)
-                );
-
-                // Update the content configuration
-                targetContent.newCompTransConfig = targetContent.newCompTransConfig || {};
-                targetContent.newCompTransConfig.materialCompositions = normalizedCompositions; // Use normalized percentages
-                targetContent.newCompTransConfig.selectedLanguages = originalSelectedLanguages; // Preserve original selected languages
-                targetContent.newCompTransConfig.textContent = targetContent.newCompTransConfig.textContent || {};
-                targetContent.newCompTransConfig.textContent.separator = originalSeparator;
-
-                // Only overwrite text if NO child mothers (fresh layout)
-                if (!hasChildMothers) {
+                  // Step 2: Put translated text into Text Content field
+                  targetContent.newCompTransConfig = targetContent.newCompTransConfig || {};
+                  targetContent.newCompTransConfig.materialCompositions = normalizedCompositions;
+                  targetContent.newCompTransConfig.textContent = targetContent.newCompTransConfig.textContent || {};
+                  targetContent.newCompTransConfig.textContent.separator = originalSeparator;
                   targetContent.newCompTransConfig.textContent.generatedText = multiLanguageText;
                   targetContent.newCompTransConfig.textContent.originalText = multiLanguageText;
                   targetContent.content = targetContent.content || {};
                   targetContent.content.text = multiLanguageText;
-                  console.log(`✅ Applied composition with ${originalSelectedLanguages.length} language(s) to ${obj.name} - Text will overflow to child mothers automatically`);
-                } else {
-                  console.log(`✅ Updated compositions for ${obj.name} - keeping saved split text (child mothers exist)`);
+
+                  console.log(`✅ Applied order compositions - text regenerated`);
                 }
               }
             } else {
@@ -8908,17 +8894,14 @@ function App() {
                     percentage: typeof comp.percentage === 'string' ? parseInt(comp.percentage, 10) : comp.percentage
                   }));
 
-                  // Get the original separator and selectedLanguages
+                  // Get the original separator
                   originalSeparator = mainContent.newCompTransConfig?.textContent?.separator || ' - ';
-                  const originalSelectedLanguages = mainContent.newCompTransConfig?.selectedLanguages || ['ES', 'FR', 'EN', 'PT', 'DU', 'IT', 'GR', 'JA', 'DE', 'DA', 'SL', 'CH', 'KO', 'ID', 'AR', 'GA', 'CA', 'BS'];
 
-                  // Generate text using ONLY the selected languages
-                  multiLanguageText = generateMultiLanguageComposition(normalizedCompositions, originalSeparator, originalSelectedLanguages);
-
-                  console.log(`  🌍 Generated text with ${originalSelectedLanguages.length} selected language(s) (${multiLanguageText.length} chars)`);
-                  console.log(`  🔧 Using separator: "${originalSeparator}"`);
-                  console.log(`  🗣️ Selected languages:`, originalSelectedLanguages);
-                }
+                  // Always regenerate text from order's compositions using layout's language settings
+                    const originalSelectedLanguages = mainContent.newCompTransConfig?.selectedLanguages || ['ES', 'FR', 'EN', 'PT', 'DU', 'IT', 'GR', 'JA', 'DE', 'DA', 'SL', 'CH', 'KO', 'ID', 'AR', 'GA', 'CA', 'BS'];
+                    multiLanguageText = generateMultiLanguageComposition(normalizedCompositions, originalSeparator, originalSelectedLanguages);
+                    console.log(`  🌍 Generated text from order compositions (${multiLanguageText.length} chars)`);
+                  }
               }
 
               // Second: Apply ONLY to the parent region (NOT to child mothers)
@@ -8935,36 +8918,16 @@ function App() {
                   console.log(`  ✅ Applied multi-line to region ${actualRegionId}`);
 
                 } else if (componentData.type === 'comp-trans' && parentContent.type === 'new-comp-trans') {
-                  // ✅ FIX: Only update compositions, NOT the text if child mothers exist
-                  // If child mothers exist, the layout already has saved split1/split2/split3
-                  // Check if parent mother has child mothers
-                  const parentMotherForCheck = projectState.canvasData.objects.find((obj: any) =>
-                    obj.type?.includes('mother') &&
-                    obj.regions?.some((r: any) => r.id === actualRegionId)
-                  );
-                  const hasChildMothers = parentMotherForCheck && projectState.canvasData.objects.some((obj: any) =>
-                    obj.type?.includes('mother') &&
-                    obj.name !== parentMotherForCheck.name &&
-                    new RegExp(`^${parentMotherForCheck.name}[A-Z]$`).test(obj.name)
-                  );
-
-                  // Apply ONLY to parent mother (overflow will handle children)
+                  // Apply text to parent mother - always update with new text from order compositions
                   parentContent.newCompTransConfig = parentContent.newCompTransConfig || {};
                   parentContent.newCompTransConfig.materialCompositions = normalizedCompositions;
-                  parentContent.newCompTransConfig.selectedLanguages = ['ES', 'FR', 'EN', 'PT', 'DU', 'IT', 'GR', 'JA', 'DE', 'DA', 'SL', 'CH', 'KO', 'ID', 'AR', 'GA', 'CA', 'BS'];
                   parentContent.newCompTransConfig.textContent = parentContent.newCompTransConfig.textContent || {};
                   parentContent.newCompTransConfig.textContent.separator = originalSeparator;
-
-                  // Only overwrite text if NO child mothers (fresh layout)
-                  if (!hasChildMothers) {
-                    parentContent.newCompTransConfig.textContent.generatedText = multiLanguageText;
-                    parentContent.newCompTransConfig.textContent.originalText = multiLanguageText;
-                    parentContent.content = parentContent.content || {};
-                    parentContent.content.text = multiLanguageText;
-                    console.log(`  ✅ Applied 18-language composition to PARENT region ${actualRegionId} (no child mothers)`);
-                  } else {
-                    console.log(`  ✅ Updated compositions only - keeping saved split1 text (child mothers exist)`);
-                  }
+                  parentContent.newCompTransConfig.textContent.generatedText = multiLanguageText;
+                  parentContent.newCompTransConfig.textContent.originalText = multiLanguageText;
+                  parentContent.content = parentContent.content || {};
+                  parentContent.content.text = multiLanguageText;
+                  console.log(`  ✅ Applied order composition text to region ${actualRegionId}`);
                 }
               }
 
@@ -8979,24 +8942,17 @@ function App() {
                 );
 
                 if (parentMotherObj) {
-                  // ✅ FIX: Check if child mothers already exist (Mother_1A, Mother_1B, etc.)
-                  // If they do, SKIP re-splitting because the layout already has saved splits!
                   const parentMotherName = parentMotherObj.name;
-                  const childMotherPattern = new RegExp(`^${parentMotherName}[A-Z]$`); // Mother_1A, Mother_1B, etc.
+                  const childMotherPattern = new RegExp(`^${parentMotherName}[A-Z]$`);
                   const existingChildMothers = projectState.canvasData.objects.filter((obj: any) =>
                     obj.type?.includes('mother') && childMotherPattern.test(obj.name)
                   );
 
                   if (existingChildMothers.length > 0) {
-                    console.log(`✅ Order Preview: Found ${existingChildMothers.length} existing child mothers (${existingChildMothers.map((m: any) => m.name).join(', ')})`);
-                    console.log(`✅ Skipping N-split regeneration - using saved split text from layout`);
-                    // Skip the entire re-splitting logic below!
-                  } else {
-                    console.log(`🔍 No existing child mothers found - will calculate N-split if needed`);
+                    console.log(`✅ Found ${existingChildMothers.length} existing child mothers - will re-split with new text`);
                   }
 
-                  // Only run N-split logic if NO child mothers exist
-                  if (existingChildMothers.length === 0) {
+                  // Always run N-split logic to distribute new text across mothers
                   const parentRegion = parentMotherObj.regions.find((r: any) => r.id === actualRegionId);
                   // Reuse mainRegionContentArray from above (line 8425)
                   const overflowContent = mainRegionContentArray?.[contentIndex];
@@ -9028,7 +8984,10 @@ function App() {
                     const scaledFontSizeMm = scaledFontSize / 3.779527559;
                     const lineHeightMm = scaledFontSizeMm * (config.lineBreakSettings?.lineSpacing || 1.2);
                     const availableHeightMm = availableHeightPx / 3.779527559;
-                    const maxLinesPerMother = Math.floor(availableHeightMm / lineHeightMm);
+                    // Match web view baseline offset: fontSize * 0.8
+                    const baselineOffsetMm = scaledFontSizeMm * 0.8;
+                    const safeAvailableHeightMm = availableHeightMm - baselineOffsetMm;
+                    const maxLinesPerMother = Math.floor(safeAvailableHeightMm / lineHeightMm);
 
                     // Text measurement function
                     const estimateTextWidth = (text: string): number => {
@@ -9221,7 +9180,6 @@ function App() {
                       console.log('✅ Preview: No overflow - text fits in parent mother');
                     }
                   }
-                  } // End of: if (existingChildMothers.length === 0)
                 }
               }
             }
@@ -12581,26 +12539,82 @@ function App() {
                     // Get the actual content object to access typography and layout settings
                     const contentObj = sliceContents[0];
 
-                    // Use the same typography and layout logic as web view
-                    const effectiveTypography = contentObj.typography || {};
-                    const effectiveLayout = contentObj.layout || {};
+                    // Extract typography/layout from the correct config source per content type
+                    let cFontSize: number;
+                    let cFontFamily: string;
+                    let cFontColor: string;
+                    let cTextAlign: string;
+                    let cVerticalAlign: string;
+                    let cPadding: { top: number; right: number; bottom: number; left: number };
+                    let cFontSizeUnit: string;
 
-                    const fontSize = effectiveTypography.fontSize || 12;
-                    const fontFamily = effectiveTypography.fontFamily || 'helvetica';
-                    const fontColor = effectiveTypography.fontColor || '#000000';
-                    const textAlign = effectiveLayout.horizontalAlign || 'left';
-                    const verticalAlign = effectiveLayout.verticalAlign || 'top';
-                    const padding = effectiveLayout.padding || { top: 2, right: 2, bottom: 2, left: 2 };
+                    if (content.type === 'new-comp-trans' && content.newCompTransConfig) {
+                      const cfg = content.newCompTransConfig;
+                      cFontSize = cfg.typography?.fontSize || 12;
+                      cFontFamily = cfg.typography?.fontFamily || 'helvetica';
+                      cFontSizeUnit = cfg.typography?.fontSizeUnit || 'px';
+                      cFontColor = cfg.typography?.fontColor || '#000000';
+                      cTextAlign = cfg.alignment?.horizontal || 'left';
+                      cVerticalAlign = cfg.alignment?.vertical || 'top';
+                      cPadding = cfg.padding || { top: 2, right: 2, bottom: 2, left: 2 };
+                    } else if (content.type === 'new-multi-line' && content.newMultiLineConfig) {
+                      const cfg = content.newMultiLineConfig;
+                      cFontSize = cfg.typography?.fontSize || 12;
+                      cFontFamily = cfg.typography?.fontFamily || 'helvetica';
+                      cFontSizeUnit = cfg.typography?.fontSizeUnit || 'px';
+                      cFontColor = cfg.typography?.fontColor || '#000000';
+                      cTextAlign = cfg.alignment?.horizontal || 'left';
+                      cVerticalAlign = cfg.alignment?.vertical || 'top';
+                      cPadding = cfg.padding || { top: 2, right: 2, bottom: 2, left: 2 };
+                    } else if (content.type === 'new-line-text' && content.newLineTextConfig) {
+                      const cfg = content.newLineTextConfig;
+                      cFontSize = cfg.typography?.fontSize || 12;
+                      cFontFamily = cfg.typography?.fontFamily || 'helvetica';
+                      cFontSizeUnit = cfg.typography?.fontSizeUnit || 'px';
+                      cFontColor = cfg.typography?.fontColor || '#000000';
+                      cTextAlign = cfg.alignment?.horizontal || 'left';
+                      cVerticalAlign = cfg.alignment?.vertical || 'top';
+                      cPadding = cfg.padding || { top: 2, right: 2, bottom: 2, left: 2 };
+                    } else if (content.type === 'new-washing-care-symbol' && content.newWashingCareSymbolConfig) {
+                      const cfg = content.newWashingCareSymbolConfig;
+                      cFontSize = cfg.typography?.fontSize || 12;
+                      cFontFamily = cfg.typography?.fontFamily || 'helvetica';
+                      cFontSizeUnit = cfg.typography?.fontSizeUnit || 'px';
+                      cFontColor = cfg.typography?.fontColor || '#000000';
+                      cTextAlign = cfg.alignment?.horizontal || 'left';
+                      cVerticalAlign = cfg.alignment?.vertical || 'top';
+                      cPadding = cfg.padding || { top: 2, right: 2, bottom: 2, left: 2 };
+                    } else {
+                      const effTyp = contentObj.typography || {};
+                      const effLay = contentObj.layout || {};
+                      cFontSize = effTyp.fontSize || 12;
+                      cFontFamily = effTyp.fontFamily || 'helvetica';
+                      cFontSizeUnit = 'px';
+                      cFontColor = effTyp.fontColor || '#000000';
+                      cTextAlign = effLay.horizontalAlign || 'left';
+                      cVerticalAlign = effLay.verticalAlign || 'top';
+                      cPadding = effLay.padding || { top: 2, right: 2, bottom: 2, left: 2 };
+                    }
+
+                    let cFontSizeInPx = cFontSize;
+                    if (cFontSizeUnit === 'pt') cFontSizeInPx = cFontSize * 4/3;
+                    else if (cFontSizeUnit === 'mm') cFontSizeInPx = cFontSize * 3.779527559;
 
                     // EXACT WEB REPLICATION: Match web view pixel-perfect
-                    // Web: scaledFontSize = Math.max(6, fontSize * zoom) where zoom = 1 for PDF
-                    const scaledFontSize = Math.max(6, fontSize); // Exact web logic
-                    // Web: lineHeight = scaledFontSize * 1.2 (in pixels)
-                    const webLineHeightPx = scaledFontSize * 1.2; // Exact web logic
+                    const scaledFontSize = Math.max(6, cFontSizeInPx);
+                    const webLineHeightPx = scaledFontSize * 1.2;
 
                     // Convert web pixels to PDF units (1px = 0.264583mm at 96 DPI)
-                    const pdfFontSize = scaledFontSize * 0.75; // Convert px to pt for PDF
-                    const lineHeightMM = webLineHeightPx * 0.264583; // Convert px to mm
+                    const pdfFontSize = scaledFontSize * 0.75;
+                    const lineHeightMM = webLineHeightPx * 0.264583;
+
+                    // Copy into local vars used by rest of the block
+                    const fontSize = cFontSize;
+                    const fontFamily = cFontFamily;
+                    const fontColor = cFontColor;
+                    const textAlign = cTextAlign;
+                    const verticalAlign = cVerticalAlign;
+                    const padding = cPadding;
 
                     pdf.setFontSize(pdfFontSize);
                     pdf.setFont(fontFamily === 'Arial' ? 'helvetica' : fontFamily, 'normal');
@@ -12626,11 +12640,16 @@ function App() {
                     const textAreaWidth = Math.max(0, childRegion.width - paddingLeft - paddingRight);
                     const textAreaHeight = Math.max(0, childRegion.height - paddingTop - paddingBottom);
 
-                    // Use splitTextToSize to wrap text exactly like web view
-                    const wrappedText = pdf.splitTextToSize(displayText, textAreaWidth);
+                    // Use pre-wrapped lines from N-split (already wrapped by canvas measureText)
+                    // Do NOT re-wrap with jsPDF's splitTextToSize - it uses different font metrics
+                    const wrappedText = displayText.split('\n');
 
-                    // Calculate max lines exactly like web view
-                    const maxLines = Math.max(0, Math.floor(textAreaHeight / lineHeightMM));
+                    // Calculate max lines exactly like web view (with baseline offset)
+                    // Web view: maxLines = floor((height - fontSize*0.8) / lineHeight)
+                    const fontSizeMM = pdfFontSize * 0.264583; // pt to mm (1pt = 0.264583mm)
+                    const baselineOffsetMM = fontSizeMM * 0.8;
+                    const safeTextAreaHeight = Math.max(0, textAreaHeight - baselineOffsetMM);
+                    const maxLines = Math.max(0, Math.floor(safeTextAreaHeight / lineHeightMM));
 
                     if (maxLines > 0) {
                       let displayLines = wrappedText;
@@ -13300,19 +13319,73 @@ function App() {
                 const contentObj = regionContentsForRegion[0];
 
                 // Use the same typography and layout logic as web view
-                const effectiveTypography = contentObj.typography || {};
-                const effectiveLayout = contentObj.layout || {};
+                let fontSize: number;
+                let fontFamily: string;
+                let fontColor: string;
+                let textAlign: string;
+                let verticalAlign: string;
+                let padding: { top: number; right: number; bottom: number; left: number };
+                let fontSizeUnit: string;
 
-                const fontSize = effectiveTypography.fontSize || 12;
-                const fontFamily = effectiveTypography.fontFamily || 'helvetica';
-                const fontColor = effectiveTypography.fontColor || '#000000';
-                const textAlign = effectiveLayout.horizontalAlign || 'left';
-                const verticalAlign = effectiveLayout.verticalAlign || 'top';
-                const padding = effectiveLayout.padding || { top: 2, right: 2, bottom: 2, left: 2 };
+                if (content.type === 'new-comp-trans' && content.newCompTransConfig) {
+                  const config = content.newCompTransConfig;
+                  fontSize = config.typography?.fontSize || 12;
+                  fontFamily = config.typography?.fontFamily || 'helvetica';
+                  fontSizeUnit = config.typography?.fontSizeUnit || 'px';
+                  fontColor = config.typography?.fontColor || '#000000';
+                  textAlign = config.alignment?.horizontal || 'left';
+                  verticalAlign = config.alignment?.vertical || 'top';
+                  padding = config.padding || { top: 2, right: 2, bottom: 2, left: 2 };
+                } else if (content.type === 'new-multi-line' && content.newMultiLineConfig) {
+                  const config = content.newMultiLineConfig;
+                  fontSize = config.typography?.fontSize || 12;
+                  fontFamily = config.typography?.fontFamily || 'helvetica';
+                  fontSizeUnit = config.typography?.fontSizeUnit || 'px';
+                  fontColor = config.typography?.fontColor || '#000000';
+                  textAlign = config.alignment?.horizontal || 'left';
+                  verticalAlign = config.alignment?.vertical || 'top';
+                  padding = config.padding || { top: 2, right: 2, bottom: 2, left: 2 };
+                } else if (content.type === 'new-line-text' && content.newLineTextConfig) {
+                  const config = content.newLineTextConfig;
+                  fontSize = config.typography?.fontSize || 12;
+                  fontFamily = config.typography?.fontFamily || 'helvetica';
+                  fontSizeUnit = config.typography?.fontSizeUnit || 'px';
+                  fontColor = config.typography?.fontColor || '#000000';
+                  textAlign = config.alignment?.horizontal || 'left';
+                  verticalAlign = config.alignment?.vertical || 'top';
+                  padding = config.padding || { top: 2, right: 2, bottom: 2, left: 2 };
+                } else if (content.type === 'new-washing-care-symbol' && content.newWashingCareSymbolConfig) {
+                  const config = content.newWashingCareSymbolConfig;
+                  fontSize = config.typography?.fontSize || 12;
+                  fontFamily = config.typography?.fontFamily || 'helvetica';
+                  fontSizeUnit = config.typography?.fontSizeUnit || 'px';
+                  fontColor = config.typography?.fontColor || '#000000';
+                  textAlign = config.alignment?.horizontal || 'left';
+                  verticalAlign = config.alignment?.vertical || 'top';
+                  padding = config.padding || { top: 2, right: 2, bottom: 2, left: 2 };
+                } else {
+                  const effectiveTypography = contentObj.typography || {};
+                  const effectiveLayout = contentObj.layout || {};
+                  fontSize = effectiveTypography.fontSize || 12;
+                  fontFamily = effectiveTypography.fontFamily || 'helvetica';
+                  fontSizeUnit = 'px';
+                  fontColor = effectiveTypography.fontColor || '#000000';
+                  textAlign = effectiveLayout.horizontalAlign || 'left';
+                  verticalAlign = effectiveLayout.verticalAlign || 'top';
+                  padding = effectiveLayout.padding || { top: 2, right: 2, bottom: 2, left: 2 };
+                }
+
+                // Convert font size to pixels if needed
+                let fontSizeInPixels = fontSize;
+                if (fontSizeUnit === 'pt') {
+                  fontSizeInPixels = fontSize * 4/3;
+                } else if (fontSizeUnit === 'mm') {
+                  fontSizeInPixels = fontSize * 3.779527559;
+                }
 
                 // EXACT WEB REPLICATION: Match web view pixel-perfect
                 // Web: scaledFontSize = Math.max(6, fontSize * zoom) where zoom = 1 for PDF
-                const scaledFontSize = Math.max(6, fontSize); // Exact web logic
+                const scaledFontSize = Math.max(6, fontSizeInPixels); // Exact web logic
                 // Web: lineHeight = scaledFontSize * 1.2 (in pixels)
                 const webLineHeightPx = scaledFontSize * 1.2; // Exact web logic
 
@@ -13344,11 +13417,15 @@ function App() {
                 const textAreaWidth = Math.max(0, region.width - paddingLeft - paddingRight);
                 const textAreaHeight = Math.max(0, region.height - paddingTop - paddingBottom);
 
-                // Use splitTextToSize to wrap text exactly like web view
-                const wrappedText = pdf.splitTextToSize(displayText, textAreaWidth);
+                // Use pre-wrapped lines from N-split (already wrapped by canvas measureText)
+                // Do NOT re-wrap with jsPDF's splitTextToSize - it uses different font metrics
+                const wrappedText = displayText.split('\n');
 
-                // Calculate max lines exactly like web view
-                const maxLines = Math.max(0, Math.floor(textAreaHeight / lineHeightMM));
+                // Calculate max lines exactly like web view (with baseline offset)
+                const fontSizeMM = pdfFontSize * 0.264583; // pt to mm
+                const baselineOffsetMM = fontSizeMM * 0.8;
+                const safeTextAreaHeight = Math.max(0, textAreaHeight - baselineOffsetMM);
+                const maxLines = Math.max(0, Math.floor(safeTextAreaHeight / lineHeightMM));
 
                 if (maxLines > 0) {
                   let displayLines = wrappedText;

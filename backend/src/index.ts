@@ -10,6 +10,7 @@ import masterFileRoutes from './routes/masterFiles';
 import supplierRoutes from './routes/suppliers';
 import orderRoutes from './routes/orders';
 import userRoutes from './routes/users';
+import customerRoutes from './routes/customers';
 import washingCareRoutes from './routes/washingCare';
 
 // Load environment variables
@@ -46,6 +47,7 @@ app.use('/api/master-files', masterFileRoutes);
 app.use('/api/suppliers', supplierRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/customers', customerRoutes);
 app.use('/api/washing-care', washingCareRoutes);
 
 // 404 handler

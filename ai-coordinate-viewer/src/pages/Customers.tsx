@@ -17,9 +17,10 @@ const Customers: React.FC = () => {
     try {
       setIsLoading(true);
       const customerList = await customerService.getAllCustomers();
-      setCustomers(customerList);
+      setCustomers(Array.isArray(customerList) ? customerList : []);
     } catch (error) {
       console.error('Error loading customers:', error);
+      setCustomers([]);
     } finally {
       setIsLoading(false);
     }
@@ -30,10 +31,10 @@ const Customers: React.FC = () => {
     .filter(customer => {
       const searchLower = searchTerm.toLowerCase();
       return (
-        customer.customerName.toLowerCase().includes(searchLower) ||
-        customer.person.toLowerCase().includes(searchLower) ||
-        customer.email.toLowerCase().includes(searchLower) ||
-        customer.tel.toLowerCase().includes(searchLower)
+        (customer.customerName || '').toLowerCase().includes(searchLower) ||
+        (customer.person || '').toLowerCase().includes(searchLower) ||
+        (customer.email || '').toLowerCase().includes(searchLower) ||
+        (customer.tel || '').toLowerCase().includes(searchLower)
       );
     })
     .sort((a, b) => {

@@ -19,9 +19,10 @@ const SelectCustomer: React.FC = () => {
     try {
       setIsLoading(true);
       const customersData = await customerService.getAllCustomers();
-      setCustomers(customersData);
+      setCustomers(Array.isArray(customersData) ? customersData : []);
     } catch (error) {
       console.error('Error loading customers:', error);
+      setCustomers([]);
     } finally {
       setIsLoading(false);
     }

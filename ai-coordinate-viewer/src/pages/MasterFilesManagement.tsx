@@ -428,7 +428,7 @@ const MasterFilesManagement: React.FC = () => {
     try {
       // Load customers
       const customersResult = await customerService.getAllCustomers();
-      setCustomers(customersResult);
+      setCustomers(Array.isArray(customersResult) ? customersResult : []);
 
       // Load master files
       const filters = {
@@ -441,6 +441,7 @@ const MasterFilesManagement: React.FC = () => {
       }
     } catch (error) {
       console.error('Error loading data:', error);
+      setCustomers([]);
     } finally {
       setLoading(false);
     }

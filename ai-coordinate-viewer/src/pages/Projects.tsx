@@ -79,9 +79,10 @@ const Projects: React.FC = () => {
     setLoadingCustomers(true);
     try {
       const customerList = await customerService.getAllCustomers();
-      setCustomers(customerList);
+      setCustomers(Array.isArray(customerList) ? customerList : []);
     } catch (error) {
       console.error('Error loading customers:', error);
+      setCustomers([]);
       alert('Error loading customers. Please try again.');
     } finally {
       setLoadingCustomers(false);

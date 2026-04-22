@@ -23,7 +23,18 @@
       "Bash(start \"D:\\project\\layout2\\care\\check-order-management.html\")",
       "Read(//d//**)",
       "Bash(npm install:*)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(git merge:*)",
+      "Bash(find /d/project/layout2/care/backend -type f -name \"*.py\" -exec grep -l \"export\\\\|excel\\\\|csv\" {} ;)",
+      "Bash(xargs grep -l \"export.*csv\\\\|export.*json\\\\|import.*csv\\\\|import.*json\")",
+      "Bash(xargs grep -l \"export.*csv\\\\|export.*json\\\\|import.*csv\\\\|import.*json\\\\|downloadCSV\\\\|downloadJSON\")",
+      "Bash(xargs grep -l \"database\\\\|Database\\\\|i18n\\\\|translation\")",
+      "Bash(sqlite3 /d/project/layout2/care/backend/prisma/dev.db \".schema\")",
+      "Bash(sqlite3 /d/project/layout2/care/backend/prisma/dev.db \"SELECT COUNT\\(*\\) as composition_count FROM composition;\")",
+      "Bash(sqlite3 /d/project/layout2/care/backend/prisma/dev.db \"SELECT COUNT\\(*\\) as shortform_count FROM shortform;\")",
+      "Bash(ls -lh /d/project/layout2/care/backend/prisma/migrations/*/migration.sql)",
+      "Bash(sqlite3 prisma/dev.db \".tables\")",
+      "Bash(npx ts-node export-translations.ts)"
     ],
     "deny": [],
     "ask": []
