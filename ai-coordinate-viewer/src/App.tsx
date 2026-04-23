@@ -8801,6 +8801,14 @@ function App() {
 
         setData(canvasDataWithLayoutName);
         setWebCreationData(canvasDataWithLayoutName);
+
+        // CRITICAL FIX: Set currentAppData immediately so the async child mother
+        // creation IIFE below can read the correct data (with order composition text applied).
+        // Without this, currentAppData is undefined during loadProjectState because the
+        // useEffect that sets it hasn't run yet, causing child mothers (mother_1A) to be
+        // missing from order PDF generation.
+        (window as any).currentAppData = canvasDataWithLayoutName;
+
         console.log('✅ Canvas data restored with layout name:', canvasDataWithLayoutName);
       }
 
@@ -9131,8 +9139,15 @@ function App() {
                             );
 
                             // Clear parent's childMotherIds array
+                            // FIX: Clear on BOTH the projectState object AND currentAppData's parent
                             if (parentMotherObj.childMotherIds) {
                               parentMotherObj.childMotherIds = [];
+                            }
+                            // Also clear on the parent in currentAppData to prevent stale references
+                            const parentInCurrentData = currentAppData.objects.find((obj: any) => obj.name === parentMotherObj.name);
+                            if (parentInCurrentData && (parentInCurrentData as any).childMotherIds) {
+                              (parentInCurrentData as any).childMotherIds = [];
+                              console.log(`🎯🎯🎯 PREVIEW_CLEARED_CHILD_IDS on ${parentInCurrentData.name} in currentAppData`);
                             }
 
                             // Update global data
